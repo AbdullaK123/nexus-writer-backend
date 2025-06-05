@@ -33,9 +33,10 @@ async def logout_user(
     request: Request,
     response: Response,
     user: User = Depends(get_current_user),
-    session_id: Union[bytes, str] = Cookie(..., alias='session_id'),
+    session_id: str = Cookie(),
     auth_provider: AuthProvider = Depends(get_auth_provider)
 ) -> dict:
+    print(session_id)
     await auth_provider.logout_user(session_id)
     response.delete_cookie("session_id")
     return {'message': 'You have succesfully logged out'}

@@ -65,6 +65,11 @@ class AuthProvider:
     
     async def validate_session(self, encrypted_cookie_data: Union[bytes, str]) -> Optional[User]:
 
+
+        if isinstance(encrypted_cookie_data, bytes):
+            encrypted_cookie_data = encrypted_cookie_data.decode('utf-8')
+
+
         decrypted_cookie = decrypt_session_data(encrypted_cookie_data)
         if not decrypted_cookie or 'session_id' not in decrypted_cookie:
             raise HTTPException(
@@ -169,7 +174,7 @@ def get_auth_provider(db: AsyncSession = Depends(get_db)):
     return AuthProvider(db)
 
 async def get_current_user(
-    session_id: Union[bytes, str] = Cookie(..., alias='session_id'),
+    session_id: Union[bytes, str] = Cookie(),
     auth_provider: AuthProvider = Depends(get_auth_provider)
 ) -> Optional[User]:
     return await auth_provider.validate_session(session_id)

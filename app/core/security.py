@@ -2,7 +2,6 @@ from passlib.context import CryptContext
 from app.config.settings import app_config
 import secrets
 import json
-import hmac
 from cryptography.fernet import Fernet, InvalidToken
 from typing import Union
 
@@ -24,11 +23,17 @@ def encrypt_session_data(data: dict) -> str:
         separators=(",", ":")
     ).encode('utf-8')
     encrypted = cipher.encrypt(as_bytes)
-    return encrypted
+    return encrypted.decode('utf-8')
 
 def decrypt_session_data(fernet_token: Union[bytes, str]) -> dict:
     try:
+        # Handle both bytes and string input
+        if isinstance(fernet_token, str):
+            fernet_token = fernet_token.encode('utf-8')
         decrypted_bytes = cipher.decrypt(fernet_token)
         return json.loads(decrypted_bytes.decode())
     except InvalidToken:
+        return {}
+    except Exception as e:
+        print(f"Decryption error: {e}")  
         return {}

@@ -6,7 +6,7 @@ class RegistrationData(SQLModel):
     username: str
     email: EmailStr
     password: str
-    profile_img: Optional[str]
+    profile_img: Optional[str] = None
 
 class AuthCredentials(SQLModel):
     email: EmailStr
