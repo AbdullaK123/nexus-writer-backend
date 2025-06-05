@@ -1,8 +1,8 @@
-"""Initial models: User, Session, Story, Chapter
+"""Initial schema
 
-Revision ID: c696ba338efe
+Revision ID: f1d454fb6fc5
 Revises: 
-Create Date: 2025-06-04 21:36:36.384206
+Create Date: 2025-06-05 21:08:06.904204
 
 """
 from typing import Sequence, Union
@@ -10,10 +10,10 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 import sqlmodel
-
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'c696ba338efe'
+revision: str = 'f1d454fb6fc5'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -42,7 +42,7 @@ def upgrade() -> None:
     sa.Column('expires_at', sa.DateTime(), nullable=False),
     sa.Column('ip_address', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('user_agent', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('session_id')
     )
     op.create_index(op.f('ix_session_session_id'), 'session', ['session_id'], unique=False)
@@ -54,7 +54,8 @@ def upgrade() -> None:
     sa.Column('user_id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('title', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('status', sa.Enum('COMPLETE', 'ON_HAITUS', 'ONGOING', name='storystatus'), nullable=False),
-    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.Column('path_array', postgresql.ARRAY(sa.String()), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('user_id', 'title')
     )
@@ -69,8 +70,15 @@ def upgrade() -> None:
     sa.Column('title', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('content', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('published', sa.Boolean(), nullable=False),
-    sa.ForeignKeyConstraint(['story_id'], ['story.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.Column('next_chapter_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('prev_chapter_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.CheckConstraint('id != next_chapter_id', name='no_self_next_reference'),
+    sa.CheckConstraint('id != prev_chapter_id', name='no_self_prev_reference'),
+    sa.CheckConstraint('prev_chapter_id != next_chapter_id OR prev_chapter_id IS NULL OR next_chapter_id IS NULL', name='no_circular_prev_next'),
+    sa.ForeignKeyConstraint(['next_chapter_id'], ['chapter.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['prev_chapter_id'], ['chapter.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['story_id'], ['story.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('user_id', 'story_id', 'title')
     )

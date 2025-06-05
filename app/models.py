@@ -1,5 +1,7 @@
-from sqlmodel import SQLModel, Relationship, Field, UniqueConstraint
-from pydantic import EmailStr, AnyUrl
+from sqlmodel import SQLModel, Relationship, Field, UniqueConstraint, CheckConstraint
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import Column, String
+from pydantic import EmailStr
 from datetime import datetime
 from typing import Optional, List
 import uuid
@@ -21,7 +23,7 @@ class TimeStampMixin:
 
 class Session(SQLModel, TimeStampMixin,  table=True):
     session_id: str = Field(index=True, primary_key=True)
-    user_id: str = Field(index=True, foreign_key='user.id')
+    user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
     expires_at: datetime
     ip_address: Optional[str] = Field(default=None)
     user_agent: Optional[str] = Field(default=None)
@@ -34,9 +36,9 @@ class User(SQLModel, TimeStampMixin, table=True):
     email: EmailStr = Field(index=True, unique=True)
     password_hash: str
     profile_img: Optional[str] = Field(default=None, unique=True)
-    sessions: List['Session'] = Relationship(back_populates='user')
-    stories: List['Story'] = Relationship(back_populates='user')
-    chapters: List['Chapter'] = Relationship(back_populates='user')
+    sessions: List['Session'] = Relationship(back_populates='user', cascade_delete=True)
+    stories: List['Story'] = Relationship(back_populates='user', cascade_delete=True)
+    chapters: List['Chapter'] = Relationship(back_populates='user', cascade_delete=True)
     
 
 class Story(SQLModel, TimeStampMixin, table=True):
@@ -46,10 +48,11 @@ class Story(SQLModel, TimeStampMixin, table=True):
     )
 
     id: Optional[str] = Field(default_factory=generate_uuid, primary_key=True)
-    user_id: str = Field(index=True, foreign_key='user.id')
+    user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
     title: str = Field(index=True)
     status: StoryStatus = Field(default=StoryStatus.ONGOING)
-    chapters: List['Chapter'] = Relationship(back_populates='story')
+    path_array: Optional[List[str]] = Field(sa_column=Column(ARRAY(String)))
+    chapters: List['Chapter'] = Relationship(back_populates='story', cascade_delete=True)
     user: 'User' = Relationship(back_populates='stories')
 
 
@@ -57,19 +60,25 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
 
     __table_args__ = (
         UniqueConstraint('user_id', 'story_id', 'title'),
+        CheckConstraint('id != prev_chapter_id', name='no_self_prev_reference'), # No self referencing
+        CheckConstraint('id != next_chapter_id', name='no_self_next_reference'), # No self referencing
+        CheckConstraint(
+            'prev_chapter_id != next_chapter_id OR prev_chapter_id IS NULL OR next_chapter_id IS NULL', 
+            name='no_circular_prev_next'
+        ), # no circular or non existent refs
     )
 
 
     id: Optional[str] = Field(default_factory=generate_uuid, primary_key=True)
-    story_id: str = Field(index=True, foreign_key='story.id')
-    user_id: str = Field(index=True, foreign_key='user.id')
+    story_id: str = Field(index=True, foreign_key='story.id', ondelete='CASCADE')
+    user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
     title: str 
     content: str
     published: bool = Field(default=False)
     story: 'Story' = Relationship(back_populates='chapters')
     user: 'User' = Relationship(back_populates='chapters')
-    next_chapter_id: Optional[str] = Field(default=None, foreign_key="chapter.id")
-    prev_chapter_id: Optional[str] = Field(default=None, foreign_key="chapter.id")
+    next_chapter_id: Optional[str] = Field(default=None, foreign_key="chapter.id", ondelete='CASCADE')
+    prev_chapter_id: Optional[str] = Field(default=None, foreign_key="chapter.id", ondelete='CASCADE')
     
     # Self-referencing relationships
     next_chapter: Optional['Chapter'] = Relationship(
