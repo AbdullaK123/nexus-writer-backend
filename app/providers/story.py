@@ -3,7 +3,8 @@ from sqlmodel import select, desc
 from typing import Optional, List
 from app.models import Story, Chapter
 from app.schemas.chapter import ChapterListItem
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Depends
+from app.core.database import get_db
 from app.schemas.story import (
     CreateStoryRequest,
     UpdateStoryRequest,
@@ -246,3 +247,7 @@ class StoryProvider:
         ] if stories else []
 
         return StoryGridResponse(stories=story_cards) if stories else []
+    
+
+async def get_story_provider(db: AsyncSession = Depends(get_db)):
+    return StoryProvider(db)

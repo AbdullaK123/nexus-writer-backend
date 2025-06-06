@@ -1,13 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.controllers.auth import user_controller
+from app.config.logging import setup_logging
 
 
 app = FastAPI(
     title="Nexus Writer API",
     description="The backend API for Nexus Writer",
-    version="1.0"
+    version="1.0",
 )
+
+setup_logging()
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,9 +20,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-
 app.include_router(user_controller)
-
 
 @app.get('/health')
 async def get_health() -> dict:
