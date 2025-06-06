@@ -5,6 +5,7 @@ from app.models import Story, Chapter
 from app.schemas.chapter import ChapterListItem
 from fastapi import HTTPException, status, Depends
 from app.core.database import get_db
+from app.utils.logging import log_database_operation
 from app.schemas.story import (
     CreateStoryRequest,
     UpdateStoryRequest,
@@ -12,16 +13,19 @@ from app.schemas.story import (
     StoryDetailResponse,
     StoryGridResponse
 )
+from loguru import logger
 
 class StoryProvider:
 
     def __init__(self, db: AsyncSession):
         self.db = db
 
-
     async def append_to_path_end(self, story_id: str, chapter_id: str):
 
         story = await self.db.get(Story, story_id)
+
+        logger.debug(f"Append to path triggered!")
+        logger.debug(f"Current path array: {story.path_array}")
 
         if not story:
             raise ValueError(f"Story {story_id} not found")
@@ -31,8 +35,9 @@ class StoryProvider:
 
         story.path_array.append(chapter_id)
 
-        await self.db.commit()
+        logger.debug(f"Current path array: {story.path_array}")
 
+        await self.db.commit()
 
     async def remove_from_path(self, story_id: str, chapter_id: str):
 
@@ -41,11 +46,14 @@ class StoryProvider:
         if not story or story.path_array is None:
             return 
         
+        logger.debug(f"Current path array: {story.path_array}")
+        
         story.path_array.remove(chapter_id)
+
+        logger.debug(f"Current path array: {story.path_array}")
 
         await self.db.commit()
 
-    
     async def reorder_path(self, story_id: str, from_pos: int, to_pos: int):
 
         story = await self.db.get(Story, story_id)
@@ -58,9 +66,13 @@ class StoryProvider:
         
         if to_pos < 0 or to_pos >= len(story.path_array):
             raise ValueError(f"Invalid to_pos! Must be between 0 and {len(story.path_array) - 1}")
+        
+        logger.debug(f"Current path array: {story.path_array}")
 
         chapter_id = story.path_array.pop(from_pos)
         story.path_array.insert(to_pos, chapter_id)
+
+        logger.debug(f"Current path array: {story.path_array}")
 
         await self.db.commit()
 

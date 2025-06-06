@@ -4,10 +4,6 @@ from typing import Optional, List
 from app.models import Chapter, Story
 from datetime import datetime
 from app.core.database import get_db
-from app.background_jobs.chapter import (
-    handle_chapter_creation,
-    handle_chapter_deletion
-)
 from app.schemas.chapter import (
     CreateChapterRequest,
     UpdateChapterRequest, 
@@ -17,6 +13,7 @@ from app.schemas.chapter import (
     ChapterListResponse
 )
 from fastapi import HTTPException, status, BackgroundTasks, Depends
+from app.utils.logging import log_database_operation
 
 class ChapterProvider:
 
@@ -32,6 +29,11 @@ class ChapterProvider:
         background_tasks: BackgroundTasks
     ) -> ChapterContentResponse:
         """Create new chapter, append to story path, sync pointers"""
+
+        story = await self.db.get(Story, story_id)
+
+        story_title = story.title
+
         chapter_to_create = Chapter(
             story_id=story_id,
             user_id=user_id,
@@ -41,13 +43,12 @@ class ChapterProvider:
         self.db.add(chapter_to_create)
         await self.db.commit()
         await self.db.refresh(chapter_to_create)
-        background_tasks.add_task(handle_chapter_creation, story_id, chapter_to_create.id)
         return ChapterContentResponse(
             id=chapter_to_create.id,
             title=chapter_to_create.title,
             content=chapter_to_create.content,
             story_id=chapter_to_create.story_id,
-            story_title=chapter_to_create.story.title,
+            story_title=story_title,
             created_at=chapter_to_create.created_at,
             updated_at=chapter_to_create.updated_at
         )
@@ -87,7 +88,7 @@ class ChapterProvider:
         )
 
 
-    async def delete(self, chapter_id: str, user_id: str, background_tasks: BackgroundTasks) -> dict:
+    async def delete(self, chapter_id: str, user_id: str) -> dict:
         """Delete chapter, remove from path, sync pointers"""
         chapter = await self.get_by_id(chapter_id, user_id)
         if not chapter:
@@ -98,7 +99,6 @@ class ChapterProvider:
         story_id = chapter.story_id
         await self.db.delete(chapter)
         await self.db.commit()
-        background_tasks.add_task(handle_chapter_deletion, story_id, chapter_id)
         return {
             "message": "Chapter was succesfully deleted"
         }
@@ -187,10 +187,6 @@ class ChapterProvider:
         
         if data.from_pos == data.to_pos:
             return {"message": "No reordering needed"}
-        
-        # Let background jobs handle ALL the logic
-        from app.background_jobs.chapter import handle_chapter_reordering
-        background_tasks.add_task(handle_chapter_reordering, story_id, data.from_pos, data.to_pos)
         
         return {"message": "Chapter reordering initiated"}
 

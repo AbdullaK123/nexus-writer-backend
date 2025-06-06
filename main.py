@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.controllers.auth import user_controller
+from app.controllers.chapter import chapter_controller
+from app.controllers.story import story_controller
 from app.config.logging import setup_logging
 
 
@@ -21,6 +23,8 @@ app.add_middleware(
 )
 
 app.include_router(user_controller)
+app.include_router(chapter_controller)
+app.include_router(story_controller)
 
 @app.get('/health')
 async def get_health() -> dict:

@@ -5,17 +5,26 @@ from app.utils.retry import db_retry
 from app.utils.logging import log_background_job
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.database import engine
-from sqlmodel import select
-from app.models import Story
+from sqlmodel import select, desc
+from app.models import Story, Chapter
 from loguru import logger
 
 @log_background_job
 @db_retry(max_retries=3)
-async def append_chapter_to_path_end(story_id: str, chapter_id: str):
+async def append_chapter_to_path_end(story_id: str):
     """Add newly created chapter to end of story path_array"""
     async with AsyncSession(engine) as db:
         story_provider = StoryProvider(db)
-        await story_provider.append_to_path_end(story_id, chapter_id)
+
+        chapter_query = (
+            select(Chapter.id)
+            .order_by(desc(Chapter.created_at))
+            .limit(1)
+        )
+
+        latest_chapter_id = (await db.execute(chapter_query)).scalar_one_or_none()
+
+        await story_provider.append_to_path_end(story_id, latest_chapter_id)
 
 @log_background_job
 @db_retry(max_retries=3)
@@ -55,10 +64,10 @@ async def update_story_timestamp(story_id: str):
         await chapter_provider._update_story_timestamp(story_id)
 
 # Composite background job for chapter creation
-async def handle_chapter_creation(story_id: str, chapter_id: str):
+async def handle_chapter_creation(story_id: str):
     """Coordinate all background tasks after chapter creation"""
     # Run tasks in sequence for data consistency
-    await append_chapter_to_path_end(story_id, chapter_id)
+    await append_chapter_to_path_end(story_id)
     await sync_all_chapter_pointers(story_id)
     await update_story_timestamp(story_id)
 

@@ -2,7 +2,6 @@ from fastapi import APIRouter, Request, Response, Depends, Cookie
 from app.schemas.auth import UserResponse, RegistrationData, AuthCredentials
 from app.models import User
 from app.providers.auth import AuthProvider, get_auth_provider, get_current_user
-from typing import Union
 
 user_controller = APIRouter(prefix='/auth')
 
