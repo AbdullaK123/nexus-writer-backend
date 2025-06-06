@@ -67,12 +67,25 @@ class ChapterProvider:
 
     async def update(self, chapter_id: str, user_id: str, data: UpdateChapterRequest) -> ChapterContentResponse:
         """Update chapter content, title, or published status"""
+
+        query = (
+            select(Story.title, Chapter)
+            .join(Chapter)
+            .where(
+                Chapter.id == chapter_id,
+                Chapter.user_id == user_id
+            )
+        )
+
+        story_title = (await self.db.execute(query)).scalar_one_or_none()
+
         chapter = await self.get_by_id(chapter_id, user_id)
         if not chapter:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Chapter does not exist"
             )
+        
         updated_data = data.model_dump(exclude_unset=True)
         for field, value in updated_data.items():
             setattr(chapter, field, value)
@@ -82,7 +95,7 @@ class ChapterProvider:
             title=chapter.title,
             content=chapter.content,
             story_id=chapter.story_id,
-            story_title=chapter.story.title,
+            story_title=story_title,
             created_at=chapter.created_at,
             updated_at=chapter.updated_at
         )
@@ -106,27 +119,57 @@ class ChapterProvider:
     # Story Chapter Operations
     async def get_story_chapters(self, story_id: str, user_id: str) -> ChapterListResponse:
         """Get all chapters for a story in path_array order"""
+        
+        # Get story with user check
         story = await self._get_story_with_user_check(story_id, user_id)
+        if not story:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Story not found"
+            )
+        
         story_path = story.path_array
-        chapters = story.chapters
-        chapters_lookup = {chapter.id : chapter for chapter in chapters}
+        story_title = story.title
+        
+        # ✅ Explicit query instead of lazy loading
+        chapters_query = (
+            select(Chapter)
+            .where(
+                Chapter.story_id == story_id,
+                Chapter.user_id == user_id
+            )
+        )
+        chapters = (await self.db.execute(chapters_query)).scalars().all()
+        
+        if not story_path or not chapters:
+            return ChapterListResponse(
+                story_id=story_id,
+                story_title=story_title,
+                chapters=[]
+            )
+        
+        # Create lookup and order by path_array
+        chapters_lookup = {chapter.id: chapter for chapter in chapters}
         chronological_chapters = [
             chapters_lookup[chapter_id]
             for chapter_id in story_path
+            if chapter_id in chapters_lookup  # Safety check
         ]
+        
         list_items = [
             ChapterListItem(
                 id=chapter.id,
                 title=chapter.title,
-                is_published=chapter.published,
+                published=chapter.published,
                 updated_at=chapter.updated_at
             )
             for chapter in chronological_chapters
         ]
+        
         return ChapterListResponse(
             story_id=story_id,
-            story_title=story.title,
-            chapters=list_items if chapters else []
+            story_title=story_title,
+            chapters=list_items
         )
 
     async def get_chapter_with_navigation(self, chapter_id: str, user_id: str) -> ChapterContentResponse:

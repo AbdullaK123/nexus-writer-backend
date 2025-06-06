@@ -218,7 +218,7 @@ class StoryProvider:
             ChapterListItem(
                 id=chapter.id,
                 title=chapter.title,
-                is_published=chapter.is_published,
+                published=chapter.published,
                 updated_at=chapter.updated_at
             )
             for chapter in chapters

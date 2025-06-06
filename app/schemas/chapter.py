@@ -9,7 +9,7 @@ class CreateChapterRequest(SQLModel):
 class UpdateChapterRequest(SQLModel):
     title: Optional[str] = None
     content: Optional[str] = None
-    is_published: Optional[bool] = None
+    published: Optional[bool] = None
 
 class ReorderChapterRequest(SQLModel):
     from_pos: int
@@ -18,7 +18,7 @@ class ReorderChapterRequest(SQLModel):
 class ChapterListItem(SQLModel):
     id: str
     title: str
-    is_published: bool
+    published: bool
     updated_at: datetime
 
 class ChapterContentResponse(SQLModel):

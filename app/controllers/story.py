@@ -57,15 +57,21 @@ async def create_chapter(
     current_user: User = Depends(get_current_user),
     chapter_provider: ChapterProvider = Depends(get_chapter_provider)
 ) -> ChapterContentResponse:
-    background_tasks.add_task(handle_chapter_creation, story_id)
-    return await chapter_provider.create(
+    
+    # Create the chapter first
+    chapter = await chapter_provider.create(
         story_id,
         current_user.id,
         chapter_info,
         background_tasks
     )
+    
+    # Pass the actual chapter ID to background task
+    background_tasks.add_task(handle_chapter_creation, story_id, chapter.id)
+    
+    return chapter
 
-@story_controller.post('/stories/{story_id}/chapters/reorder', response_model=dict)
+@story_controller.post('/{story_id}/chapters/reorder', response_model=dict)
 async def reorder_chapters(
     story_id: str,
     reorder_info: ReorderChapterRequest,
@@ -86,7 +92,7 @@ async def reorder_chapters(
         background_tasks
     )
 
-@story_controller.get('/stories/{story_id}/chapters', response_model=ChapterListResponse)
+@story_controller.get('/{story_id}/chapters', response_model=ChapterListResponse)
 async def get_story_chapters(
     story_id: str,
     current_user: User = Depends(get_current_user),
