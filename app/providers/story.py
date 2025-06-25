@@ -258,7 +258,7 @@ class StoryProvider:
             for story in stories
         ] if stories else []
 
-        return StoryGridResponse(stories=story_cards) if stories else []
+        return StoryGridResponse(stories=story_cards)
     
 
 async def get_story_provider(db: AsyncSession = Depends(get_db)):
