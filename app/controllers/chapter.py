@@ -9,11 +9,7 @@ from app.models import User, Story, Chapter
 from app.background_jobs.chapter import handle_chapter_deletion
 from app.schemas.chapter import (
     ChapterContentResponse,
-    ChapterListItem,
-    ChapterListResponse,
-    UpdateChapterRequest,
-    CreateChapterRequest,
-    ReorderChapterRequest
+    UpdateChapterRequest
 )
 
 chapter_controller = APIRouter(prefix='/chapters')
@@ -46,7 +42,7 @@ async def delete_chapter(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     chapter_provider: ChapterProvider = Depends(get_chapter_provider)
-) -> ChapterContentResponse:
+) -> dict:
     
     story_query = select(Chapter.story_id).where(Chapter.id == chapter_id)
 
