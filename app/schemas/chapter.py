@@ -19,6 +19,7 @@ class ChapterListItem(SQLModel):
     id: str
     title: str
     published: bool
+    word_count: int
     updated_at: datetime
 
 class ChapterContentResponse(SQLModel):
