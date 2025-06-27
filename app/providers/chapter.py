@@ -148,6 +148,8 @@ class ChapterProvider:
             return ChapterListResponse(
                 story_id=story_id,
                 story_title=story_title,
+                story_status=story_status,
+                story_last_updated=story_last_updated,
                 chapters=[]
             )
         
