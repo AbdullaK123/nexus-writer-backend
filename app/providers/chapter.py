@@ -25,8 +25,7 @@ class ChapterProvider:
         self, 
         story_id: str, 
         user_id: str, 
-        data: CreateChapterRequest, 
-        background_tasks: BackgroundTasks
+        data: CreateChapterRequest
     ) -> ChapterContentResponse:
         """Create new chapter, append to story path, sync pointers"""
 
@@ -47,6 +46,7 @@ class ChapterProvider:
             id=chapter_to_create.id,
             title=chapter_to_create.title,
             content=chapter_to_create.content,
+            published=chapter_to_create.published,
             story_id=chapter_to_create.story_id,
             story_title=story_title,
             created_at=chapter_to_create.created_at,
@@ -94,6 +94,7 @@ class ChapterProvider:
             id=chapter.id,
             title=chapter.title,
             content=chapter.content,
+            published=chapter.published,
             story_id=chapter.story_id,
             story_title=story_title,
             created_at=chapter.created_at,
@@ -197,6 +198,7 @@ class ChapterProvider:
             id=chapter.id,
             title=chapter.title,
             content=chapter.content,
+            published=chapter.published,
             story_id=chapter.story_id,
             story_title=story_title,
             created_at=chapter.created_at,
@@ -363,6 +365,7 @@ class ChapterProvider:
             )
         )
         chapters = (await self.db.execute(chapters_query)).scalars().all()
+        return chapters
 
     async def search_chapter_content(self, story_id: str, user_id: str, search_term: str) -> List[Chapter]:
         """Search chapter content within a story"""

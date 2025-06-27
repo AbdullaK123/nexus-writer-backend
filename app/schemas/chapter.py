@@ -26,6 +26,7 @@ class ChapterListItem(SQLModel):
 class ChapterContentResponse(SQLModel):
     id: str
     title: str
+    published: bool
     content: str
     story_id: str
     story_title: str
