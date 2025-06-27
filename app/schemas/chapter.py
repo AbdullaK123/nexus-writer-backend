@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel
 from typing import List, Optional
 from datetime import datetime
+from app.models import StoryStatus
 
 class CreateChapterRequest(SQLModel):
     title: str
@@ -36,4 +37,5 @@ class ChapterContentResponse(SQLModel):
 class ChapterListResponse(SQLModel):
     story_id: str
     story_title: str
+    story_status: StoryStatus
     chapters: List[ChapterListItem]

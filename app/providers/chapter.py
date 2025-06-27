@@ -130,6 +130,7 @@ class ChapterProvider:
         
         story_path = story.path_array
         story_title = story.title
+        story_status = story.status
         
         # ✅ Explicit query instead of lazy loading
         chapters_query = (
@@ -170,6 +171,7 @@ class ChapterProvider:
         return ChapterListResponse(
             story_id=story_id,
             story_title=story_title,
+            story_status=story_status,
             chapters=list_items
         )
 
@@ -207,8 +209,7 @@ class ChapterProvider:
         self, 
         story_id: str, 
         user_id: str, 
-        data: ReorderChapterRequest, 
-        background_tasks: BackgroundTasks
+        data: ReorderChapterRequest
     ) -> dict:
         """Reorder chapters in story, trigger path and pointer sync"""
         
