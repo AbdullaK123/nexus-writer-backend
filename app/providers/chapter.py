@@ -161,7 +161,7 @@ class ChapterProvider:
                 id=chapter.id,
                 title=chapter.title,
                 published=chapter.published,
-                word_count=len(chapter.content.split(" ")),
+                word_count=len(chapter.content.split(" ") if chapter.content else []),
                 updated_at=chapter.updated_at
             )
             for chapter in chronological_chapters
