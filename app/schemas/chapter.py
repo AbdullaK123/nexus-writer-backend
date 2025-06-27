@@ -38,4 +38,5 @@ class ChapterListResponse(SQLModel):
     story_id: str
     story_title: str
     story_status: StoryStatus
+    story_last_updated: datetime
     chapters: List[ChapterListItem]

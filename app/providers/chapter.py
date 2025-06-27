@@ -131,6 +131,7 @@ class ChapterProvider:
         story_path = story.path_array
         story_title = story.title
         story_status = story.status
+        story_last_updated = story.updated_at
         
         # ✅ Explicit query instead of lazy loading
         chapters_query = (
@@ -172,6 +173,7 @@ class ChapterProvider:
             story_id=story_id,
             story_title=story_title,
             story_status=story_status,
+            story_last_updated=story_last_updated,
             chapters=list_items
         )
 
