@@ -62,8 +62,7 @@ async def create_chapter(
     chapter = await chapter_provider.create(
         story_id,
         current_user.id,
-        chapter_info,
-        background_tasks
+        chapter_info
     )
     
     # Pass the actual chapter ID to background task
