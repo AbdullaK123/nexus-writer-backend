@@ -17,10 +17,15 @@ chapter_controller = APIRouter(prefix='/chapters')
 @chapter_controller.get('/{chapter_id}', response_model=ChapterContentResponse)
 async def get_chapter_with_navigation(
     chapter_id: str,
+    as_lexical_json: bool = True,
     current_user: User = Depends(get_current_user),
     chapter_provider: ChapterProvider = Depends(get_chapter_provider)
 ) -> ChapterContentResponse:
-    return await chapter_provider.get_chapter_with_navigation(chapter_id, current_user.id)
+    return await chapter_provider.get_chapter_with_navigation(
+        chapter_id, 
+        current_user.id, 
+        as_lexical_json
+    )
 
 @chapter_controller.put('/{chapter_id}', response_model=ChapterContentResponse)
 async def update_chapter(

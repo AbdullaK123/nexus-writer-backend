@@ -15,6 +15,8 @@ class StoryCardResponse(SQLModel):
     id: str
     title: str
     status: StoryStatus
+    total_chapters: int
+    word_count: int
     created_at: datetime
     updated_at: datetime
 

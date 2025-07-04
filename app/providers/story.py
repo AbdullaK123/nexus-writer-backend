@@ -5,7 +5,6 @@ from app.models import Story, Chapter
 from app.schemas.chapter import ChapterListItem
 from fastapi import HTTPException, status, Depends
 from app.core.database import get_db
-from app.utils.logging import log_database_operation
 from app.schemas.story import (
     CreateStoryRequest,
     UpdateStoryRequest,
@@ -14,6 +13,7 @@ from app.schemas.story import (
     StoryGridResponse
 )
 from loguru import logger
+from app.utils.lexical import get_word_count
 
 class StoryProvider:
 
@@ -235,7 +235,7 @@ class StoryProvider:
     
     async def get_all_stories(self, user_id: str) -> StoryGridResponse:
 
-        query = (
+        stories_query = (
             select(Story)
             .where(
                 Story.user_id == user_id
@@ -245,13 +245,33 @@ class StoryProvider:
             )
         )
 
-        stories = (await self.db.execute(query)).scalars().all()
+        stories = (await self.db.execute(stories_query)).scalars().all()
 
+        chapter_queries = {
+            story.id: (
+                select(Chapter)
+                .where(
+                    Chapter.story_id == story.id
+                ).order_by(
+                    desc(Chapter.created_at)
+                )
+            )
+            for story in stories
+        }
+
+        chapters = {
+            story_id: (await self.db.execute(query)).scalars().all()
+            for story_id, query
+            in chapter_queries.items()
+        }
+    
         story_cards = [
             StoryCardResponse(
                 id=story.id,
                 title=story.title,
                 status=story.status,
+                total_chapters=len(chapters[story.id]),
+                word_count=sum(get_word_count(chapter.content) for chapter in chapters[story.id]),
                 created_at=story.created_at,
                 updated_at=story.updated_at
             )

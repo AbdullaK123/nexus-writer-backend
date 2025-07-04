@@ -14,6 +14,7 @@ from app.schemas.chapter import (
 )
 from fastapi import HTTPException, status, BackgroundTasks, Depends
 from app.utils.logging import log_database_operation
+from app.utils.lexical import get_word_count, get_preview_content
 
 class ChapterProvider:
 
@@ -166,7 +167,7 @@ class ChapterProvider:
                 id=chapter.id,
                 title=chapter.title,
                 published=chapter.published,
-                word_count=len(chapter.content.split(" ") if chapter.content else []),
+                word_count=get_word_count(chapter.content),
                 updated_at=chapter.updated_at
             )
             for chapter in chronological_chapters
@@ -180,7 +181,12 @@ class ChapterProvider:
             chapters=list_items
         )
 
-    async def get_chapter_with_navigation(self, chapter_id: str, user_id: str) -> ChapterContentResponse:
+    async def get_chapter_with_navigation(
+        self, 
+        chapter_id: str, 
+        user_id: str, 
+        as_lexical_json: bool = True
+    ) -> ChapterContentResponse:
         """Get chapter with prev/next navigation and story context"""
         query = (
             select(Chapter, Story.title)
@@ -199,7 +205,7 @@ class ChapterProvider:
         return ChapterContentResponse(
             id=chapter.id,
             title=chapter.title,
-            content=chapter.content,
+            content=chapter.content if as_lexical_json else get_preview_content(chapter.content),
             published=chapter.published,
             story_id=chapter.story_id,
             story_title=story_title,
