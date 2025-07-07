@@ -1,4 +1,3 @@
-# app/sync_jobs/chapter.py - ULTRA SIMPLE VERSION
 from app.core.database import engine
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select

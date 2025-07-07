@@ -5,6 +5,9 @@ from loguru import logger
 # helper func to extract word count from lexical json
 def get_word_count(lexical_json_string: str) -> int:
 
+    if not lexical_json_string or lexical_json_string.strip() == "":
+        return 0
+
     try:
         lexical_json = json.loads(lexical_json_string)
     except JSONDecodeError as e:
@@ -24,6 +27,9 @@ def get_word_count(lexical_json_string: str) -> int:
 
 # helper func to build chapter preview from lexical json
 def get_preview_content(lexical_json_string: str) -> int:
+
+    if not lexical_json_string or lexical_json_string.strip() == "":
+        return ""
 
     try:
         lexical_json = json.loads(lexical_json_string)
