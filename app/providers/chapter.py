@@ -1,4 +1,3 @@
-# app/providers/chapter.py - CLEAN VERSION (No Redis!)
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from typing import Optional, List
@@ -54,7 +53,7 @@ class ChapterProvider:
         await self.db.refresh(chapter_to_create)
 
         # 2. Handle path array and pointer updates
-        await handle_chapter_creation(story_id, chapter_to_create.id)
+        await handle_chapter_creation(story_id, chapter_to_create.id, self.db)
 
         # 3. Return complete chapter with all pointers set
         return await self.get_chapter_with_navigation(
@@ -130,7 +129,7 @@ class ChapterProvider:
         await self.db.commit()
 
         # 2. Clean up pointers and path
-        await handle_chapter_deletion(story_id, chapter_id)
+        await handle_chapter_deletion(story_id, chapter_id, self.db)
 
         return {"message": "Chapter was successfully deleted"}
 
@@ -263,7 +262,7 @@ class ChapterProvider:
         if data.from_pos == data.to_pos:
             return {"message": "No reordering needed"}
         
-        await handle_chapter_reordering(story_id, data.from_pos, data.to_pos)
+        await handle_chapter_reordering(story_id, data.from_pos, data.to_pos, self.db)
         
         return {"message": "Chapters reordered successfully"}
 
