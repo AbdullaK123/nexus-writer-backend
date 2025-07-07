@@ -13,6 +13,7 @@ class UpdateStoryRequest(SQLModel):
 
 class StoryCardResponse(SQLModel):
     id: str
+    latest_chapter_id: Optional[str] = None
     title: str
     status: StoryStatus
     total_chapters: int

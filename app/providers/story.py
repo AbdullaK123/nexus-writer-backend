@@ -268,6 +268,7 @@ class StoryProvider:
         story_cards = [
             StoryCardResponse(
                 id=story.id,
+                latest_chapter_id=story.path_array[-1] if story.path_array else None,
                 title=story.title,
                 status=story.status,
                 total_chapters=len(chapters[story.id]),
