@@ -1,10 +1,13 @@
-from app.core.database import engine
+# app/sync_jobs/chapter.py - CLEANED UP
+
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from app.models import Story, Chapter
 from datetime import datetime
 from loguru import logger
 from sqlalchemy.orm.attributes import flag_modified
+
+# Pure data manipulation functions - no transaction handling
 
 async def append_chapter_to_path_end(story_id: str, chapter_id: str, db: AsyncSession):
     """Add chapter to end of story path_array"""
@@ -77,42 +80,25 @@ async def update_story_timestamp(story_id: str, db: AsyncSession):
     if story:
         story.updated_at = datetime.utcnow()
 
-# Orchestration handlers with error handling and rollback
+# Simple orchestration functions - just call the operations in order
+
 async def handle_chapter_creation(story_id: str, chapter_id: str, db: AsyncSession):
     """Complete chapter creation workflow"""
-    try:
-        await append_chapter_to_path_end(story_id, chapter_id, db)
-        await sync_all_chapter_pointers(story_id, db)
-        await update_story_timestamp(story_id, db)
-        await db.commit()
-        logger.info(f"✅ Chapter {chapter_id} created in story {story_id}")
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"❌ Failed to create chapter {chapter_id} in story {story_id}: {e}")
-        raise
+    await append_chapter_to_path_end(story_id, chapter_id, db)
+    await sync_all_chapter_pointers(story_id, db)
+    await update_story_timestamp(story_id, db)
+    logger.info(f"✅ Chapter {chapter_id} prepared for creation in story {story_id}")
 
 async def handle_chapter_deletion(story_id: str, chapter_id: str, db: AsyncSession):
     """Complete chapter deletion workflow"""
-    try:
-        await remove_chapter_from_path(story_id, chapter_id, db)
-        await sync_all_chapter_pointers(story_id, db)
-        await update_story_timestamp(story_id, db)
-        await db.commit()
-        logger.info(f"🗑️ Chapter {chapter_id} deleted from story {story_id}")
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"❌ Failed to delete chapter {chapter_id} from story {story_id}: {e}")
-        raise
+    await remove_chapter_from_path(story_id, chapter_id, db)
+    await sync_all_chapter_pointers(story_id, db)
+    await update_story_timestamp(story_id, db)
+    logger.info(f"🗑️ Chapter {chapter_id} prepared for deletion from story {story_id}")
 
 async def handle_chapter_reordering(story_id: str, from_pos: int, to_pos: int, db: AsyncSession):
     """Complete chapter reordering workflow"""
-    try:
-        await reorder_chapter_path(story_id, from_pos, to_pos, db)
-        await sync_all_chapter_pointers(story_id, db)
-        await update_story_timestamp(story_id, db)
-        await db.commit()
-        logger.info(f"🔄 Chapters reordered in story {story_id}: {from_pos} → {to_pos}")
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"❌ Failed to reorder chapters in story {story_id} from {from_pos} to {to_pos}: {e}")
-        raise
+    await reorder_chapter_path(story_id, from_pos, to_pos, db)
+    await sync_all_chapter_pointers(story_id, db)
+    await update_story_timestamp(story_id, db)
+    logger.info(f"🔄 Chapters prepared for reordering in story {story_id}: {from_pos} → {to_pos}")

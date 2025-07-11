@@ -35,32 +35,41 @@ class ChapterProvider:
         user_id: str, 
         data: CreateChapterRequest
     ) -> ChapterContentResponse:
-        """Create new chapter with immediate pointer setup"""
+        """Create new chapter with immediate pointer setup - SINGLE TRANSACTION"""
 
         story = await self.db.get(Story, story_id)
         if not story:
             raise HTTPException(404, "Story not found")
 
-        # 1. Create the basic chapter
-        chapter_to_create = Chapter(
-            story_id=story_id,
-            user_id=user_id,
-            title=data.title,
-            content=data.content
-        )
-        self.db.add(chapter_to_create)
-        await self.db.commit()
-        await self.db.refresh(chapter_to_create)
-
-        # 2. Handle path array and pointer updates
-        await handle_chapter_creation(story_id, chapter_to_create.id, self.db)
-
-        # 3. Return complete chapter with all pointers set
-        return await self.get_chapter_with_navigation(
-            chapter_to_create.id,
-            user_id,
-            as_lexical_json=True
-        )
+        try:
+            # 1. Create the basic chapter (but don't commit yet!)
+            chapter_to_create = Chapter(
+                story_id=story_id,
+                user_id=user_id,
+                title=data.title,
+                content=data.content
+            )
+            self.db.add(chapter_to_create)
+            await self.db.flush()  # Gets the ID without committing
+            
+            # 2. Handle path array and pointer updates (still same transaction!)
+            await handle_chapter_creation(story_id, chapter_to_create.id, self.db)
+            
+            # 3. Only commit if EVERYTHING succeeded
+            await self.db.commit()
+            await self.db.refresh(chapter_to_create)
+            
+            # 4. Return complete chapter with all pointers set
+            return await self.get_chapter_with_navigation(
+                chapter_to_create.id,
+                user_id,
+                as_lexical_json=True
+            )
+            
+        except Exception as e:
+            await self.db.rollback()  # Rollback everything
+            logger.error(f"❌ Failed to create chapter: {e}")
+            raise HTTPException(500, "Failed to create chapter")
 
     async def get_by_id(self, chapter_id: str, user_id: str) -> Optional[Chapter]:
         """Get single chapter by ID with user security"""
@@ -112,7 +121,7 @@ class ChapterProvider:
         )
 
     async def delete(self, chapter_id: str, user_id: str) -> dict:
-        """Delete chapter with pointer cleanup"""
+        """Delete chapter with pointer cleanup - SINGLE TRANSACTION"""
         
         chapter_query = select(Chapter).where(
             Chapter.user_id == user_id,
@@ -124,14 +133,23 @@ class ChapterProvider:
         
         story_id = chapter.story_id
         
-        # 1. Delete the chapter
-        await self.db.delete(chapter)
-        await self.db.commit()
-
-        # 2. Clean up pointers and path
-        await handle_chapter_deletion(story_id, chapter_id, self.db)
-
-        return {"message": "Chapter was successfully deleted"}
+        try:
+            # 1. Delete the chapter (but don't commit yet!)
+            await self.db.delete(chapter)
+            await self.db.flush()  # Apply deletion without committing
+            
+            # 2. Clean up pointers and path (still same transaction!)
+            await handle_chapter_deletion(story_id, chapter_id, self.db)
+            
+            # 3. Only commit if EVERYTHING succeeded
+            await self.db.commit()
+            
+            return {"message": "Chapter was successfully deleted"}
+            
+        except Exception as e:
+            await self.db.rollback()  # Rollback everything
+            logger.error(f"❌ Failed to delete chapter: {e}")
+            raise HTTPException(500, "Failed to delete chapter")
 
     # ========================================
     # STORY CHAPTER OPERATIONS
@@ -242,7 +260,7 @@ class ChapterProvider:
         user_id: str, 
         data: ReorderChapterRequest
     ) -> dict:
-        """Reorder chapters with pointer updates"""
+        """Reorder chapters with pointer updates - SINGLE TRANSACTION"""
         
         story = await self._get_story_with_user_check(story_id, user_id)
         if not story:
@@ -262,9 +280,14 @@ class ChapterProvider:
         if data.from_pos == data.to_pos:
             return {"message": "No reordering needed"}
         
-        await handle_chapter_reordering(story_id, data.from_pos, data.to_pos, self.db)
-        
-        return {"message": "Chapters reordered successfully"}
+        try:
+            await handle_chapter_reordering(story_id, data.from_pos, data.to_pos, self.db)
+            await self.db.commit()
+            return {"message": "Chapters reordered successfully"}
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"❌ Failed to reorder chapters: {e}")
+            raise HTTPException(500, "Failed to reorder chapters")
 
     # ========================================
     # HELPER METHODS
