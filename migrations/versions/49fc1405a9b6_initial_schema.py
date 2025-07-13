@@ -1,8 +1,8 @@
-"""Initial Schema
+"""Initial schema
 
-Revision ID: ce1d2bbd4bc9
+Revision ID: 49fc1405a9b6
 Revises: 
-Create Date: 2025-07-13 21:19:18.350077
+Create Date: 2025-07-13 22:18:18.451879
 
 """
 from typing import Sequence, Union
@@ -13,7 +13,7 @@ import sqlmodel
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'ce1d2bbd4bc9'
+revision: str = '49fc1405a9b6'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -75,8 +75,8 @@ def upgrade() -> None:
     sa.CheckConstraint('id != next_chapter_id', name='no_self_next_reference'),
     sa.CheckConstraint('id != prev_chapter_id', name='no_self_prev_reference'),
     sa.CheckConstraint('prev_chapter_id != next_chapter_id OR prev_chapter_id IS NULL OR next_chapter_id IS NULL', name='no_circular_prev_next'),
-    sa.ForeignKeyConstraint(['next_chapter_id'], ['chapter.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['prev_chapter_id'], ['chapter.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['next_chapter_id'], ['chapter.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['prev_chapter_id'], ['chapter.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['story_id'], ['story.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
