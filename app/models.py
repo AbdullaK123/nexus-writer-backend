@@ -77,8 +77,8 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
     published: bool = Field(default=False)
     story: 'Story' = Relationship(back_populates='chapters')
     user: 'User' = Relationship(back_populates='chapters')
-    next_chapter_id: Optional[str] = Field(default=None, foreign_key="chapter.id")
-    prev_chapter_id: Optional[str] = Field(default=None, foreign_key="chapter.id")
+    next_chapter_id: Optional[str] = Field(default=None, foreign_key="chapter.id", ondelete='CASCADE')
+    prev_chapter_id: Optional[str] = Field(default=None, foreign_key="chapter.id", ondelete='CASCADE')
     
     # Self-referencing relationships
     next_chapter: Optional['Chapter'] = Relationship(
