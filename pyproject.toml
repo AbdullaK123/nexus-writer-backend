@@ -20,6 +20,8 @@ dependencies = [
     "psycopg2>=2.9.10",
     "pydantic-settings>=2.9.1",
     "python-socketio>=5.13.0",
+    "redis[hiredis]>=6.4.0",
+    "socketio>=0.2.1",
     "sqlmodel>=0.0.24",
     "uvicorn>=0.34.3",
 ]
