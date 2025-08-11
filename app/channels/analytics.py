@@ -1,4 +1,3 @@
-from socketio.async_namespace import AsyncNamespace
 from socketio.async_server import AsyncServer
 from app.providers.analytics import AnalyticsProvider
 from app.schemas.analytics import WritingSession, WritingSessionEvent
@@ -8,10 +7,8 @@ from loguru import logger
 analytics = AnalyticsProvider()
 
 sio = AsyncServer()
-analytics_ns = AsyncNamespace('/analytics')
-sio.register_namespace(analytics_ns)
 
-@analytics_ns.on('session_start')
+@sio.on('session_start', namespace='/analytics')
 @log_errors
 async def handle_session_start(sid: str, session_start_data: dict):
     logger.info(
@@ -44,7 +41,7 @@ async def handle_session_start(sid: str, session_start_data: dict):
         extra={"performance_tracking": True}
     )
 
-@analytics_ns.on('session_end')
+@sio.on('session_end', namespace='/analytics')
 @log_errors 
 async def handle_session_end(sid: str, session_end_data: dict):
     logger.info(
@@ -129,7 +126,7 @@ async def handle_session_end(sid: str, session_end_data: dict):
         extra={"analytics_success": True, "performance_tracking": True}
     )
 
-@analytics_ns.on('connect')
+@sio.on('connect', namespace='/analytics')
 @log_errors
 async def on_connect(sid, environ):
     logger.info(
@@ -140,7 +137,7 @@ async def on_connect(sid, environ):
         extra={"connection_event": True}
     )
 
-@analytics_ns.on('disconnect')
+@sio.on('disconnect', namespace='/analytics')
 @log_errors
 async def on_disconnect(sid):
     logger.info(
