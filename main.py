@@ -4,6 +4,8 @@ from app.controllers.auth import user_controller
 from app.controllers.chapter import chapter_controller
 from app.controllers.story import story_controller
 from app.config.logging import setup_logging
+from app.channels.analytics import sio
+from socketio.asgi import ASGIApp
 
 
 app = FastAPI(
@@ -32,7 +34,8 @@ async def get_health() -> dict:
         'message': 'Everything is healthy!'
     }
 
+socket_app = ASGIApp(sio, app)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host='localhost', port=8000)
+    uvicorn.run(socket_app, host='localhost', port=8000)
