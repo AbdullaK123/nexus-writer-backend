@@ -1,4 +1,4 @@
-# app/channels/analytics.py - REDIS VERSION (NO MORE SIO SESSION BULLSHIT)
+# app/channels/analytics.py - FIXED VERSION
 from socketio.async_server import AsyncServer
 from app.providers.analytics import AnalyticsProvider
 from app.schemas.analytics import WritingSession, WritingSessionEvent
@@ -157,38 +157,56 @@ def handle_session_end(sid: str, session_end_data: dict):
         extra={"db_operation": True}
     )
     
-    # ✅ ASYNC TASK FOR DUCKDB SAVE - ONLY ASYNC PART
+    # ✅ ASYNC TASK FOR DUCKDB SAVE - FIRE AND FORGET WITH PROPER ERROR HANDLING
     loop = asyncio.get_event_loop()
-    loop.create_task(save_to_duckdb_async(session, sid))
+    task = loop.create_task(save_to_duckdb_async(session, sid))
+    
+    # Add a callback to handle task completion without blocking
+    task.add_done_callback(lambda t: handle_task_completion(t, session.id, sid))
     
     # ✅ CLEAN UP REDIS - SYNC
     delete_session_from_redis(sid)
 
-async def save_to_duckdb_async(session: WritingSession, sid: str):
-    """Save to DuckDB asynchronously"""
+def handle_task_completion(task, session_id: str, sid: str):
+    """Handle the completion of the DuckDB save task"""
     try:
-        saved_session = await analytics.write_session(session)
-        
-        logger.success(
-            "🎯 Writing session successfully saved to DuckDB", 
-            session_id=saved_session.id,
-            user_id=saved_session.user_id,
-            story_id=saved_session.story_id,
-            chapter_id=saved_session.chapter_id,
-            words_written=saved_session.words_written,
-            duration=saved_session.duration,
-            wpm=saved_session.words_per_minute,
-            sid=sid,
-            extra={"analytics_success": True, "performance_tracking": True}
-        )
+        # Check if the task completed successfully
+        if task.exception() is None:
+            logger.success(
+                "🎯 Writing session successfully saved to DuckDB", 
+                session_id=session_id,
+                sid=sid,
+                extra={"analytics_success": True, "performance_tracking": True}
+            )
+        else:
+            # Log the actual exception
+            exception = task.exception()
+            logger.error(
+                "❌ Failed to save session to DuckDB",
+                session_id=session_id,
+                error_type=type(exception).__name__,
+                error_message=str(exception),
+                sid=sid,
+                extra={"analytics_failure": True}
+            )
     except Exception as e:
         logger.error(
-            "❌ Failed to save session to DuckDB",
-            session_id=session.id,
+            "❌ Error in task completion handler",
+            session_id=session_id,
             error=str(e),
-            sid=sid,
-            extra={"analytics_failure": True}
+            sid=sid
         )
+
+async def save_to_duckdb_async(session: WritingSession, sid: str):
+    """Save to DuckDB asynchronously - CLEAN VERSION"""
+    try:
+        saved_session = await analytics.write_session(session)
+        # Success is logged in the task completion handler
+        return saved_session
+    except Exception as e:
+        # Re-raise the exception so it's caught by the task completion handler
+        logger.debug(f"Exception in save_to_duckdb_async: {e}")
+        raise e
 
 @sio.on('connect', namespace='/analytics')
 @log_errors
