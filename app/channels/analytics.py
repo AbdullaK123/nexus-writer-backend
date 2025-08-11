@@ -1,3 +1,4 @@
+# app/channels/analytics.py - FIXED VERSION
 from socketio.async_server import AsyncServer
 from app.providers.analytics import AnalyticsProvider
 from app.schemas.analytics import WritingSession, WritingSessionEvent
@@ -6,11 +7,17 @@ from loguru import logger
 
 analytics = AnalyticsProvider()
 
-sio = AsyncServer()
+# FIX: Explicitly set async_mode='asgi' and configure CORS
+sio = AsyncServer(
+    async_mode='asgi',
+    cors_allowed_origins=['http://localhost:3000', 'http://127.0.0.1:3000'],
+    logger=True,
+    engineio_logger=True
+)
 
 @sio.on('session_start', namespace='/analytics')
 @log_errors
-async def handle_session_start(sid: str, session_start_data: dict):
+def handle_session_start(sid: str, session_start_data: dict):
     logger.info(
         "📝 Writing session start event received", 
         sid=sid, 
@@ -31,7 +38,8 @@ async def handle_session_start(sid: str, session_start_data: dict):
     )
     
     # Store as dict (Socket.IO sessions work with JSON-serializable data)
-    await sio.save_session(sid, event.model_dump())
+    # Use save_session as a regular function - AsyncServer handles the async internally
+    sio.save_session(sid, event.model_dump())
     
     logger.success(
         "🚀 Writing session started and stored", 
@@ -43,7 +51,7 @@ async def handle_session_start(sid: str, session_start_data: dict):
 
 @sio.on('session_end', namespace='/analytics')
 @log_errors 
-async def handle_session_end(sid: str, session_end_data: dict):
+def handle_session_end(sid: str, session_end_data: dict):
     logger.info(
         "🏁 Writing session end event received", 
         sid=sid,
@@ -61,7 +69,7 @@ async def handle_session_end(sid: str, session_end_data: dict):
     )
     
     # Get start data (will be a dict)
-    start_data = await sio.get_session(sid)
+    start_data = sio.get_session(sid)
     
     if not start_data:
         logger.warning(
@@ -110,8 +118,12 @@ async def handle_session_end(sid: str, session_end_data: dict):
         extra={"db_operation": True}
     )
     
-    # Save to analytics database
-    saved_session = await analytics.write_session(session)
+    # This will run in a background thread automatically
+    import asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    saved_session = loop.run_until_complete(analytics.write_session(session))
+    loop.close()
     
     logger.success(
         "🎯 Writing session successfully saved", 
@@ -128,32 +140,34 @@ async def handle_session_end(sid: str, session_end_data: dict):
 
 @sio.on('connect', namespace='/analytics')
 @log_errors
-async def on_connect(sid, environ):
+def on_connect(sid, environ, auth=None):
     logger.info(
         "🔌 Client connected to analytics namespace", 
         sid=sid,
         user_agent=environ.get('HTTP_USER_AGENT', 'unknown'),
         origin=environ.get('HTTP_ORIGIN', 'unknown'),
+        auth=auth,
         extra={"connection_event": True}
     )
 
 @sio.on('disconnect', namespace='/analytics')
 @log_errors
-async def on_disconnect(sid):
+def on_disconnect(sid, reason):
     logger.info(
         "🔌 Client disconnected from analytics namespace", 
         sid=sid,
+        reason=reason,
         extra={"connection_event": True}
     )
     
     # Check if there's an incomplete session
-    session_data = await sio.get_session(sid)
+    session_data = sio.get_session(sid)
     if session_data:
         logger.warning(
             "⚠️ Client disconnected with incomplete session", 
             sid=sid,
+            reason=reason,
             session_id=session_data.get('sessionId'),
             user_id=session_data.get('userId'),
             extra={"incomplete_session": True}
         )
-

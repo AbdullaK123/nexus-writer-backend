@@ -13,6 +13,7 @@ class AuthCredentials(SQLModel):
     password: str
 
 class UserResponse(SQLModel):
+    id: str
     username: str
     email: str
     profile_img: Optional[str]

@@ -45,6 +45,7 @@ async def get_active_user(
     user: User = Depends(get_current_user)
 ) -> UserResponse:
     return UserResponse(
+        id=user.id,
         username=user.username,
         email=user.email,
         profile_img=user.profile_img
