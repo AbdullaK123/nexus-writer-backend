@@ -75,10 +75,14 @@ class AnalyticsProvider:
         
         start_time = time.time()
         
+        # ✅ UPSERT QUERY - HANDLES DUPLICATES GRACEFULLY
         result = self.sql(
             """
             INSERT INTO writing_sessions (id, started, ended, user_id, story_id, chapter_id, words_written)
             VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET
+                ended = EXCLUDED.ended,
+                words_written = EXCLUDED.words_written
             RETURNING *
             """,
             (
@@ -93,7 +97,7 @@ class AnalyticsProvider:
         )
         
         if not result:
-            raise ValueError("INSERT query returned no results")
+            raise ValueError("UPSERT query returned no results")
         
         saved_session = WritingSession(**result[0])
         write_time = round((time.time() - start_time) * 1000, 2)

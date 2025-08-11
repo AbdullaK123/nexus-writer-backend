@@ -135,6 +135,7 @@ class AuthProvider:
             secure=(app_config.env == 'prod')
         )
         return UserResponse(
+            id=str(user.id),
             username=user.username,
             email=user.email,
             profile_img=user.profile_img
@@ -163,6 +164,7 @@ class AuthProvider:
 
 
         return UserResponse(
+            id=str(user_to_create.id),
             username=registration_data.username,
             email=registration_data.email,
             profile_img=registration_data.profile_img

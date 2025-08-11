@@ -1,19 +1,59 @@
-# app/channels/analytics.py - FIXED VERSION
+# app/channels/analytics.py - REDIS VERSION (NO MORE SIO SESSION BULLSHIT)
 from socketio.async_server import AsyncServer
 from app.providers.analytics import AnalyticsProvider
 from app.schemas.analytics import WritingSession, WritingSessionEvent
 from app.utils.decorators import log_errors
+from app.core.redis import get_redis
 from loguru import logger
+import asyncio
+import json
 
 analytics = AnalyticsProvider()
+redis_client = get_redis()
 
-# FIX: Explicitly set async_mode='asgi' and configure CORS
+# ✅ CLEAN: AsyncServer with no session management bullshit
 sio = AsyncServer(
     async_mode='asgi',
     cors_allowed_origins=['http://localhost:3000', 'http://127.0.0.1:3000'],
     logger=True,
     engineio_logger=True
 )
+
+def save_session_to_redis(sid: str, data: dict):
+    """Save session data to Redis - SYNC and RELIABLE"""
+    redis_key = f"analytics_session:{sid}"
+    # ✅ CONVERT DATETIME TO ISO STRING FOR JSON SERIALIZATION
+    serializable_data = {}
+    for key, value in data.items():
+        if hasattr(value, 'isoformat'):  # datetime object
+            serializable_data[key] = value.isoformat()
+        else:
+            serializable_data[key] = value
+    
+    redis_client.setex(redis_key, 3600, json.dumps(serializable_data))  # 1 hour TTL
+    logger.debug(f"💾 Saved session to Redis: {redis_key}")
+
+def get_session_from_redis(sid: str) -> dict:
+    """Get session data from Redis - SYNC and RELIABLE"""
+    redis_key = f"analytics_session:{sid}"
+    data = redis_client.get(redis_key)
+    if data:
+        logger.debug(f"📖 Retrieved session from Redis: {redis_key}")
+        parsed_data = json.loads(data)
+        # ✅ CONVERT ISO STRING BACK TO DATETIME
+        from datetime import datetime
+        if 'timestamp' in parsed_data:
+            parsed_data['timestamp'] = datetime.fromisoformat(parsed_data['timestamp'])
+        return parsed_data
+    logger.debug(f"❌ No session found in Redis: {redis_key}")
+    return None
+
+def delete_session_from_redis(sid: str):
+    """Delete session data from Redis - SYNC and RELIABLE"""
+    redis_key = f"analytics_session:{sid}"
+    deleted = redis_client.delete(redis_key)
+    if deleted:
+        logger.debug(f"🗑️ Deleted session from Redis: {redis_key}")
 
 @sio.on('session_start', namespace='/analytics')
 @log_errors
@@ -37,12 +77,11 @@ def handle_session_start(sid: str, session_start_data: dict):
         sid=sid
     )
     
-    # Store as dict (Socket.IO sessions work with JSON-serializable data)
-    # Use save_session as a regular function - AsyncServer handles the async internally
-    sio.save_session(sid, event.model_dump())
+    # ✅ SAVE TO REDIS - SYNC AND BULLETPROOF
+    save_session_to_redis(sid, event.model_dump())
     
     logger.success(
-        "🚀 Writing session started and stored", 
+        "🚀 Writing session started and stored in Redis", 
         session_id=event.sessionId,
         user_id=event.userId,
         sid=sid,
@@ -68,12 +107,12 @@ def handle_session_end(sid: str, session_end_data: dict):
         sid=sid
     )
     
-    # Get start data (will be a dict)
-    start_data = sio.get_session(sid)
+    # ✅ GET FROM REDIS - SYNC AND BULLETPROOF
+    start_data = get_session_from_redis(sid)
     
     if not start_data:
         logger.warning(
-            "⚠️ No session start data found for sid", 
+            "⚠️ No session start data found in Redis", 
             sid=sid,
             session_id=end_event.sessionId,
             extra={"data_consistency_issue": True}
@@ -118,25 +157,38 @@ def handle_session_end(sid: str, session_end_data: dict):
         extra={"db_operation": True}
     )
     
-    # This will run in a background thread automatically
-    import asyncio
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    saved_session = loop.run_until_complete(analytics.write_session(session))
-    loop.close()
+    # ✅ ASYNC TASK FOR DUCKDB SAVE - ONLY ASYNC PART
+    loop = asyncio.get_event_loop()
+    loop.create_task(save_to_duckdb_async(session, sid))
     
-    logger.success(
-        "🎯 Writing session successfully saved", 
-        session_id=saved_session.id,
-        user_id=saved_session.user_id,
-        story_id=saved_session.story_id,
-        chapter_id=saved_session.chapter_id,
-        words_written=saved_session.words_written,
-        duration=saved_session.duration,
-        wpm=saved_session.words_per_minute,
-        sid=sid,
-        extra={"analytics_success": True, "performance_tracking": True}
-    )
+    # ✅ CLEAN UP REDIS - SYNC
+    delete_session_from_redis(sid)
+
+async def save_to_duckdb_async(session: WritingSession, sid: str):
+    """Save to DuckDB asynchronously"""
+    try:
+        saved_session = await analytics.write_session(session)
+        
+        logger.success(
+            "🎯 Writing session successfully saved to DuckDB", 
+            session_id=saved_session.id,
+            user_id=saved_session.user_id,
+            story_id=saved_session.story_id,
+            chapter_id=saved_session.chapter_id,
+            words_written=saved_session.words_written,
+            duration=saved_session.duration,
+            wpm=saved_session.words_per_minute,
+            sid=sid,
+            extra={"analytics_success": True, "performance_tracking": True}
+        )
+    except Exception as e:
+        logger.error(
+            "❌ Failed to save session to DuckDB",
+            session_id=session.id,
+            error=str(e),
+            sid=sid,
+            extra={"analytics_failure": True}
+        )
 
 @sio.on('connect', namespace='/analytics')
 @log_errors
@@ -160,14 +212,16 @@ def on_disconnect(sid, reason):
         extra={"connection_event": True}
     )
     
-    # Check if there's an incomplete session
-    session_data = sio.get_session(sid)
+    # ✅ CHECK REDIS FOR INCOMPLETE SESSIONS - SYNC
+    session_data = get_session_from_redis(sid)
     if session_data:
         logger.warning(
-            "⚠️ Client disconnected with incomplete session", 
+            "⚠️ Client disconnected with incomplete session - cleaning up Redis", 
             sid=sid,
             reason=reason,
             session_id=session_data.get('sessionId'),
             user_id=session_data.get('userId'),
             extra={"incomplete_session": True}
         )
+        # Clean up the Redis session
+        delete_session_from_redis(sid)

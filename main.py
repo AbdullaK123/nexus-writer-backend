@@ -34,7 +34,7 @@ async def get_health() -> dict:
         'message': 'Everything is healthy!'
     }
 
-socket_app = ASGIApp(sio, app)
+socket_app = ASGIApp(sio, other_asgi_app=app)
 
 if __name__ == "__main__":
     import uvicorn
