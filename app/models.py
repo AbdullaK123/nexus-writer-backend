@@ -3,7 +3,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy import Column, String
 from pydantic import EmailStr
 from datetime import datetime
-from typing import Optional, List
+from typing import Literal, Optional, List
 import uuid
 from enum import Enum
 
@@ -39,6 +39,7 @@ class User(SQLModel, TimeStampMixin, table=True):
     sessions: List['Session'] = Relationship(back_populates='user', cascade_delete=True)
     stories: List['Story'] = Relationship(back_populates='user', cascade_delete=True)
     chapters: List['Chapter'] = Relationship(back_populates='user', cascade_delete=True)
+    targets: List['Target'] = Relationship(back_populates='user', cascade_delete=True)
     
 
 class Story(SQLModel, TimeStampMixin, table=True):
@@ -54,6 +55,7 @@ class Story(SQLModel, TimeStampMixin, table=True):
     path_array: Optional[List[str]] = Field(sa_column=Column(ARRAY(String)))
     chapters: List['Chapter'] = Relationship(back_populates='story', cascade_delete=True)
     user: 'User' = Relationship(back_populates='stories')
+    target: 'Target' = Relationship(back_populates='story')
 
 
 class Chapter(SQLModel, TimeStampMixin, table=True):
@@ -79,5 +81,17 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
     user: 'User' = Relationship(back_populates='chapters')
     next_chapter_id: Optional[str] = Field(default=None, foreign_key="chapter.id", ondelete='SET NULL')
     prev_chapter_id: Optional[str] = Field(default=None, foreign_key="chapter.id", ondelete='SET NULL')
+
+
+class Target(SQLModel, TimeStampMixin, table=True):
+
+    id: Optional[str] = Field(default_factory=generate_uuid, primary_key=True)
+    story_id: str = Field(index=True, foreign_key='story.id', ondelete='CASCADE')
+    user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
+    quota: int = Field(gt=0, default=0, description="Word count target")
+    frequency: Literal["Daily", "Weekly", "Monthly"] = Field(default="Daily", description="Frequency of word count quota")
+    story: 'Story' = Relationship(back_populates='target')
+    user: 'User' = Relationship(back_populates='targets')
+
 
 

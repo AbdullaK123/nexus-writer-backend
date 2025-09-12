@@ -5,13 +5,15 @@ from app.controllers.chapter import chapter_controller
 from app.controllers.story import story_controller
 from app.config.logging import setup_logging
 from app.channels.analytics import sio
-from socketio.asgi import ASGIApp
+from socketio.asgi import ASGIApp  # type: ignore
+from app.config.lifespan import lifespan
 
 
 app = FastAPI(
     title="Nexus Writer API",
     description="The backend API for Nexus Writer",
     version="1.0",
+    lifespan=lifespan
 )
 
 setup_logging()

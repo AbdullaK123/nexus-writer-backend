@@ -13,7 +13,7 @@ from app.schemas.chapter import (
 )
 from fastapi import HTTPException, status, Depends
 from app.utils.lexical import get_word_count, get_preview_content
-from app.sync_jobs.chapter import (
+from app.jobs.chapter import (
     handle_chapter_creation,
     handle_chapter_deletion,
     handle_chapter_reordering
