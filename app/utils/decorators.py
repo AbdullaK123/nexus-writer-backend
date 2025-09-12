@@ -1,6 +1,7 @@
 from functools import wraps
 from loguru import logger
 from typing import Callable, ParamSpec, TypeVar
+from app.workers import AsyncBackgroundWorker
 
 P = ParamSpec('P')
 T = TypeVar('T')

@@ -1,5 +1,5 @@
 from app.workers import AsyncBackgroundWorker
-from app.jobs.session import cleanup_expired_sessions_with_analytics
+from app.jobs.session import cleanup_expired_sessions_batched
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from loguru import logger
@@ -11,8 +11,8 @@ async def lifespan(app: FastAPI):
     session_cleaner = AsyncBackgroundWorker()
 
     session_cleaner.schedule_cron_job(
-        cleanup_expired_sessions_with_analytics,
-        chron_expr="0 0 * * *"
+        cleanup_expired_sessions_batched,
+        cron_expr="0 * * * *"
     )
 
     logger.info("Starting session cleanup background worker...")

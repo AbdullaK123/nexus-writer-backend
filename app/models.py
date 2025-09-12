@@ -85,11 +85,18 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
 
 class Target(SQLModel, TimeStampMixin, table=True):
 
+    __table_args__ = (
+        UniqueConstraint('story_id', 'frequency'),
+        CheckConstraint('to_date >= from_date', name='to_date_gte_from_date')
+    )
+
     id: Optional[str] = Field(default_factory=generate_uuid, primary_key=True)
     story_id: str = Field(index=True, foreign_key='story.id', ondelete='CASCADE')
     user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
-    quota: int = Field(gt=0, default=0, description="Word count target")
+    quota: int = Field(ge=0, default=0, description="Word count target")
     frequency: Literal["Daily", "Weekly", "Monthly"] = Field(default="Daily", description="Frequency of word count quota")
+    from_date: datetime = Field(default_factory=datetime.utcnow)
+    to_date: datetime = Field(default_factory=datetime.utcnow)
     story: 'Story' = Relationship(back_populates='target')
     user: 'User' = Relationship(back_populates='targets')
 
