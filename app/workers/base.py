@@ -26,7 +26,7 @@ class AsyncBackgroundWorker:
     async def is_running(self) -> bool:
         return self._running
     
-    async def schedule_cron_job(
+    def schedule_cron_job(
         self,
         func: Callable,
         cron_expr: Optional[str] = None, 
@@ -45,11 +45,11 @@ class AsyncBackgroundWorker:
             id=job_id
         )
     
-    async def remove_job(
+    def remove_job(
         self,
         job_id
     ):
         self.scheduler.remove_job(job_id)
 
-    async def remove_all_jobs(self):
+    def remove_all_jobs(self):
         self.scheduler.remove_all_jobs()
