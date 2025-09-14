@@ -1,8 +1,8 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from app.models import FrequencyType, Target
+from app.models import FrequencyType, Target, Story
 from typing import Optional, Dict
 from sqlmodel import select
-from app.schemas import UpdateChapterRequest, TargetResponse, CreateChapterRequest
+from app.schemas import UpdateTargetRequest, CreateTargetRequest, TargetResponse
 from fastapi import HTTPException, status
 
 
@@ -17,8 +17,30 @@ class TargetProvider:
         self,
         story_id: str,
         user_id: str,
-        payload: CreateChapterRequest
-    ) -> Target:
+        payload: CreateTargetRequest
+    ) -> TargetResponse:
+        
+        story = await self.db.get(Story, story_id)
+
+        if story is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Story not found"
+            )
+        
+        if story.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the story owner can create targets for it"
+            )
+        
+        target = await self.get_target_by_story_id_and_frequency(story_id, user_id, payload.frequency)
+
+        if target:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A target with that frequency already exists"
+            )
         
         target_to_create = Target(
             story_id=story_id,
@@ -28,7 +50,14 @@ class TargetProvider:
         self.db.add(target_to_create)
         await self.db.commit()
 
-        return target_to_create
+        return TargetResponse(
+            quota=target_to_create.quota,
+            frequency=target_to_create.frequency,
+            from_date=target_to_create.from_date,
+            to_date=target_to_create.to_date,
+            story_id=story_id,
+            target_id=target_to_create.id
+        )
 
 
     # get by story_id and frequency
@@ -37,7 +66,7 @@ class TargetProvider:
         story_id: str, 
         user_id: str,
         frequency: FrequencyType
-    ) -> Optional[Target]:
+    ) -> Optional[TargetResponse]:
         
         target_query = (
             select(Target)
@@ -48,40 +77,61 @@ class TargetProvider:
             )
         )
 
-        target = (await self.db.execute(target_query)).scalar_one_or_none()
+        target = (await self.db.exec(target_query)).first()
 
-        return target
+        return TargetResponse(
+            quota=target.quota,
+            frequency=target.frequency,
+            from_date=target.from_date,
+            to_date=target.to_date,
+            story_id=story_id,
+            target_id=target.id
+        ) if target else None
 
     # update
     async def update_target(
         self,
         target_id: str,
         user_id: str,
-        payload: UpdateChapterRequest
-    ) -> Target:
+        payload: UpdateTargetRequest
+    ) -> TargetResponse:
         
-        target_query = (
-            select(Target)
-            .where(
-                Target.id == target_id,
-                Target.user_id == user_id
-            )
-        )
+        target = await self.db.get(Target, target_id)
 
-        target_to_update = (await self.db.execute(target_query)).scalar_one_or_none()
-
-        if target_to_update is None:
+        if target is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Target not found"
             )
         
+        story = await self.db.get(Story, target.story_id)
+            
+        if story is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Story not found"
+            )
+        
+        if story.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the story owner can update targets for it"
+            )
+        
+
         for field, value in payload.model_dump(exclude_unset=True).items():
-            setattr(target_to_update, field, value)
+            setattr(target, field, value)
 
         await self.db.commit()
 
-        return target_to_update
+        return TargetResponse(
+            quota=target.quota,
+            frequency=target.frequency,
+            from_date=target.from_date,
+            to_date=target.to_date,
+            story_id=target.story_id,
+            target_id=target.id
+        )
 
     # delete
     async def delete_target(
@@ -90,23 +140,29 @@ class TargetProvider:
         target_id: str
     ) -> Dict[str, str]:
         
-        target_query = (
-            select(Target)
-            .where(
-                Target.id == target_id,
-                Target.user_id == user_id
-            )
-        )
+        target = await self.db.get(Target, target_id)
 
-        target_to_delete = (await self.db.execute(target_query)).scalar_one_or_none()
-
-        if target_to_delete is None:
+        if target is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Target not found"
             )
+        
+        story = await self.db.get(Story, target.story_id)
+            
+        if story is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Story not found"
+            )
+        
+        if story.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the story owner can update targets for it"
+            )
 
-        await self.db.delete(target_to_delete)
+        await self.db.delete(target)
         await self.db.commit()
 
         return {
