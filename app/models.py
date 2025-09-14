@@ -16,6 +16,12 @@ class StoryStatus(str, Enum):
     ON_HAITUS = "On Hiatus"
     ONGOING = "Ongoing"
 
+class FrequencyType(str, Enum):
+    DAILY = "Daily"
+    WEEKLY = "Weekly"
+    MONTHLY = "Monthly"
+
+
 class TimeStampMixin:
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
@@ -94,7 +100,7 @@ class Target(SQLModel, TimeStampMixin, table=True):
     story_id: str = Field(index=True, foreign_key='story.id', ondelete='CASCADE')
     user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
     quota: int = Field(ge=0, default=0, description="Word count target")
-    frequency: Literal["Daily", "Weekly", "Monthly"] = Field(default="Daily", description="Frequency of word count quota")
+    frequency: FrequencyType = Field(default="Daily", description="Frequency of word count quota")
     from_date: datetime = Field(default_factory=datetime.utcnow)
     to_date: datetime = Field(default_factory=datetime.utcnow)
     story: 'Story' = Relationship(back_populates='target')

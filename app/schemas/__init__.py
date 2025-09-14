@@ -1,6 +1,7 @@
 from .auth import *
 from .story import *
 from .chapter import *
+from .target import *
 
 __all__ = [
     # Auth schemas
@@ -10,5 +11,6 @@ __all__ = [
     "StoryDetailResponse", "StoryGridResponse",
     # Chapter schemas
     "CreateChapterRequest", "UpdateChapterRequest", "ReorderChapterRequest",
-    "ChapterListItem", "ChapterContentResponse", "ChapterListResponse"
+    "ChapterListItem", "ChapterContentResponse", "ChapterListResponse",
+    "UpdateTargetRequest", "TargetResponse"
 ]
