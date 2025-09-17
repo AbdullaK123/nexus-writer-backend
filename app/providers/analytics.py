@@ -314,3 +314,7 @@ class AnalyticsProvider:
         )
         
         return result
+
+
+def get_analytics_provider() -> AnalyticsProvider:
+    return AnalyticsProvider()

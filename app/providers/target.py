@@ -3,7 +3,8 @@ from app.models import FrequencyType, Target, Story
 from typing import Optional, Dict
 from sqlmodel import select
 from app.schemas import UpdateTargetRequest, CreateTargetRequest, TargetResponse
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Depends
+from app.core.database import get_db
 
 
 
@@ -91,6 +92,7 @@ class TargetProvider:
     # update
     async def update_target(
         self,
+        story_id: str,
         target_id: str,
         user_id: str,
         payload: UpdateTargetRequest
@@ -104,7 +106,7 @@ class TargetProvider:
                 detail="Target not found"
             )
         
-        story = await self.db.get(Story, target.story_id)
+        story = await self.db.get(Story, story_id)
             
         if story is None:
             raise HTTPException(
@@ -136,6 +138,7 @@ class TargetProvider:
     # delete
     async def delete_target(
         self,
+        story_id: str,
         user_id: str,
         target_id: str
     ) -> Dict[str, str]:
@@ -148,7 +151,7 @@ class TargetProvider:
                 detail="Target not found"
             )
         
-        story = await self.db.get(Story, target.story_id)
+        story = await self.db.get(Story, story_id)
             
         if story is None:
             raise HTTPException(
@@ -168,3 +171,9 @@ class TargetProvider:
         return {
             "message": "Successfully deleted target"
         }
+
+
+def get_target_provider(
+    db: AsyncSession = Depends(get_db)
+) -> TargetProvider:
+    return TargetProvider(db)

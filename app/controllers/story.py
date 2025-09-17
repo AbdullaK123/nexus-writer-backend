@@ -1,10 +1,17 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from app.providers.story import StoryProvider, get_story_provider
 from app.providers.chapter import ChapterProvider, get_chapter_provider
 from app.providers.auth import get_current_user
 from app.models import User
 from app.schemas.story import CreateStoryRequest, UpdateStoryRequest, StoryGridResponse, StoryDetailResponse
 from app.schemas.chapter import CreateChapterRequest, ChapterContentResponse, ReorderChapterRequest, ChapterListResponse
+from app.providers.analytics import get_analytics_provider, AnalyticsProvider
+from app.providers.target import TargetProvider, get_target_provider
+from app.schemas.target import TargetResponse, CreateTargetRequest, UpdateTargetRequest
+from app.models import FrequencyType
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+
 
 story_controller = APIRouter(prefix='/stories')
 
@@ -81,3 +88,88 @@ async def get_story_chapters(
     chapter_provider: ChapterProvider = Depends(get_chapter_provider)
 ) -> ChapterListResponse:
     return await chapter_provider.get_story_chapters(story_id, current_user.id)
+
+
+@story_controller.get('/{story_id}/analytics/kpis')
+async def get_story_writing_kpis(
+    story_id: str,
+    frequency: FrequencyType = Query(),
+    current_user: User = Depends(get_current_user),
+    analytics_provider: AnalyticsProvider = Depends(get_analytics_provider)
+) -> Dict[str, Any]:
+    return analytics_provider.get_writing_kpis(
+        story_id=story_id,
+        user_id=current_user.id,
+        frequency=frequency
+    )
+
+@story_controller.get('/{story_id}/analytics/output-over-time')
+async def get_story_output_over_time(
+    story_id: str,
+    frequency: FrequencyType = Query(),
+    from_date: datetime = Query(),
+    to_date: datetime = Query(),
+    current_user: User = Depends(get_current_user),
+    analytics_provider: AnalyticsProvider = Depends(get_analytics_provider)
+) -> List[Dict[str, Any]]:
+    return analytics_provider.get_writing_output_over_time(
+        story_id=story_id,
+        user_id=current_user.id,
+        frequency=frequency,
+        from_date=from_date,
+        to_date=to_date
+    )
+
+@story_controller.post('/{story_id}/targets', response_model=TargetResponse)
+async def create_target(
+    story_id: str,
+    payload: CreateTargetRequest,
+    current_user: User = Depends(get_current_user),
+    target_provider: TargetProvider = Depends(get_target_provider)
+) -> TargetResponse:
+    return await target_provider.create_target(
+        story_id,
+        current_user.id,
+        payload
+    )
+
+@story_controller.get('/{story_id}/targets', response_model=Optional[TargetResponse])
+async def get_target(
+    story_id: str,
+    frequency: FrequencyType = Query(),
+    current_user: User = Depends(get_current_user),
+    target_provider: TargetProvider = Depends(get_target_provider)
+) -> Optional[TargetResponse]:
+    return await target_provider.get_target_by_story_id_and_frequency(
+        story_id,
+        current_user.id,
+        frequency
+    )
+
+@story_controller.put('/{story_id}/targets/{target_id}', response_model=TargetResponse)
+async def update_target(
+    story_id: str,
+    target_id: str,
+    payload: UpdateTargetRequest,
+    current_user: User = Depends(get_current_user),
+    target_provider: TargetProvider = Depends(get_target_provider)
+) -> TargetResponse:
+    return await target_provider.update_target(
+        story_id,
+        target_id,
+        current_user.id,
+        payload
+    )
+
+@story_controller.delete('/{story_id}/targets/{target_id}')
+async def delete_target(
+    story_id: str,
+    target_id: str,
+    current_user: User = Depends(get_current_user),
+    target_provider: TargetProvider = Depends(get_target_provider)
+) -> dict:
+    return await target_provider.delete_target(
+        story_id,
+        current_user.id,
+        target_id
+    )
