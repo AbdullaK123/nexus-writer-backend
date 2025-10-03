@@ -1,5 +1,6 @@
 import json
 from json import JSONDecodeError
+from typing import List
 from loguru import logger
 
 # helper func to extract word count from lexical json
@@ -26,7 +27,7 @@ def get_word_count(lexical_json_string: str) -> int:
     return len(all_content.split())
 
 # helper func to build chapter preview from lexical json
-def get_preview_content(lexical_json_string: str) -> int:
+def get_preview_content(lexical_json_string: str) -> str:
 
     if not lexical_json_string or lexical_json_string.strip() == "":
         return ""
@@ -43,13 +44,9 @@ def get_preview_content(lexical_json_string: str) -> int:
             content += ' ' + get_text(child)
         return content
     
-    def get_block_content(node: dict) -> str:
-
+    def get_block_content(node: dict) -> List[str]:
         blocks = []
-
         node_types = {'paragraph', 'heading'}
-
-        # if the node type is in node_types, extract the text from the text nodes within it. Otherwise search the nodes children
         if node.get('type') in node_types:
             content = get_text(node).strip()
             if content:
@@ -57,12 +54,14 @@ def get_preview_content(lexical_json_string: str) -> int:
         else:
             for child in node.get('children', []):
                 blocks.extend(get_block_content(child))
-
         return blocks
-    
 
     blocks = get_block_content(lexical_json['root'])
 
-    return '\n'.join(blocks)
+    # Only add '\u00A0\u00A0\u00A0\u00A0' to the second block and onwards
+    for i in range(1, len(blocks)):
+        blocks[i] = '\u00A0\u00A0\u00A0\u00A0' + blocks[i]
+        
+    return '\n\n'.join(blocks)
     
 
