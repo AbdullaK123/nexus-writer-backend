@@ -10,8 +10,8 @@ from app.providers.analytics import get_analytics_provider, AnalyticsProvider
 from app.providers.target import TargetProvider, get_target_provider
 from app.schemas.target import TargetResponse, CreateTargetRequest, UpdateTargetRequest
 from app.models import FrequencyType
-from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Optional
+from datetime import datetime, timedelta
 
 
 story_controller = APIRouter(prefix='/stories')
@@ -94,35 +94,20 @@ async def get_story_chapters(
 @story_controller.get('/{story_id}/analytics', response_model=StoryAnalyticsResponse)
 async def get_story_analytics(
     story_id: str,
-    frequency: FrequencyType = Query(),
-    from_date: datetime = Query(),
-    to_date: datetime = Query(),
+    frequency: FrequencyType = Query(default=FrequencyType.DAILY),
+    from_date: datetime = Query(default_factory=lambda:datetime.now() - timedelta(days=30)),
+    to_date: datetime = Query(default_factory=datetime.now),
     current_user: User = Depends(get_current_user),
-    analytics_provider: AnalyticsProvider = Depends(get_analytics_provider),
-    target_provider: TargetProvider = Depends(get_target_provider)
-) -> List[Dict[str, Any]]:
-    kpis = analytics_provider.get_writing_kpis(
-        story_id=story_id,
-        user_id=current_user.id,
-        frequency=frequency
-    )
-    words_over_time = analytics_provider.get_writing_output_over_time(
-        story_id=story_id,
-        user_id=current_user.id,
-        frequency=frequency,
-        from_date=from_date,
-        to_date=to_date
-    )
-    target = await target_provider.get_target_by_story_id_and_frequency(
+    analytics_provider: AnalyticsProvider = Depends(get_analytics_provider)
+) -> StoryAnalyticsResponse:
+    return await analytics_provider.get_story_analytics(
         story_id,
         current_user.id,
-        frequency
+        frequency,
+        from_date,
+        to_date
     )
-    return StoryAnalyticsResponse(
-        kpis=kpis,
-        words_over_time=words_over_time,
-        target=target
-    )
+
 
 @story_controller.post('/{story_id}/targets', response_model=TargetResponse)
 async def create_target(

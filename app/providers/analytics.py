@@ -2,20 +2,27 @@ import duckdb
 from app.config.settings import app_config
 from loguru import logger
 from typing import Dict, List, Any, Tuple, Optional
-from app.utils.decorators import log_errors
-from app.schemas.analytics import WritingSession
-from app.models import FrequencyType
+from app.core.database import get_db
 from app.providers.target import TargetProvider
+from app.utils.decorators import log_errors
+from app.schemas.analytics import WritingSession, StoryAnalyticsResponse
+from app.models import FrequencyType
 from datetime import datetime
 import asyncio
 import time
 import uuid
 from uuid import UUID
+from datetime import timedelta
+from fastapi import HTTPException, status, Depends
+from sqlmodel.ext.asyncio.session import AsyncSession
+from app.providers.story import StoryProvider
 
 class AnalyticsProvider:
 
-    def __init__(self):
+    def __init__(self, db: AsyncSession):
         self.motherduck_url = app_config.motherduck_url
+        self.story_provider = StoryProvider(db)
+        self.target_provider = TargetProvider(db)
         logger.info("🦆 AnalyticsProvider initialized")
 
     @log_errors
@@ -34,7 +41,7 @@ class AnalyticsProvider:
         return conn
     
     @log_errors
-    def sql(
+    def _sql_sync(
         self,
         query: str, 
         params: Optional[Tuple[Any, ...]] = None
@@ -62,15 +69,23 @@ class AnalyticsProvider:
         )
         
         return records
-    
-    def get_writing_kpis(
+
+    async def sql(
+        self,
+        query: str,
+        params: Optional[Tuple[Any, ...]] = None
+    ) -> List[Dict[str, Any]]:
+        return await asyncio.to_thread(self._sql_sync, query, params)
+
+    async def get_writing_kpis(
         self,
         story_id: str,
         user_id: str,
         frequency: FrequencyType,
     ) -> Dict[str, Any]:
+
         if frequency == "Daily":
-            return self.sql(
+            return (await self.sql(
                 """
                 SELECT
                     COALESCE(SUM(words_written), 0) as total_words,
@@ -85,9 +100,9 @@ class AnalyticsProvider:
                     story_id,
                     user_id
                 )
-            )[0]
+            ))[0]
         elif frequency == "Weekly":
-            return self.sql(
+            return (await self.sql(
                 """
                 SELECT
                     COALESCE(SUM(words_written), 0) as total_words,
@@ -102,9 +117,9 @@ class AnalyticsProvider:
                     story_id,
                     user_id
                 )
-            )[0]
+            ))[0]
         else:
-            return self.sql(
+            return (await self.sql(
                 """
                 SELECT
                     COALESCE(SUM(words_written), 0) as total_words,
@@ -119,20 +134,26 @@ class AnalyticsProvider:
                     story_id,
                     user_id
                 )
-            )[0]
+            ))[0]
 
     
-    def get_writing_output_over_time(
+    async def get_writing_output_over_time(
         self, 
         story_id: str, 
         user_id: str,
         frequency: FrequencyType,
-        from_date: datetime,
-        to_date: datetime
+        from_date: datetime = datetime.now() - timedelta(days=30),
+        to_date: datetime = datetime.now()
     ) -> List[Dict[str, Any]]:
-        
+
+        if to_date < from_date:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid date range"
+            )
+
         if frequency == "Daily":
-            return self.sql(
+            return await self.sql(
                 """
                 SELECT
                     started::date as date,
@@ -152,7 +173,7 @@ class AnalyticsProvider:
                 )
             )
         elif frequency == "Weekly":
-            return self.sql(
+            return await self.sql(
                 """
                 SELECT
                     DATE_TRUNC('week', started::date) as week_start,
@@ -173,7 +194,7 @@ class AnalyticsProvider:
                 )
             )
         else:
-            return self.sql(
+            return await self.sql(
                 """
                 SELECT
                     DATE_TRUNC('month', started::date) as month_start,
@@ -193,9 +214,9 @@ class AnalyticsProvider:
                     to_date
                 )
             )
-        
-        
-    def _convert_uuid_fields(self, record: dict) -> dict:
+
+    @staticmethod
+    def _convert_uuid_fields(record: dict) -> dict:
         """Convert UUID objects to strings in the record"""
         converted = {}
         for key, value in record.items():
@@ -204,7 +225,48 @@ class AnalyticsProvider:
             else:
                 converted[key] = value
         return converted
-        
+
+    @log_errors
+    async def get_story_analytics(
+        self,
+        story_id: str,
+        user_id: str,
+        frequency: FrequencyType,
+        from_date: datetime = datetime.now() - timedelta(days=30),
+        to_date: datetime = datetime.now()
+    ) -> StoryAnalyticsResponse:
+
+        if not await self.story_provider.get_by_id(story_id, user_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Story not found"
+            )
+
+        kpis, words_over_time, target = await asyncio.gather(
+            self.get_writing_kpis(
+                story_id=story_id,
+                user_id=user_id,
+                frequency=frequency
+            ),
+            self.get_writing_output_over_time(
+                story_id=story_id,
+                user_id=user_id,
+                frequency=frequency,
+                from_date=from_date,
+                to_date=to_date
+            ),
+            self.target_provider.get_target_by_story_id_and_frequency(
+                story_id,
+                user_id,
+                frequency
+            )
+        )
+        return StoryAnalyticsResponse(
+            kpis=kpis,
+            words_over_time=words_over_time,
+            target=target
+        )
+
     @log_errors
     def _write_session_sync(self, session_data: WritingSession) -> WritingSession:
         logger.info(
@@ -219,8 +281,7 @@ class AnalyticsProvider:
         )
         
         start_time = time.time()
-        
-        # ✅ GENERATE NEW UUID FOR EACH WRITING SESSION - NO MORE OVERWRITES!
+
         analytics_session_id = str(uuid.uuid4())
         
         # Convert session data to ensure string UUIDs
@@ -234,9 +295,8 @@ class AnalyticsProvider:
             analytics_session_id=analytics_session_id,
             extra={"analytics_tracking": True}
         )
-        
-        # ✅ SIMPLE INSERT - EACH SESSION GETS ITS OWN ROW (matches your DuckDB schema)
-        result = self.sql(
+
+        result = self._sql_sync(
             """
             INSERT INTO writing_sessions (
                 id, 
@@ -316,5 +376,7 @@ class AnalyticsProvider:
         return result
 
 
-def get_analytics_provider() -> AnalyticsProvider:
-    return AnalyticsProvider()
+def get_analytics_provider(
+    db: AsyncSession = Depends(get_db)
+) -> AnalyticsProvider:
+    return AnalyticsProvider(db)
