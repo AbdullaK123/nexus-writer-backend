@@ -1,0 +1,99 @@
+# Nexus Writer Backend — Auth HTTP Requests Suite
+#
+# How to use:
+# 1) Start the server: uv run uvicorn main:socket_app --reload --host 0.0.0.0 --port 8000
+# 2) Run these requests top-to-bottom. Cookies (session_id) will be preserved.
+#
+@baseUrl = http://localhost:8000
+@userEmail = auth.suite.tester+1@example.com
+@userPassword = StrongP@ssw0rd!
+@username = auth-suite-tester
+
+### Health check
+GET {{baseUrl}}/health
+
+### Register user (idempotent across unique emails)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}",
+  "profile_img": null
+}
+
+> {%
+// no-op
+%}
+
+### Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}"
+}
+
+> {%
+const data = response.body;
+if (!data || !data.id) throw new Error("Login failed: missing user id");
+client.global.set("authUserId", data.id);
+%}
+
+### Get current user (/auth/me)
+GET {{baseUrl}}/auth/me
+
+### Logout
+POST {{baseUrl}}/auth/logout
+
+### Negative: login with wrong password (should be 401)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}",
+  "password": "WrongPassword123!"
+}
+
+> {% if (response.status !== 401) { throw new Error(`Expected 401 for wrong password, got ${response.status}`); } %}
+
+### Health header check (X-Request-ID present)
+GET {{baseUrl}}/health
+
+> {% if (!response.headers["x-request-id"]) { throw new Error("X-Request-ID header missing on /health"); } %}
+
+### Negative: duplicate registration should 409
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "auth-suite-tester",
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}",
+  "profile_img": null
+}
+
+> {% if (response.status !== 409) { throw new Error(`Expected 409 for duplicate registration, got ${response.status}`); } %}
+
+### Negative: invalid email format (422)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "bad-email-user",
+  "email": "not-an-email",
+  "password": "{{userPassword}}",
+  "profile_img": null
+}
+
+> {% if (response.status !== 422) { throw new Error(`Expected 422 for invalid email, got ${response.status}`); } %}
+
+### Logout to clear session
+POST {{baseUrl}}/auth/logout
+
+### After logout, /auth/me should be 403
+GET {{baseUrl}}/auth/me
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 after logout, got ${response.status}`); } %}

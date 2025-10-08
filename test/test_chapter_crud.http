@@ -1,0 +1,132 @@
+# Nexus Writer Backend — Chapter CRUD & Reorder HTTP Requests Suite
+#
+@baseUrl = http://localhost:8000
+@userEmail = chapter.crud.tester+1@example.com
+@userPassword = StrongP@ssw0rd!
+@storyTitle = Chapter CRUD Story
+
+### Register
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "chapter-crud-tester",
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}",
+  "profile_img": null
+}
+
+### Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}"
+}
+
+### Create a story
+POST {{baseUrl}}/stories/
+Content-Type: application/json
+
+{
+  "title": "{{storyTitle}}"
+}
+
+### Get stories and capture storyId
+GET {{baseUrl}}/stories/
+
+> {%
+const grid = response.body;
+if (!grid || !Array.isArray(grid.stories)) {
+  throw new Error("Unexpected response from /stories");
+}
+const title = "{{storyTitle}}";
+const match = grid.stories.find(s => s.title === title);
+if (!match) {
+  if (grid.stories.length === 0) throw new Error("No stories found to use in chapter tests");
+  client.global.set("storyId", grid.stories[0].id);
+} else {
+  client.global.set("storyId", match.id);
+}
+%}
+
+### Create chapter A
+POST {{baseUrl}}/stories/{{storyId}}/chapters
+Content-Type: application/json
+
+{
+  "title": "Chapter A",
+  "content": "Once upon a time A..."
+}
+
+> {% const chA = response.body; if (!chA || !chA.id) throw new Error("Failed to create Chapter A"); client.global.set("chapterAId", chA.id); %}
+
+### Create chapter B
+POST {{baseUrl}}/stories/{{storyId}}/chapters
+Content-Type: application/json
+
+{
+  "title": "Chapter B",
+  "content": "Once upon a time B..."
+}
+
+> {% const chB = response.body; if (!chB || !chB.id) throw new Error("Failed to create Chapter B"); client.global.set("chapterBId", chB.id); %}
+
+### List chapters
+GET {{baseUrl}}/stories/{{storyId}}/chapters
+
+### Get chapter A with navigation
+GET {{baseUrl}}/chapters/{{chapterAId}}?as_lexical_json=true
+
+### Update chapter B title and content
+PUT {{baseUrl}}/chapters/{{chapterBId}}
+Content-Type: application/json
+
+{
+  "title": "Chapter B Updated",
+  "content": "Updated content for B",
+  "published": true
+}
+
+### Reorder chapters: move chapter B (pos 1) to pos 0
+POST {{baseUrl}}/stories/{{storyId}}/chapters/reorder
+Content-Type: application/json
+
+{
+  "from_pos": 1,
+  "to_pos": 0
+}
+
+### Delete chapter A
+DELETE {{baseUrl}}/chapters/{{chapterAId}}
+
+### Cleanup: delete story
+DELETE {{baseUrl}}/stories/{{storyId}}
+
+> {% if (response.status < 200 || response.status >= 300) { throw new Error(`Expected successful story delete, got ${response.status}`); } %}
+
+### Non-existent chapter GET should 404
+GET {{baseUrl}}/chapters/00000000-0000-4000-8000-000000000abc
+
+> {% if (response.status !== 404) { throw new Error(`Expected 404 for non-existent chapter get, got ${response.status}`); } %}
+
+### Non-existent chapter UPDATE should 404
+PUT {{baseUrl}}/chapters/00000000-0000-4000-8000-000000000abc
+Content-Type: application/json
+
+{
+  "title": "Nope"
+}
+
+> {% if (response.status !== 404) { throw new Error(`Expected 404 for non-existent chapter update, got ${response.status}`); } %}
+
+### Non-existent chapter DELETE should 404
+DELETE {{baseUrl}}/chapters/00000000-0000-4000-8000-000000000abc
+
+> {% if (response.status !== 404) { throw new Error(`Expected 404 for non-existent chapter delete, got ${response.status}`); } %}
+
+### Health header check (X-Request-ID)
+GET {{baseUrl}}/health
+
+> {% if (!response.headers["x-request-id"]) { throw new Error("X-Request-ID header missing on /health"); } %}

@@ -1,0 +1,92 @@
+# Nexus Writer Backend — Unauthenticated Access Negative Suite
+# Verifies that protected endpoints return 403 when no session cookie is present.
+# Run without any prior login. If you have an existing cookie, clear it or run in a new HTTP Client environment.
+
+@baseUrl = http://localhost:8000
+@randStory = 00000000-0000-4000-8000-000000000000
+@randChapter = 00000000-0000-4000-8000-000000000111
+@randTarget = 00000000-0000-4000-8000-000000000222
+
+### Health is public (and should include X-Request-ID)
+GET {{baseUrl}}/health
+
+> {% if (!response.headers["x-request-id"]) { throw new Error("X-Request-ID header missing on /health"); } %}
+
+### List stories (should be 403)
+GET {{baseUrl}}/stories/
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 for unauthenticated stories list, got ${response.status}`); } %}
+
+### Create story (should be 403)
+POST {{baseUrl}}/stories/
+Content-Type: application/json
+
+{
+  "title": "Should Fail"
+}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 for unauthenticated story create, got ${response.status}`); } %}
+
+### Get story details (should be 403)
+GET {{baseUrl}}/stories/{{randStory}}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 for unauthenticated story details, got ${response.status}`); } %}
+
+### Chapters list (should be 403)
+GET {{baseUrl}}/stories/{{randStory}}/chapters
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 for unauthenticated chapters list, got ${response.status}`); } %}
+
+### Create chapter (should be 403)
+POST {{baseUrl}}/stories/{{randStory}}/chapters
+Content-Type: application/json
+
+{
+  "title": "Nope",
+  "content": "Nope"
+}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 for unauthenticated chapter create, got ${response.status}`); } %}
+
+### Update chapter (should be 403)
+PUT {{baseUrl}}/chapters/{{randChapter}}
+Content-Type: application/json
+
+{
+  "title": "Nope"
+}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 for unauthenticated chapter update, got ${response.status}`); } %}
+
+### Delete chapter (should be 403)
+DELETE {{baseUrl}}/chapters/{{randChapter}}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 for unauthenticated chapter delete, got ${response.status}`); } %}
+
+### Targets list (should be 403)
+GET {{baseUrl}}/stories/{{randStory}}/targets
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 for unauthenticated targets list, got ${response.status}`); } %}
+
+### Create target (should be 403)
+POST {{baseUrl}}/stories/{{randStory}}/targets
+Content-Type: application/json
+
+{
+  "quota": 1,
+  "frequency": "Daily",
+  "from_date": "2025-01-01T00:00:00Z",
+  "to_date": "2025-12-31T23:59:59Z"
+}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 for unauthenticated target create, got ${response.status}`); } %}
+
+### Delete target (should be 403)
+DELETE {{baseUrl}}/stories/{{randStory}}/targets/{{randTarget}}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 for unauthenticated target delete, got ${response.status}`); } %}
+
+### Analytics (should be 403)
+GET {{baseUrl}}/stories/{{randStory}}/analytics
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 for unauthenticated analytics, got ${response.status}`); } %}

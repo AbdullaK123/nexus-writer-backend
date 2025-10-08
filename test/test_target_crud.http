@@ -1,0 +1,283 @@
+# Nexus Writer Backend — Target CRUD HTTP Requests Suite (Comprehensive)
+#
+# How to use (JetBrains HTTP Client or VSCode REST Client):
+# 1) Start the server: uv run uvicorn main:socket_app --reload --host 0.0.0.0 --port 8000
+# 2) Open this file and run the requests top-to-bottom. Cookies are preserved for localhost.
+# 3) This suite now covers happy paths and edge cases:
+#    - Create/read/update/delete targets across frequencies
+#    - Duplicate frequency conflict (409)
+#    - Invalid date ranges (422)
+#    - Invalid enum query (422)
+#    - Frequency not found (null)
+#    - Cross-user authorization checks (403)
+#    - Not found cases (404)
+#    - Timezone-aware vs naive datetime payloads
+#
+# Environment
+@baseUrl = http://localhost:8000
+# Primary user (A)
+@userEmail = target.crud.tester+1@example.com
+@userPassword = StrongP@ssw0rd!
+@testStoryTitle = Target CRUD Test Story
+# Secondary user (B) for authorization checks
+@userEmailB = target.crud.tester+2@example.com
+@userPasswordB = StrongP@ssw0rd!
+
+### Health check
+GET {{baseUrl}}/health
+
+### Register user A (idempotent for unique email)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "target-crud-tester-a",
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}",
+  "profile_img": null
+}
+
+### Login user A (sets session cookie)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}"
+}
+
+> {%
+const data = response.body;
+if (data && data.id) {
+  client.global.set("userAId", data.id);
+}
+%}
+
+### Create a story for user A
+POST {{baseUrl}}/stories/
+Content-Type: application/json
+
+{
+  "title": "{{testStoryTitle}}"
+}
+
+### Get stories and capture storyId (robust selection)
+GET {{baseUrl}}/stories/
+
+> {%
+const grid = response.body;
+if (!grid || !Array.isArray(grid.stories)) {
+  throw new Error("Unexpected response from /stories");
+}
+const title = "{{testStoryTitle}}";
+const match = grid.stories.find(s => s.title === title);
+if (!match) {
+  if (grid.stories.length === 0) throw new Error("No stories found to use in tests");
+  client.global.set("storyId", grid.stories[0].id);
+} else {
+  client.global.set("storyId", match.id);
+}
+%}
+
+### Create DAILY target (timezone with Z)
+POST {{baseUrl}}/stories/{{storyId}}/targets
+Content-Type: application/json
+
+{
+  "quota": 500,
+  "frequency": "Daily",
+  "from_date": "2025-01-01T00:00:00Z",
+  "to_date": "2025-12-31T23:59:59Z"
+}
+
+> {%
+const tDaily = response.body;
+if (!tDaily || !tDaily.target_id) throw new Error("Failed to create Daily target");
+client.global.set("dailyId", tDaily.target_id);
+%}
+
+### Duplicate create DAILY (should 409)
+POST {{baseUrl}}/stories/{{storyId}}/targets
+Content-Type: application/json
+
+{
+  "quota": 600,
+  "frequency": "Daily",
+  "from_date": "2025-01-01T00:00:00Z",
+  "to_date": "2025-12-31T23:59:59Z"
+}
+
+> {% if (response.status !== 409) { throw new Error(`Expected 409 on duplicate frequency, got ${response.status}`); } %}
+
+### Get target by frequency (non-existent Weekly → null)
+GET {{baseUrl}}/stories/{{storyId}}/targets?frequency=Weekly
+
+> {% const body = response.body; if (body && body.target_id) { throw new Error("Expected null for Weekly before creation"); } %}
+
+### Create WEEKLY target (timezone +00:00)
+POST {{baseUrl}}/stories/{{storyId}}/targets
+Content-Type: application/json
+
+{
+  "quota": 300,
+  "frequency": "Weekly",
+  "from_date": "2025-06-01T00:00:00+00:00",
+  "to_date": "2025-12-31T23:59:59+00:00"
+}
+
+> {% const tW = response.body; if (!tW || !tW.target_id) throw new Error("Failed to create Weekly target"); client.global.set("weeklyId", tW.target_id); %}
+
+### Create MONTHLY target (naive datetimes)
+POST {{baseUrl}}/stories/{{storyId}}/targets
+Content-Type: application/json
+
+{
+  "quota": 1000,
+  "frequency": "Monthly",
+  "from_date": "2025-01-01T00:00:00",
+  "to_date": "2025-12-31T23:59:59"
+}
+
+> {% const tM = response.body; if (!tM || !tM.target_id) throw new Error("Failed to create Monthly target"); client.global.set("monthlyId", tM.target_id); %}
+
+### Get target by frequency (MONTHLY)
+GET {{baseUrl}}/stories/{{storyId}}/targets?frequency=Monthly
+
+### Get all targets for the story (should be 3 now)
+GET {{baseUrl}}/stories/{{storyId}}/targets
+
+> {% const all = response.body; if (!all || !Array.isArray(all.targets)) throw new Error("Expected targets array"); if (all.targets.length < 3) throw new Error(`Expected at least 3 targets, got ${all.targets.length}`); %}
+
+### Update DAILY target quota and dates (ensure normalization works)
+PUT {{baseUrl}}/stories/{{storyId}}/targets/{{dailyId}}
+Content-Type: application/json
+
+{
+  "quota": 750,
+  "from_date": "2025-01-02T00:00:00+00:00",
+  "to_date": "2025-12-30T23:59:59+00:00"
+}
+
+> {% const upd = response.body; if (!upd || upd.quota !== 750) throw new Error("Daily quota not updated"); %}
+
+### Negative create: invalid date order (to_date before from_date) → 422
+POST {{baseUrl}}/stories/{{storyId}}/targets
+Content-Type: application/json
+
+{
+  "quota": 100,
+  "frequency": "Daily",
+  "from_date": "2025-12-31T23:59:59Z",
+  "to_date": "2025-01-01T00:00:00Z"
+}
+
+> {% if (response.status !== 422) { throw new Error(`Expected 422 for invalid date range, got ${response.status}`); } %}
+
+### Negative query: invalid frequency enum → 422
+GET {{baseUrl}}/stories/{{storyId}}/targets?frequency=Yearly
+
+> {% if (response.status !== 422) { throw new Error(`Expected 422 for invalid enum, got ${response.status}`); } %}
+
+### Delete MONTHLY target
+DELETE {{baseUrl}}/stories/{{storyId}}/targets/{{monthlyId}}
+
+### Verify MONTHLY now returns null
+GET {{baseUrl}}/stories/{{storyId}}/targets?frequency=Monthly
+
+> {% const afterDel = response.body; if (afterDel && afterDel.target_id) { throw new Error("Expected null Monthly after deletion"); } %}
+
+### Negative delete: random UUID (should 404)
+DELETE {{baseUrl}}/stories/{{storyId}}/targets/00000000-0000-4000-8000-000000000000
+
+> {% if (response.status !== 404) { throw new Error(`Expected 404 deleting non-existent target, got ${response.status}`); } %}
+
+### Cross-user checks — Register user B
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "target-crud-tester-b",
+  "email": "{{userEmailB}}",
+  "password": "{{userPasswordB}}",
+  "profile_img": null
+}
+
+### Login user B
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{userEmailB}}",
+  "password": "{{userPasswordB}}"
+}
+
+> {% const uB = response.body; if (!uB || !uB.id) throw new Error("User B login failed"); %}
+
+### User B: try to list user A's targets (should 403)
+GET {{baseUrl}}/stories/{{storyId}}/targets
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 listing other's targets, got ${response.status}`); } %}
+
+### User B: try to create target on user A's story (should 403)
+POST {{baseUrl}}/stories/{{storyId}}/targets
+Content-Type: application/json
+
+{
+  "quota": 111,
+  "frequency": "Daily",
+  "from_date": "2025-01-01T00:00:00Z",
+  "to_date": "2025-12-31T23:59:59Z"
+}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 creating on other's story, got ${response.status}`); } %}
+
+### User B: try to update user A's DAILY target (should 403)
+PUT {{baseUrl}}/stories/{{storyId}}/targets/{{dailyId}}
+Content-Type: application/json
+
+{
+  "quota": 999
+}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 updating other's target, got ${response.status}`); } %}
+
+### User B: try to delete user A's WEEKLY target (should 403)
+DELETE {{baseUrl}}/stories/{{storyId}}/targets/{{weeklyId}}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 deleting other's target, got ${response.status}`); } %}
+
+### Switch back to user A (login again)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}"
+}
+
+### Final read: list all (should be at least DAILY and WEEKLY)
+GET {{baseUrl}}/stories/{{storyId}}/targets
+
+### Cleanup: delete remaining targets (WEEKLY then DAILY)
+DELETE {{baseUrl}}/stories/{{storyId}}/targets/{{weeklyId}}
+
+DELETE {{baseUrl}}/stories/{{storyId}}/targets/{{dailyId}}
+
+### Cleanup: delete the story
+DELETE {{baseUrl}}/stories/{{storyId}}
+
+### Logout user A
+POST {{baseUrl}}/auth/logout
+
+### Logout user B (best effort; user B session might not be active if cookie replaced)
+POST {{baseUrl}}/auth/logout
+
+### X-Request-ID should be present on health
+GET {{baseUrl}}/health
+
+> {% if (!response.headers["x-request-id"]) { throw new Error("X-Request-ID header missing on /health"); } %}
+
+### Idempotence: delete DAILY again should 404
+DELETE {{baseUrl}}/stories/{{storyId}}/targets/{{dailyId}}
+
+> {% if (response.status !== 404) { throw new Error(`Expected 404 on repeated DAILY delete, got ${response.status}`); } %}

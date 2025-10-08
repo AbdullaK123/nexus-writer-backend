@@ -1,0 +1,74 @@
+# Nexus Writer Backend — Analytics HTTP Requests Suite
+#
+@baseUrl = http://localhost:8000
+@userEmail = analytics.tester+1@example.com
+@userPassword = StrongP@ssw0rd!
+@storyTitle = Analytics Test Story
+
+### Register
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "analytics-tester",
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}",
+  "profile_img": null
+}
+
+### Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}"
+}
+
+### Create a story (to have an id for analytics)
+POST {{baseUrl}}/stories/
+Content-Type: application/json
+
+{
+  "title": "{{storyTitle}}"
+}
+
+### Get stories and capture storyId
+GET {{baseUrl}}/stories/
+
+> {%
+const grid = response.body;
+if (!grid || !Array.isArray(grid.stories)) {
+  throw new Error("Unexpected response from /stories");
+}
+const title = "{{storyTitle}}";
+const match = grid.stories.find(s => s.title === title);
+if (!match) {
+  if (grid.stories.length === 0) throw new Error("No stories found to use in analytics test");
+  client.global.set("storyId", grid.stories[0].id);
+} else {
+  client.global.set("storyId", match.id);
+}
+%}
+
+### Get analytics with defaults (last 30 days, DAILY)
+GET {{baseUrl}}/stories/{{storyId}}/analytics
+
+### Get analytics with explicit query range weekly
+GET {{baseUrl}}/stories/{{storyId}}/analytics?frequency=Weekly&from_date=2025-09-01T00:00:00&to_date=2025-10-08T23:59:59
+
+### Cleanup: delete story
+DELETE {{baseUrl}}/stories/{{storyId}}
+
+### Health header check (X-Request-ID)
+GET {{baseUrl}}/health
+
+> {% if (!response.headers["x-request-id"]) { throw new Error("X-Request-ID header missing on /health"); } %}
+
+### Get analytics with explicit Monthly frequency
+GET {{baseUrl}}/stories/{{storyId}}/analytics?frequency=Monthly
+
+### Negative: invalid frequency (422)
+GET {{baseUrl}}/stories/{{storyId}}/analytics?frequency=Yearly
+
+> {% if (response.status !== 422) { throw new Error(`Expected 422 for invalid analytics frequency, got ${response.status}`); } %}

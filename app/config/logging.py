@@ -1,6 +1,7 @@
 from loguru import logger
 import sys
 from pathlib import Path
+from app.utils.logging_context import get_correlation_id, get_user_id
 
 def setup_logging():
     """Configure Loguru for comprehensive application logging"""
@@ -68,6 +69,19 @@ def setup_logging():
         serialize=True,
         enqueue=True,
         filter=lambda record: record["extra"].get("db_operation")
+    )
+
+    # HTTP request/response logs
+    logger.add(
+        "logs/http.log",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {message}",
+        level="INFO",
+        rotation="50 MB",
+        retention="30 days",
+        compression="zip",
+        serialize=True,  # JSON for easy ingestion
+        enqueue=True,
+        filter=lambda record: record["extra"].get("http") is True
     )
     
     # Critical errors only

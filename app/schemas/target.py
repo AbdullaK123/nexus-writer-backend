@@ -2,7 +2,16 @@ from sqlmodel import SQLModel
 from pydantic import model_validator
 from typing import Optional, List
 from app.models import FrequencyType
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def _to_naive_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    if dt is None:
+        return None
+    # Convert timezone-aware datetimes to naive UTC; leave naive as-is
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 class TargetResponse(SQLModel):
@@ -14,7 +23,10 @@ class TargetResponse(SQLModel):
     target_id: str
 
     @model_validator(mode="after")
-    def to_date_greater_than_from_date(self):
+    def normalize_and_validate(self):
+        # Normalize to naive UTC for consistent serialization
+        self.from_date = _to_naive_utc(self.from_date)
+        self.to_date = _to_naive_utc(self.to_date)
         if self.to_date < self.from_date:
             raise ValueError("to_date must be after from_date")
         return self
@@ -30,7 +42,12 @@ class UpdateTargetRequest(SQLModel):
     to_date: Optional[datetime] = None
 
     @model_validator(mode="after")
-    def to_date_greater_than_from_date(self):
+    def normalize_and_validate(self):
+        # Normalize if present
+        if self.from_date is not None:
+            self.from_date = _to_naive_utc(self.from_date)
+        if self.to_date is not None:
+            self.to_date = _to_naive_utc(self.to_date)
         if self.to_date and self.from_date and self.to_date < self.from_date:
             raise ValueError("to_date must be after from_date")
         return self
@@ -43,7 +60,10 @@ class CreateTargetRequest(SQLModel):
     to_date: datetime
 
     @model_validator(mode="after")
-    def to_date_greater_than_from_date(self):
+    def normalize_and_validate(self):
+        # Normalize incoming datetimes to naive UTC to match DB TIMESTAMP WITHOUT TIME ZONE
+        self.from_date = _to_naive_utc(self.from_date)
+        self.to_date = _to_naive_utc(self.to_date)
         if self.to_date < self.from_date:
             raise ValueError("to_date must be after from_date")
         return self

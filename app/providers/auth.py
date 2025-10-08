@@ -15,6 +15,8 @@ from sqlmodel import select
 from fastapi import status, Cookie, Response, Request, Depends
 from typing import Optional, Union
 from datetime import datetime, timedelta
+from loguru import logger
+from app.utils.logging_context import context_logger, set_user_id
 
 
 class AuthProvider:
@@ -32,11 +34,19 @@ class AuthProvider:
         user = await self.get_user_by_email(credentials.email)
 
         if not user or not verify_password(credentials.password, user.password_hash):
+            context_logger(db_operation=True).warning(
+                "Authentication failed for email={email}",
+                email=credentials.email,
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid Credentials"
             )
         
+        context_logger(db_operation=True).info(
+            "Authentication succeeded for user_id={user_id}",
+            user_id=(user.id if user else None),
+        )
         return user
     
 
@@ -57,6 +67,11 @@ class AuthProvider:
         self.db.add(session)
         await self.db.commit()
         await self.db.refresh(session)
+        context_logger(db_operation=True).info(
+            "Session created user_id={user_id} session_id={session_id}",
+            user_id=user_id,
+            session_id=session_id,
+        )
         
         # encypt and set the cookie
         encypted_cookie = encrypt_session_data({'session_id': session_id})
@@ -72,6 +87,7 @@ class AuthProvider:
 
         decrypted_cookie = decrypt_session_data(encrypted_cookie_data)
         if not decrypted_cookie or 'session_id' not in decrypted_cookie:
+            context_logger(db_operation=True).warning("Missing or malformed session cookie")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Invalid session"
@@ -83,12 +99,14 @@ class AuthProvider:
         session = (await self.db.execute(session_query)).scalar_one_or_none()
 
         if not session:
+            context_logger(db_operation=True).warning("Session not found in DB")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, 
                 detail="Invalid session"
             )
 
         if session.expires_at < datetime.utcnow():
+            context_logger(db_operation=True).warning("Session expired user_id={user_id}", user_id=session.user_id)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Session expired"
@@ -97,6 +115,7 @@ class AuthProvider:
         user_id = session.user_id
 
         if not user_id:
+            context_logger(db_operation=True).warning("Session without user_id")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Invalid session"
@@ -104,6 +123,8 @@ class AuthProvider:
         
         user_query = select(User).where(User.id == user_id)
         user = (await self.db.execute(user_query)).scalar_one_or_none()
+        if user:
+            set_user_id(user.id)
 
         return user
     
@@ -119,6 +140,9 @@ class AuthProvider:
             if session:
                 await self.db.delete(session)
                 await self.db.commit()
+                context_logger(db_operation=True).info("Session deleted for user_id={user_id}", user_id=session.user_id)
+            else:
+                context_logger(db_operation=True).warning("Logout requested but session not found")
     
     async def login_user(self, request: Request, response: Response, credentials: AuthCredentials) -> UserResponse:
         user = await self.authenticate_user(credentials)
@@ -134,6 +158,10 @@ class AuthProvider:
             samesite='lax',
             secure=(app_config.env == 'prod')
         )
+        context_logger(db_operation=True).info(
+            "User logged in user_id={user_id}",
+            user_id=user.id,
+        )
         return UserResponse(
             id=str(user.id),
             username=user.username,
@@ -147,6 +175,10 @@ class AuthProvider:
         user = await self.get_user_by_email(registration_data.email)
 
         if user:
+            context_logger(db_operation=True).warning(
+                "Registration attempted with duplicate email={email}",
+                email=registration_data.email,
+            )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"A user with that email already exists"
@@ -161,7 +193,10 @@ class AuthProvider:
         self.db.add(user_to_create)
         await self.db.commit()
         await self.db.refresh(user_to_create)
-
+        context_logger(db_operation=True).info(
+            "User registered user_id={user_id}",
+            user_id=user_to_create.id,
+        )
 
         return UserResponse(
             id=str(user_to_create.id),
@@ -176,7 +211,19 @@ def get_auth_provider(db: AsyncSession = Depends(get_db)):
     return AuthProvider(db)
 
 async def get_current_user(
+    request: Request,
     session_id: Union[bytes, str] = Cookie(),
     auth_provider: AuthProvider = Depends(get_auth_provider)
 ) -> Optional[User]:
-    return await auth_provider.validate_session(session_id)
+    user = await auth_provider.validate_session(session_id)
+    # make user id available for logging middleware
+    if user is not None:
+        try:
+            request.state.user_id = user.id  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        try:
+            set_user_id(user.id)
+        except Exception:
+            pass
+    return user

@@ -1,0 +1,159 @@
+# Nexus Writer Backend — Story CRUD HTTP Requests Suite
+#
+@baseUrl = http://localhost:8000
+@userEmail = story.crud.tester+1@example.com
+@userPassword = StrongP@ssw0rd!
+@storyTitle = My Test Story
+@updatedStoryTitle = My Updated Test Story
+
+### Register (idempotent if unique email)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "story-crud-tester",
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}",
+  "profile_img": null
+}
+
+### Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}"
+}
+
+### Create story
+POST {{baseUrl}}/stories/
+Content-Type: application/json
+
+{
+  "title": "{{storyTitle}}"
+}
+
+### Get all stories, capture id of created title
+GET {{baseUrl}}/stories/
+
+> {%
+const grid = response.body;
+if (!grid || !Array.isArray(grid.stories)) throw new Error("Unexpected response for /stories");
+const match = grid.stories.find(s => s.title === "{{storyTitle}}" );
+if (!match) throw new Error("Created story not found in grid");
+client.global.set("storyId", match.id);
+%}
+
+### Get story details
+GET {{baseUrl}}/stories/{{storyId}}
+
+### Update story title
+PUT {{baseUrl}}/stories/{{storyId}}
+Content-Type: application/json
+
+{
+  "title": "{{updatedStoryTitle}}"
+}
+
+### Update story status to Complete
+PUT {{baseUrl}}/stories/{{storyId}}
+Content-Type: application/json
+
+{
+  "status": "Complete"
+}
+
+### Negative: try creating duplicate title for same user (should conflict)
+POST {{baseUrl}}/stories/
+Content-Type: application/json
+
+{
+  "title": "{{updatedStoryTitle}}"
+}
+
+### Delete story
+DELETE {{baseUrl}}/stories/{{storyId}}
+
+> {% if (response.status < 200 || response.status >= 300) { throw new Error(`Expected successful delete, got ${response.status}`); } %}
+
+### Duplicate delete should 404
+DELETE {{baseUrl}}/stories/{{storyId}}
+
+> {% if (response.status !== 404) { throw new Error(`Expected 404 on duplicate delete, got ${response.status}`); } %}
+
+### Create another story for cross-user checks
+POST {{baseUrl}}/stories/
+Content-Type: application/json
+
+{
+  "title": "{{updatedStoryTitle}} (CrossUser)"
+}
+
+### Refresh stories and capture new story id
+GET {{baseUrl}}/stories/
+
+> {%
+const grid2 = response.body;
+if (!grid2 || !Array.isArray(grid2.stories)) throw new Error("Unexpected response for /stories (cross-user)");
+const match2 = grid2.stories.find(s => s.title === "{{updatedStoryTitle}} (CrossUser)" );
+if (!match2) throw new Error("Cross-user story not found in grid");
+client.global.set("storyIdX", match2.id);
+%}
+
+### Register user B for cross-user checks
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "story-crud-tester-b",
+  "email": "story.crud.tester+2@example.com",
+  "password": "{{userPassword}}",
+  "profile_img": null
+}
+
+### Login user B
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "story.crud.tester+2@example.com",
+  "password": "{{userPassword}}"
+}
+
+### User B: try to get user A's story details (403)
+GET {{baseUrl}}/stories/{{storyIdX}}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 when accessing another user's story details, got ${response.status}`); } %}
+
+### User B: try to update user A's story (403)
+PUT {{baseUrl}}/stories/{{storyIdX}}
+Content-Type: application/json
+
+{
+  "title": "Hacked"
+}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 when updating another user's story, got ${response.status}`); } %}
+
+### User B: try to delete user A's story (403)
+DELETE {{baseUrl}}/stories/{{storyIdX}}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 when deleting another user's story, got ${response.status}`); } %}
+
+### Non-existent story details should 404
+GET {{baseUrl}}/stories/00000000-0000-4000-8000-000000000999
+
+> {% if (response.status !== 404) { throw new Error(`Expected 404 for non-existent story, got ${response.status}`); } %}
+
+### Switch back to user A and cleanup cross-user story
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}"
+}
+
+### Cleanup: delete cross-user story
+DELETE {{baseUrl}}/stories/{{storyIdX}}

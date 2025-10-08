@@ -1,0 +1,122 @@
+# Nexus Writer Backend — End-to-End HTTP Flow
+# Covers: auth → story → chapters → target → analytics → cleanup
+#
+@baseUrl = http://localhost:8000
+@userEmail = e2e.tester+1@example.com
+@userPassword = StrongP@ssw0rd!
+@storyTitle = E2E Story
+
+### Health
+GET {{baseUrl}}/health
+
+### Register
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "e2e-tester",
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}",
+  "profile_img": null
+}
+
+### Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}"
+}
+
+> {% const u = response.body; if (u && u.id) client.global.set("userId", u.id); %}
+
+### Create story
+POST {{baseUrl}}/stories/
+Content-Type: application/json
+
+{
+  "title": "{{storyTitle}}"
+}
+
+### Get stories and capture storyId
+GET {{baseUrl}}/stories/
+
+> {%
+const grid = response.body;
+if (!grid || !Array.isArray(grid.stories)) {
+  throw new Error("Unexpected response from /stories");
+}
+const title = "{{storyTitle}}";
+const match = grid.stories.find(s => s.title === title);
+if (!match) {
+  if (grid.stories.length === 0) throw new Error("No stories found to use in e2e test");
+  client.global.set("storyId", grid.stories[0].id);
+} else {
+  client.global.set("storyId", match.id);
+}
+%}
+
+### Create chapter 1
+POST {{baseUrl}}/stories/{{storyId}}/chapters
+Content-Type: application/json
+
+{
+  "title": "E2E Chapter 1",
+  "content": "Hello world 1"
+}
+
+> {% const c1 = response.body; if (!c1 || !c1.id) throw new Error("Chapter 1 create failed"); client.global.set("c1", c1.id); %}
+
+### Create chapter 2
+POST {{baseUrl}}/stories/{{storyId}}/chapters
+Content-Type: application/json
+
+{
+  "title": "E2E Chapter 2",
+  "content": "Hello world 2"
+}
+
+> {% const c2 = response.body; if (!c2 || !c2.id) throw new Error("Chapter 2 create failed"); client.global.set("c2", c2.id); %}
+
+### Create a DAILY target
+POST {{baseUrl}}/stories/{{storyId}}/targets
+Content-Type: application/json
+
+{
+  "quota": 1000,
+  "frequency": "Daily",
+  "from_date": "2025-01-01T00:00:00Z",
+  "to_date": "2025-12-31T23:59:59Z"
+}
+
+> {% const t = response.body; if (!t || !t.target_id) throw new Error("Target create failed"); client.global.set("targetId", t.target_id); %}
+
+### Get analytics (defaults)
+GET {{baseUrl}}/stories/{{storyId}}/analytics
+
+### Update chapter 2 publish
+PUT {{baseUrl}}/chapters/{{c2}}
+Content-Type: application/json
+
+{
+  "published": true
+}
+
+### Reorder chapters: move pos 1 → 0
+POST {{baseUrl}}/stories/{{storyId}}/chapters/reorder
+Content-Type: application/json
+
+{
+  "from_pos": 1,
+  "to_pos": 0
+}
+
+### Delete target
+DELETE {{baseUrl}}/stories/{{storyId}}/targets/{{targetId}}
+
+### Cleanup: delete story (also deletes chapters)
+DELETE {{baseUrl}}/stories/{{storyId}}
+
+### Logout
+POST {{baseUrl}}/auth/logout

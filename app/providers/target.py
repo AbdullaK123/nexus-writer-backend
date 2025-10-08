@@ -5,6 +5,7 @@ from sqlmodel import select
 from app.schemas import UpdateTargetRequest, CreateTargetRequest, TargetResponse
 from fastapi import HTTPException, status, Depends
 from app.core.database import get_db
+from app.utils.logging_context import context_logger
 
 
 
@@ -24,12 +25,19 @@ class TargetProvider:
         story = await self.db.get(Story, story_id)
 
         if story is None:
+            context_logger(db_operation=True).warning(
+                "Create target failed: story not found story_id={story_id}", story_id=story_id
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Story not found"
             )
         
         if story.user_id != user_id:
+            context_logger(db_operation=True).warning(
+                "Create target forbidden: user_id={user_id} not owner of story_id={story_id}",
+                user_id=user_id, story_id=story_id
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only the story owner can create targets for it"
@@ -38,6 +46,10 @@ class TargetProvider:
         target = await self.get_target_by_story_id_and_frequency(story_id, user_id, payload.frequency)
 
         if target:
+            context_logger(db_operation=True).warning(
+                "Create target conflict: frequency already exists story_id={story_id} frequency={frequency}",
+                story_id=story_id, frequency=payload.frequency
+            )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="A target with that frequency already exists"
@@ -50,6 +62,13 @@ class TargetProvider:
         )
         self.db.add(target_to_create)
         await self.db.commit()
+        context_logger(db_operation=True).info(
+            "Target created story_id={story_id} user_id={user_id} frequency={frequency} quota={quota}",
+            story_id=story_id,
+            user_id=user_id,
+            frequency=target_to_create.frequency,
+            quota=target_to_create.quota,
+        )
 
         return TargetResponse(
             quota=target_to_create.quota,
@@ -80,14 +99,29 @@ class TargetProvider:
 
         target = (await self.db.exec(target_query)).first()
 
-        return TargetResponse(
-            quota=target.quota,
-            frequency=target.frequency,
-            from_date=target.from_date,
-            to_date=target.to_date,
-            story_id=story_id,
-            target_id=target.id
-        ) if target else None
+        if target:
+            context_logger(db_operation=True).info(
+                "Get target by frequency hit story_id={story_id} user_id={user_id} frequency={frequency}",
+                story_id=story_id,
+                user_id=user_id,
+                frequency=frequency,
+            )
+            return TargetResponse(
+                quota=target.quota,
+                frequency=target.frequency,
+                from_date=target.from_date,
+                to_date=target.to_date,
+                story_id=story_id,
+                target_id=target.id
+            )
+        else:
+            context_logger(db_operation=True).info(
+                "Get target by frequency miss story_id={story_id} user_id={user_id} frequency={frequency}",
+                story_id=story_id,
+                user_id=user_id,
+                frequency=frequency,
+            )
+            return None
 
     # get all targets for a story
     async def get_all_targets_by_story_id(
@@ -99,12 +133,19 @@ class TargetProvider:
         story = await self.db.get(Story, story_id)
 
         if story is None:
+            context_logger(db_operation=True).warning(
+                "List targets failed: story not found story_id={story_id}", story_id=story_id
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Story not found"
             )
         
         if story.user_id != user_id:
+            context_logger(db_operation=True).warning(
+                "List targets forbidden: user_id={user_id} not owner of story_id={story_id}",
+                user_id=user_id, story_id=story_id
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only the story owner can view targets for it"
@@ -119,6 +160,12 @@ class TargetProvider:
         )
 
         targets = (await self.db.exec(target_query)).all()
+        context_logger(db_operation=True).info(
+            "List targets story_id={story_id} user_id={user_id} count={count}",
+            story_id=story_id,
+            user_id=user_id,
+            count=len(targets),
+        )
 
         return [
             TargetResponse(
@@ -144,6 +191,9 @@ class TargetProvider:
         target = await self.db.get(Target, target_id)
 
         if target is None:
+            context_logger(db_operation=True).warning(
+                "Update target failed: target not found target_id={target_id}", target_id=target_id
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Target not found"
@@ -152,12 +202,19 @@ class TargetProvider:
         story = await self.db.get(Story, story_id)
             
         if story is None:
+            context_logger(db_operation=True).warning(
+                "Update target failed: story not found story_id={story_id}", story_id=story_id
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Story not found"
             )
         
         if story.user_id != user_id:
+            context_logger(db_operation=True).warning(
+                "Update target forbidden: user_id={user_id} not owner of story_id={story_id}",
+                user_id=user_id, story_id=story_id
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only the story owner can update targets for it"
@@ -168,6 +225,10 @@ class TargetProvider:
             setattr(target, field, value)
 
         await self.db.commit()
+        context_logger(db_operation=True).info(
+            "Target updated target_id={target_id} story_id={story_id} user_id={user_id}",
+            target_id=target.id, story_id=story_id, user_id=user_id
+        )
 
         return TargetResponse(
             quota=target.quota,
@@ -189,6 +250,9 @@ class TargetProvider:
         target = await self.db.get(Target, target_id)
 
         if target is None:
+            context_logger(db_operation=True).warning(
+                "Delete target failed: target not found target_id={target_id}", target_id=target_id
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Target not found"
@@ -197,12 +261,19 @@ class TargetProvider:
         story = await self.db.get(Story, story_id)
             
         if story is None:
+            context_logger(db_operation=True).warning(
+                "Delete target failed: story not found story_id={story_id}", story_id=story_id
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Story not found"
             )
         
         if story.user_id != user_id:
+            context_logger(db_operation=True).warning(
+                "Delete target forbidden: user_id={user_id} not owner of story_id={story_id}",
+                user_id=user_id, story_id=story_id
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only the story owner can update targets for it"
@@ -210,6 +281,10 @@ class TargetProvider:
 
         await self.db.delete(target)
         await self.db.commit()
+        context_logger(db_operation=True).info(
+            "Target deleted target_id={target_id} story_id={story_id} user_id={user_id}",
+            target_id=target_id, story_id=story_id, user_id=user_id
+        )
 
         return {
             "message": "Successfully deleted target"
