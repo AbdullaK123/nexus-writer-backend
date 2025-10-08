@@ -61,7 +61,7 @@ class Story(SQLModel, TimeStampMixin, table=True):
     path_array: Optional[List[str]] = Field(sa_column=Column(ARRAY(String)))
     chapters: List['Chapter'] = Relationship(back_populates='story', cascade_delete=True)
     user: 'User' = Relationship(back_populates='stories')
-    target: 'Target' = Relationship(back_populates='story')
+    target: 'Target' = Relationship(back_populates='story', cascade_delete=True)
 
 
 class Chapter(SQLModel, TimeStampMixin, table=True):

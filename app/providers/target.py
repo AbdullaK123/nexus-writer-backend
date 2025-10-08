@@ -89,6 +89,49 @@ class TargetProvider:
             target_id=target.id
         ) if target else None
 
+    # get all targets for a story
+    async def get_all_targets_by_story_id(
+        self,
+        story_id: str,
+        user_id: str
+    ) -> list[TargetResponse]:
+        
+        story = await self.db.get(Story, story_id)
+
+        if story is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Story not found"
+            )
+        
+        if story.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the story owner can view targets for it"
+            )
+        
+        target_query = (
+            select(Target)
+            .where(
+                Target.story_id == story_id,
+                Target.user_id == user_id
+            )
+        )
+
+        targets = (await self.db.exec(target_query)).all()
+
+        return [
+            TargetResponse(
+                quota=target.quota,
+                frequency=target.frequency,
+                from_date=target.from_date,
+                to_date=target.to_date,
+                story_id=target.story_id,
+                target_id=target.id
+            )
+            for target in targets
+        ]
+
     # update
     async def update_target(
         self,

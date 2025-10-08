@@ -8,7 +8,7 @@ from app.schemas.story import CreateStoryRequest, UpdateStoryRequest, StoryGridR
 from app.schemas.chapter import CreateChapterRequest, ChapterContentResponse, ReorderChapterRequest, ChapterListResponse
 from app.providers.analytics import get_analytics_provider, AnalyticsProvider
 from app.providers.target import TargetProvider, get_target_provider
-from app.schemas.target import TargetResponse, CreateTargetRequest, UpdateTargetRequest
+from app.schemas.target import TargetResponse, CreateTargetRequest, UpdateTargetRequest, TargetListResponse
 from app.models import FrequencyType
 from typing import Optional
 from datetime import datetime, timedelta
@@ -122,18 +122,30 @@ async def create_target(
         payload
     )
 
-@story_controller.get('/{story_id}/targets', response_model=Optional[TargetResponse])
-async def get_target(
+@story_controller.get('/{story_id}/targets')
+async def get_targets(
     story_id: str,
-    frequency: FrequencyType = Query(),
+    frequency: Optional[FrequencyType] = Query(default=None),
     current_user: User = Depends(get_current_user),
     target_provider: TargetProvider = Depends(get_target_provider)
-) -> Optional[TargetResponse]:
-    return await target_provider.get_target_by_story_id_and_frequency(
-        story_id,
-        current_user.id,
-        frequency
-    )
+):
+    """
+    Get targets for a story.
+    - If frequency is provided, returns a single target (or null)
+    - If frequency is not provided, returns all targets for the story
+    """
+    if frequency:
+        return await target_provider.get_target_by_story_id_and_frequency(
+            story_id,
+            current_user.id,
+            frequency
+        )
+    else:
+        targets = await target_provider.get_all_targets_by_story_id(
+            story_id,
+            current_user.id
+        )
+        return TargetListResponse(targets=targets)
 
 @story_controller.put('/{story_id}/targets/{target_id}', response_model=TargetResponse)
 async def update_target(

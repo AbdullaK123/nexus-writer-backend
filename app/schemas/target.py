@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel
 from pydantic import model_validator
-from typing import Optional
+from typing import Optional, List
 from app.models import FrequencyType
 from datetime import datetime
 
@@ -18,6 +18,10 @@ class TargetResponse(SQLModel):
         if self.to_date < self.from_date:
             raise ValueError("to_date must be after from_date")
         return self
+
+
+class TargetListResponse(SQLModel):
+    targets: List[TargetResponse]
 
 class UpdateTargetRequest(SQLModel):
     quota: Optional[int] = None
