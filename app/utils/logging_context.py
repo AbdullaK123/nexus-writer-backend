@@ -27,6 +27,9 @@ def context_logger(**extra):
     """Return a logger bound with correlation_id and user_id from context."""
     cid = get_correlation_id()
     uid = get_user_id()
+    # Remove correlation_id and user_id from extra to avoid duplicate keyword arguments
+    extra.pop("correlation_id", None)
+    extra.pop("user_id", None)
     return logger.bind(correlation_id=cid, user_id=uid, **extra)
 
 
