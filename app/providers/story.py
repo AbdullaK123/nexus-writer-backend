@@ -1,24 +1,27 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, desc
 from typing import Optional, List
-from app.models import Story, Chapter
+from app.models import Story, Chapter, Target
+from app.providers.target import TargetProvider
 from app.schemas.chapter import ChapterListItem
 from fastapi import HTTPException, status, Depends
 from app.core.database import get_db
 from app.schemas.story import (
     CreateStoryRequest,
+    StoryListItemResponse,
     UpdateStoryRequest,
     StoryCardResponse,
     StoryDetailResponse,
     StoryGridResponse
 )
 from loguru import logger
-from app.utils.lexical import get_word_count
+from app.utils.html import get_word_count
 
 class StoryProvider:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.target_provider = TargetProvider(db)
 
     async def append_to_path_end(self, story_id: str, chapter_id: str):
 
@@ -280,6 +283,51 @@ class StoryProvider:
         ] if stories else []
 
         return StoryGridResponse(stories=story_cards)
+    
+    async def get_all_story_list_items(self, user_id: str) -> List[StoryListItemResponse]:
+        
+        stories_query = (
+            select(
+                Story.id,
+                Story.title,
+            )
+            .where(Story.user_id == user_id)
+            .order_by(
+                desc(Story.created_at)
+            )
+        )
+
+        stories = (await self.db.execute(stories_query)).scalars().all()
+
+        chapter_queries = {
+            story.id: (
+                select(Chapter)
+                .where(
+                    Chapter.story_id == story.id
+                ).order_by(
+                    desc(Chapter.created_at)
+                )
+            )
+            for story in stories
+        }
+
+        chapters = {
+            story_id: (await self.db.execute(query)).scalars().all()
+            for story_id, query
+            in chapter_queries.items()
+        }
+
+        list_responses = [
+            StoryListItemResponse(
+                id=story.id,
+                title=story.title,
+                word_count=sum(get_word_count(chapter.content) for chapter in chapters[story.id]),
+                targets = (await self.target_provider.get_all_targets_by_story_id(story.id, user_id))
+            )
+            for story in stories
+        ]
+
+        return list_responses
     
 
 async def get_story_provider(db: AsyncSession = Depends(get_db)):

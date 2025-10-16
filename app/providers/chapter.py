@@ -12,7 +12,7 @@ from app.schemas.chapter import (
     ChapterListResponse
 )
 from fastapi import HTTPException, status, Depends
-from app.utils.lexical import get_word_count, get_preview_content
+from app.utils.html import get_preview_content, get_word_count
 from app.jobs.chapter import (
     handle_chapter_creation,
     handle_chapter_deletion,
@@ -63,7 +63,7 @@ class ChapterProvider:
             return await self.get_chapter_with_navigation(
                 chapter_to_create.id,
                 user_id,
-                as_lexical_json=True
+                as_html=True
             )
             
         except Exception as e:
@@ -218,7 +218,7 @@ class ChapterProvider:
         self, 
         chapter_id: str, 
         user_id: str, 
-        as_lexical_json: bool = True
+        as_html: bool = True
     ) -> ChapterContentResponse:
         """Get chapter with prev/next navigation and story context"""
 
@@ -236,11 +236,11 @@ class ChapterProvider:
             raise HTTPException(404, "Chapter not found")
         
         chapter, story_title = result
-        
+
         return ChapterContentResponse(
             id=chapter.id,
             title=chapter.title,
-            content=chapter.content if as_lexical_json else get_preview_content(chapter.content),
+            content=chapter.content if as_html else get_preview_content(chapter.content),
             published=chapter.published,
             story_id=chapter.story_id,
             story_title=story_title,

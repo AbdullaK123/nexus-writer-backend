@@ -4,13 +4,13 @@ from app.providers.chapter import ChapterProvider, get_chapter_provider
 from app.providers.auth import get_current_user
 from app.models import User
 from app.schemas.analytics import StoryAnalyticsResponse
-from app.schemas.story import CreateStoryRequest, UpdateStoryRequest, StoryGridResponse, StoryDetailResponse
+from app.schemas.story import CreateStoryRequest, StoryListItemResponse, UpdateStoryRequest, StoryGridResponse, StoryDetailResponse
 from app.schemas.chapter import CreateChapterRequest, ChapterContentResponse, ReorderChapterRequest, ChapterListResponse
 from app.providers.analytics import get_analytics_provider, AnalyticsProvider
 from app.providers.target import TargetProvider, get_target_provider
 from app.schemas.target import TargetResponse, CreateTargetRequest, UpdateTargetRequest, TargetListResponse
 from app.models import FrequencyType
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime, timedelta
 
 
@@ -107,6 +107,13 @@ async def get_story_analytics(
         from_date,
         to_date
     )
+
+@story_controller.get('/targets', response_model=List[StoryListItemResponse])
+async def get_stories_with_targets(
+    current_user: User = Depends(get_current_user),
+    story_provider: StoryProvider = Depends(get_story_provider)
+) -> List[StoryListItemResponse]:
+    return await story_provider.get_all_story_list_items(current_user.id)
 
 
 @story_controller.post('/{story_id}/targets', response_model=TargetResponse)
