@@ -1,6 +1,6 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models import FrequencyType, Target, Story
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from sqlmodel import select
 from app.schemas import UpdateTargetRequest, CreateTargetRequest, TargetResponse
 from fastapi import HTTPException, status, Depends
@@ -128,7 +128,7 @@ class TargetProvider:
         self,
         story_id: str,
         user_id: str
-    ) -> list[TargetResponse]:
+    ) -> List[TargetResponse]:
         
         story = await self.db.get(Story, story_id)
 

@@ -16,6 +16,13 @@ from datetime import datetime, timedelta
 
 story_controller = APIRouter(prefix='/stories')
 
+@story_controller.get('/targets', response_model=List[StoryListItemResponse])
+async def get_stories_with_targets(
+    current_user: User = Depends(get_current_user),
+    story_provider: StoryProvider = Depends(get_story_provider)
+) -> List[StoryListItemResponse]:
+    return await story_provider.get_all_story_list_items(current_user.id)
+
 @story_controller.post('/', response_model=dict)
 async def create_story(
     story_info: CreateStoryRequest,
@@ -107,14 +114,6 @@ async def get_story_analytics(
         from_date,
         to_date
     )
-
-@story_controller.get('/targets', response_model=List[StoryListItemResponse])
-async def get_stories_with_targets(
-    current_user: User = Depends(get_current_user),
-    story_provider: StoryProvider = Depends(get_story_provider)
-) -> List[StoryListItemResponse]:
-    return await story_provider.get_all_story_list_items(current_user.id)
-
 
 @story_controller.post('/{story_id}/targets', response_model=TargetResponse)
 async def create_target(

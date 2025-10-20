@@ -78,72 +78,40 @@ class AnalyticsProvider:
         return await asyncio.to_thread(self._sql_sync, query, params)
 
     async def get_writing_kpis(
-        self,
-        story_id: str,
-        user_id: str,
-        frequency: FrequencyType,
+            self,
+            story_id: str,
+            user_id: str,
+            frequency: FrequencyType,
     ) -> Dict[str, Any]:
 
         if frequency == "Daily":
-            return (await self.sql(
-                """
-                SELECT
-                    COALESCE(SUM(words_written), 0) as total_words,
-                    COALESCE(SUM(duration), 0) as total_duration,
-                    COALESCE(AVG(words_per_minute), 0) as avg_words_per_minute
-                FROM writing_sessions
-                WHERE story_id=?
-                AND user_id=?
-                AND started::date = TODAY()
-                """,
-                (
-                    story_id,
-                    user_id
-                )
-            ))[0]
+            time_filter = "started::date = CURRENT_DATE"
         elif frequency == "Weekly":
-            return (await self.sql(
-                """
-                SELECT
-                    COALESCE(SUM(words_written), 0) as total_words,
-                    COALESCE(SUM(duration), 0) as total_duration,
-                    COALESCE(AVG(words_per_minute), 0) as avg_words_per_minute
-                FROM writing_sessions
-                WHERE story_id=?
-                AND user_id=?
-                AND started::date BETWEEN TODAY() - INTERVAL '7 days' AND TODAY()
-                """,
-                (
-                    story_id,
-                    user_id
-                )
-            ))[0]
-        else:
-            return (await self.sql(
-                """
-                SELECT
-                    COALESCE(SUM(words_written), 0) as total_words,
-                    COALESCE(SUM(duration), 0) as total_duration,
-                    COALESCE(AVG(words_per_minute), 0) as avg_words_per_minute
-                FROM writing_sessions
-                WHERE story_id=?
-                AND user_id=?
-                AND started::date BETWEEN TODAY() - INTERVAL '30 days' AND TODAY()
-                """,
-                (
-                    story_id,
-                    user_id
-                )
-            ))[0]
+            time_filter = "started::date >= CURRENT_DATE - INTERVAL '7 days'"
+        else:  # Monthly
+            time_filter = "started::date >= CURRENT_DATE - INTERVAL '30 days'"
 
-    
+        return (await self.sql(
+            f"""
+            SELECT
+                COALESCE(SUM(words_written), 0) as total_words,
+                COALESCE(SUM(duration), 0) as total_duration,
+                COALESCE(AVG(words_per_minute), 0) as avg_words_per_minute
+            FROM writing_sessions
+            WHERE story_id = ?
+            AND user_id = ?
+            AND {time_filter}
+            """,
+            (story_id, user_id)
+        ))[0]
+
     async def get_writing_output_over_time(
-        self, 
-        story_id: str, 
-        user_id: str,
-        frequency: FrequencyType,
-        from_date: datetime = datetime.now() - timedelta(days=30),
-        to_date: datetime = datetime.now()
+            self,
+            story_id: str,
+            user_id: str,
+            frequency: FrequencyType,
+            from_date: datetime,
+            to_date: datetime
     ) -> List[Dict[str, Any]]:
 
         if to_date < from_date:
@@ -153,67 +121,43 @@ class AnalyticsProvider:
             )
 
         if frequency == "Daily":
-            return await self.sql(
-                """
-                SELECT
-                    started::date as date,
+            query = """
+                    SELECT started::date as date,
                     SUM(words_written) as total_words
-                FROM writing_sessions
-                WHERE story_id=?
-                AND user_id=?
-                AND started BETWEEN ? AND ?
-                GROUP BY started::date
-                ORDER BY date
-                """,
-                (
-                    story_id, 
-                    user_id,
-                    from_date,
-                    to_date
-                )
-            )
+                    FROM writing_sessions
+                    WHERE story_id = ?
+                      AND user_id = ?
+                      AND started:: date BETWEEN ?:: date \
+                      AND ?:: date
+                    GROUP BY started:: date
+                    ORDER BY date \
+                    """
         elif frequency == "Weekly":
-            return await self.sql(
-                """
-                SELECT
-                    DATE_TRUNC('week', started::date) as week_start,
-                    EXTRACT( week from started::date) as week_num,
-                    SUM(words_written) as total_words
-                FROM writing_sessions
-                WHERE story_id=?
-                AND user_id=?
-                AND started BETWEEN ? AND ?
-                GROUP BY DATE_TRUNC('week', started::date), EXTRACT( week from started::date)
-                ORDER BY week_start
-                """,
-                 (
-                    story_id, 
-                    user_id,
-                    from_date,
-                    to_date
-                )
-            )
-        else:
-            return await self.sql(
-                """
-                SELECT
-                    DATE_TRUNC('month', started::date) as month_start,
-                    MONTHNAME(started::date) as month_name,
-                    SUM(words_written) as total_words
-                FROM writing_sessions
-                WHERE story_id=?
-                AND user_id=?
-                AND started BETWEEN ? AND ?
-                GROUP BY DATE_TRUNC('month', started::date), MONTHNAME(started::date)
-                ORDER BY month_start
-                """,
-                 (
-                    story_id, 
-                    user_id,
-                    from_date,
-                    to_date
-                )
-            )
+            query = """
+                    SELECT DATE_TRUNC('week', started) as week_start, \
+                           EXTRACT(week FROM started)  as week_num, \
+                           SUM(words_written)          as total_words
+                    FROM writing_sessions
+                    WHERE story_id = ?
+                      AND user_id = ?
+                      AND started::date BETWEEN ?::date AND ?::date
+                    GROUP BY DATE_TRUNC('week', started), EXTRACT (week FROM started)
+                    ORDER BY week_start \
+                    """
+        else:  # Monthly
+            query = """
+                    SELECT DATE_TRUNC('month', started) as month_start, \
+                           MONTHNAME(started)           as month_name, \
+                           SUM(words_written)           as total_words
+                    FROM writing_sessions
+                    WHERE story_id = ?
+                      AND user_id = ?
+                      AND started::date BETWEEN ?::date AND ?::date
+                    GROUP BY DATE_TRUNC('month', started), MONTHNAME(started)
+                    ORDER BY month_start \
+                    """
+
+        return await self.sql(query, (story_id, user_id, from_date, to_date))
 
     @staticmethod
     def _convert_uuid_fields(record: dict) -> dict:

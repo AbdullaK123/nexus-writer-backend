@@ -287,10 +287,7 @@ class StoryProvider:
     async def get_all_story_list_items(self, user_id: str) -> List[StoryListItemResponse]:
         
         stories_query = (
-            select(
-                Story.id,
-                Story.title,
-            )
+            select(Story)
             .where(Story.user_id == user_id)
             .order_by(
                 desc(Story.created_at)
