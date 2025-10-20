@@ -5,8 +5,6 @@ def get_word_count(html: str) -> int:
     """Get word count from TipTap Editor"""
     if not html or html.strip() == "":
         return 0
-
-    print(f"Parsing: \n\n {html}")
     
     soup = BeautifulSoup(html, 'html.parser')
     

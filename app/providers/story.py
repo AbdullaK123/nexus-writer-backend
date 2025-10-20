@@ -192,6 +192,8 @@ class StoryProvider:
 
     async def get_by_id(self, user_id: str, id: str) -> Optional[Story]:
 
+        print(f"DEBUG StoryProvider.get_by_id: story_id={id}, user_id={user_id}")
+
         query = (
             select(Story)
             .where(

@@ -1,8 +1,8 @@
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, Field
 from pydantic import model_validator
 from typing import Optional, List
 from app.models import FrequencyType
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 
 def _to_naive_utc(dt: Optional[datetime]) -> Optional[datetime]:
@@ -15,12 +15,12 @@ def _to_naive_utc(dt: Optional[datetime]) -> Optional[datetime]:
 
 
 class TargetResponse(SQLModel):
-    quota: int
-    frequency: FrequencyType
-    from_date: datetime
-    to_date: datetime
+    quota: int = Field(default=0)
+    frequency: FrequencyType = Field(default="Daily")
+    from_date: datetime = Field(default=datetime.now() - timedelta(days=30))
+    to_date: datetime = Field(default=datetime.now())
     story_id: str
-    target_id: str
+    target_id: Optional[str] = None
 
     @model_validator(mode="after")
     def normalize_and_validate(self):

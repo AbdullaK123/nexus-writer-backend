@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel
 from datetime import datetime
-from typing import Union, List, Dict, Any
+from typing import Union, List, Dict, Any, Optional
 from uuid import UUID
 from pydantic import field_validator
 from app.schemas import TargetResponse
@@ -9,7 +9,7 @@ from app.schemas import TargetResponse
 class StoryAnalyticsResponse(SQLModel):
     kpis: Dict[str, Any]
     words_over_time: List[Dict[str, Any]]
-    target: TargetResponse
+    target: Optional[TargetResponse] = None
 
 class WritingSessionEvent(SQLModel):
     sessionId: str
