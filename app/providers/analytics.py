@@ -195,39 +195,41 @@ class AnalyticsProvider:
 
         if frequency == "Daily":
             query = """
-                    SELECT started::date as date,
-                    SUM(words_written) as total_words
+                    SELECT 
+                        started::date as date,
+                        SUM(words_written) as total_words
                     FROM writing_sessions
                     WHERE story_id = ?
                       AND user_id = ?
-                      AND started:: date BETWEEN ? \
-                      AND ?
+                      AND started:: date BETWEEN ? AND ?
                     GROUP BY started:: date
-                    ORDER BY date \
+                    ORDER BY date 
                     """
         elif frequency == "Weekly":
             query = """
-                    SELECT DATE_TRUNC('week', started) as week_start, \
-                           EXTRACT(week FROM started)  as week_num, \
-                           SUM(words_written)          as total_words
+                    SELECT 
+                        DATE_TRUNC('week', started)::date as week_start,
+                        EXTRACT(week FROM started)  as week_num, 
+                        SUM(words_written)          as total_words
                     FROM writing_sessions
                     WHERE story_id = ?
                       AND user_id = ?
                       AND started::date BETWEEN ? AND ?
-                    GROUP BY DATE_TRUNC('week', started), EXTRACT (week FROM started)
-                    ORDER BY week_start \
+                    GROUP BY DATE_TRUNC('week', started)::date, EXTRACT (week FROM started)
+                    ORDER BY week_start 
                     """
         else:  # Monthly
             query = """
-                    SELECT DATE_TRUNC('month', started) as month_start, \
-                           MONTHNAME(started)           as month_name, \
-                           SUM(words_written)           as total_words
+                    SELECT 
+                        DATE_TRUNC('month', started)::date as month_start, 
+                        MONTHNAME(started)           as month_name, 
+                        SUM(words_written)           as total_words
                     FROM writing_sessions
                     WHERE story_id = ?
                       AND user_id = ?
                       AND started::date BETWEEN ? AND ?
-                    GROUP BY DATE_TRUNC('month', started), MONTHNAME(started)
-                    ORDER BY month_start \
+                    GROUP BY DATE_TRUNC('month', started)::date, MONTHNAME(started)
+                    ORDER BY month_start 
                     """
 
         logger.debug(
@@ -240,6 +242,8 @@ class AnalyticsProvider:
         )
 
         result = await self.sql(query, (story_id, user_id, from_date_str, to_date_str))
+
+        logger.info(f"Retrieved result: {result}")
 
         logger.info(
             "✅ Writing output retrieved",
@@ -321,25 +325,31 @@ class AnalyticsProvider:
         )
 
         try:
-            kpis, words_over_time, target = await asyncio.gather(
-                self.get_writing_kpis(
+            kpis =  await self.get_writing_kpis(
                     story_id=story_id,
                     user_id=user_id,
                     frequency=frequency
-                ),
-                self.get_writing_output_over_time(
+                )
+
+            logger.info(f"kpis={kpis}")
+
+            words_over_time = await self.get_writing_output_over_time(
                     story_id=story_id,
                     user_id=user_id,
                     frequency=frequency,
                     from_date=from_date,
                     to_date=to_date
-                ),
-                self.target_provider.get_target_by_story_id_and_frequency(
+                )
+
+            logger.info(f"words_over_time={words_over_time}")
+
+            target = await self.target_provider.get_target_by_story_id_and_frequency(
                     story_id,
                     user_id,
                     frequency
                 )
-            )
+
+            logger.info(f"target={target}")
 
             logger.success(
                 "✅ All analytics data gathered successfully",
@@ -354,7 +364,7 @@ class AnalyticsProvider:
             response = StoryAnalyticsResponse(
                 kpis=kpis,
                 words_over_time=words_over_time,
-                target=target if target else TargetResponse(story_id=story_id)
+                target=target if target else TargetResponse(frequency=frequency, story_id=story_id)
             )
 
             logger.info(

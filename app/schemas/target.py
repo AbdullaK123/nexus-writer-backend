@@ -17,7 +17,7 @@ def _to_naive_utc(dt: Optional[datetime]) -> Optional[datetime]:
 class TargetResponse(SQLModel):
     quota: int = Field(default=0)
     frequency: FrequencyType = Field(default="Daily")
-    from_date: datetime = Field(default=datetime.now() - timedelta(days=30))
+    from_date: datetime = Field(default=datetime.now())
     to_date: datetime = Field(default=datetime.now())
     story_id: str
     target_id: Optional[str] = None
