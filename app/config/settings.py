@@ -19,6 +19,7 @@ class Config(BaseSettings):
     cookie_signing_key: str = Field(..., description='For verifying the signature of our encrypted session ids')
     cookie_encryption_key: str = Field(..., description='For encrypting our cookies')
     redis_url: str = Field(..., description="The uri for redis")
+    rabbitmq_url: str = Field(..., description="The uri for rabbitmq")
     env: str = Field(default='dev')
     debug: bool = Field(default=False)
     password_pattern: str = r"^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>/?]).{8,}$"

@@ -5,11 +5,11 @@ from app.models import Chapter, Story
 from app.core.database import get_db
 from app.schemas.chapter import (
     CreateChapterRequest,
-    UpdateChapterRequest, 
+    UpdateChapterRequest,
     ReorderChapterRequest,
     ChapterListItem,
     ChapterContentResponse,
-    ChapterListResponse
+    ChapterListResponse, ChapterEditRequest
 )
 from fastapi import HTTPException, status, Depends
 from app.utils.html import get_preview_content, get_word_count
@@ -19,6 +19,10 @@ from app.jobs.chapter import (
     handle_chapter_reordering
 )
 from loguru import logger
+from app.agents.prose import edit_chapter
+from app.agents.models import  ReadabilityMetrics, ChapterEditResponse
+import time
+
 
 class ChapterProvider:
 
@@ -213,6 +217,28 @@ class ChapterProvider:
             story_last_updated=story_last_updated,
             chapters=list_items
         )
+
+    @staticmethod
+    async def edit_chapter(request: ChapterEditRequest) -> ChapterEditResponse:
+        try:
+            logger.info(f"Starting chapter edit for {request.id}")
+            time_start = time.perf_counter()
+            edits = await edit_chapter(request)
+            edited_text = "\n\n".join([edit.edited_text for edit in edits.paragraph_edits])
+            before_metrics = ReadabilityMetrics.from_text(request.content)
+            after_metrics = ReadabilityMetrics.from_text(edited_text)
+            time_end = time.perf_counter()
+            logger.info(f"Chapter edit completed in {time_end - time_start:.2f} seconds")
+            execution_time = round((time_end - time_start) * 1000, 2)
+            return ChapterEditResponse(
+                edits=edits,
+                before_metrics=before_metrics,
+                after_metrics=after_metrics,
+                execution_time=execution_time
+            )
+        except Exception as e:
+            logger.error(f"Error editing chapter: {e}")
+            raise HTTPException(500, "Failed to edit chapter")
 
     async def get_chapter_with_navigation(
         self, 

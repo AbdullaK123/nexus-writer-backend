@@ -41,3 +41,6 @@ class ChapterListResponse(SQLModel):
     story_status: StoryStatus
     story_last_updated: datetime
     chapters: List[ChapterListItem]
+
+class ChapterEditRequest(SQLModel):
+    content: str

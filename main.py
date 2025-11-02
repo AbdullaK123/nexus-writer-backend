@@ -11,6 +11,9 @@ from app.config.lifespan import lifespan
 from app.middleware.http_logging import HTTPLoggingMiddleware
 from loguru import logger
 from app.utils.logging_context import get_correlation_id
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 app = FastAPI(
