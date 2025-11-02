@@ -54,3 +54,4 @@ class ChapterEditResponse(BaseModel):
     before_metrics: ReadabilityMetrics
     after_metrics: ReadabilityMetrics
     execution_time: float
+    from_cache: bool = Field(default=False, description="Whether the chapter edits were retrieved from cache.")

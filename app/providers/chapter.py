@@ -1,6 +1,9 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from typing import Optional, List
+
+from app.caches import EditCache
+from app.core.redis import get_redis
 from app.models import Chapter, Story
 from app.core.database import get_db
 from app.schemas.chapter import (
@@ -28,6 +31,7 @@ class ChapterProvider:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.edit_cache = EditCache()
 
     # ========================================
     # CORE CRUD OPERATIONS - SIMPLE & CLEAN
@@ -218,12 +222,16 @@ class ChapterProvider:
             chapters=list_items
         )
 
-    @staticmethod
-    async def edit_chapter(request: ChapterEditRequest) -> ChapterEditResponse:
+    async def edit_chapter(self, user_id: str, request: ChapterEditRequest) -> ChapterEditResponse:
         try:
             logger.info(f"Starting chapter edit for {request.id}")
             time_start = time.perf_counter()
-            edits = await edit_chapter(request)
+            edits = self.edit_cache.get(request.content, user_id)
+            from_cache = True
+            if edits is None:
+                logger.info(f"Edit cache miss for {request.id}")
+                from_cache = False
+                edits = await edit_chapter(request)
             edited_text = "\n\n".join([edit.edited_text for edit in edits.paragraph_edits])
             before_metrics = ReadabilityMetrics.from_text(request.content)
             after_metrics = ReadabilityMetrics.from_text(edited_text)
@@ -234,7 +242,8 @@ class ChapterProvider:
                 edits=edits,
                 before_metrics=before_metrics,
                 after_metrics=after_metrics,
-                execution_time=execution_time
+                execution_time=execution_time,
+                from_cache=from_cache
             )
         except Exception as e:
             logger.error(f"Error editing chapter: {e}")

@@ -4,6 +4,7 @@ from langchain.agents.structured_output import ToolStrategy
 from app.agents.models import ChapterEdit
 from app.agents.prompts import PROSE_AGENT_EDIT_PROMPT, PROSE_AGENT_SYSTEM_PROMPT
 from app.agents.tools.prose import calculate_readability_metrics, compare_readability_metrics
+from app.caches import EditCache
 from app.schemas.chapter import ChapterEditRequest
 
 prose_agent = create_agent(
