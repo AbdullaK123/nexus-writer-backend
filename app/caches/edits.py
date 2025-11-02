@@ -11,7 +11,7 @@ class EditCache:
         self.redis = get_redis()
         self.ttl = 60 * 60 * 24
 
-    def _make_key(self, text: str, user_id: int) -> str:
+    def _make_key(self, text: str, user_id: str) -> str:
         text_hash = hashlib.sha256(text.encode('utf-8')).hexdigest()[:16]
         return f"edits:{user_id}:{text_hash}"
 
@@ -23,10 +23,10 @@ class EditCache:
             return ChapterEdit(**data)
         return None
 
-    def set(self, text: str, user_id: int, edit: ChapterEdit):
+    def set(self, text: str, user_id: str, edit: ChapterEdit):
         key = self._make_key(text, user_id)
         self.redis.set(key, edit.model_dump_json(), ex=self.ttl)
 
-    def invalidate(self, text: str, user_id: int):
+    def invalidate(self, text: str, user_id: str):
         key = self._make_key(text, user_id)
         self.redis.delete(key)
