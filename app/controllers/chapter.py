@@ -1,5 +1,4 @@
-from fastapi import APIRouter, Depends
-
+from fastapi import APIRouter, Depends, BackgroundTasks
 from app.agents.models import ChapterEditResponse
 from app.providers.chapter import ChapterProvider, get_chapter_provider
 from app.providers.auth import get_current_user
@@ -39,22 +38,26 @@ async def get_chapter_with_navigation(
 async def update_chapter(
     chapter_id: str,
     updated_info: UpdateChapterRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     chapter_provider: ChapterProvider = Depends(get_chapter_provider)
 ) -> ChapterContentResponse:
     return await chapter_provider.update(
-        chapter_id,
-        current_user.id,
-        updated_info
+        chapter_id=chapter_id,
+        user_id=current_user.id,
+        data=updated_info,
+        background_tasks=background_tasks
     )
 
 @chapter_controller.delete('/{chapter_id}', response_model=dict)
 async def delete_chapter(
     chapter_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     chapter_provider: ChapterProvider = Depends(get_chapter_provider)
 ) -> dict:
     return await chapter_provider.delete(
-        chapter_id, 
-        current_user.id
+        chapter_id=chapter_id,
+        background_tasks=background_tasks,
+        user_id=current_user.id
     )
