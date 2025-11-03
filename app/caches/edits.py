@@ -26,7 +26,7 @@ class EditCache:
 
     def set(self, text: str, user_id: str, response: ChapterEditResponse):
         key = self._make_key(text, user_id)
-        data = response.model_dump(exclude={'from_cache'})
+        data = response.model_dump(exclude={'from_cache'}, mode="json")
         self.redis.set(key, json.dumps(data), ex=self.ttl)
 
     def invalidate(self, text: str, user_id: str):
