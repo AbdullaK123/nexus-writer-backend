@@ -6,8 +6,15 @@ from app.agents.prompts import PROSE_AGENT_EDIT_PROMPT, PROSE_AGENT_SYSTEM_PROMP
 from app.agents.tools.prose import calculate_readability_metrics, compare_readability_metrics
 from app.schemas.chapter import ChapterEditRequest
 from dotenv import load_dotenv
+from app.config.settings import app_config
 
 load_dotenv()
+
+if not app_config.openai_api_key:
+    raise RuntimeError(
+        "OPENAI_API_KEY not configured. "
+        "Set it in .env to use the prose editing agent."
+    )
 
 prose_agent =  create_agent(
     "openai:gpt-5-mini",

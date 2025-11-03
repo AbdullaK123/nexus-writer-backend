@@ -14,7 +14,7 @@ from app.schemas.chapter import (
     ChapterContentResponse,
     ChapterListResponse, ChapterEditRequest
 )
-from fastapi import HTTPException, status, Depends
+from fastapi import BackgroundTasks, HTTPException, status, Depends
 from app.utils.html import get_preview_content, get_word_count
 from app.jobs.chapter import (
     handle_chapter_creation,
@@ -92,7 +92,13 @@ class ChapterProvider:
         chapter = (await self.db.execute(chapter_query)).scalar_one_or_none()
         return chapter
 
-    async def update(self, chapter_id: str, user_id: str, data: UpdateChapterRequest) -> ChapterContentResponse:
+    async def update(
+        self, 
+        chapter_id: str, 
+        user_id: str, 
+        data: UpdateChapterRequest,
+        background_tasks: BackgroundTasks
+    ) -> ChapterContentResponse:
         """Update chapter content, title, or published status"""
 
         query = (
@@ -115,6 +121,8 @@ class ChapterProvider:
             setattr(chapter, field, value)
         await self.db.commit()
 
+        background_tasks.add_task(self.edit_cache.invalidate, text=chapter.content, user_id=user_id)
+
         return ChapterContentResponse(
             id=chapter.id,
             title=chapter.title,
@@ -128,7 +136,12 @@ class ChapterProvider:
             next_chapter_id=chapter.next_chapter_id
         )
 
-    async def delete(self, chapter_id: str, user_id: str) -> dict:
+    async def delete(
+        self, 
+        chapter_id: str, 
+        user_id: str,
+        background_tasks: BackgroundTasks
+    ) -> dict:
         """Delete chapter with pointer cleanup - SINGLE TRANSACTION"""
         
         chapter_query = select(Chapter).where(
@@ -151,6 +164,8 @@ class ChapterProvider:
             
             # 3. Only commit if EVERYTHING succeeded
             await self.db.commit()
+
+            background_tasks.add_task(self.edit_cache.invalidate, text=chapter.content, user_id=user_id)
             
             return {"message": "Chapter was successfully deleted"}
             
@@ -226,25 +241,45 @@ class ChapterProvider:
         try:
             logger.info(f"Starting chapter edit...")
             time_start = time.perf_counter()
-            edits = self.edit_cache.get(request.content, user_id)
-            from_cache = True
-            if edits is None:
-                logger.info(f"Edit cache miss!")
-                from_cache = False
-                edits = await edit_chapter(request)
+            
+            # Check cache first (cache key is based on content hash)
+            cached_response = self.edit_cache.get(request.content, user_id)
+            
+            if cached_response:
+                # Cache hit - return immediately
+                logger.info(f"Edit cache HIT!")
+                return ChapterEditResponse(
+                    **cached_response,
+                    from_cache=True
+                )
+            
+            # Cache miss - process with agent
+            logger.info(f"Edit cache MISS - processing with agent")
+            edits = await edit_chapter(request)
+            
+            # Calculate metrics
             edited_text = "\n\n".join([edit.edited_text for edit in edits.paragraph_edits])
             before_metrics = ReadabilityMetrics.from_text(request.content)
             after_metrics = ReadabilityMetrics.from_text(edited_text)
+            
             time_end = time.perf_counter()
-            logger.info(f"Chapter edit completed in {time_end - time_start:.2f} seconds")
             execution_time = round((time_end - time_start) * 1000, 2)
-            return ChapterEditResponse(
+            
+            # Build response
+            response = ChapterEditResponse(
                 edits=edits,
                 before_metrics=before_metrics,
                 after_metrics=after_metrics,
                 execution_time=execution_time,
-                from_cache=from_cache
+                from_cache=False
             )
+            
+            # Cache for next time (store the full response)
+            self.edit_cache.set(request.content, user_id, response)
+            
+            logger.success(f"Chapter edit completed in {execution_time}ms")
+            return response
+            
         except Exception as e:
             logger.error(f"Error editing chapter: {e}")
             raise HTTPException(500, "Failed to edit chapter")
