@@ -1,0 +1,78 @@
+# Nexus Writer Backend — AI Edit Endpoint HTTP Test Suite
+# This suite validates the /chapters/ai/edit endpoint behavior.
+# It follows the existing convention of registering/logging in then calling endpoints
+# and also verifies unauthenticated access is forbidden.
+
+@baseUrl = http://localhost:8000
+@userEmail = ai.edit.tester+1@example.com
+@userPassword = StrongP@ssw0rd!
+@username = ai-edit-tester
+
+### Negative: unauthenticated AI edit should be 403
+POST {{baseUrl}}/chapters/ai/edit
+Content-Type: application/json
+
+{
+  "content": "Sarah walked into the room and she saw that the room was very dark and gloomy. The room had a lot of shadows in it. She was feeling very scared and also nervous at the same time because of the darkness.\n\n\"Hello?\" she said loudly into the darkness of the room. \"Is there anyone here in this room?\" she asked again, her voice echoing.\n\nA man appeared suddenly. He was tall and he had dark hair and he was wearing a black coat. \"I've been waiting for you,\" he said to her in a mysterious voice. \"I have been waiting here for a very long time now.\"\n\nSarah took a step backwards away from him. She was surprised and shocked. \"Who are you?\" she asked him nervously. \"And why have you been waiting here for me specifically?\""
+}
+
+> {% if (response.status !== 403) { throw new Error(`Expected 403 for unauthenticated /chapters/ai/edit, got ${response.status}`);
+
+### Register
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}",
+  "profile_img": null
+}
+
+> {% /* Ignore response; registration may be idempotent by unique email */ %}
+
+### Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}"
+}
+
+> {% const data = response.body; if (!data || !data.id) throw new Error("Login failed"); %}
+
+### AI Edit — happy path
+POST {{baseUrl}}/chapters/ai/edit
+Content-Type: application/json
+
+{
+  "content": "Sarah walked into the room and she saw that the room was very dark and gloomy. The room had a lot of shadows in it. She was feeling very scared and also nervous at the same time because of the darkness.\n\n\"Hello?\" she said loudly into the darkness of the room. \"Is there anyone here in this room?\" she asked again, her voice echoing.\n\nA man appeared suddenly. He was tall and he had dark hair and he was wearing a black coat. \"I've been waiting for you,\" he said to her in a mysterious voice. \"I have been waiting here for a very long time now.\"\n\nSarah took a step backwards away from him. She was surprised and shocked. \"Who are you?\" she asked him nervously. \"And why have you been waiting here for me specifically?\""
+}
+
+> {%
+const res = response.body;
+if (response.status < 200 || response.status >= 300) {
+  throw new Error(`Expected 2xx for /chapters/ai/edit, got ${response.status}`);
+}
+if (!res) throw new Error("Missing response body");
+if (!res.edits) throw new Error("Missing 'edits' in response");
+if (!res.before_metrics) throw new Error("Missing 'before_metrics' in response");
+if (!res.after_metrics) throw new Error("Missing 'after_metrics' in response");
+if (typeof res.execution_time !== 'number') throw new Error("'execution_time' should be a number (ms)");
+if (typeof res.from_cache !== 'boolean') throw new Error("'from_cache' should be a boolean");
+// Basic shape checks for paragraph edits if present
+if (res.edits && Array.isArray(res.edits.paragraph_edits)) {
+  const pe = res.edits.paragraph_edits[0];
+  if (pe) {
+    ["paragraph_idx", "original_text", "edited_text", "justification"].forEach(k => {
+      if (!(k in pe)) throw new Error(`ParagraphEdit missing field '${k}'`);
+    });
+  }
+}
+%}
+
+### Health header check (X-Request-ID)
+GET {{baseUrl}}/health
+
+> {% if (!response.headers["x-request-id"]) { throw new Error("X-Request-ID header missing on /health"); } %}

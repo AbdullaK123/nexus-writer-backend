@@ -224,12 +224,12 @@ class ChapterProvider:
 
     async def edit_chapter(self, user_id: str, request: ChapterEditRequest) -> ChapterEditResponse:
         try:
-            logger.info(f"Starting chapter edit for {request.id}")
+            logger.info(f"Starting chapter edit...")
             time_start = time.perf_counter()
             edits = self.edit_cache.get(request.content, user_id)
             from_cache = True
             if edits is None:
-                logger.info(f"Edit cache miss for {request.id}")
+                logger.info(f"Edit cache miss!")
                 from_cache = False
                 edits = await edit_chapter(request)
             edited_text = "\n\n".join([edit.edited_text for edit in edits.paragraph_edits])

@@ -19,7 +19,10 @@ class Config(BaseSettings):
     cookie_signing_key: str = Field(..., description='For verifying the signature of our encrypted session ids')
     cookie_encryption_key: str = Field(..., description='For encrypting our cookies')
     redis_url: str = Field(..., description="The uri for redis")
-    rabbitmq_url: str = Field(..., description="The uri for rabbitmq")
+    # Default RabbitMQ URL for local/dev environments; override via env RABBITMQ_URL
+    rabbitmq_url: str = Field(default="amqp://guest:guest@localhost:5672/", description="The uri for rabbitmq")
+    # Optional OpenAI API key for prose agent; if not set, the /chapters/ai/edit endpoint will raise a clear error when invoked
+    openai_api_key: str | None = Field(default=None, description="OpenAI API key used by the prose agent")
     env: str = Field(default='dev')
     debug: bool = Field(default=False)
     password_pattern: str = r"^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>/?]).{8,}$"
