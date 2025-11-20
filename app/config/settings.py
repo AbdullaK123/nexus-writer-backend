@@ -26,6 +26,9 @@ class Config(BaseSettings):
     env: str = Field(default='dev')
     debug: bool = Field(default=False)
     password_pattern: str = r"^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>/?]).{8,}$"
+    neo4j_url: str = Field(..., description="The uri for neo4j")
+    neo4j_user: str = Field(..., description="The username for neo4j")
+    neo4j_password: str = Field(..., description="The password for neo4j")
 
 
 app_config = Config()

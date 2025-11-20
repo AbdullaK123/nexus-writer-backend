@@ -1,6 +1,6 @@
 from typing import Any, Dict
 from langchain.tools import tool
-from textatistic import Textatistic
+import textstat
 import re
 
 
@@ -8,33 +8,19 @@ import re
 @tool(description="Calculate various readability metrics for the given text.")
 def calculate_readability_metrics(text: str) -> Dict[str, Any]:
     """Calculate various readability metrics for the given text."""
-    scores = Textatistic(text).scores
-
-    # Normalize keys from textatistic to our ReadabilityMetrics schema
-    # Prefer values from the library; compute or fallback if missing
-    word_count = scores.get("word_count") or len(text.split())
-    sentence_count = scores.get("sentence_count") or max(1, len(re.findall(r"[.!?]", text)))
-
-    flesch_reading_ease = (
-        scores.get("flesch_reading_ease")
-        or scores.get("flesch_score")
-        or 0.0
-    )
-    smog_index = scores.get("smog_index") or scores.get("smog_score") or 0.0
-    coleman_liau_index = scores.get("coleman_liau_index") or 0.0
-    automated_readability_index = (
-        scores.get("automated_readability_index")
-        or scores.get("ari")
-        or 0.0
-    )
-    linsear_write_formula = scores.get("linsear_write_formula") or 0.0
-    gunning_fog_index = scores.get("gunning_fog_index") or scores.get("gunning_fog") or scores.get("gunningfog_score") or 0.0
-    dale_chall_readability_score = (
-        scores.get("dale_chall_readability_score")
-        or scores.get("dalechall_score")
-        or 0.0
-    )
-    text_standard = scores.get("text_standard") or "Unknown"
+    
+    # Calculate all metrics using textstat
+    word_count = textstat.lexicon_count(text, removepunct=True)
+    sentence_count = textstat.sentence_count(text)
+    
+    flesch_reading_ease = textstat.flesch_reading_ease(text)
+    smog_index = textstat.smog_index(text)
+    coleman_liau_index = textstat.coleman_liau_index(text)
+    automated_readability_index = textstat.automated_readability_index(text)
+    linsear_write_formula = textstat.linsear_write_formula(text)
+    gunning_fog_index = textstat.gunning_fog(text)
+    dale_chall_readability_score = textstat.dale_chall_readability_score(text)
+    text_standard = textstat.text_standard(text, float_output=False)
 
     metrics: Dict[str, Any] = {
         "word_count": word_count,

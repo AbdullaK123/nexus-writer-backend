@@ -1,0 +1,120 @@
+services:
+  postgres-nexus:
+    image: postgres:17.1-alpine
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: nexus_writer
+      POSTGRES_USER: nexus_user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_nexus_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus_user -d nexus_writer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    networks:
+      - nexus-network
+
+  neo4j-nexus:
+    image: neo4j:latest
+    ports:
+      - 7474:7474
+      - 7687:7687
+    environment:
+      NEO4J_AUTH: neo4j/password
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    networks:
+      - nexus-network
+
+  redis-nexus:
+    image: redis:latest
+    ports:
+      - 6379:6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - redis_data:/data
+    networks:
+      - nexus-network
+    command: redis-server --appendonly yes
+
+  rabbit-mq-nexus:
+    image: rabbitmq:3.9.14-management-alpine
+    ports:
+      - 5672:5672
+      - 15672:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: nexus_user
+      RABBITMQ_DEFAULT_PASS: password
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - nexus-network
+
+  nexus-worker:
+    build: .
+    command: uv run celery -A app.worker worker --loglevel=info
+    depends_on:
+      postgres-nexus:
+        condition: service_healthy
+      neo4j-nexus:
+        condition: service_healthy
+      redis-nexus:
+        condition: service_healthy
+      rabbit-mq-nexus:
+        condition: service_healthy
+    networks:
+      - nexus-network
+
+  nexus-writer:
+    build: .
+    ports:
+      - 8000:8000
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://nexus_user:password@postgres-nexus:5432/nexus_writer
+      NEO4J_URI: bolt://neo4j-nexus:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: password
+      REDIS_URL: redis://redis-nexus:6379
+      RABBITMQ_URL: amqp://nexus_user:password@rabbit-mq-nexus:5672
+    depends_on:
+      postgres-nexus:
+        condition: service_healthy
+      neo4j-nexus:
+        condition: service_healthy
+      redis-nexus:
+        condition: service_healthy
+      rabbit-mq-nexus:
+        condition: service_healthy
+    networks:
+      - nexus-network
+
+networks:
+  nexus-network:
+    driver: bridge
+
+volumes:
+  postgres_nexus_data:
+  neo4j_data:
+  redis_data:
