@@ -57,6 +57,7 @@ class Story(SQLModel, TimeStampMixin, table=True):
     id: Optional[str] = Field(default_factory=generate_uuid, primary_key=True)
     user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
     title: str = Field(index=True)
+    story_context: str
     status: StoryStatus = Field(default=StoryStatus.ONGOING)
     path_array: Optional[List[str]] = Field(sa_column=Column(ARRAY(String)))
     chapters: List['Chapter'] = Relationship(back_populates='story', cascade_delete=True)
@@ -82,6 +83,7 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
     user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
     title: str 
     content: str
+    chapter_context: str
     published: bool = Field(default=False)
     story: 'Story' = Relationship(back_populates='chapters')
     user: 'User' = Relationship(back_populates='chapters')

@@ -11,7 +11,6 @@ import json
 analytics = get_analytics_provider()
 redis_client = get_redis()
 
-# ✅ CLEAN: AsyncServer with no session management bullshit
 sio = AsyncServer(
     async_mode='asgi',
     cors_allowed_origins=['http://localhost:3000', 'http://127.0.0.1:3000'],
@@ -22,7 +21,6 @@ sio = AsyncServer(
 def save_session_to_redis(sid: str, data: dict):
     """Save session data to Redis - SYNC and RELIABLE"""
     redis_key = f"analytics_session:{sid}"
-    # ✅ CONVERT DATETIME TO ISO STRING FOR JSON SERIALIZATION
     serializable_data = {}
     for key, value in data.items():
         if hasattr(value, 'isoformat'):  # datetime object
@@ -40,7 +38,6 @@ def get_session_from_redis(sid: str) -> dict:
     if data:
         logger.debug(f"📖 Retrieved session from Redis: {redis_key}")
         parsed_data = json.loads(data)
-        # ✅ CONVERT ISO STRING BACK TO DATETIME
         from datetime import datetime
         if 'timestamp' in parsed_data:
             parsed_data['timestamp'] = datetime.fromisoformat(parsed_data['timestamp'])
@@ -167,46 +164,35 @@ def handle_session_end(sid: str, session_end_data: dict):
     # ✅ CLEAN UP REDIS - SYNC
     delete_session_from_redis(sid)
 
+@log_errors
 def handle_task_completion(task, session_id: str, sid: str):
     """Handle the completion of the DuckDB save task"""
-    try:
         # Check if the task completed successfully
-        if task.exception() is None:
-            logger.success(
-                "🎯 Writing session successfully saved to DuckDB", 
-                session_id=session_id,
-                sid=sid,
-                extra={"analytics_success": True, "performance_tracking": True}
-            )
-        else:
-            # Log the actual exception
-            exception = task.exception()
-            logger.error(
-                "❌ Failed to save session to DuckDB",
-                session_id=session_id,
-                error_type=type(exception).__name__,
-                error_message=str(exception),
-                sid=sid,
-                extra={"analytics_failure": True}
-            )
-    except Exception as e:
-        logger.error(
-            "❌ Error in task completion handler",
+    if task.exception() is None:
+        logger.success(
+            "🎯 Writing session successfully saved to DuckDB", 
             session_id=session_id,
-            error=str(e),
-            sid=sid
+            sid=sid,
+            extra={"analytics_success": True, "performance_tracking": True}
+        )
+    else:
+        # Log the actual exception
+        exception = task.exception()
+        logger.error(
+            "❌ Failed to save session to DuckDB",
+            session_id=session_id,
+            error_type=type(exception).__name__,
+            error_message=str(exception),
+            sid=sid,
+            extra={"analytics_failure": True}
         )
 
+@log_errors
 async def save_to_duckdb_async(session: WritingSession, sid: str):
     """Save to DuckDB asynchronously - CLEAN VERSION"""
-    try:
-        saved_session = await analytics.write_session(session)
-        # Success is logged in the task completion handler
-        return saved_session
-    except Exception as e:
-        # Re-raise the exception so it's caught by the task completion handler
-        logger.debug(f"Exception in save_to_duckdb_async: {e}")
-        raise e
+    saved_session = await analytics.write_session(session)
+    # Success is logged in the task completion handler
+    return saved_session
 
 @sio.on('connect', namespace='/analytics')
 @log_errors
@@ -229,8 +215,6 @@ def on_disconnect(sid, reason):
         reason=reason,
         extra={"connection_event": True}
     )
-    
-    # ✅ CHECK REDIS FOR INCOMPLETE SESSIONS - SYNC
     session_data = get_session_from_redis(sid)
     if session_data:
         logger.warning(
