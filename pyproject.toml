@@ -21,9 +21,6 @@ dependencies = [
     "langchain-neo4j>=0.6.0",
     "langchain-openai>=1.0.1",
     "loguru>=0.7.3",
-    "mypy-boto3-s3>=1.39.5",
-    "neo4j>=5.28.2",
-    "nltk>=3.9.2",
     "numpy>=2.2.6",
     "pandas>=2.3.1",
     "passlib>=1.7.4",
@@ -33,6 +30,6 @@ dependencies = [
     "redis[hiredis]>=6.4.0",
     "socketio>=0.2.1",
     "sqlmodel>=0.0.24",
-    "textstat>=0.7.3",
     "uvicorn>=0.34.3",
+    "toonify>=1.5.1",
 ]

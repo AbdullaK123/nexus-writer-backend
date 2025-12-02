@@ -2,7 +2,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from typing import Optional, List
 
-from app.caches import EditCache
+
 from app.core.redis import get_redis
 from app.models import Chapter, Story
 from app.core.database import get_db
@@ -22,8 +22,6 @@ from app.jobs.chapter import (
     handle_chapter_reordering
 )
 from loguru import logger
-from app.agents.prose import edit_chapter
-from app.agents.models import  ReadabilityMetrics, ChapterEditResponse
 import time
 
 
@@ -31,7 +29,6 @@ class ChapterProvider:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.edit_cache = EditCache()
 
     # ========================================
     # CORE CRUD OPERATIONS - SIMPLE & CLEAN
@@ -121,8 +118,6 @@ class ChapterProvider:
             setattr(chapter, field, value)
         await self.db.commit()
 
-        background_tasks.add_task(self.edit_cache.invalidate, text=chapter.content, user_id=user_id)
-
         return ChapterContentResponse(
             id=chapter.id,
             title=chapter.title,
@@ -148,7 +143,7 @@ class ChapterProvider:
             Chapter.user_id == user_id,
             Chapter.id == chapter_id
         )
-        chapter = (await self.db.execute(chapter_query)).scalar_one_or_none()
+        chapter: Optional[Chapter] = (await self.db.execute(chapter_query)).scalar_one_or_none()
         if not chapter:
             raise HTTPException(404, "Chapter does not exist")
         
@@ -164,8 +159,6 @@ class ChapterProvider:
             
             # 3. Only commit if EVERYTHING succeeded
             await self.db.commit()
-
-            background_tasks.add_task(self.edit_cache.invalidate, text=chapter.content, user_id=user_id)
             
             return {"message": "Chapter was successfully deleted"}
             
@@ -236,53 +229,6 @@ class ChapterProvider:
             story_last_updated=story_last_updated,
             chapters=list_items
         )
-
-    async def edit_chapter(self, user_id: str, request: ChapterEditRequest) -> ChapterEditResponse:
-        try:
-            logger.info(f"Starting chapter edit...")
-            time_start = time.perf_counter()
-            
-            # Check cache first (cache key is based on content hash)
-            cached_response = self.edit_cache.get(request.content, user_id)
-            
-            if cached_response:
-                # Cache hit - return immediately
-                logger.info(f"Edit cache HIT!")
-                return ChapterEditResponse(
-                    **cached_response,
-                    from_cache=True
-                )
-            
-            # Cache miss - process with agent
-            logger.info(f"Edit cache MISS - processing with agent")
-            edits = await edit_chapter(request)
-            
-            # Calculate metrics
-            edited_text = "\n\n".join([edit.edited_text for edit in edits.paragraph_edits])
-            before_metrics = ReadabilityMetrics.from_text(request.content)
-            after_metrics = ReadabilityMetrics.from_text(edited_text)
-            
-            time_end = time.perf_counter()
-            execution_time = round((time_end - time_start) * 1000, 2)
-            
-            # Build response
-            response = ChapterEditResponse(
-                edits=edits,
-                before_metrics=before_metrics,
-                after_metrics=after_metrics,
-                execution_time=execution_time,
-                from_cache=False
-            )
-            
-            # Cache for next time (store the full response)
-            self.edit_cache.set(request.content, user_id, response)
-            
-            logger.success(f"Chapter edit completed in {execution_time}ms")
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error editing chapter: {e}")
-            raise HTTPException(500, "Failed to edit chapter")
 
     async def get_chapter_with_navigation(
         self, 
