@@ -1,7 +1,5 @@
-# app/ai/tasks/extraction.py
-
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select
+from sqlmodel import select, text
 from app.ai.character import extract_characters
 from app.ai.plot import extract_plot_information
 from app.ai.structure import extract_story_structure
@@ -15,7 +13,7 @@ from app.ai.models.world import WorldExtraction
 import asyncio
 from app.config.celery import celery_app
 from app.core.database import get_db
-from typing import Any, Dict, Optional, TypedDict
+from typing import Any, Dict, Optional, TypedDict, List
 from loguru import logger
 from datetime import datetime
 
@@ -96,6 +94,37 @@ async def get_condensed_context(
         "context": final_result
     }
 
+async def update_story_context(
+    db: AsyncSession,
+    user_id: str,
+    story_id: str
+):
+    from app.models import Story
+    from app.providers.story import StoryProvider
+
+    chapters = await StoryProvider(db).get_ordered_chapters(user_id, story_id)
+
+    story_context = "\n\n".join(
+        [
+            f"Chapter {i + 1}: {chapter.title}\n"
+            f"{chapter.condensed_context or ''}\n"
+            f"{'=' * 80}"
+            for i, chapter in enumerate(chapters)
+        ]
+    )
+
+
+    story = await db.get(Story, story_id)
+
+    if not story:
+        raise ValueError(f"Story with id: {story_id} does not exist!")
+
+    story.story_context = story_context
+
+    logger.info(f"Successfully updated story context for story: {story_id}")
+
+
+
 
 async def save_extraction_results_to_db(
     db: AsyncSession,
@@ -130,6 +159,11 @@ async def save_extraction_results_to_db(
         
         # Set extraction version for tracking
         chapter.extraction_version = "1.0.0"  # Bump when you improve prompts
+
+        #update story_context
+        await db.flush()   
+
+        await update_story_context(db, chapter.user_id, chapter.story_id)
         
         await db.commit()
         
@@ -185,7 +219,7 @@ async def orchestrate_extraction(
 
 
 @celery_app.task(bind=True, max_retries=3)
-def extract_chapter_context(
+def run_context_extraction_job(
     self,
     chapter_id: str,
     chapter_number: int,

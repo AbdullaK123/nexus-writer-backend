@@ -154,12 +154,6 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
         description="Version of extraction prompts used (e.g., '1.0.0')"
     )
     
-    # Legacy field (kept for backwards compatibility)
-    chapter_context: Optional[str] = Field(
-        default=None,
-        description="DEPRECATED: Use condensed_context instead"
-    )
-    
     # Relationships
     story: 'Story' = Relationship(back_populates='chapters')
     user: 'User' = Relationship(back_populates='chapters')
