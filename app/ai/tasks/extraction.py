@@ -131,11 +131,9 @@ async def save_extraction_results_to_db(
         # Set extraction version for tracking
         chapter.extraction_version = "1.0.0"  # Bump when you improve prompts
         
-        db.add(chapter)
         await db.commit()
-        await db.refresh(chapter)
         
-        logger.info(f"Chapter {chapter_number}: Saved to database")
+        logger.info(f"Chapter {chapter_number} extraction results saved to database.")
         
         return {
             "chapter_id": chapter_id,

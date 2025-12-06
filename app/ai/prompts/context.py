@@ -1,5 +1,5 @@
 from typing import Optional
-from toonify import encode
+from toon import encode 
 
 SYSTEM_PROMPT = """
 You are an expert narrative synthesizer specializing in creating condensed, context-friendly story summaries for AI agents.
