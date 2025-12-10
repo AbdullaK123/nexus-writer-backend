@@ -1,5 +1,4 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select, text
 from app.ai.character import extract_characters
 from app.ai.plot import extract_plot_information
 from app.ai.structure import extract_story_structure
@@ -13,7 +12,7 @@ from app.ai.models.world import WorldExtraction
 import asyncio
 from app.config.celery import celery_app
 from app.core.database import get_db
-from typing import Any, Dict, Optional, TypedDict, List
+from typing import Any, Dict, Optional, TypedDict
 from loguru import logger
 from datetime import datetime
 
@@ -195,7 +194,7 @@ async def orchestrate_extraction(
     Creates its own database session.
     """
     # Create fresh async session for this task
-    async with get_db() as db:
+    async with get_db() as db:  # type: ignore
         # Run extractions
         extraction_results = await get_condensed_context(
             chapter_id,
@@ -208,7 +207,7 @@ async def orchestrate_extraction(
         
         # Save to database
         db_result = await save_extraction_results_to_db(
-            db,
+            db, 
             chapter_id,
             chapter_number,
             word_count,
@@ -218,9 +217,9 @@ async def orchestrate_extraction(
         return db_result
 
 
-@celery_app.task(bind=True, max_retries=3)
+@celery_app.task(bind=True, max_retries=3) 
 def run_context_extraction_job(
-    self,
+    self, 
     chapter_id: str,
     chapter_number: int,
     chapter_title: Optional[str],
@@ -274,7 +273,7 @@ def run_context_extraction_job(
         logger.error(f"Chapter {chapter_number} extraction failed: {e}")
         
         # Update task state for progress tracking
-        self.update_state(
+        self.update_state( 
             state='FAILURE',
             meta={
                 'chapter_id': chapter_id,
@@ -287,7 +286,7 @@ def run_context_extraction_job(
         # Retry on transient failures (API errors, timeouts)
         if isinstance(e, (ConnectionError, TimeoutError)):
             logger.info(f"Retrying Chapter {chapter_number} due to transient error...")
-            raise self.retry(exc=e, countdown=60)  # Retry after 1 minute
+            raise self.retry(exc=e, countdown=60)   # Retry after 1 minute
         
         # Don't retry on permanent failures
         raise

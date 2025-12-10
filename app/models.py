@@ -58,6 +58,11 @@ class Story(SQLModel, TimeStampMixin, table=True):
     user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
     title: str = Field(index=True)
     story_context: str
+    character_bios: Optional[dict] = Field(
+        default=None,
+        sa_column=Column(JSONB),
+        description="Json array of all character bios"
+    )
     status: StoryStatus = Field(default=StoryStatus.ONGOING)
     path_array: Optional[List[str]] = Field(sa_column=Column(ARRAY(String)))
     chapters: List['Chapter'] = Relationship(back_populates='story', cascade_delete=True)
