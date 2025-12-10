@@ -100,17 +100,16 @@ async def update_story_context(
 ):
     from app.models import Story
     from app.providers.story import StoryProvider
+    from toon import encode
 
     chapters = await StoryProvider(db).get_ordered_chapters(user_id, story_id)
 
-    story_context = "\n\n".join(
-        [
-            f"Chapter {i + 1}: {chapter.title}\n"
-            f"{chapter.condensed_context or ''}\n"
-            f"{'=' * 80}"
-            for i, chapter in enumerate(chapters)
+    story_context = encode({
+        "chapters": [
+            {"number": i+1, "title": ch.title, "context": ch.condensed_context}
+            for i, ch in enumerate(chapters)
         ]
-    )
+    })
 
 
     story = await db.get(Story, story_id)
