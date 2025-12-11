@@ -14,7 +14,7 @@ character_bios_extraction_agent = create_agent(
     response_format=ToolStrategy(CharacterBiosExtraction)
 )
 
-async def extract_characters(
+async def extract_character_bios(
     story_context: str,
     character_extractions: List[Dict],
     story_title: str,

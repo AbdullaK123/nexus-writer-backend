@@ -4,6 +4,7 @@ from app.ai.plot import extract_plot_information
 from app.ai.structure import extract_story_structure
 from app.ai.world import extract_world_information
 from app.ai.context import synthesize_chapter_context
+from app.ai.character_bio import extract_character_bios
 from app.ai.models.context import CondensedChapterContext
 from app.ai.models.character import CharacterExtraction
 from app.ai.models.plot import PlotExtraction
@@ -12,7 +13,7 @@ from app.ai.models.world import WorldExtraction
 import asyncio
 from app.config.celery import celery_app
 from app.core.database import get_db
-from typing import Any, Dict, Optional, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict
 from loguru import logger
 from datetime import datetime
 
@@ -122,6 +123,21 @@ async def update_story_context(
     logger.info(f"Successfully updated story context for story: {story_id}")
 
 
+async def update_character_bios(
+    db: AsyncSession,
+    story_id: str
+):
+    from app.models import Story
+    from app.providers.story import StoryProvider
+
+    story = await db.get(Story, story_id)
+
+    if not story:
+        raise ValueError(f"Story with id: {story_id} does not exist!")
+    
+    chapters = await StoryProvider(db).get_ordered_chapters(user_id, story_id)
+
+    s
 
 
 async def save_extraction_results_to_db(

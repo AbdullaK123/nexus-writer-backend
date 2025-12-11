@@ -1,6 +1,6 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from typing import Optional, List
+from typing import Dict, Optional, List
 
 
 from app.core.redis import get_redis
