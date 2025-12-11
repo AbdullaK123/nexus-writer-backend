@@ -63,6 +63,11 @@ class Story(SQLModel, TimeStampMixin, table=True):
         sa_column=Column(JSONB),
         description="Json array of all character bios"
     )
+    plot_threads: Optional[dict] = Field(
+        default=None,
+        sa_column=Column(JSONB),
+        description="PlotThreadTracker - all plot threads with status, introduced/resolved chapters"
+    )
     status: StoryStatus = Field(default=StoryStatus.ONGOING)
     path_array: Optional[List[str]] = Field(sa_column=Column(ARRAY(String)))
     chapters: List['Chapter'] = Relationship(back_populates='story', cascade_delete=True)
