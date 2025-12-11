@@ -16,6 +16,9 @@ from app.core.database import get_db
 from typing import Any, Dict, List, Optional, TypedDict
 from loguru import logger
 from datetime import datetime
+from app.models import Story, Chapter
+from app.providers.story import StoryProvider
+from toon import encode
 
 
 class ExtractionResults(TypedDict):
@@ -99,9 +102,7 @@ async def update_story_context(
     user_id: str,
     story_id: str
 ):
-    from app.models import Story
-    from app.providers.story import StoryProvider
-    from toon import encode
+    
 
     chapters = await StoryProvider(db).get_ordered_chapters(user_id, story_id)
 
@@ -127,8 +128,6 @@ async def update_character_bios(
     db: AsyncSession,
     story_id: str
 ):
-    from app.models import Story
-    from app.providers.story import StoryProvider
 
     story = await db.get(Story, story_id)
 
@@ -136,8 +135,17 @@ async def update_character_bios(
         raise ValueError(f"Story with id: {story_id} does not exist!")
     
     chapters = await StoryProvider(db).get_ordered_chapters(user_id, story_id)
+    character_extractions = [
+        chapter.character_extraction
+        for chapter in chapters
+    ]
 
-    s
+    bios_extraction_result = await extract_character_bios(
+        story.story_context,
+        character_extractions,
+        story.title,
+        len(chapters)
+    )
 
 
 async def save_extraction_results_to_db(
@@ -148,7 +156,6 @@ async def save_extraction_results_to_db(
     extraction_results: ExtractionResults
 ) -> Dict[str, Any]:
     """Save extraction results to database"""
-    from app.models import Chapter
 
     try:
         # Use get() for async SQLModel
@@ -178,6 +185,8 @@ async def save_extraction_results_to_db(
         await db.flush()   
 
         await update_story_context(db, chapter.user_id, chapter.story_id)
+
+        await db.flush()
         
         await db.commit()
         
