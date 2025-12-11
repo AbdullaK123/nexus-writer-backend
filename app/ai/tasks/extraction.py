@@ -101,7 +101,7 @@ async def update_story_context(
     db: AsyncSession,
     user_id: str,
     story_id: str
-):
+) -> str:
     
 
     chapters = await StoryProvider(db).get_ordered_chapters(user_id, story_id)
@@ -123,10 +123,14 @@ async def update_story_context(
 
     logger.info(f"Successfully updated story context for story: {story_id}")
 
+    return story_context
+
 
 async def update_character_bios(
     db: AsyncSession,
-    story_id: str
+    story_context: str,
+    story_id: str,
+    user_id: str
 ):
 
     story = await db.get(Story, story_id)
@@ -141,11 +145,15 @@ async def update_character_bios(
     ]
 
     bios_extraction_result = await extract_character_bios(
-        story.story_context,
+        story_context,
         character_extractions,
         story.title,
         len(chapters)
     )
+
+    story.character_bios = bios_extraction_result.model_dump()
+
+    logger.info(f"Successfully updated character bios for story: {story_id}")
 
 
 async def save_extraction_results_to_db(
@@ -184,10 +192,10 @@ async def save_extraction_results_to_db(
         #update story_context
         await db.flush()   
 
-        await update_story_context(db, chapter.user_id, chapter.story_id)
+        story_context = await update_story_context(db, chapter.user_id, chapter.story_id)
 
-        await db.flush()
-        
+        await update_character_bios(db, story_context, chapter.story_id, chapter.user_id)
+
         await db.commit()
         
         logger.info(f"Chapter {chapter_number} extraction results saved to database.")

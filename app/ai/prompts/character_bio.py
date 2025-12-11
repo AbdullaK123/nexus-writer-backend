@@ -44,7 +44,7 @@ Be thorough, insightful, and true to the story."""
 
 def build_bios_extraction_prompt(
     story_context: str,
-    character_extractions: List[Dict],
+    character_extractions: List[Dict | None],
     story_title: str,
     total_chapters: int
 ) -> str:
