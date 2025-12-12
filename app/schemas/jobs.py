@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from uuid import uuid4
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime
 from enum import Enum
 
@@ -30,5 +30,6 @@ class JobQueuedResponse(BaseModel):
 class JobStatusResponse(BaseModel):
     job_id: str 
     status: JobStatus
+    info: Any
 
 

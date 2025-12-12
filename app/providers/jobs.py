@@ -46,7 +46,8 @@ class JobProvider:
 
         return JobStatusResponse(
             job_id=job_id,
-            status=status_map.get(result.status, JobStatus.PENDING)
+            status=status_map.get(result.status, JobStatus.PENDING),
+            info=result.info
         )
 
     @log_errors
