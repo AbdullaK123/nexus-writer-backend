@@ -6,6 +6,7 @@ from app.ai.world import extract_world_information
 from app.ai.context import synthesize_chapter_context
 from app.ai.character_bio import extract_character_bios
 from app.ai.plot_thread import extract_plot_threads
+from app.ai.world_bible import extract_world_bible
 from app.ai.models.context import CondensedChapterContext
 from app.ai.models.character import CharacterExtraction
 from app.ai.models.plot import PlotExtraction
@@ -147,6 +148,10 @@ async def update_story_bible_fields(
         chapter.plot_extraction
         for chapter in chapters
     ]
+    world_extractions = [
+        chapter.world_extraction
+        for chapter in chapters
+    ]
 
     async with asyncio.TaskGroup() as tg:
         character_bios_task = tg.create_task(extract_character_bios(
@@ -161,9 +166,16 @@ async def update_story_bible_fields(
             story.title,
             len(chapters)
         ))
+        world_bible_task = tg.create_task(extract_world_bible(
+            story_context,
+            world_extractions,
+            story.title,
+            len(chapters)
+        ))
 
     story.character_bios = character_bios_task.result().model_dump()
     story.plot_threads = plot_threads_task.result().model_dump()
+    story.world_bible = world_bible_task.result().model_dump()
 
     logger.info(f"Successfully updated character bios for story: {story_id}")
 
