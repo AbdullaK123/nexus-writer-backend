@@ -7,6 +7,7 @@ from app.ai.context import synthesize_chapter_context
 from app.ai.character_bio import extract_character_bios
 from app.ai.plot_thread import extract_plot_threads
 from app.ai.world_bible import extract_world_bible
+from app.ai.structure_and_pacing import extract_pacing_and_structure
 from app.ai.models.context import CondensedChapterContext
 from app.ai.models.character import CharacterExtraction
 from app.ai.models.plot import PlotExtraction
@@ -133,51 +134,40 @@ async def update_story_bible_fields(
     story_id: str,
     user_id: str
 ):
-
     story = await db.get(Story, story_id)
-
     if not story:
         raise ValueError(f"Story with id: {story_id} does not exist!")
     
     chapters = await StoryProvider(db).get_ordered_chapters(user_id, story_id)
-    character_extractions = [
-        chapter.character_extraction
-        for chapter in chapters
-    ]
-    plot_extractions = [
-        chapter.plot_extraction
-        for chapter in chapters
-    ]
-    world_extractions = [
-        chapter.world_extraction
-        for chapter in chapters
-    ]
-
+    
+    # Gather all extraction types
+    character_extractions = [ch.character_extraction for ch in chapters]
+    plot_extractions = [ch.plot_extraction for ch in chapters]
+    world_extractions = [ch.world_extraction for ch in chapters]
+    structure_extractions = [ch.structure_extraction for ch in chapters]
+    
+    # Run ALL story-level extractions in parallel
     async with asyncio.TaskGroup() as tg:
         character_bios_task = tg.create_task(extract_character_bios(
-            story_context,
-            character_extractions,
-            story.title,
-            len(chapters)
+            story_context, character_extractions, story.title, len(chapters)
         ))
         plot_threads_task = tg.create_task(extract_plot_threads(
-            story_context,
-            plot_extractions,
-            story.title,
-            len(chapters)
+            story_context, plot_extractions, story.title, len(chapters)
         ))
         world_bible_task = tg.create_task(extract_world_bible(
-            story_context,
-            world_extractions,
-            story.title,
-            len(chapters)
+            story_context, world_extractions, story.title, len(chapters)
         ))
-
+        pacing_structure_task = tg.create_task(extract_pacing_and_structure(
+            story_context, structure_extractions, story.title, len(chapters)
+        ))
+    
+    # Save all results
     story.character_bios = character_bios_task.result().model_dump()
     story.plot_threads = plot_threads_task.result().model_dump()
     story.world_bible = world_bible_task.result().model_dump()
-
-    logger.info(f"Successfully updated character bios for story: {story_id}")
+    story.pacing_structure = pacing_structure_task.result().model_dump()
+    
+    logger.info(f"Successfully updated story bible fields for story: {story_id}")
 
 
 async def save_extraction_results_to_db(
