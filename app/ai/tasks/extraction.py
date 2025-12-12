@@ -8,6 +8,7 @@ from app.ai.character_bio import extract_character_bios
 from app.ai.plot_thread import extract_plot_threads
 from app.ai.world_bible import extract_world_bible
 from app.ai.structure_and_pacing import extract_pacing_and_structure
+from app.ai.timeline import extract_story_timeline
 from app.ai.models.context import CondensedChapterContext
 from app.ai.models.character import CharacterExtraction
 from app.ai.models.plot import PlotExtraction
@@ -127,7 +128,6 @@ async def update_story_context(
 
     return story_context
 
-
 async def update_story_bible_fields(
     db: AsyncSession,
     story_context: str,
@@ -146,7 +146,7 @@ async def update_story_bible_fields(
     world_extractions = [ch.world_extraction for ch in chapters]
     structure_extractions = [ch.structure_extraction for ch in chapters]
     
-    # Run ALL story-level extractions in parallel
+    # Run ALL 5 story-level extractions in parallel
     async with asyncio.TaskGroup() as tg:
         character_bios_task = tg.create_task(extract_character_bios(
             story_context, character_extractions, story.title, len(chapters)
@@ -160,14 +160,18 @@ async def update_story_bible_fields(
         pacing_structure_task = tg.create_task(extract_pacing_and_structure(
             story_context, structure_extractions, story.title, len(chapters)
         ))
+        story_timeline_task = tg.create_task(extract_story_timeline(
+            story_context, plot_extractions, story.title, len(chapters)
+        ))
     
     # Save all results
     story.character_bios = character_bios_task.result().model_dump()
     story.plot_threads = plot_threads_task.result().model_dump()
     story.world_bible = world_bible_task.result().model_dump()
     story.pacing_structure = pacing_structure_task.result().model_dump()
+    story.story_timeline = story_timeline_task.result().model_dump()
     
-    logger.info(f"Successfully updated story bible fields for story: {story_id}")
+    logger.info(f"Successfully updated all story bible fields for story: {story_id}")
 
 
 async def save_extraction_results_to_db(

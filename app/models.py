@@ -78,6 +78,11 @@ class Story(SQLModel, TimeStampMixin, table=True):
         sa_column=Column(JSONB),
         description="PacingAndStructureAnalysis result"
     )
+    story_timeline: Optional[dict] = Field(
+        default=None,
+        sa_column=Column(JSONB),
+        description="StoryTimeline - complete temporal analysis"
+    )
     status: StoryStatus = Field(default=StoryStatus.ONGOING)
     path_array: Optional[List[str]] = Field(sa_column=Column(ARRAY(String)))
     chapters: List['Chapter'] = Relationship(back_populates='story', cascade_delete=True)
