@@ -5,6 +5,7 @@ from app.ai.structure import extract_story_structure
 from app.ai.world import extract_world_information
 from app.ai.context import synthesize_chapter_context
 from app.ai.character_bio import extract_character_bios
+from app.ai.plot_thread import extract_plot_threads
 from app.ai.models.context import CondensedChapterContext
 from app.ai.models.character import CharacterExtraction
 from app.ai.models.plot import PlotExtraction
@@ -103,7 +104,6 @@ async def update_story_context(
     story_id: str
 ) -> str:
     
-
     chapters = await StoryProvider(db).get_ordered_chapters(user_id, story_id)
 
     story_context = encode({
@@ -126,7 +126,7 @@ async def update_story_context(
     return story_context
 
 
-async def update_character_bios(
+async def update_story_bible_fields(
     db: AsyncSession,
     story_context: str,
     story_id: str,
@@ -143,15 +143,27 @@ async def update_character_bios(
         chapter.character_extraction
         for chapter in chapters
     ]
+    plot_extractions = [
+        chapter.plot_extraction
+        for chapter in chapters
+    ]
 
-    bios_extraction_result = await extract_character_bios(
-        story_context,
-        character_extractions,
-        story.title,
-        len(chapters)
-    )
+    async with asyncio.TaskGroup() as tg:
+        character_bios_task = tg.create_task(extract_character_bios(
+            story_context,
+            character_extractions,
+            story.title,
+            len(chapters)
+        ))
+        plot_threads_task = tg.create_task(extract_plot_threads(
+            story_context,
+            plot_extractions,
+            story.title,
+            len(chapters)
+        ))
 
-    story.character_bios = bios_extraction_result.model_dump()
+    story.character_bios = character_bios_task.result().model_dump()
+    story.plot_threads = plot_threads_task.result().model_dump()
 
     logger.info(f"Successfully updated character bios for story: {story_id}")
 
@@ -194,7 +206,7 @@ async def save_extraction_results_to_db(
 
         story_context = await update_story_context(db, chapter.user_id, chapter.story_id)
 
-        await update_character_bios(db, story_context, chapter.story_id, chapter.user_id)
+        await update_story_bible_fields(db, story_context, chapter.story_id, chapter.user_id)
 
         await db.commit()
         

@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from app.controllers.auth import user_controller
 from app.controllers.chapter import chapter_controller
 from app.controllers.story import story_controller
+from app.controllers.jobs import job_controller
 from app.config.logging import setup_logging
 from app.channels.analytics import sio
 from socketio.asgi import ASGIApp  # type: ignore
@@ -47,6 +48,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 app.include_router(user_controller)
 app.include_router(chapter_controller)
 app.include_router(story_controller)
+app.include_router(job_controller)
 
 @app.get('/health')
 async def get_health() -> dict:
