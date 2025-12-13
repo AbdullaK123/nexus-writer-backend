@@ -2,12 +2,25 @@ from fastapi import APIRouter, Depends, BackgroundTasks
 from app.providers.chapter import ChapterProvider, get_chapter_provider
 from app.providers.auth import get_current_user
 from app.models import User
+from app.ai.models.edits import ChapterEdit
+from typing import Optional
 from app.schemas.chapter import (
     ChapterContentResponse,
     UpdateChapterRequest
 )
 
 chapter_controller = APIRouter(prefix='/chapters')
+
+@chapter_controller.get('/edit/{chapter_id}', response_model=ChapterEdit)
+async def get_chapter_edits(
+    chapter_id: str,
+    current_user: User = Depends(get_current_user),
+    chapter_provider: ChapterProvider = Depends(get_chapter_provider)
+) -> ChapterEdit:
+    return await chapter_provider.get_line_edits(
+        current_user.id,
+        chapter_id
+    )
 
 @chapter_controller.get('/{chapter_id}', response_model=ChapterContentResponse)
 async def get_chapter_with_navigation(

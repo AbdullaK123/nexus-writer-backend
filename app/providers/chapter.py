@@ -1,8 +1,7 @@
+from datetime import datetime
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from typing import Dict, Optional, List
-
-
+from typing import Dict, Optional, List, Sequence
 from app.core.redis import get_redis
 from app.models import Chapter, Story
 from app.core.database import get_db
@@ -23,6 +22,7 @@ from app.jobs.chapter import (
 )
 from loguru import logger
 import time
+from app.ai.models.edits import ChapterEdit, LineEdit
 
 
 class ChapterProvider:
@@ -88,6 +88,48 @@ class ChapterProvider:
         )
         chapter = (await self.db.execute(chapter_query)).scalar_one_or_none()
         return chapter
+    
+    async def get_line_edits(
+        self,
+        user_id: str,
+        chapter_id: str
+    ) -> ChapterEdit:
+        
+        query = (
+            select(
+                Chapter.line_edits, 
+                Chapter.line_edits_generated_at
+            )
+            .where(
+                Chapter.user_id == user_id,
+                Chapter.id == chapter_id
+            )
+        )
+
+        result  = (await self.db.exec(query)).first()
+
+        if (
+            result and result[0] is None or
+            result and result[1] is None or
+            result is None
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Edits not found"
+            )
+        
+        line_edits, last_generated_at = result
+        
+        return ChapterEdit(
+            edits=[
+                LineEdit(**edit)
+                for edit in line_edits
+            ],
+            last_generated_at=last_generated_at
+        )
+        
+
+        
 
     async def update(
         self, 

@@ -30,6 +30,5 @@ class JobQueuedResponse(BaseModel):
 class JobStatusResponse(BaseModel):
     job_id: str 
     status: JobStatus
-    info: Any
 
 

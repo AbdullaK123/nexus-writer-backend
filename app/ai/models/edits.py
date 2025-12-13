@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List
+from datetime import datetime
 
 class LineEdit(BaseModel):
     paragraph_idx: int = Field(description="The index of the paragraph you are editing.")
@@ -10,5 +11,9 @@ class LineEdit(BaseModel):
 
 class ChapterEdit(BaseModel):
     edits: List[LineEdit]
+    last_generated_at: datetime
+
+
+
 
 
