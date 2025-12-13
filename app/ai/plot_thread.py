@@ -3,19 +3,15 @@ from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 from app.ai.prompts.plot_thread import PLOT_THREADS_SYSTEM_PROMPT, build_plot_threads_extraction_prompt
 from app.ai.models.plot_thread import PlotThreadsExtraction
-from langchain_anthropic.middleware import AnthropicPromptCachingMiddleware
 from dotenv import load_dotenv
 
 load_dotenv()
 
 plot_thread_extraction_agent = create_agent(
-    "anthropic:claude-haiku-4-5-20251001",
+    "google_genai:gemini-2.5-flash-lite",
     tools = [],
     system_prompt=PLOT_THREADS_SYSTEM_PROMPT,
-    response_format=ToolStrategy(PlotThreadsExtraction),
-    middleware=[
-        AnthropicPromptCachingMiddleware(ttl="5m", min_messages_to_cache=0)
-    ]
+    response_format=ToolStrategy(PlotThreadsExtraction)
 )
 
 async def extract_plot_threads(

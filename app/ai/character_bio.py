@@ -3,19 +3,15 @@ from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 from app.ai.prompts.character_bio import CHARACTER_BIO_SYSTEM_PROMPT, build_bios_extraction_prompt
 from app.ai.models.character_bio import CharacterBiosExtraction
-from langchain_anthropic.middleware import AnthropicPromptCachingMiddleware
 from dotenv import load_dotenv
 
 load_dotenv()
 
 character_bios_extraction_agent = create_agent(
-    "anthropic:claude-haiku-4-5-20251001",
+    "google_genai:gemini-2.5-flash-lite",
     tools = [],
     system_prompt=CHARACTER_BIO_SYSTEM_PROMPT,
-    response_format=ToolStrategy(CharacterBiosExtraction),
-    middleware=[
-        AnthropicPromptCachingMiddleware(ttl="5m", min_messages_to_cache=0)
-    ]
+    response_format=ToolStrategy(CharacterBiosExtraction)
 )
 
 async def extract_character_bios(

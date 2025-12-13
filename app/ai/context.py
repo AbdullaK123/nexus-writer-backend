@@ -7,17 +7,13 @@ from app.ai.prompts.context import SYSTEM_PROMPT, build_condensed_context_prompt
 from app.ai.models.context import CondensedChapterContext
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
-from langchain_anthropic.middleware import AnthropicPromptCachingMiddleware
 
 # Create synthesis agent
 synthesis_agent = create_agent(
-    "anthropic:claude-haiku-4-5-20251001",
+    "google_genai:gemini-2.5-flash-lite",
     tools=[],
     system_prompt=SYSTEM_PROMPT,
-    response_format=ToolStrategy(CondensedChapterContext),
-    middleware=[
-        AnthropicPromptCachingMiddleware(ttl="5m", min_messages_to_cache=0)
-    ]
+    response_format=ToolStrategy(CondensedChapterContext)
 )
 
 async def synthesize_chapter_context(
