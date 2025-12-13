@@ -3,15 +3,19 @@ from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 from app.ai.prompts.structure import SYSTEM_PROMPT, build_structure_extraction_prompt
 from app.ai.models.structure import StructureExtraction
+from langchain_anthropic.middleware import AnthropicPromptCachingMiddleware
 from dotenv import load_dotenv
 
 load_dotenv()
 
 story_structure_agent = create_agent(
-    "google_genai:gemini-2.5-flash-lite",
+    "anthropic:claude-haiku-4-5-20251001",
     tools = [],
     system_prompt=SYSTEM_PROMPT,
-    response_format=ToolStrategy(StructureExtraction)
+    response_format=ToolStrategy(StructureExtraction),
+    middleware=[
+        AnthropicPromptCachingMiddleware(ttl="5m", min_messages_to_cache=0)
+    ]
 )
 
 async def extract_story_structure(

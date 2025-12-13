@@ -7,14 +7,18 @@ from app.ai.prompts.structure_and_pacing import (
 )
 from app.ai.models.structure_and_pacing import PacingAndStructureAnalysis
 from dotenv import load_dotenv
+from langchain_anthropic.middleware import AnthropicPromptCachingMiddleware
 
 load_dotenv()
 
 pacing_structure_extraction_agent = create_agent(
-    "google_genai:gemini-2.5-flash-lite",
+    "anthropic:claude-haiku-4-5-20251001",
     tools=[],
     system_prompt=PACING_AND_STRUCTURE_SYSTEM_PROMPT,
-    response_format=ToolStrategy(PacingAndStructureAnalysis)
+    response_format=ToolStrategy(PacingAndStructureAnalysis),
+    middleware=[
+        AnthropicPromptCachingMiddleware(ttl="5m", min_messages_to_cache=0)
+    ]
 )
 
 async def extract_pacing_and_structure(
