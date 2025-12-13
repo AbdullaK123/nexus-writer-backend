@@ -5,7 +5,12 @@ from app.config.celery import celery_app
 from fastapi import Depends, HTTPException, status
 from app.ai.tasks import run_line_edit_job, run_context_extraction_job
 from app.core.database import get_db
-from app.schemas.jobs import JobQueuedResponse, JobStatus, JobStatusResponse
+from app.schemas.jobs import (
+    JobQueuedResponse, 
+    JobStatus, 
+    JobStatusResponse,
+    ExtractionProgress
+)
 from app.providers.chapter import ChapterProvider
 from app.providers.story import StoryProvider
 from app.utils.decorators import log_errors
@@ -13,6 +18,7 @@ from app.utils.html import html_to_plain_text
 from app.models import Story, Chapter
 from loguru import logger
 from datetime import datetime
+from typing import Optional
 
 class JobProvider:
 
@@ -32,22 +38,92 @@ class JobProvider:
         self,
         job_id: str
     ) -> JobStatusResponse:
-        """Get status of a job by ID"""
+        """Get detailed status of a job by ID with progress tracking"""
         result = AsyncResult(id=job_id, app=self.celery_app)
 
+        # Map Celery states to our JobStatus enum
         status_map = {
-            "PENDING": JobStatus.PENDING,
+            "PENDING": JobStatus.QUEUED,
+            "STARTED": JobStatus.STARTING,
+            "PROGRESS": JobStatus.PROGRESS,
             "SUCCESS": JobStatus.SUCCESS,
             "FAILURE": JobStatus.FAILURE,
-            "STARTED": JobStatus.STARTED,
-            "RETRY": JobStatus.PENDING,
-            "PROGRESS": JobStatus.STARTED,
+            "RETRY": JobStatus.RETRY,
         }
 
-        return JobStatusResponse(
+        response = JobStatusResponse(
             job_id=job_id,
-            status=status_map.get(result.status, JobStatus.PENDING)
+            status=status_map.get(result.state, JobStatus.PENDING)
         )
+
+        # Handle different states with metadata
+        if result.state == 'PENDING':
+            response.status = JobStatus.QUEUED
+            response.message = "Task queued, waiting to start"
+        
+        elif result.state == 'STARTING':
+            response.status = JobStatus.STARTING
+            response.message = "Initializing extraction pipeline"
+            if isinstance(result.info, dict):
+                response.started_at = result.info.get('started_at')
+        
+        elif result.state == 'PROGRESS':
+            response.status = JobStatus.PROGRESS
+            
+            # Extract progress metadata from Celery task
+            meta = result.info or {}
+            if all(k in meta for k in ['current', 'total', 'chapter', 'percent']):
+                response.progress = ExtractionProgress(
+                    current=meta['current'],
+                    total=meta['total'],
+                    chapter=meta['chapter'],
+                    percent=meta['percent']
+                )
+                response.message = (
+                    f"Extracting Chapter {meta['chapter']} "
+                    f"({meta['current']}/{meta['total']})"
+                )
+            else:
+                response.message = "Processing..."
+        
+        elif result.state == 'SUCCESS':
+            response.status = JobStatus.SUCCESS
+            response.completed_at = datetime.utcnow()
+            response.result = result.result
+            
+            # Create success message
+            if isinstance(result.result, list):
+                chapters_count = len(result.result)
+                response.message = f"Successfully extracted {chapters_count} chapter{'s' if chapters_count != 1 else ''}!"
+            else:
+                response.message = "Extraction complete!"
+        
+        elif result.state == 'FAILURE':
+            response.status = JobStatus.FAILURE
+            response.completed_at = datetime.utcnow()
+            
+            # Extract error information
+            if isinstance(result.info, dict):
+                response.error = result.info.get('error', str(result.info))
+                response.error_type = result.info.get('exc_type', 'Unknown')
+            else:
+                response.error = str(result.info)
+            
+            response.message = "Extraction failed"
+        
+        elif result.state == 'RETRY':
+            response.status = JobStatus.RETRY
+            if isinstance(result.info, dict):
+                response.retry_count = result.info.get('retries', 0)
+                response.max_retries = 3
+                response.message = (
+                    f"Retrying after error "
+                    f"(attempt {response.retry_count + 1}/3)"
+                )
+            else:
+                response.message = "Retrying..."
+
+        return response
 
     @log_errors
     async def queue_line_edit_job(
@@ -69,7 +145,7 @@ class JobProvider:
         # Check if line edits were recently generated
         if not force and chapter.line_edits_generated_at:
             from datetime import timedelta
-            time_since_generation = datetime.now() - chapter.line_edits_generated_at
+            time_since_generation = datetime.utcnow() - chapter.line_edits_generated_at
             
             if time_since_generation < timedelta(hours=24):
                 hours_ago = time_since_generation.seconds // 3600
@@ -86,18 +162,8 @@ class JobProvider:
                 detail="Story not found!"
             )
         
-        # Calculate chapter number by getting ordered chapters
-        chapters = await self.story_provider.get_ordered_chapters(user_id, story.id)
-        chapter_number = next(
-            (idx + 1 for idx, ch in enumerate(chapters) if ch.id == chapter_id),
-            None
-        )
-        
-        if chapter_number is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Could not determine chapter number"
-            )
+        # Get chapter number
+        chapter_number = chapter.chapter_number
         
         # Queue task with HTML content (task will convert to plain text)
         result: AsyncResult = run_line_edit_job.delay(
@@ -116,8 +182,10 @@ class JobProvider:
         return JobQueuedResponse(
             job_id=result.id,
             job_name=f"Line Edits - Chapter {chapter_number}: {chapter.title}",
-            started_at=datetime.now(),
-            status=JobStatus.PENDING
+            started_at=datetime.utcnow(),
+            status=JobStatus.QUEUED,
+            chapter_id=chapter.id,
+            chapter_number=chapter_number
         )
 
     @log_errors
@@ -127,7 +195,12 @@ class JobProvider:
         chapter_id: str,
         force: bool = False
     ) -> JobQueuedResponse:
-        """Queue context extraction for a chapter"""
+        """
+        Queue cascade extraction for a chapter and all subsequent chapters.
+        
+        This will re-extract the edited chapter and all chapters after it
+        to ensure rolling context propagates changes forward.
+        """
         
         chapter = await self.chapter_provider.get_by_id(chapter_id, user_id)
 
@@ -137,7 +210,7 @@ class JobProvider:
                 detail="Chapter not found!"
             )
         
-        # Check if extraction needed
+        # Check if extraction needed (unless forced)
         if not force and not chapter.needs_extraction:
             word_delta = abs(chapter.word_count - (chapter.last_extracted_word_count or 0))
             raise HTTPException(
@@ -153,41 +226,40 @@ class JobProvider:
                 detail="Story not found!"
             )
         
-        # Calculate chapter number by getting ordered chapters
-        chapters = await self.story_provider.get_ordered_chapters(user_id, story.id)
-        chapter_number = next(
-            (idx + 1 for idx, ch in enumerate(chapters) if ch.id == chapter_id),
-            None
-        )
+        # Get chapter number using the property
+        chapter_number = chapter.chapter_number
         
-        if chapter_number is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Could not determine chapter number"
-            )
+        # Calculate how many chapters will be re-extracted
+        # (current chapter + all chapters after it)
+        total_chapters = len(story.path_array or [])
+        chapters_to_extract = total_chapters - chapter_number + 1
         
-        # Convert HTML to plain text for extraction
-        plain_text = html_to_plain_text(chapter.content)
+        # Estimate duration (60 seconds per chapter)
+        estimated_duration = chapters_to_extract * 60
         
+        # Queue the cascade extraction task
+        # Note: We only pass chapter_id and chapter_number now
+        # The task itself queries the DB for chapter content
         result: AsyncResult = run_context_extraction_job.delay(
             chapter_id=chapter_id,
-            chapter_number=chapter_number,
-            chapter_title=chapter.title,
-            story_context=story.story_context,
-            current_chapter_content=plain_text,
-            word_count=chapter.word_count
-        ) 
+            chapter_number=chapter_number
+        )
 
         logger.info(
-            f"Queued extraction job for Chapter {chapter_number} "
-            f"'{chapter.title}' (task_id: {result.id})"
+            f"Queued cascade extraction for Chapter {chapter_number} "
+            f"'{chapter.title}' - will re-extract {chapters_to_extract} chapters "
+            f"(task_id: {result.id})"
         )
 
         return JobQueuedResponse(
             job_id=result.id,
-            job_name=f"Extract Chapter {chapter_number}: {chapter.title}",
-            started_at=datetime.now(),
-            status=JobStatus.PENDING
+            job_name=f"Cascade Extraction - Chapter {chapter_number}: {chapter.title}",
+            started_at=datetime.utcnow(),
+            status=JobStatus.QUEUED,
+            chapter_id=chapter.id,
+            chapter_number=chapter_number,
+            chapters_to_extract=chapters_to_extract,
+            estimated_duration_seconds=estimated_duration
         )
     
 
