@@ -1,3 +1,4 @@
+from loguru import logger
 from sqlmodel import SQLModel, Relationship, Field, UniqueConstraint, CheckConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy import JSON, Column, String
@@ -209,6 +210,24 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
     def estimated_reading_time_minutes(self) -> int:
         """Calculate estimated reading time"""
         return max(1, self.word_count // 250)
+    
+    @property
+    def chapter_number(self) -> int:
+        """Get chapter number from story's path_array"""
+        if not self.story.path_array:
+            logger.warning(f"Story {self.story.id} has no path_array")
+            return 1
+        
+        if not self.id:
+            raise ValueError("Chapter does not have ID")
+        
+        try:
+            return self.story.path_array.index(self.id) + 1
+        except ValueError as e:
+            raise ValueError(
+                f"Chapter {self.id} not found in story {self.story.id} path_array. "
+                f"Expected one of: {self.story.path_array}"
+            ) from e
     
     @property
     def has_extractions(self) -> bool:

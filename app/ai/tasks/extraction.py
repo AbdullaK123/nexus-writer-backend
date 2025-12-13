@@ -17,7 +17,7 @@ from app.ai.models.world import WorldExtraction
 import asyncio
 from app.config.celery import celery_app
 from app.core.database import get_db
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Callable, Dict, List, Optional, TypedDict, cast
 from loguru import logger
 from datetime import datetime
 from app.models import Story, Chapter
@@ -234,48 +234,138 @@ async def save_extraction_results_to_db(
 async def orchestrate_extraction(
     chapter_id: str,
     chapter_number: int,
-    chapter_title: Optional[str],
-    story_context: str,
-    current_chapter_content: str,
-    word_count: int
-) -> Dict[str, Any]:
+    progress_callback: Optional[Callable[[int, int, int], None]] = None
+) -> List[Dict[str, Any]]:
     """
-    Orchestrate the full extraction pipeline with database operations.
-    Creates its own database session.
+    Re-extract current chapter and ALL subsequent chapters.
+    This ensures rolling context propagates changes forward.
     """
-    # Create fresh async session for this task
-    async with get_db() as db:  # type: ignore
-        # Run extractions
-        extraction_results = await get_condensed_context(
-            chapter_id,
-            chapter_number,
-            chapter_title,
-            word_count,
-            story_context,
-            current_chapter_content
+    async with cast(AsyncSession, get_db()) as db:
+        
+        # Get the story
+        chapter = await db.get(Chapter, chapter_id)
+        if not chapter:
+            raise ValueError(f"Chapter {chapter_id} not found")
+        
+        # Get all chapters in order
+        chapters = await StoryProvider(db).get_ordered_chapters(
+            chapter.user_id, 
+            chapter.story_id
         )
         
-        # Save to database
-        db_result = await save_extraction_results_to_db(
+        # Find chapters from current onwards
+        chapters_to_extract = [
+            ch for ch in chapters 
+            if ch.chapter_number >= chapter_number
+        ]
+        
+        logger.info(
+            f"Extracting {len(chapters_to_extract)} chapters "
+            f"(from Chapter {chapter_number} onwards)"
+        )
+        
+        results = []
+        
+        # Build initial context from chapters BEFORE the edited one
+        previous_chapters = [ch for ch in chapters if ch.chapter_number < chapter_number]
+        accumulated_context = encode({
+            "chapters": [
+                {"number": i+1, "title": ch.title, "context": ch.condensed_context}
+                for i, ch in enumerate(previous_chapters)
+            ]
+        })
+        
+        # Extract each chapter sequentially (rolling context)
+        for idx, chapter_to_extract in enumerate(chapters_to_extract):
+
+            if progress_callback:
+                progress_callback(
+                    idx + 1,
+                    len(chapters_to_extract),
+                    chapter_to_extract.chapter_number
+                )
+
+            logger.info(
+                f"Extracting Chapter {chapter_to_extract.chapter_number} "
+                f"({idx + 1}/{len(chapters_to_extract)})"
+            )
+            
+            # Extract this chapter with accumulated context
+            extraction_results = await get_condensed_context(
+                chapter_to_extract.id, #type: ignore
+                chapter_to_extract.chapter_number,
+                chapter_to_extract.title,
+                chapter_to_extract.word_count,
+                accumulated_context,
+                chapter_to_extract.content
+            )
+            
+            # Save to database (but don't commit yet)
+            chapter_to_extract.condensed_context = extraction_results["context"].condensed_text
+            chapter_to_extract.timeline_context = extraction_results["context"].timeline_context
+            chapter_to_extract.themes = extraction_results["context"].themes_present
+            chapter_to_extract.emotional_arc = extraction_results["context"].emotional_arc
+            chapter_to_extract.last_extracted_at = datetime.now()
+            chapter_to_extract.last_extracted_word_count = chapter_to_extract.word_count
+            
+            chapter_to_extract.character_extraction = extraction_results["character"].model_dump()
+            chapter_to_extract.plot_extraction = extraction_results["plot"].model_dump()
+            chapter_to_extract.world_extraction = extraction_results["world"].model_dump()
+            chapter_to_extract.structure_extraction = extraction_results["structure"].model_dump()
+            
+            chapter_to_extract.extraction_version = "1.0.0"
+            
+            await db.flush()  # Make visible for next iteration
+            
+            # Update accumulated context for next chapter
+            # Re-query to get all chapters processed so far
+            all_chapters_so_far = [ch for ch in chapters if ch.chapter_number <= chapter_to_extract.chapter_number]
+            accumulated_context = encode({
+                "chapters": [
+                    {"number": i+1, "title": ch.title, "context": ch.condensed_context}
+                    for i, ch in enumerate(all_chapters_so_far)
+                ]
+            })
+            
+            results.append({
+                "chapter_id": chapter_to_extract.id,
+                "chapter_number": chapter_to_extract.chapter_number,
+                "status": "success"
+            })
+        
+        # After all chapters extracted, update story-level data ONCE
+        logger.info("All chapters extracted, updating story-level data...")
+        
+        story = await db.get(Story, chapter.story_id)
+        if not story:
+            raise ValueError(f"Story {chapter.story_id} not found")
+        
+        story.story_context = accumulated_context
+        
+        # Update story bible fields
+        await update_story_bible_fields(
             db, 
-            chapter_id,
-            chapter_number,
-            word_count,
-            extraction_results
+            accumulated_context, 
+            story.id, # type: ignore
+            chapter.user_id
         )
         
-        return db_result
+        # Commit everything atomically
+        await db.commit()
+        
+        logger.success(
+            f"Successfully extracted {len(results)} chapters "
+            f"(Chapters {chapter_number}-{chapters_to_extract[-1].chapter_number})"
+        )
+        
+        return results
 
 
 @celery_app.task(bind=True, max_retries=3) 
 def run_context_extraction_job(
     self, 
     chapter_id: str,
-    chapter_number: int,
-    chapter_title: Optional[str],
-    story_context: str,
-    current_chapter_content: str,
-    word_count: int
+    chapter_number: int
 ):
     """
     Celery task for multi-pass chapter extraction with parallel processing.
@@ -305,16 +395,21 @@ def run_context_extraction_job(
             orchestrate_extraction(
                 chapter_id,
                 chapter_number,
-                chapter_title,
-                story_context,
-                current_chapter_content,
-                word_count
+                progress_callback=lambda current, total, current_chapter: self.update_state(
+                    state='PROGRESS',
+                    meta={
+                        'current': current,
+                        'total': total,
+                        'chapter': current_chapter,
+                        'percent': int((current / total) * 100)
+                    }
+                )
             )
         )
         
         logger.success(
             f"Chapter {chapter_number}: Extraction complete! "
-            f"Condensed to {result['condensed_word_count']} words"
+            f"Condensed to {result['condensed_word_count']} words" # type: ignore
         )
         
         return result
