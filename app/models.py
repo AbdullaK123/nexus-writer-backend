@@ -204,7 +204,7 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
             return True  # Never extracted
         
         word_delta = abs(self.word_count - self.last_extracted_word_count)
-        return word_delta >= 1000
+        return word_delta >= 2000
     
     @property
     def estimated_reading_time_minutes(self) -> int:

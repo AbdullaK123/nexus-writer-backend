@@ -38,6 +38,9 @@ services:
   nexus-worker:
     build: .
     command: uv run celery -A app.worker worker --loglevel=info
+    environment:
+      REDIS_URL: redis://redis-nexus:6379/0
+      REDIS_BROKER_URL: redis://redis-nexus:6379/1
     depends_on:
       postgres-nexus:
         condition: service_healthy
