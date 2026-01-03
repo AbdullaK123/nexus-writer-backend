@@ -99,8 +99,63 @@ The app expects redis_url in your .env. You can run Redis in Docker for dev:
 - docker run -d --name redis -p 6379:6379 redis:7
 - Then set redis_url=redis://localhost:6379/0
 
-## Running with Docker
-TODO: A Dockerfile and compose.yml are not present. If containerization is desired, add them and document build/run steps here.
+## Running with Docker Compose
+
+The application can be run with Docker Compose, which includes:
+
+- **postgres-nexus**: Main application database (PostgreSQL 17)
+- **postgres-prefect**: Prefect server database (PostgreSQL 17)
+- **redis-nexus**: Redis for caching and circuit breaker state
+- **prefect-server**: Prefect orchestration server (UI at http://localhost:4200)
+- **prefect-worker**: Dedicated container for running Prefect workflows
+- **nexus-writer**: Main FastAPI API server
+
+### Starting the services
+
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# View specific service logs
+docker-compose logs -f prefect-worker
+docker-compose logs -f nexus-writer
+
+# Stop all services
+docker-compose down
+```
+
+### Architecture
+
+The Prefect workflows run in a **separate container** from the API server:
+
+1. **API Server (nexus-writer)**: Handles HTTP requests and submits flow runs to Prefect
+2. **Prefect Server**: Orchestrates and schedules flow runs, provides UI dashboard
+3. **Prefect Worker**: Executes the actual flow code for extraction and line edits
+
+When a job is queued via the API:
+1. The API submits a flow run to the Prefect server via `run_deployment()`
+2. The Prefect server schedules the run
+3. The worker picks up the run and executes it
+4. Job status can be polled via the API
+
+### Prefect UI
+
+Access the Prefect dashboard at http://localhost:4200 to:
+- View flow runs and their status
+- Monitor worker health
+- See flow run logs and results
+- Manage deployments
+
+### Scaling workers
+
+To scale the number of workers:
+
+```bash
+docker-compose up -d --scale prefect-worker=3
+```
 
 ## Scripts
 - scripts/init_dev_db.sh — Initialize local PostgreSQL with pgvector and run migrations

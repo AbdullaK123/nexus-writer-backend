@@ -11,7 +11,7 @@ world_bible_extraction_agent = create_agent(
     "google_genai:gemini-2.5-flash-lite",
     tools=[],
     system_prompt=WORLD_BIBLE_SYSTEM_PROMPT,
-    response_format=ToolStrategy(WorldBibleExtraction)
+    response_format=ToolStrategy(WorldBibleExtraction),
 )
 
 async def extract_world_bible(

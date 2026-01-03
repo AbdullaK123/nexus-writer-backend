@@ -1,11 +1,15 @@
+# Stage 1: UV binary
+FROM ghcr.io/astral-sh/uv:latest AS uv
+
+# Stage 2: Application
 FROM python:3.12-slim
 
-RUN apt-get update && apt-get install -y build-essential libpq-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y build-essential libpq-dev curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Install uv from the first stage
+COPY --from=uv /uv /usr/local/bin/uv
 
 # Copy dependency files first (for Docker cache)
 COPY pyproject.toml uv.lock ./

@@ -14,7 +14,7 @@ pacing_structure_extraction_agent = create_agent(
     "google_genai:gemini-2.5-flash-lite",
     tools=[],
     system_prompt=PACING_AND_STRUCTURE_SYSTEM_PROMPT,
-    response_format=ToolStrategy(PacingAndStructureAnalysis)
+    response_format=ToolStrategy(PacingAndStructureAnalysis),
 )
 
 async def extract_pacing_and_structure(

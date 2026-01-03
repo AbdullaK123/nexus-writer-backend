@@ -3,6 +3,7 @@ from sqlmodel import select, desc
 from typing import Optional, List
 from app.models import Story, Chapter, Target
 from app.providers.target import TargetProvider
+from sqlalchemy.orm import selectinload
 from app.schemas.chapter import ChapterListItem
 from fastapi import HTTPException, status, Depends
 from app.core.database import get_db
@@ -155,6 +156,7 @@ class StoryProvider:
                 Chapter.user_id == user_id,
                 Chapter.story_id == story_id
             )
+            .options(selectinload(Chapter.story))
         )
         
         all_chapters = (await self.db.execute(chapter_query)).scalars().all()

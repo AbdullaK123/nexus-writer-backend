@@ -11,7 +11,7 @@ line_edit_agent = create_agent(
     "google_genai:gemini-2.5-flash-lite",
     tools = [],
     system_prompt=SYSTEM_PROMPT,
-    response_format=ToolStrategy(ChapterEdit)
+    response_format=ToolStrategy(ChapterEdit),
 )
 
 async def generate_line_edits(

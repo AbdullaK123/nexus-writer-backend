@@ -15,7 +15,26 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - nexus-network
 
+  # Prefect database (separate from app database)
+  postgres-prefect:
+    image: postgres:17.1-alpine
+    ports:
+      - 5433:5432
+    environment:
+      POSTGRES_DB: prefect
+      POSTGRES_USER: prefect_user
+      POSTGRES_PASSWORD: prefect_password
+    volumes:
+      - postgres_prefect_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prefect_user -d prefect"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - nexus-network
 
@@ -35,33 +54,70 @@ services:
       - nexus-network
     command: redis-server --appendonly yes
 
-  nexus-worker:
-    build: .
-    command: uv run celery -A app.worker worker --loglevel=info
+  # Prefect Server - Orchestration UI and API
+  prefect-server:
+    image: prefecthq/prefect:3-python3.12
+    ports:
+      - 4200:4200
     environment:
+      PREFECT_SERVER_API_HOST: 0.0.0.0
+      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://prefect_user:prefect_password@postgres-prefect:5432/prefect
+    command: prefect server start
+    depends_on:
+      postgres-prefect:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - nexus-network
+
+  # Prefect Worker - Executes flow runs
+  prefect-worker:
+    build: .
+    command: >
+      sh -c "uv run python worker.py"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://nexus_user:password@postgres-nexus:5432/nexus_writer
+      MIGRATION_URL: postgresql://nexus_user:password@postgres-nexus:5432/nexus_writer
       REDIS_URL: redis://redis-nexus:6379/0
       REDIS_BROKER_URL: redis://redis-nexus:6379/1
+      PREFECT_API_URL: http://prefect-server:4200/api
     depends_on:
       postgres-nexus:
         condition: service_healthy
       redis-nexus:
         condition: service_healthy
+      prefect-server:
+        condition: service_healthy
     networks:
       - nexus-network
+    restart: unless-stopped
 
+  # Main API server (no longer runs Prefect flows directly)
   nexus-writer:
     build: .
     ports:
       - 8000:8000
+    command: >
+      sh -c "uv run alembic upgrade head && uv run uvicorn main:app --host 0.0.0.0 --port 8000"
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://nexus_user:password@postgres-nexus:5432/nexus_writer
+      MIGRATION_URL: postgresql://nexus_user:password@postgres-nexus:5432/nexus_writer
       REDIS_URL: redis://redis-nexus:6379/0
       REDIS_BROKER_URL: redis://redis-nexus:6379/1
+      PREFECT_API_URL: http://prefect-server:4200/api
     depends_on:
       postgres-nexus:
         condition: service_healthy
       redis-nexus:
+        condition: service_healthy
+      prefect-server:
         condition: service_healthy
     networks:
       - nexus-network
@@ -72,4 +128,5 @@ networks:
 
 volumes:
   postgres_nexus_data:
+  postgres_prefect_data:
   redis_data:

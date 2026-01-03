@@ -11,7 +11,7 @@ story_structure_agent = create_agent(
     "google_genai:gemini-2.5-flash-lite",
     tools = [],
     system_prompt=SYSTEM_PROMPT,
-    response_format=ToolStrategy(StructureExtraction)
+    response_format=ToolStrategy(StructureExtraction),
 )
 
 async def extract_story_structure(

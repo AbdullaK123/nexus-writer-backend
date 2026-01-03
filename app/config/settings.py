@@ -14,6 +14,7 @@ class Config(BaseSettings):
 
     motherduck_url: str = Field(..., description='Our analytics dw connections string')
     database_url: str = Field(..., description='Our postgres connection string')
+    database_sync_url: str = Field(..., description='Our sync postgres connection for migrations')
     migration_url: str = Field(..., description='database uri for migrations')
     app_secret_key: str = Field(..., description='The secret key for password hashing')
     cookie_signing_key: str = Field(..., description='For verifying the signature of our encrypted session ids')

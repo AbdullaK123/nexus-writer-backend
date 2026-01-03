@@ -102,8 +102,8 @@ async def get_story_chapters(
 async def get_story_analytics(
     story_id: str,
     frequency: FrequencyType = Query(default=FrequencyType.DAILY),
-    from_date: datetime = Query(default_factory=lambda:datetime.now() - timedelta(days=30)),
-    to_date: datetime = Query(default_factory=datetime.now),
+    from_date: datetime = Query(default_factory=lambda: datetime.utcnow() - timedelta(days=30)),
+    to_date: datetime = Query(default_factory=datetime.utcnow),
     current_user: User = Depends(get_current_user),
     analytics_provider: AnalyticsProvider = Depends(get_analytics_provider)
 ) -> StoryAnalyticsResponse:

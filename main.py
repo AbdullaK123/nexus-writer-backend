@@ -31,7 +31,7 @@ app.add_middleware(HTTPLoggingMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
@@ -60,4 +60,4 @@ socket_app = ASGIApp(sio, other_asgi_app=app)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(socket_app, host='localhost', port=8000)
+    uvicorn.run(socket_app, host='0.0.0.0', port=8000)

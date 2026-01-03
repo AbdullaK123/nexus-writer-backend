@@ -23,6 +23,14 @@ class FrequencyType(str, Enum):
     MONTHLY = "Monthly"
 
 
+class DLQStatus(str, Enum):
+    """Status of a dead-letter queue job"""
+    PENDING = "pending"
+    RETRIED = "retried"
+    RESOLVED = "resolved"
+    IGNORED = "ignored"
+
+
 class TimeStampMixin:
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
@@ -58,7 +66,7 @@ class Story(SQLModel, TimeStampMixin, table=True):
     id: Optional[str] = Field(default_factory=generate_uuid, primary_key=True)
     user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
     title: str = Field(index=True)
-    story_context: str
+    story_context: Optional[str] = Field(default=None)
     character_bios: Optional[dict] = Field(
         default=None,
         sa_column=Column(JSONB),
@@ -257,6 +265,66 @@ class Target(SQLModel, TimeStampMixin, table=True):
     to_date: datetime = Field(default_factory=datetime.utcnow)
     story: 'Story' = Relationship(back_populates='target')
     user: 'User' = Relationship(back_populates='targets')
+
+
+class DeadLetterJob(SQLModel, TimeStampMixin, table=True):
+    """
+    Dead-letter queue for failed background jobs.
+    
+    Stores full context of failed jobs for debugging and replay.
+    """
+    __tablename__ = "dead_letter_job"
+    
+    id: str = Field(default_factory=generate_uuid, primary_key=True)
+    
+    # Job identification
+    flow_run_id: str = Field(index=True, description="Prefect flow run ID")
+    flow_name: str = Field(index=True, description="Name of the failed flow")
+    task_name: Optional[str] = Field(default=None, description="Specific task that failed")
+    
+    # Context for retry
+    chapter_id: Optional[str] = Field(
+        default=None, 
+        foreign_key="chapter.id", 
+        ondelete="SET NULL"
+    )
+    story_id: Optional[str] = Field(
+        default=None, 
+        foreign_key="story.id", 
+        ondelete="SET NULL"
+    )
+    user_id: str = Field(index=True, foreign_key="user.id", ondelete="CASCADE")
+    input_payload: dict = Field(
+        sa_column=Column(JSONB), 
+        description="Full input parameters for replay"
+    )
+    
+    # Error details
+    error_type: str = Field(description="Exception class name")
+    error_message: str = Field(description="Exception message")
+    stack_trace: Optional[str] = Field(default=None, description="Full stack trace")
+    
+    # Metadata
+    original_retry_count: int = Field(description="How many retries were attempted")
+    failed_at: datetime = Field(
+        default_factory=datetime.utcnow, 
+        index=True,
+        description="When the job failed"
+    )
+    
+    # Resolution
+    status: DLQStatus = Field(
+        default=DLQStatus.PENDING, 
+        index=True,
+        description="Current status of the DLQ entry"
+    )
+    resolved_at: Optional[datetime] = Field(default=None)
+    resolved_by: Optional[str] = Field(
+        default=None, 
+        foreign_key="user.id", 
+        ondelete="SET NULL"
+    )
+    resolution_notes: Optional[str] = Field(default=None)
 
 
 

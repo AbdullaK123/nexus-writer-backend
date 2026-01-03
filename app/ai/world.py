@@ -3,19 +3,15 @@ from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 from app.ai.prompts.world import SYSTEM_PROMPT, build_world_extraction_prompt
 from app.ai.models.world import WorldExtraction
-from langchain_anthropic.middleware import AnthropicPromptCachingMiddleware
 from dotenv import load_dotenv
 
 load_dotenv()
 
 world_structure_agent = create_agent(
-    "anthropic:claude-haiku-4-5-20251001",
+    "google_genai:gemini-2.5-flash-lite",
     tools = [],
     system_prompt=SYSTEM_PROMPT,
     response_format=ToolStrategy(WorldExtraction),
-    middleware=[
-        AnthropicPromptCachingMiddleware(ttl="5m")
-    ]
 )
 
 async def extract_world_information(

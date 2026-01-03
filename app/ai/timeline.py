@@ -14,7 +14,7 @@ story_timeline_extraction_agent = create_agent(
     "google_genai:gemini-2.5-flash-lite",
     tools=[],
     system_prompt=STORY_TIMELINE_SYSTEM_PROMPT,
-    response_format=ToolStrategy(StoryTimeline)
+    response_format=ToolStrategy(StoryTimeline),
 )
 
 async def extract_story_timeline(

@@ -11,7 +11,7 @@ plot_thread_extraction_agent = create_agent(
     "google_genai:gemini-2.5-flash-lite",
     tools = [],
     system_prompt=PLOT_THREADS_SYSTEM_PROMPT,
-    response_format=ToolStrategy(PlotThreadsExtraction)
+    response_format=ToolStrategy(PlotThreadsExtraction),
 )
 
 async def extract_plot_threads(

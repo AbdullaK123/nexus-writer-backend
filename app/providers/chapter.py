@@ -1,6 +1,7 @@
 from datetime import datetime
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
+from sqlalchemy.orm import selectinload
 from typing import Dict, Optional, List, Sequence
 from app.core.redis import get_redis
 from app.models import Chapter, Story
@@ -77,7 +78,7 @@ class ChapterProvider:
             raise HTTPException(500, "Failed to create chapter")
 
     async def get_by_id(self, chapter_id: str, user_id: str) -> Optional[Chapter]:
-        """Get single chapter by ID with user security"""
+        """Get single chapter by ID with user security and story eagerly loaded"""
         
         chapter_query = (
             select(Chapter)
@@ -85,6 +86,7 @@ class ChapterProvider:
                 Chapter.user_id == user_id,
                 Chapter.id == chapter_id
             )
+            .options(selectinload(Chapter.story)) # type: ignore
         )
         chapter = (await self.db.execute(chapter_query)).scalar_one_or_none()
         return chapter
@@ -108,17 +110,26 @@ class ChapterProvider:
 
         result  = (await self.db.exec(query)).first()
 
-        if (
-            result and result[0] is None or
-            result and result[1] is None or
-            result is None
-        ):
+        # Check if chapter exists
+        if result is None:
+            logger.error(f"Chapter {chapter_id} not found for user {user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chapter not found"
+            )
+        
+        line_edits, last_generated_at = result
+        
+        logger.info(f"Edits result: {line_edits}") 
+        logger.info(f"Edits timestamp: {last_generated_at}")
+
+        # Check if edits have been generated
+        if line_edits is None or last_generated_at is None:
+            logger.error(f"Edits not generated yet for chapter {chapter_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Edits not found"
             )
-        
-        line_edits, last_generated_at = result
         
         return ChapterEdit(
             edits=[

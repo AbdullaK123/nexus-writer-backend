@@ -11,7 +11,7 @@ plot_extraction_agent = create_agent(
     "google_genai:gemini-2.5-flash-lite",
     tools = [],
     system_prompt=SYSTEM_PROMPT,
-    response_format=ToolStrategy(PlotExtraction)
+    response_format=ToolStrategy(PlotExtraction),
 )
 
 async def extract_plot_information(

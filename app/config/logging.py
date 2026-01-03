@@ -20,7 +20,7 @@ def setup_logging():
     
     # Comprehensive background job logging with JSON structure
     logger.add(
-        "logs/celery_tasks.log",
+        "logs/prefect_tasks.log",
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
         level="DEBUG",
         rotation="25 MB",  # Larger files for background jobs

@@ -273,8 +273,8 @@ class AnalyticsProvider:
             story_id: str,
             user_id: str,
             frequency: FrequencyType,
-            from_date: datetime = datetime.now() - timedelta(days=30),
-            to_date: datetime = datetime.now()
+            from_date: datetime = datetime.utcnow() - timedelta(days=30),
+            to_date: datetime = datetime.utcnow()
     ) -> StoryAnalyticsResponse:
 
         print(f"DEBUG: story_id={story_id}, user_id={user_id}")

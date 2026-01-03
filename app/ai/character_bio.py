@@ -11,7 +11,7 @@ character_bios_extraction_agent = create_agent(
     "google_genai:gemini-2.5-flash-lite",
     tools = [],
     system_prompt=CHARACTER_BIO_SYSTEM_PROMPT,
-    response_format=ToolStrategy(CharacterBiosExtraction)
+    response_format=ToolStrategy(CharacterBiosExtraction),
 )
 
 async def extract_character_bios(

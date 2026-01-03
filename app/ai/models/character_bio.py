@@ -1,185 +1,59 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Dict, List, Optional, Literal
+from pydantic import BaseModel, Field
+from typing import List, Optional, Literal
 from datetime import datetime
-
-
-class EmotionalArcPoint(BaseModel):
-    """A point in a character's emotional journey"""
-    chapter: int
-    emotional_state: str = Field(description="Character's emotional state at this point")
-    physical_state: Optional[str] = Field(
-        default=None,
-        description="Notable physical changes or conditions"
-    )
-    key_event: Optional[str] = Field(
-        default=None,
-        description="What happened in this chapter that affected them"
-    )
-
-
-class DialogueSample(BaseModel):
-    """Sample dialogue that captures character's voice"""
-    chapter: int
-    dialogue: str = Field(description="Representative dialogue from this character")
-    context: Optional[str] = Field(
-        default=None,
-        description="What was happening when they said this"
-    )
 
 
 class CharacterRelationship(BaseModel):
     """Relationship between this character and another"""
-    character_name: str = Field(description="Name of the other character")
-    relationship_type: str = Field(
-        description="Nature of relationship (e.g., 'mentor', 'rival', 'romantic_interest', 'enemy')"
-    )
-    evolution: str = Field(
-        description="How the relationship changed over the story"
-    )
-    key_moments: List[int] = Field(
-        default=[],
-        description="Chapter numbers where relationship significantly changed"
-    )
+    character_name: str
+    relationship_type: str = Field(description="e.g., 'mentor', 'rival', 'romantic_interest'")
+    evolution: str = Field(description="How the relationship changed")
 
 
 class CharacterBio(BaseModel):
     """Complete biography of a character"""
     
-    canonical_name: str = Field(description="Character's primary/full name")
+    canonical_name: str = Field(description="Character's primary name")
+    aliases: List[str] = Field(default=[], description="Nicknames, titles")
     
-    aliases: List[str] = Field(
-        default=[],
-        description="Other names, nicknames, titles used for this character"
-    )
+    role: Literal["protagonist", "antagonist", "supporting", "minor"]
     
-    role: Literal["protagonist", "antagonist", "supporting", "minor"] = Field(
-        description="Character's narrative role"
-    )
+    first_appearance: int
+    last_appearance: int
+    total_appearances: int
     
-    first_appearance: int = Field(description="Chapter number of first appearance")
+    arc_summary: str = Field(description="Character's journey and transformation")
     
-    last_appearance: int = Field(description="Chapter number of last appearance")
+    character_traits: List[str] = Field(default=[], description="Core personality traits")
+    physical_description: Optional[str] = None
+    background: Optional[str] = None
     
-    total_appearances: int = Field(description="Total number of chapters character appears in")
+    goals_and_motivations: Optional[str] = None
+    internal_conflict: Optional[str] = None
     
-    chapters_appeared: List[int] = Field(
-        default=[],
-        description="List of chapter numbers where character appears"
-    )
-    
-    arc_summary: str = Field(
-        description="2-3 sentence summary of character's journey and transformation"
-    )
-    
-    character_traits: List[str] = Field(
-        default=[],
-        description="Core personality traits (e.g., 'intelligent', 'impulsive', 'compassionate')"
-    )
-    
-    physical_description: Optional[str] = Field(
-        default=None,
-        description="Notable physical characteristics mentioned in the story"
-    )
-    
-    background: Optional[str] = Field(
-        default=None,
-        description="Character's backstory and history as revealed in the story"
-    )
-    
-    goals_and_motivations: Optional[str] = Field(
-        default=None,
-        description="What drives this character, what they want to achieve"
-    )
-    
-    internal_conflict: Optional[str] = Field(
-        default=None,
-        description="Character's inner struggles and personal demons"
-    )
-    
-    key_relationships: List[CharacterRelationship] = Field(
-        default=[],
-        description="Important relationships with other characters"
-    )
-    
-    emotional_arc: List[EmotionalArcPoint] = Field(
-        default=[],
-        description="Character's emotional journey through the story"
-    )
-    
-    dialogue_samples: List[DialogueSample] = Field(
-        default=[],
-        max_length=5,
-        description="Sample dialogue that captures character's voice"
-    )
+    key_relationships: List[CharacterRelationship] = Field(default=[])
     
     character_growth: Optional[str] = Field(
         default=None,
         description="How the character changed from beginning to end"
     )
     
-    strengths: List[str] = Field(
-        default=[],
-        description="Character's capabilities and positive qualities"
-    )
+    strengths: List[str] = Field(default=[])
+    weaknesses: List[str] = Field(default=[])
     
-    weaknesses: List[str] = Field(
-        default=[],
-        description="Character's flaws and limitations"
-    )
-    
-    notable_quotes: List[str] = Field(
-        default=[],
-        max_length=3,
-        description="Most memorable or characteristic quotes from this character"
-    )
+    notable_quotes: List[str] = Field(default=[], description="Max 3 memorable quotes")
 
 
 class CharacterBiosExtraction(BaseModel):
-    """
-    Complete character bios for all characters in the story.
+    """Complete character bios for all characters in the story"""
     
-    Generated by analyzing all chapter extractions and the story context.
-    Maps character canonical names to their complete biographies.
-    """
+    characters: List[CharacterBio] = Field(description="All character bios")
     
-    characters: Dict[str, CharacterBio] = Field(
-        description="Map of character name to their complete bio"
-    )
-    
-    total_characters: int = Field(description="Total number of characters analyzed")
-    
-    major_characters: List[str] = Field(
-        description="Names of major characters (protagonist/antagonist/key supporting)"
-    )
+    total_characters: int
+    major_character_names: List[str] = Field(description="Names of major characters")
     
     character_network_summary: str = Field(
-        description="2-3 sentence overview of how characters interact and relate"
+        description="Overview of how characters interact and relate"
     )
     
-    generated_at: datetime = Field(
-        default_factory=datetime.now,
-        description="When this extraction was generated"
-    )
-    
-    model_config = ConfigDict(
-        json_schema_extra = {
-            "example": {
-                "characters": {
-                    "Sarah Chen": {
-                        "canonical_name": "Sarah Chen",
-                        "aliases": ["Dr. Chen", "Sarah"],
-                        "role": "protagonist",
-                        "first_appearance": 1,
-                        "last_appearance": 45,
-                        "total_appearances": 38,
-                        "arc_summary": "From cynical scientist to reluctant hero who learns to trust others",
-                        "character_traits": ["intelligent", "cautious", "empathetic"],
-                        # ... etc
-                    }
-                },
-                "total_characters": 8,
-                "major_characters": ["Sarah Chen", "Marcus Vale", "Krios"],
-                "character_network_summary": "The story centers on Sarah's evolving relationships..."
-            }
-        }
-    )
+    generated_at: datetime = Field(default_factory=datetime.now)

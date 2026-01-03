@@ -13,7 +13,7 @@ synthesis_agent = create_agent(
     "google_genai:gemini-2.5-flash-lite",
     tools=[],
     system_prompt=SYSTEM_PROMPT,
-    response_format=ToolStrategy(CondensedChapterContext)
+    response_format=ToolStrategy(CondensedChapterContext),
 )
 
 async def synthesize_chapter_context(
