@@ -1,10 +1,8 @@
 """
-Tier 1: Individual AI extraction tasks with circuit breaker protection.
+Tier 1: Individual AI extraction tasks with retry policies.
 
 Each task:
 - Has its own retry policy with exponential backoff
-- Checks circuit breaker before execution
-- Records success/failure for circuit breaker state
 """
 import asyncio
 from typing import Optional
@@ -22,15 +20,7 @@ from app.ai.models.plot import PlotExtraction
 from app.ai.models.structure import StructureExtraction
 from app.ai.models.world import WorldExtraction
 from app.ai.models.context import CondensedChapterContext
-from app.flows.circuit_breaker import gemini_breaker, CircuitOpenError
 from app.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAYS, EXTRACTION_TASK_TIMEOUT
-
-
-def _check_circuit_breaker() -> None:
-    """Check circuit breaker and raise if open"""
-    if not gemini_breaker.can_execute():
-        ttr = gemini_breaker.time_to_recovery()
-        raise CircuitOpenError("gemini-api", ttr or 0)
 
 
 @task(
@@ -46,19 +36,13 @@ async def extract_characters_task(
     chapter_title: Optional[str] = None,
 ) -> dict:
     """Extract character information from chapter"""
-    _check_circuit_breaker()
-    
     try:
         result: CharacterExtraction = await extract_characters(
             story_context, chapter_content, chapter_number, chapter_title
         )
-        gemini_breaker.record_success()
         logger.debug(f"Chapter {chapter_number}: Character extraction complete")
         return result.model_dump()
-    except CircuitOpenError:
-        raise
     except Exception as e:
-        gemini_breaker.record_failure()
         logger.error(f"Chapter {chapter_number}: Character extraction failed - {e}")
         raise
 
@@ -76,19 +60,13 @@ async def extract_plot_task(
     chapter_title: Optional[str] = None,
 ) -> dict:
     """Extract plot information from chapter"""
-    _check_circuit_breaker()
-    
     try:
         result: PlotExtraction = await extract_plot_information(
             story_context, chapter_content, chapter_number, chapter_title
         )
-        gemini_breaker.record_success()
         logger.debug(f"Chapter {chapter_number}: Plot extraction complete")
         return result.model_dump()
-    except CircuitOpenError:
-        raise
     except Exception as e:
-        gemini_breaker.record_failure()
         logger.error(f"Chapter {chapter_number}: Plot extraction failed - {e}")
         raise
 
@@ -106,19 +84,13 @@ async def extract_world_task(
     chapter_title: Optional[str] = None,
 ) -> dict:
     """Extract world/setting information from chapter"""
-    _check_circuit_breaker()
-    
     try:
         result: WorldExtraction = await extract_world_information(
             story_context, chapter_content, chapter_number, chapter_title
         )
-        gemini_breaker.record_success()
         logger.debug(f"Chapter {chapter_number}: World extraction complete")
         return result.model_dump()
-    except CircuitOpenError:
-        raise
     except Exception as e:
-        gemini_breaker.record_failure()
         logger.error(f"Chapter {chapter_number}: World extraction failed - {e}")
         raise
 
@@ -136,19 +108,13 @@ async def extract_structure_task(
     chapter_title: Optional[str] = None,
 ) -> dict:
     """Extract narrative structure from chapter"""
-    _check_circuit_breaker()
-    
     try:
         result: StructureExtraction = await extract_story_structure(
             story_context, chapter_content, chapter_number, chapter_title
         )
-        gemini_breaker.record_success()
         logger.debug(f"Chapter {chapter_number}: Structure extraction complete")
         return result.model_dump()
-    except CircuitOpenError:
-        raise
     except Exception as e:
-        gemini_breaker.record_failure()
         logger.error(f"Chapter {chapter_number}: Structure extraction failed - {e}")
         raise
 
@@ -170,8 +136,6 @@ async def synthesize_context_task(
     structure_extraction: dict,
 ) -> dict:
     """Synthesize all extractions into condensed context"""
-    _check_circuit_breaker()
-    
     try:
         # Convert dicts back to models for synthesis
         char_model = CharacterExtraction.model_validate(character_extraction)
@@ -183,13 +147,9 @@ async def synthesize_context_task(
             chapter_id, chapter_number, chapter_title, word_count,
             char_model, plot_model, world_model, struct_model
         )
-        gemini_breaker.record_success()
         logger.debug(f"Chapter {chapter_number}: Context synthesis complete")
         return result.model_dump()
-    except CircuitOpenError:
-        raise
     except Exception as e:
-        gemini_breaker.record_failure()
         logger.error(f"Chapter {chapter_number}: Context synthesis failed - {e}")
         raise
 
@@ -218,11 +178,6 @@ async def save_chapter_extraction_task(
     from sqlmodel.ext.asyncio.session import AsyncSession
     from app.core.database import engine
     from app.models import Chapter
-    from app.flows.circuit_breaker import database_breaker
-    
-    if not database_breaker.can_execute():
-        ttr =  database_breaker.time_to_recovery()
-        raise CircuitOpenError("postgres", ttr or 0)
     
     try:
         async with AsyncSession(engine) as db:
@@ -249,12 +204,8 @@ async def save_chapter_extraction_task(
             
             await db.commit()
             
-        database_breaker.record_success()
         logger.info(f"✅ Chapter {chapter_id} extraction saved (checkpoint)")
         
-    except CircuitOpenError:
-        raise
     except Exception as e:
-        database_breaker.record_failure()
         logger.error(f"Failed to save chapter {chapter_id} extraction: {e}")
         raise

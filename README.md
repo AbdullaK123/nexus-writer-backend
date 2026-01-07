@@ -105,7 +105,7 @@ The application can be run with Docker Compose, which includes:
 
 - **postgres-nexus**: Main application database (PostgreSQL 17)
 - **postgres-prefect**: Prefect server database (PostgreSQL 17)
-- **redis-nexus**: Redis for caching and circuit breaker state
+- **redis-nexus**: Redis for caching
 - **prefect-server**: Prefect orchestration server (UI at http://localhost:4200)
 - **prefect-worker**: Dedicated container for running Prefect workflows
 - **nexus-writer**: Main FastAPI API server

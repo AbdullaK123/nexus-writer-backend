@@ -119,16 +119,13 @@ class ChapterProvider:
             )
         
         line_edits, last_generated_at = result
-        
-        logger.info(f"Edits result: {line_edits}") 
-        logger.info(f"Edits timestamp: {last_generated_at}")
 
         # Check if edits have been generated
         if line_edits is None or last_generated_at is None:
-            logger.error(f"Edits not generated yet for chapter {chapter_id}")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Edits not found"
+            logger.info(f"Edits not generated yet for chapter {chapter_id}, returning empty edits")
+            return ChapterEdit(
+                edits=[],
+                last_generated_at=None
             )
         
         return ChapterEdit(
@@ -139,7 +136,35 @@ class ChapterProvider:
             last_generated_at=last_generated_at
         )
         
+    async def flag_edits_as_stale(
+        self,
+        chapter_id: str,
+        user_id: str
+    ) -> dict:
+        logger.info(f"Flagging edits as stale for chapter {chapter_id}")
+        chapter = await self.get_by_id(chapter_id, user_id)
 
+        if not chapter:
+            logger.warning(f"Chapter {chapter_id} not found for user {user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chapter not found"
+            )
+
+        if chapter.line_edits_stale:
+            logger.warning(f"Chapter {chapter_id} edits already marked as stale")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Chapter edits are already stale!"
+            )
+
+        chapter.line_edits_stale = True
+        await self.db.commit()
+        logger.info(f"✓ Successfully marked chapter {chapter_id} edits as stale")
+
+        return {
+            "message": f"Successfully flagged chapter {chapter_id} edits as stale"
+        }
         
 
     async def update(

@@ -26,6 +26,17 @@ class Config(BaseSettings):
     env: str = Field(default='dev')
     debug: bool = Field(default=False)
     password_pattern: str = r"^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>/?]).{8,}$"
+    
+    # Prefect configuration
+    prefect_api_url: str | None = Field(default=None, description="Prefect server API URL")
+    default_task_retries: int = Field(default=3, description="Default number of retries for Prefect tasks")
+    default_task_retry_delay_1: int = Field(default=30, description="First retry delay in seconds")
+    default_task_retry_delay_2: int = Field(default=60, description="Second retry delay in seconds")
+    default_task_retry_delay_3: int = Field(default=120, description="Third retry delay in seconds")
+    default_flow_retries: int = Field(default=2, description="Default number of retries for Prefect flows")
+    extraction_task_timeout: int = Field(default=300, description="Timeout for extraction tasks in seconds (5 minutes)")
+    chapter_flow_timeout: int = Field(default=600, description="Timeout for chapter flow in seconds (10 minutes)")
+    result_storage_ttl: int = Field(default=86400, description="Result storage TTL in seconds (24 hours)")
 
 
 app_config = Config()

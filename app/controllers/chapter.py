@@ -22,6 +22,17 @@ async def get_chapter_edits(
         chapter_id
     )
 
+@chapter_controller.post('/edit/make-stale/{chapter_id}')
+async def flag_as_stale(
+    chapter_id: str,
+    current_user: User = Depends(get_current_user),
+    chapter_provider: ChapterProvider = Depends(get_chapter_provider)
+) -> dict:
+    return await chapter_provider.flag_edits_as_stale(
+        chapter_id,
+        current_user.id
+    )
+
 @chapter_controller.get('/{chapter_id}', response_model=ChapterContentResponse)
 async def get_chapter_with_navigation(
     chapter_id: str,

@@ -11,7 +11,7 @@ class LineEdit(BaseModel):
 
 class ChapterEdit(BaseModel):
     edits: List[LineEdit]
-    last_generated_at: datetime
+    last_generated_at: datetime | None
 
 
 

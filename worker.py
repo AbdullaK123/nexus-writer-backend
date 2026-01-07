@@ -8,7 +8,7 @@ import asyncio
 from prefect import serve
 from loguru import logger
 from app.config.logging import setup_logging
-from app.flows.extraction import cascade_extraction_flow, extract_single_chapter_flow
+from app.flows.extraction import extract_single_chapter_flow
 from app.flows.line_edits import line_edits_flow
 from dotenv import load_dotenv
 
@@ -20,7 +20,7 @@ setup_logging()
 def main():
     """Start the Prefect worker serving all flows."""
     logger.info("Starting Prefect worker...")
-    logger.info("Registering flows: cascade_extraction, extract_single_chapter, line_edits")
+    logger.info("Registering flows: extract_single_chapter, line_edits")
     
     # Serve all flows - this makes them available for execution
     # The worker will poll for flow runs and execute them

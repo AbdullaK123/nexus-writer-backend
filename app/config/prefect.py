@@ -1,34 +1,30 @@
 """
 Prefect configuration for background task processing.
 """
-import os
 from prefect import get_client
 from prefect.client.orchestration import PrefectClient
 from app.config.settings import app_config
 from typing import Optional
 
 
-# Prefect settings - reads from PREFECT_API_URL environment variable automatically
-# When set, flows will be submitted to the Prefect server instead of running locally
-PREFECT_API_URL: Optional[str] = os.getenv("PREFECT_API_URL")
+# Prefect settings - reads from settings or PREFECT_API_URL environment variable
+PREFECT_API_URL: Optional[str] = app_config.prefect_api_url
 
-# Flow configuration defaults
-DEFAULT_TASK_RETRIES = 3
-DEFAULT_TASK_RETRY_DELAYS = [30, 60, 120]  # Exponential backoff in seconds
-DEFAULT_FLOW_RETRIES = 2
-
-# Circuit breaker settings
-CIRCUIT_BREAKER_FAILURE_THRESHOLD = 5
-CIRCUIT_BREAKER_RECOVERY_TIMEOUT = 30  # seconds
-CIRCUIT_BREAKER_HALF_OPEN_MAX_CALLS = 1
+# Flow configuration defaults from settings
+DEFAULT_TASK_RETRIES = app_config.default_task_retries
+DEFAULT_TASK_RETRY_DELAYS = [
+    app_config.default_task_retry_delay_1,
+    app_config.default_task_retry_delay_2,
+    app_config.default_task_retry_delay_3,
+]  # Exponential backoff in seconds
+DEFAULT_FLOW_RETRIES = app_config.default_flow_retries
 
 # Timeouts
-EXTRACTION_TASK_TIMEOUT = 300  # 5 minutes per AI call
-CHAPTER_FLOW_TIMEOUT = 600  # 10 minutes per chapter
-CASCADE_FLOW_TIMEOUT = 7200  # 2 hours max for full cascade
+EXTRACTION_TASK_TIMEOUT = app_config.extraction_task_timeout
+CHAPTER_FLOW_TIMEOUT = app_config.chapter_flow_timeout
 
 # Result storage
-RESULT_STORAGE_TTL = 86400  # 24 hours
+RESULT_STORAGE_TTL = app_config.result_storage_ttl
 
 
 async def get_prefect_client() -> PrefectClient:

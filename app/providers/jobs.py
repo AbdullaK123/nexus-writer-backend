@@ -4,8 +4,6 @@ Job provider for managing background tasks via Prefect.
 Handles:
 - Queuing new extraction and line edit jobs
 - Polling job status
-- DLQ management
-- Resume capability for failed jobs
 """
 from datetime import datetime, timedelta
 from typing import Optional, List, Any, cast
@@ -16,11 +14,12 @@ from prefect import get_client
 from prefect.client.schemas.objects import StateType, FlowRun
 from prefect.client.orchestration import PrefectClient
 from prefect.deployments import run_deployment
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from loguru import logger
 
 from app.core.database import get_db
-from app.models import Story, Chapter, DeadLetterJob, DLQStatus
+from app.models import Story, Chapter
 from app.schemas.jobs import (
     JobQueuedResponse,
     JobStatus,
@@ -29,8 +28,6 @@ from app.schemas.jobs import (
 )
 from app.providers.chapter import ChapterProvider
 from app.providers.story import StoryProvider
-from app.flows.dlq import dlq_service
-from app.flows.circuit_breaker import get_all_breaker_statuses, reset_breaker_by_name, CircuitBreakerStatus
 from app.utils.decorators import log_errors
 
 
@@ -187,6 +184,34 @@ class JobProvider:
             estimated_duration_seconds=60,
         )
 
+    async def _build_accumulated_context(
+        self,
+        story: Story,
+        chapter_number: int,
+    ) -> str:
+        """Build accumulated context from all previous chapters' condensed contexts"""
+        if not story.path_array or chapter_number <= 1:
+            return ""
+        
+        # Get chapter IDs before current chapter
+        previous_chapter_ids = story.path_array[:chapter_number - 1]
+        if not previous_chapter_ids:
+            return ""
+        
+        # Fetch previous chapters
+        query = select(Chapter).where(Chapter.id.in_(previous_chapter_ids))  # type: ignore[union-attr]
+        result = await self.db.execute(query)
+        previous_chapters = {ch.id: ch for ch in result.scalars().all()}
+        
+        # Build accumulated context in order
+        contexts = []
+        for ch_id in previous_chapter_ids:
+            ch = previous_chapters.get(ch_id)
+            if ch and ch.condensed_context:
+                contexts.append(f"=== Chapter {previous_chapter_ids.index(ch_id) + 1} ===\n{ch.condensed_context}")
+        
+        return "\n\n".join(contexts)
+
     @log_errors
     async def queue_extraction_job(
         self,
@@ -194,7 +219,7 @@ class JobProvider:
         chapter_id: str,
         force: bool = False,
     ) -> JobQueuedResponse:
-        """Queue cascade extraction for a chapter and all subsequent chapters"""
+        """Queue extraction for a single chapter"""
         chapter = await self.chapter_provider.get_by_id(chapter_id, user_id)
         if not chapter:
             raise HTTPException(
@@ -218,16 +243,22 @@ class JobProvider:
             )
 
         chapter_number = chapter.chapter_number
-        total_chapters = len(story.path_array or [])
-        chapters_to_extract = total_chapters - chapter_number + 1
-        estimated_duration = chapters_to_extract * 60  # ~60s per chapter
+        estimated_duration = 60  # ~60s per chapter
+
+        # Build accumulated context from previous chapters
+        accumulated_context = await self._build_accumulated_context(story, chapter_number)
 
         # Submit flow to Prefect deployment (runs on worker container)
         flow_run = cast(FlowRun, await run_deployment(
-            name="cascade-extraction/cascade-extraction-deployment",
+            name="extract-single-chapter/chapter-extraction-deployment",
             parameters={
                 "chapter_id": chapter.id,
                 "chapter_number": chapter_number,
+                "chapter_title": chapter.title,
+                "word_count": chapter.word_count,
+                "accumulated_context": accumulated_context,
+                "content": chapter.content,
+                "story_id": story.id,
                 "user_id": user_id,
             },
             timeout=0,  # Don't wait for completion
@@ -236,155 +267,19 @@ class JobProvider:
         flow_run_id = str(flow_run.id)
 
         logger.info(
-            f"Queued cascade extraction for Chapter {chapter_number} "
-            f"'{chapter.title}' - will re-extract {chapters_to_extract} chapters "
-            f"(flow_run_id: {flow_run_id})"
+            f"Queued extraction for Chapter {chapter_number} "
+            f"'{chapter.title}' (flow_run_id: {flow_run_id})"
         )
 
         return JobQueuedResponse(
             job_id=flow_run_id,
-            job_name=f"Cascade Extraction - Chapter {chapter_number}: {chapter.title}",
+            job_name=f"Extraction - Chapter {chapter_number}: {chapter.title}",
             started_at=datetime.utcnow(),
             status=JobStatus.QUEUED,
             chapter_id=chapter.id,
             chapter_number=chapter_number,
-            chapters_to_extract=chapters_to_extract,
             estimated_duration_seconds=estimated_duration,
         )
-
-    @log_errors
-    async def resume_extraction_job(
-        self,
-        dlq_id: str,
-        user_id: str,
-    ) -> JobQueuedResponse:
-        """Resume a failed extraction from DLQ"""
-        dlq_job = await dlq_service.get_dlq_job_by_id(dlq_id)
-        if not dlq_job:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="DLQ job not found",
-            )
-
-        if dlq_job.user_id != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to retry this job",
-            )
-
-        if dlq_job.status != DLQStatus.PENDING:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"DLQ job already {dlq_job.status.value}",
-            )
-
-        # Get resume point from payload
-        payload = dlq_job.input_payload
-        resume_from = payload.get("resume_from")
-        chapter_id = payload.get("chapter_id") or dlq_job.chapter_id
-        chapter_number = payload.get("chapter_number", 1)
-
-        if not chapter_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot determine chapter to resume from",
-            )
-
-        # Submit flow to Prefect deployment with resume (runs on worker container)
-        flow_run = cast(FlowRun, await run_deployment(
-            name="cascade-extraction/cascade-extraction-deployment",
-            parameters={
-                "chapter_id": chapter_id,
-                "chapter_number": chapter_number,
-                "user_id": user_id,
-                "resume_from": resume_from,
-            },
-            timeout=0,  # Don't wait for completion
-        ))
-        
-        flow_run_id = str(flow_run.id)
-
-        # Mark DLQ job as retried
-        await dlq_service.mark_as_retried(dlq_id, flow_run_id)
-
-        logger.info(f"Resumed extraction from DLQ {dlq_id} -> {flow_run_id}")
-
-        return JobQueuedResponse(
-            job_id=flow_run_id,
-            job_name=f"Resume Extraction from Chapter {resume_from or chapter_number}",
-            started_at=datetime.utcnow(),
-            status=JobStatus.QUEUED,
-            chapter_id=chapter_id,
-            chapter_number=resume_from or chapter_number,
-        )
-
-    # === DLQ Management ===
-
-    async def get_dlq_jobs(
-        self,
-        status_filter: Optional[DLQStatus] = None,
-        flow_name: Optional[str] = None,
-        limit: int = 50,
-    ) -> List[DeadLetterJob]:
-        """Get DLQ jobs with optional filters"""
-        return await dlq_service.get_dlq_jobs(
-            status=status_filter,
-            flow_name=flow_name,
-            limit=limit,
-        )
-
-    async def get_dlq_job(self, dlq_id: str) -> Optional[DeadLetterJob]:
-        """Get a specific DLQ job"""
-        return await dlq_service.get_dlq_job_by_id(dlq_id)
-
-    async def resolve_dlq_job(
-        self,
-        dlq_id: str,
-        user_id: str,
-        resolution_status: DLQStatus,
-        notes: Optional[str] = None,
-    ) -> Optional[DeadLetterJob]:
-        """Resolve a DLQ job"""
-        return await dlq_service.resolve(
-            dlq_id=dlq_id,
-            resolved_by=user_id,
-            status=resolution_status,
-            notes=notes,
-        )
-
-    async def bulk_retry_dlq(
-        self,
-        user_id: str,
-        flow_name: Optional[str] = None,
-        error_type: Optional[str] = None,
-        failed_after: Optional[datetime] = None,
-    ) -> List[str]:
-        """Bulk retry DLQ jobs matching criteria"""
-        dlq_ids = await dlq_service.bulk_retry_matching(
-            flow_name=flow_name,
-            error_type=error_type,
-            failed_after=failed_after,
-        )
-
-        new_job_ids = []
-        for dlq_id in dlq_ids:
-            try:
-                result = await self.resume_extraction_job(dlq_id, user_id)
-                new_job_ids.append(result.job_id)
-            except Exception as e:
-                logger.error(f"Failed to retry DLQ {dlq_id}: {e}")
-
-        return new_job_ids
-
-    # === Circuit Breaker Management ===
-
-    async def get_circuit_breakers(self) -> List[CircuitBreakerStatus]:
-        """Get status of all circuit breakers"""
-        return await get_all_breaker_statuses()
-
-    async def reset_circuit_breaker(self, name: str) -> bool:
-        """Reset a circuit breaker by name"""
-        return await reset_breaker_by_name(name)
 
 
 async def get_job_provider(

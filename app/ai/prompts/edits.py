@@ -1,4 +1,5 @@
 from typing import Optional
+from app.utils.html import html_to_paragraphs
 
 
 SYSTEM_PROMPT = """You are an expert line editor specializing in fiction prose. Your role is to identify and fix sentence-level issues while preserving the author's unique voice and style.
@@ -87,12 +88,11 @@ def build_line_edit_prompt(
         Complete user prompt string
     """
     
-    # Split chapter into paragraphs
-    paragraphs = current_chapter_content.split('\n\n')
+    # Parse TipTap HTML into paragraphs (html_to_paragraphs already filters empty paragraphs)
+    paragraphs = html_to_paragraphs(current_chapter_content)
     numbered_paragraphs = [
         f"[{idx}] {para}"
         for idx, para in enumerate(paragraphs)
-        if para.strip()
     ]
     
     title_section = f"Chapter {chapter_number}: {chapter_title}" if chapter_title else f"Chapter {chapter_number}"
