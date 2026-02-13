@@ -174,7 +174,8 @@ async def save_chapter_extraction_task(
                 "characters_present": [c.model_dump() for c in character_extraction.characters_present],
                 "character_actions": [a.model_dump() for a in character_extraction.character_actions],
                 "character_snapshots": [s.model_dump() for s in character_extraction.character_snapshots],
-                "dialogue_samples": character_extraction.dialogue_samples
+                "dialogue_samples": [d.model_dump() for d in character_extraction.dialogue_samples],
+                "trait_claims": [t.model_dump() for t in character_extraction.trait_claims]
             },
             upsert=True
         )
@@ -190,7 +191,8 @@ async def save_chapter_extraction_task(
                 "foreshadowing": [f.model_dump() for f in plot_extraction.foreshadowing],
                 "story_questions": [q.model_dump() for q in plot_extraction.story_questions],
                 "causal_chains": [c.model_dump() for c in plot_extraction.causal_chains],
-                "callbacks": [cb.model_dump() for cb in plot_extraction.callbacks]
+                "callbacks": [cb.model_dump() for cb in plot_extraction.callbacks],
+                "deus_ex_machina_risks": [d.model_dump() for d in plot_extraction.deus_ex_machina_risks]
             },
             upsert=True
         )
@@ -203,7 +205,11 @@ async def save_chapter_extraction_task(
                 "chapter_number": chapter_number,
                 "locations": [l.model_dump() for l in world_extraction.locations],
                 "world_rules": [r.model_dump() for r in world_extraction.world_rules],
+                "rule_violations": [rv.model_dump() for rv in world_extraction.rule_violations],
                 "timeline_markers": [t.model_dump() for t in world_extraction.timeline_markers],
+                "chapter_timespan": world_extraction.chapter_timespan.model_dump() if world_extraction.chapter_timespan else None,
+                "injuries": [i.model_dump() for i in world_extraction.injuries],
+                "travel_events": [te.model_dump() for te in world_extraction.travel_events],
                 "cultural_elements": [c.model_dump() for c in world_extraction.cultural_elements],
                 "factual_claims": [f.model_dump() for f in world_extraction.factual_claims],
                 "sensory_details": world_extraction.sensory_details
@@ -250,16 +256,9 @@ async def save_chapter_extraction_task(
         
         logger.info(f"✅ Saved extractions to MongoDB for chapter {chapter_id}")
         
-        # Keep old Postgres code during migration (dual-write)
-        chapter.character_extraction = character_extraction.model_dump()
-        chapter.plot_extraction = plot_extraction.model_dump()
-        chapter.world_extraction = world_extraction.model_dump()
-        chapter.structure_extraction = structure_extraction.model_dump()
-        
-        # Save synthesized context
+        # Save synthesized context to Postgres
         chapter.condensed_context = context_synthesis.condensed_text
         chapter.timeline_context = context_synthesis.timeline_context
-        chapter.themes = context_synthesis.themes_present
         chapter.emotional_arc = context_synthesis.emotional_arc
         
         # Update metadata

@@ -32,6 +32,8 @@ from app.schemas.jobs import (
 from app.providers.chapter import ChapterProvider
 from app.providers.story import StoryProvider
 from app.utils.decorators import log_errors
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from app.core.mongodb import get_mongodb
 
 
 # Map Prefect states to our JobStatus enum
@@ -51,10 +53,11 @@ STATE_TYPE_MAP = {
 class JobProvider:
     """Provider for job management operations"""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, mongodb: AsyncIOMotorDatabase):
         self.db = db
-        self.chapter_provider = ChapterProvider(db)
-        self.story_provider = StoryProvider(db)
+        self.mongodb = mongodb
+        self.chapter_provider = ChapterProvider(db, mongodb)
+        self.story_provider = StoryProvider(db, mongodb)
 
     async def _get_prefect_client(self) -> PrefectClient:
         """Get Prefect client"""
@@ -184,10 +187,15 @@ class JobProvider:
                 f"{cancel_result['job_type']} job(s) for chapter {chapter_id}"
             )
 
+        # Check MongoDB for line edit status
+        chapter_edits = await self.mongodb.chapter_edits.find_one({"chapter_id": chapter_id})
+        is_stale = chapter_edits.get("is_stale", False) if chapter_edits else False
+        last_generated_at = chapter_edits.get("last_generated_at") if chapter_edits else None
+        
         # Check if line edits were recently generated
         # Skip the check if edits are stale (content changed) or force flag is set
-        if not force and not chapter.line_edits_stale and chapter.line_edits_generated_at:
-            time_since = datetime.utcnow() - chapter.line_edits_generated_at
+        if not force and not is_stale and last_generated_at:
+            time_since = datetime.utcnow() - last_generated_at
             if time_since < timedelta(hours=24):
                 hours_ago = time_since.seconds // 3600
                 raise HTTPException(
@@ -196,7 +204,7 @@ class JobProvider:
                 )
         
         # Log if we're regenerating due to stale edits
-        if chapter.line_edits_stale:
+        if is_stale:
             logger.info(f"Regenerating line edits for chapter {chapter_id} (marked as stale due to content change)")
 
         story = await self.db.get(Story, chapter.story_id)
@@ -349,6 +357,7 @@ class JobProvider:
 
 async def get_job_provider(
     db: AsyncSession = Depends(get_db),
+    mongodb: AsyncIOMotorDatabase = Depends(get_mongodb)
 ) -> JobProvider:
     """Dependency for JobProvider"""
-    return JobProvider(db=db)
+    return JobProvider(db=db, mongodb=mongodb)

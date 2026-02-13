@@ -100,49 +100,29 @@ class ChapterProvider:
         user_id: str,
         chapter_id: str
     ) -> ChapterEdit:
-
-        # try to get the edits from mongodb first
-        chapter_edits = await self.mongodb.chapter_edits.find_one({"chapter_id": chapter_id})
-        if chapter_edits:
-            line_edits = chapter_edits.get("line_edits", [])
-            last_generated_at = chapter_edits.get("line_edits_generated_at")
-            is_stale = chapter_edits.get("line_edits_stale", False)
-
-            return ChapterEdit(
-                edits=[
-                    LineEdit(**edit)
-                    for edit in line_edits
-                ],
-                last_generated_at=last_generated_at,
-                is_stale=is_stale
-            )
+        """Get line edits from MongoDB only"""
         
-        query = (
-            select(
-                Chapter.line_edits, 
-                Chapter.line_edits_generated_at,
-                Chapter.line_edits_stale
-            )
+        # Verify chapter exists and user owns it
+        chapter_query = (
+            select(Chapter.id)
             .where(
                 Chapter.user_id == user_id,
                 Chapter.id == chapter_id
             )
         )
-
-        result  = (await self.db.exec(query)).first()
-
-        # Check if chapter exists
-        if result is None:
+        chapter_exists = (await self.db.exec(chapter_query)).first()
+        
+        if not chapter_exists:
             logger.error(f"Chapter {chapter_id} not found for user {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Chapter not found"
             )
         
-        line_edits, last_generated_at, is_stale = result
-
-        # Check if edits have been generated
-        if line_edits is None or last_generated_at is None:
+        # Get edits from MongoDB
+        chapter_edits = await self.mongodb.chapter_edits.find_one({"chapter_id": chapter_id})
+        
+        if not chapter_edits:
             logger.info(f"Edits not generated yet for chapter {chapter_id}, returning empty edits")
             return ChapterEdit(
                 edits=[],
@@ -150,13 +130,17 @@ class ChapterProvider:
                 is_stale=False
             )
         
+        line_edits = chapter_edits.get("edits", [])
+        last_generated_at = chapter_edits.get("last_generated_at")
+        is_stale = chapter_edits.get("is_stale", False)
+
         return ChapterEdit(
             edits=[
                 LineEdit(**edit)
                 for edit in line_edits
             ],
             last_generated_at=last_generated_at,
-            is_stale=is_stale or False  # Handle None case
+            is_stale=is_stale
         )
 
     async def update(
@@ -182,12 +166,13 @@ class ChapterProvider:
             
         story_title, chapter = result
 
+        # Mark line edits as stale in MongoDB if content changed
         if data.content and chapter.content != data.content:
             await self.mongodb.chapter_edits.update_one(
                 {"chapter_id": chapter_id},
-                {"$set": {"line_edits_stale": True}}
+                {"$set": {"is_stale": True}},
+                upsert=True
             )
-            chapter.line_edits_stale = True  # Auto-mark stale on content change
         
         updated_data = data.model_dump(exclude_unset=True)
         for field, value in updated_data.items():

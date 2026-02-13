@@ -59,31 +59,6 @@ class Story(SQLModel, TimeStampMixin, table=True):
     user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
     title: str = Field(index=True)
     story_context: Optional[str] = Field(default=None)
-    character_bios: Optional[dict] = Field(
-        default=None,
-        sa_column=Column(JSONB),
-        description="Json array of all character bios"
-    )
-    plot_threads: Optional[dict] = Field(
-        default=None,
-        sa_column=Column(JSONB),
-        description="PlotThreadTracker - all plot threads with status, introduced/resolved chapters"
-    )
-    world_bible: Optional[dict] = Field(
-        default=None,
-        sa_column=Column(JSONB),
-        description="WorldBibleExtraction - all worldbuilding consolidated"
-    )
-    pacing_structure: Optional[dict] = Field(
-        default=None,
-        sa_column=Column(JSONB),
-        description="PacingAndStructureAnalysis result"
-    )
-    story_timeline: Optional[dict] = Field(
-        default=None,
-        sa_column=Column(JSONB),
-        description="StoryTimeline - complete temporal analysis"
-    )
     status: StoryStatus = Field(default=StoryStatus.ONGOING)
     path_array: Optional[List[str]] = Field(sa_column=Column(ARRAY(String)))
     chapters: List['Chapter'] = Relationship(back_populates='story', cascade_delete=True)
@@ -127,51 +102,9 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
         default=None,
         description="When this chapter occurs in the story timeline"
     )
-    themes: Optional[list[str]] = Field(
-        default=None,
-        sa_column=Column(JSONB),
-        description="Themes explored in this chapter"
-    )
     emotional_arc: Optional[str] = Field(
         default=None,
         description="Emotional journey of the chapter"
-    )
-    
-    # Multi-pass extraction results (stored as JSONBB)
-    character_extraction: Optional[dict] = Field(
-        default=None,
-        sa_column=Column(JSONB),
-        description="CharacterExtraction result"
-    )
-    plot_extraction: Optional[dict] = Field(
-        default=None,
-        sa_column=Column(JSONB),
-        description="PlotExtraction result"
-    )
-    world_extraction: Optional[dict] = Field(
-        default=None,
-        sa_column=Column(JSONB),
-        description="WorldExtraction result"
-    )
-    structure_extraction: Optional[dict] = Field(
-        default=None,
-        sa_column=Column(JSONB),
-        description="StructureExtraction result"
-    )
-    
-    # Line edits (stored as JSONBB array)
-    line_edits: Optional[list[dict]] = Field(
-        default=None,
-        sa_column=Column(JSONB),
-        description="Array of LineEdit objects"
-    )
-    line_edits_generated_at: Optional[datetime] = Field(
-        default=None,
-        description="When line edits were last generated"
-    )
-    line_edits_stale: Optional[bool] = Field(
-        default=False,
-        description="Flag to indicate if the edits are stale"
     )
     
     # Extraction metadata
@@ -235,14 +168,8 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
     
     @property
     def has_extractions(self) -> bool:
-        """Check if all extraction passes are complete"""
-        return all([
-            self.character_extraction,
-            self.plot_extraction,
-            self.world_extraction,
-            self.structure_extraction,
-            self.condensed_context
-        ])
+        """Check if extraction is complete (condensed context exists)"""
+        return bool(self.condensed_context)
 
 
 class Target(SQLModel, TimeStampMixin, table=True):

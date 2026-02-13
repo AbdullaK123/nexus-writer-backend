@@ -44,7 +44,7 @@ async def save_line_edits_task(
     chapter_number: int,
     line_edits: ChapterEdit,
 ) -> None:
-    """Save line edits to database"""
+    """Save line edits to MongoDB only"""
     async with AsyncSession(engine) as db:
         chapter = await db.get(Chapter, chapter_id)
         if not chapter:
@@ -54,7 +54,7 @@ async def save_line_edits_task(
         if mongo_db is None:
             raise ValueError("MongoDB not connected")
         
-        # Save to MongoDB - use replace_one with upsert
+        # Save to MongoDB
         await mongo_db.chapter_edits.replace_one(
             {"chapter_id": chapter_id},
             {
@@ -67,14 +67,7 @@ async def save_line_edits_task(
             },
             upsert=True
         )
-        logger.info(f"✅ Saved to MongoDB: {len(line_edits.edits)} edits")
-        
-        # Keep old Postgres code during migration
-        chapter.line_edits = [edit.model_dump() for edit in line_edits.edits]
-        chapter.line_edits_generated_at = datetime.utcnow()
-        chapter.line_edits_stale = False
-        
-        await db.commit()
+        logger.info(f"✅ Saved {len(line_edits.edits)} edits to MongoDB")
         
     logger.info(f"✅ Line edits saved for chapter {chapter_id}")
 

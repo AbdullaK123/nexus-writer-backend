@@ -78,11 +78,28 @@ For each scene:
   * TRANSITION: Brief bridging scene (travel, time passage)
 - location: Where it takes place
 - characters_present: All characters in the scene
-- pov_character: Whose perspective (null if omniscient)
+- pov_character: Whose perspective (null if omniscient) - CRITICAL: Track this carefully for each scene
 - goal: What the POV character wants/needs in THIS scene (be specific)
+  * Examples: "Convince Marcus to help", "Escape the guards", "Learn artifact location", "Process grief"
+  * NOT vague: "survive", "talk", "think"
 - conflict: What opposes the goal (person, internal struggle, obstacle, information gap)
+  * Must be SPECIFIC opposition to the goal
+  * Examples: "Marcus refuses, loyal to Syndicate", "Guards block exits", "Contact won't reveal info without payment"
 - outcome: Did they get what they wanted? What changed? (success/failure/partial/twist)
+  * success: Goal fully achieved
+  * failure: Goal blocked, no progress
+  * partial: Some progress but complications
+  * twist: Got something unexpected, situation changed
 - estimated_word_count: Approximate words in this scene
+  * Count roughly based on page space and density
+  * CRITICAL: Helps detect rushed scenes (major scene in 200 words = problem)
+  * Examples: Brief transition = 100-300, dialogue scene = 800-1500, action scene = 1000-2500
+  
+QUALITY CHECK:
+- Every scene MUST have clear goal-conflict-outcome (if missing, scene may be filler)
+- Action scenes under 500 words may feel rushed
+- Dialogue scenes over 3000 words may drag without conflict
+- Too many TRANSITION scenes in a row = pacing issues
 
 **3. PACING ANALYSIS**
 Analyze the chapter's rhythm and tempo:
@@ -143,10 +160,17 @@ Calculate ratio (0.0 to 1.0):
 - 1.0 = Pure showing: Zero explanation, all through action/dialogue/implication
 
 Consider:
-- Are emotions named or demonstrated through physical reactions?
-- Is backstory explained or revealed through dialogue/action?
-- Are character traits told or shown through behavior?
-- Does narration explain what characters think or let reader infer?
+- Are emotions NAMED ("she felt sad") or DEMONSTRATED (tears, slumped shoulders, voice crack)?
+- Is backstory EXPLAINED (narrator dumps info) or REVEALED (through dialogue, action, discovery)?
+- Are character traits TOLD ("he was brave") or SHOWN (through brave actions)?
+- Does narration EXPLAIN what characters think or let reader INFER from behavior?
+
+CRITICAL FOR QUALITY:
+- Ratio under 0.4 = Too much telling, weak prose
+- Ratio 0.5-0.7 = Good balance, professional quality
+- Ratio over 0.8 = Strong showing, engaging prose
+
+Missing emotional demonstration is a $2,000+ developmental editing problem. Track carefully.
 
 ═══════════════════════════════════════════════════════════════
 
