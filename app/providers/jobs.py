@@ -12,7 +12,9 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from prefect import get_client
 from prefect.client.schemas.objects import StateType, FlowRun
+from prefect.client.schemas.filters import FlowRunFilter, FlowRunFilterTags, FlowRunFilterState, FlowRunFilterStateType
 from prefect.client.orchestration import PrefectClient
+from prefect.states import Cancelled
 from prefect.deployments import run_deployment
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -25,6 +27,7 @@ from app.schemas.jobs import (
     JobStatus,
     JobStatusResponse,
     ExtractionProgress,
+    JobType,
 )
 from app.providers.chapter import ChapterProvider
 from app.providers.story import StoryProvider
@@ -117,6 +120,45 @@ class JobProvider:
                 response.message = "Task queued, waiting to start"
 
             return response
+        
+    @log_errors
+    async def _cancel_all_jobs(
+        self,
+        chapter_id: str,
+        job_type: Optional[str] = None
+    ) -> dict:
+        async with await self._get_prefect_client() as client:
+            tag_filter = [f"chapter:{chapter_id}"]
+            if job_type:
+                tag_filter.append(job_type)
+
+            flow_runs = await client.read_flow_runs(
+                flow_run_filter=FlowRunFilter(
+                    tags=FlowRunFilterTags(all_=tag_filter),
+                    state=FlowRunFilterState(
+                        type=FlowRunFilterStateType(any_=[StateType.RUNNING, StateType.PENDING, StateType.SCHEDULED])
+                    )
+                )
+            )
+
+            cancelled = 0
+            for flow_run in flow_runs:
+                try:
+                    await client.set_flow_run_state(
+                        flow_run_id=flow_run.id,
+                        state=Cancelled(message=f"Flow cancelled by user for chapter {chapter_id}")
+                    )
+                    cancelled += 1
+                    logger.info(f"Cancelled job {flow_run.id} for chapter {chapter_id}")
+                except Exception as e:
+                    logger.info(f"Failed to cancel flow run {flow_run.id}: {e}")
+
+            return {
+                "chapter_id": chapter_id,
+                "jobs_cancelled": cancelled,
+                "job_type": job_type
+            }
+
 
     @log_errors
     async def queue_line_edit_job(
@@ -132,9 +174,19 @@ class JobProvider:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Chapter not found",
             )
+        
+        # cancel all line edit jobs first
+        cancel_result = await self._cancel_all_jobs(chapter_id, job_type="line-edit")
+
+        if cancel_result.get("jobs_cancelled", 0) > 0:
+            logger.info(
+                f"Cancelled {cancel_result['jobs_cancelled']} "
+                f"{cancel_result['job_type']} job(s) for chapter {chapter_id}"
+            )
 
         # Check if line edits were recently generated
-        if not force and chapter.line_edits_generated_at:
+        # Skip the check if edits are stale (content changed) or force flag is set
+        if not force and not chapter.line_edits_stale and chapter.line_edits_generated_at:
             time_since = datetime.utcnow() - chapter.line_edits_generated_at
             if time_since < timedelta(hours=24):
                 hours_ago = time_since.seconds // 3600
@@ -142,6 +194,10 @@ class JobProvider:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Line edits generated {hours_ago}h ago. Use force=true to regenerate.",
                 )
+        
+        # Log if we're regenerating due to stale edits
+        if chapter.line_edits_stale:
+            logger.info(f"Regenerating line edits for chapter {chapter_id} (marked as stale due to content change)")
 
         story = await self.db.get(Story, chapter.story_id)
         if not story:
@@ -160,11 +216,10 @@ class JobProvider:
                 "chapter_number": chapter_number,
                 "chapter_title": chapter.title,
                 "story_context": story.story_context or "",
-                "chapter_content": chapter.content,
-                "user_id": user_id,
-                "story_id": story.id,
+                "chapter_content": chapter.content
             },
-            timeout=0,  # Don't wait for completion
+            timeout=0,
+            tags=[f"chapter:{chapter_id}", "line-edits"]
         ))
         
         flow_run_id = str(flow_run.id)
@@ -177,6 +232,7 @@ class JobProvider:
         return JobQueuedResponse(
             job_id=flow_run_id,
             job_name=f"Line Edits - Chapter {chapter_number}: {chapter.title}",
+            job_type=JobType.LINE_EDIT,
             started_at=datetime.utcnow(),
             status=JobStatus.QUEUED,
             chapter_id=chapter.id,
@@ -226,6 +282,15 @@ class JobProvider:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Chapter not found!",
             )
+        
+          # cancel all line edit jobs first
+        cancel_result = await self._cancel_all_jobs(chapter_id, job_type="extraction")
+
+        if cancel_result.get("jobs_cancelled", 0) > 0:
+            logger.info(
+                f"Cancelled {cancel_result['jobs_cancelled']} "
+                f"{cancel_result['job_type']} job(s) for chapter {chapter_id}"
+            )
 
         # Check if extraction needed (unless forced)
         if not force and not chapter.needs_extraction:
@@ -257,11 +322,10 @@ class JobProvider:
                 "chapter_title": chapter.title,
                 "word_count": chapter.word_count,
                 "accumulated_context": accumulated_context,
-                "content": chapter.content,
-                "story_id": story.id,
-                "user_id": user_id,
+                "content": chapter.content
             },
-            timeout=0,  # Don't wait for completion
+            timeout=0,
+            tags=[f"chapter:{chapter_id}", "extraction"]
         ))
         
         flow_run_id = str(flow_run.id)
@@ -274,6 +338,7 @@ class JobProvider:
         return JobQueuedResponse(
             job_id=flow_run_id,
             job_name=f"Extraction - Chapter {chapter_number}: {chapter.title}",
+            job_type=JobType.EXTRACTION,
             started_at=datetime.utcnow(),
             status=JobStatus.QUEUED,
             chapter_id=chapter.id,

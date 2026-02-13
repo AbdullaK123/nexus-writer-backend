@@ -52,3 +52,17 @@ class StructureExtraction(BaseModel):
         ge=0, le=1,
         description="0=all tell, 1=all show"
     )
+
+class ChapterStructureExtraction(BaseModel):
+    chapter_id: str
+    story_id: str
+    chapter_number: int
+    structural_role: StructuralRole
+    scenes: List[Scene]
+    pacing: PacingAnalysis
+    themes: List[ThematicElement]
+    emotional_beats: List[EmotionalBeat]
+    show_vs_tell_ratio: float = Field(
+        ge=0, le=1,
+        description="0=all tell, 1=all show"
+    )

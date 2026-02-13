@@ -1,3 +1,4 @@
+import asyncio
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, desc
 from typing import Optional, List
@@ -17,12 +18,15 @@ from app.schemas.story import (
 )
 from loguru import logger
 from app.utils.html import get_word_count
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from app.core.mongodb import get_mongodb
 
 class StoryProvider:
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, mongodb: AsyncIOMotorDatabase):
         self.db = db
         self.target_provider = TargetProvider(db)
+        self.mongodb = mongodb
 
     async def append_to_path_end(self, story_id: str, chapter_id: str):
 
@@ -139,6 +143,17 @@ class StoryProvider:
         
         await self.db.delete(story)
         await self.db.commit()
+
+        # delete all extractions and edits related to the story in MongoDB
+        await asyncio.gather(
+            self.mongodb.chapter_edits.delete_many({"story_id": story_id}),
+            self.mongodb.character_extractions.delete_many({"story_id": story_id }),
+            self.mongodb.plot_extractions.delete_many({"story_id": story_id}),
+            self.mongodb.world_extractions.delete_many({"story_id": story_id}),
+            self.mongodb.structure_extractions.delete_many({"story_id": story_id}),
+            self.mongodb.chapter_contexts.delete_many({"story_id": story_id}),
+            return_exceptions=True
+        )
 
         return {
             "message": "Story successfully deleted"
@@ -331,5 +346,8 @@ class StoryProvider:
         return list_responses
     
 
-async def get_story_provider(db: AsyncSession = Depends(get_db)):
-    return StoryProvider(db)
+async def get_story_provider(
+    db: AsyncSession = Depends(get_db),
+    mongodb: AsyncIOMotorDatabase = Depends(get_mongodb)
+):
+    return StoryProvider(db, mongodb)

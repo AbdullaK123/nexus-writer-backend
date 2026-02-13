@@ -2,7 +2,6 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from app.ai.models.enums import EmotionalState
 
-
 class CharacterMention(BaseModel):
     """A character mentioned in this chapter"""
     canonical_name: str = Field(description="Full name (e.g., 'Captain Sarah Chen')")
@@ -29,6 +28,18 @@ class CharacterSnapshot(BaseModel):
 
 class CharacterExtraction(BaseModel):
     """All character-related information from a chapter"""
+    characters_present: List[CharacterMention]
+    character_actions: List[CharacterAction]
+    character_snapshots: List[CharacterSnapshot]
+    dialogue_samples: List[str] = Field(
+        default=[],
+        description="Notable dialogue snippets for voice consistency"
+    )
+
+class ChapterCharacterExtraction(BaseModel):
+    chapter_id: str
+    story_id: str
+    chapter_number: int
     characters_present: List[CharacterMention]
     character_actions: List[CharacterAction]
     character_snapshots: List[CharacterSnapshot]

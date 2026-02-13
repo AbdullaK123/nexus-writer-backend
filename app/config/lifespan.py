@@ -3,7 +3,7 @@ from app.jobs.session import cleanup_expired_sessions_batched
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from loguru import logger
-from langchain_community.graphs import Neo4jGraph
+from app.core.mongodb import MongoDB
 from app.config.settings import app_config
 
 
@@ -20,6 +20,9 @@ async def lifespan(app: FastAPI):
     logger.info("Starting session cleanup background worker...")
     await session_cleaner.start()
 
+    logger.info("Connecting to mongo db database...")
+    await MongoDB.connect(app_config.mongodb_url)
+
     yield
 
     logger.info("Removing all jobs...")
@@ -27,3 +30,6 @@ async def lifespan(app: FastAPI):
 
     logger.info("Shutting down session cleanup background worker")
     await session_cleaner.stop()
+
+    logger.info("Closing connection to mongodb database...")
+    await MongoDB.close()

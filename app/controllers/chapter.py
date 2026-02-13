@@ -22,17 +22,6 @@ async def get_chapter_edits(
         chapter_id
     )
 
-@chapter_controller.post('/edit/make-stale/{chapter_id}')
-async def flag_as_stale(
-    chapter_id: str,
-    current_user: User = Depends(get_current_user),
-    chapter_provider: ChapterProvider = Depends(get_chapter_provider)
-) -> dict:
-    return await chapter_provider.flag_edits_as_stale(
-        chapter_id,
-        current_user.id
-    )
-
 @chapter_controller.get('/{chapter_id}', response_model=ChapterContentResponse)
 async def get_chapter_with_navigation(
     chapter_id: str,
@@ -50,26 +39,22 @@ async def get_chapter_with_navigation(
 async def update_chapter(
     chapter_id: str,
     updated_info: UpdateChapterRequest,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     chapter_provider: ChapterProvider = Depends(get_chapter_provider)
 ) -> ChapterContentResponse:
     return await chapter_provider.update(
         chapter_id=chapter_id,
         user_id=current_user.id,
-        data=updated_info,
-        background_tasks=background_tasks
+        data=updated_info
     )
 
 @chapter_controller.delete('/{chapter_id}', response_model=dict)
 async def delete_chapter(
     chapter_id: str,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     chapter_provider: ChapterProvider = Depends(get_chapter_provider)
 ) -> dict:
     return await chapter_provider.delete(
         chapter_id=chapter_id,
-        background_tasks=background_tasks,
         user_id=current_user.id
     )

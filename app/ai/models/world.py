@@ -1,7 +1,6 @@
 from typing import Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
-
 class LocationMention(BaseModel):
     """A location referenced in the chapter"""
     name: str
@@ -43,6 +42,19 @@ class CulturalElement(BaseModel):
 
 class WorldExtraction(BaseModel):
     """All worldbuilding and continuity information"""
+    locations: List[LocationMention]
+    world_rules: List[WorldRule]
+    factual_claims: List[FactualClaim]
+    timeline_markers: List[TimelineMarker]
+    cultural_elements: List[CulturalElement]
+    sensory_details: Dict[str, List[str]] = Field(
+        description="Sense -> list of details (sight, sound, smell, touch, taste)"
+    )
+
+class ChapterWorldExtraction(BaseModel):
+    chapter_id: str
+    story_id: str
+    chapter_number: int
     locations: List[LocationMention]
     world_rules: List[WorldRule]
     factual_claims: List[FactualClaim]

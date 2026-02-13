@@ -3,6 +3,7 @@ from app.config.settings import app_config
 from loguru import logger
 from typing import Dict, List, Any, Tuple, Optional
 from app.core.database import get_db
+from app.core.mongodb import get_mongodb
 from app.providers.target import TargetProvider
 from app.schemas import TargetResponse
 from app.utils.decorators import log_errors
@@ -17,13 +18,14 @@ from datetime import timedelta
 from fastapi import HTTPException, status, Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.providers.story import StoryProvider
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
 class AnalyticsProvider:
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, mongodb: AsyncIOMotorDatabase):
         self.motherduck_url = app_config.motherduck_url
-        self.story_provider = StoryProvider(db)
+        self.story_provider = StoryProvider(db, mongodb)
         self.target_provider = TargetProvider(db)
         logger.info("🦆 AnalyticsProvider initialized")
 
@@ -497,6 +499,7 @@ class AnalyticsProvider:
 
 
 def get_analytics_provider(
-        db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    mongodb: AsyncIOMotorDatabase = Depends(get_mongodb)
 ) -> AnalyticsProvider:
-    return AnalyticsProvider(db)
+    return AnalyticsProvider(db, mongodb)

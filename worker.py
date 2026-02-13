@@ -5,31 +5,32 @@ This worker processes flow runs from the Prefect server/cloud.
 It should be run in a dedicated container separate from the API server.
 """
 import asyncio
-from prefect import serve
+from prefect import aserve
 from loguru import logger
 from app.config.logging import setup_logging
+from app.core.mongodb import MongoDB
 from app.flows.extraction import extract_single_chapter_flow
 from app.flows.line_edits import line_edits_flow
 from dotenv import load_dotenv
-
+from app.config.settings import app_config
 
 load_dotenv()
 setup_logging()
 
 
-def main():
+async def main():
     """Start the Prefect worker serving all flows."""
     logger.info("Starting Prefect worker...")
     logger.info("Registering flows: extract_single_chapter, line_edits")
     
     # Serve all flows - this makes them available for execution
     # The worker will poll for flow runs and execute them
-    serve(
-        extract_single_chapter_flow.to_deployment(
+    await aserve(
+        await extract_single_chapter_flow.to_deployment(
             name="chapter-extraction-deployment", 
             tags=["extraction", "chapter"],
         ),
-        line_edits_flow.to_deployment(
+        await line_edits_flow.to_deployment(
             name="line-edits-deployment",
             tags=["line-edits"],
         ),
@@ -37,4 +38,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

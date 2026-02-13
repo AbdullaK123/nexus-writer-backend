@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
@@ -24,12 +25,15 @@ from app.jobs.chapter import (
 from loguru import logger
 import time
 from app.ai.models.edits import ChapterEdit, LineEdit
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from app.core.mongodb import get_mongodb
 
 
 class ChapterProvider:
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, mongodb: AsyncIOMotorDatabase):
         self.db = db
+        self.mongodb = mongodb
 
     # ========================================
     # CORE CRUD OPERATIONS - SIMPLE & CLEAN
@@ -96,11 +100,28 @@ class ChapterProvider:
         user_id: str,
         chapter_id: str
     ) -> ChapterEdit:
+
+        # try to get the edits from mongodb first
+        chapter_edits = await self.mongodb.chapter_edits.find_one({"chapter_id": chapter_id})
+        if chapter_edits:
+            line_edits = chapter_edits.get("line_edits", [])
+            last_generated_at = chapter_edits.get("line_edits_generated_at")
+            is_stale = chapter_edits.get("line_edits_stale", False)
+
+            return ChapterEdit(
+                edits=[
+                    LineEdit(**edit)
+                    for edit in line_edits
+                ],
+                last_generated_at=last_generated_at,
+                is_stale=is_stale
+            )
         
         query = (
             select(
                 Chapter.line_edits, 
-                Chapter.line_edits_generated_at
+                Chapter.line_edits_generated_at,
+                Chapter.line_edits_stale
             )
             .where(
                 Chapter.user_id == user_id,
@@ -118,14 +139,15 @@ class ChapterProvider:
                 detail="Chapter not found"
             )
         
-        line_edits, last_generated_at = result
+        line_edits, last_generated_at, is_stale = result
 
         # Check if edits have been generated
         if line_edits is None or last_generated_at is None:
             logger.info(f"Edits not generated yet for chapter {chapter_id}, returning empty edits")
             return ChapterEdit(
                 edits=[],
-                last_generated_at=None
+                last_generated_at=None,
+                is_stale=False
             )
         
         return ChapterEdit(
@@ -133,46 +155,15 @@ class ChapterProvider:
                 LineEdit(**edit)
                 for edit in line_edits
             ],
-            last_generated_at=last_generated_at
+            last_generated_at=last_generated_at,
+            is_stale=is_stale or False  # Handle None case
         )
-        
-    async def flag_edits_as_stale(
-        self,
-        chapter_id: str,
-        user_id: str
-    ) -> dict:
-        logger.info(f"Flagging edits as stale for chapter {chapter_id}")
-        chapter = await self.get_by_id(chapter_id, user_id)
-
-        if not chapter:
-            logger.warning(f"Chapter {chapter_id} not found for user {user_id}")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Chapter not found"
-            )
-
-        if chapter.line_edits_stale:
-            logger.warning(f"Chapter {chapter_id} edits already marked as stale")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Chapter edits are already stale!"
-            )
-
-        chapter.line_edits_stale = True
-        await self.db.commit()
-        logger.info(f"✓ Successfully marked chapter {chapter_id} edits as stale")
-
-        return {
-            "message": f"Successfully flagged chapter {chapter_id} edits as stale"
-        }
-        
 
     async def update(
         self, 
         chapter_id: str, 
         user_id: str, 
-        data: UpdateChapterRequest,
-        background_tasks: BackgroundTasks
+        data: UpdateChapterRequest
     ) -> ChapterContentResponse:
         """Update chapter content, title, or published status"""
 
@@ -190,6 +181,13 @@ class ChapterProvider:
             raise HTTPException(404, "Chapter not found")
             
         story_title, chapter = result
+
+        if data.content and chapter.content != data.content:
+            await self.mongodb.chapter_edits.update_one(
+                {"chapter_id": chapter_id},
+                {"$set": {"line_edits_stale": True}}
+            )
+            chapter.line_edits_stale = True  # Auto-mark stale on content change
         
         updated_data = data.model_dump(exclude_unset=True)
         for field, value in updated_data.items():
@@ -212,8 +210,7 @@ class ChapterProvider:
     async def delete(
         self, 
         chapter_id: str, 
-        user_id: str,
-        background_tasks: BackgroundTasks
+        user_id: str
     ) -> dict:
         """Delete chapter with pointer cleanup - SINGLE TRANSACTION"""
         
@@ -237,7 +234,17 @@ class ChapterProvider:
             
             # 3. Only commit if EVERYTHING succeeded
             await self.db.commit()
-            
+
+            # delete all chapter extractions and edits related to this chapter in MongoDB
+            await asyncio.gather(
+                self.mongodb.chapter_edits.delete_one({"chapter_id": chapter_id}),
+                self.mongodb.character_extractions.delete_one({"chapter_id": chapter_id}),
+                self.mongodb.plot_extractions.delete_one({"chapter_id": chapter_id}),
+                self.mongodb.world_extractions.delete_one({"chapter_id": chapter_id}),
+                self.mongodb.structure_extractions.delete_one({"chapter_id": chapter_id}),
+                self.mongodb.chapter_contexts.delete_one({"chapter_id": chapter_id}),
+                return_exceptions=True  # Don't fail if these don't exist or there's an error
+            )
             return {"message": "Chapter was successfully deleted"}
             
         except Exception as e:
@@ -397,5 +404,8 @@ class ChapterProvider:
 
 
 # Simple dependency - no Redis needed!
-async def get_chapter_provider(db: AsyncSession = Depends(get_db)):
-    return ChapterProvider(db)
+async def get_chapter_provider(
+    db: AsyncSession = Depends(get_db),
+    mongodb: AsyncIOMotorDatabase = Depends(get_mongodb)
+):
+    return ChapterProvider(db, mongodb)

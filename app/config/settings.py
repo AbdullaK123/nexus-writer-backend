@@ -14,6 +14,7 @@ class Config(BaseSettings):
 
     motherduck_url: str = Field(..., description='Our analytics dw connections string')
     database_url: str = Field(..., description='Our postgres connection string')
+    mongodb_url: str = Field(..., description='The mongodb connection string for ai extractions')
     database_sync_url: str = Field(..., description='Our sync postgres connection for migrations')
     migration_url: str = Field(..., description='database uri for migrations')
     app_secret_key: str = Field(..., description='The secret key for password hashing')

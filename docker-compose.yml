@@ -18,6 +18,25 @@ services:
     networks:
       - nexus-network
 
+  mongo-nexus:
+    image: mongo:8.0
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: nexus_mongo
+      MONGO_INITDB_ROOT_PASSWORD: mongo_password
+      MONGO_INITDB_DATABASE: nexus_extractions
+    volumes:
+      - mongo_nexus_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - nexus-network
+
   # Prefect database (separate from app database)
   postgres-prefect:
     image: postgres:17.1-alpine
@@ -87,12 +106,15 @@ services:
       REDIS_URL: redis://redis-nexus:6379/0
       REDIS_BROKER_URL: redis://redis-nexus:6379/1
       PREFECT_API_URL: http://prefect-server:4200/api
+      MONGODB_URL: mongodb://nexus_mongo:mongo_password@mongo-nexus:27017/nexus_extractions?authSource=admin
     depends_on:
       postgres-nexus:
         condition: service_healthy
       redis-nexus:
         condition: service_healthy
       prefect-server:
+        condition: service_healthy
+      mongo-nexus:
         condition: service_healthy
     networks:
       - nexus-network
@@ -112,12 +134,15 @@ services:
       REDIS_URL: redis://redis-nexus:6379/0
       REDIS_BROKER_URL: redis://redis-nexus:6379/1
       PREFECT_API_URL: http://prefect-server:4200/api
+      MONGODB_URL: mongodb://nexus_mongo:mongo_password@mongo-nexus:27017/nexus_extractions?authSource=admin
     depends_on:
       postgres-nexus:
         condition: service_healthy
       redis-nexus:
         condition: service_healthy
       prefect-server:
+        condition: service_healthy
+      mongo-nexus:
         condition: service_healthy
     networks:
       - nexus-network
@@ -130,3 +155,4 @@ volumes:
   postgres_nexus_data:
   postgres_prefect_data:
   redis_data:
+  mongo_nexus_data:  

@@ -2,7 +2,6 @@ from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 from app.ai.models.enums import PlotThreadStatus
 
-
 class PlotEvent(BaseModel):
     """A significant event in the chapter"""
     sequence_number: int = Field(description="Order within chapter (1, 2, 3...)")
@@ -54,6 +53,17 @@ class CallbackElement(BaseModel):
 
 class PlotExtraction(BaseModel):
     """All plot-related information from a chapter"""
+    events: List[PlotEvent]
+    causal_chains: List[CausalChain]
+    plot_threads: List[PlotThread]
+    story_questions: List[StoryQuestion]
+    foreshadowing: List[ForeshadowingElement]
+    callbacks: List[CallbackElement]
+
+class ChapterPlotExtraction(BaseModel):
+    chapter_id: str
+    story_id: str
+    chapter_number: int
     events: List[PlotEvent]
     causal_chains: List[CausalChain]
     plot_threads: List[PlotThread]

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from uuid import uuid4
-from typing import Optional, Any, Dict, List
+from typing import Literal, Optional, Any, Dict, List
 from datetime import datetime
 from enum import Enum
 
@@ -18,6 +18,11 @@ class JobStatus(str, Enum):
     SUCCESS = "success"
     FAILURE = "failure"
     RETRY = "retry"        # ← New: Task failed, retrying
+
+
+class JobType(str, Enum):
+    EXTRACTION = "extraction"
+    LINE_EDIT = "line-edit"
 
 
 class ExtractionProgress(BaseModel):
@@ -46,6 +51,7 @@ class JobQueuedResponse(BaseModel):
     
     job_id: str = Field(default_factory=generate_uuid)
     job_name: str
+    job_type: JobType
     started_at: datetime = Field(default_factory=datetime.utcnow)
     status: JobStatus = Field(default=JobStatus.QUEUED)
     
