@@ -132,21 +132,6 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
         ondelete='SET NULL'
     )
     
-    # Computed properties
-    @property
-    def needs_extraction(self) -> bool:
-        """Check if chapter needs re-extraction based on word count delta"""
-        if self.last_extracted_word_count is None:
-            return True  # Never extracted
-        
-        word_delta = abs(self.word_count - self.last_extracted_word_count)
-        return word_delta >= 2000
-    
-    @property
-    def estimated_reading_time_minutes(self) -> int:
-        """Calculate estimated reading time"""
-        return max(1, self.word_count // 250)
-    
     @staticmethod
     def get_chapter_number(chapter_id: str, path_array: Optional[List[str]]) -> int:
         """Get chapter number from a story's path_array without traversing relationships."""

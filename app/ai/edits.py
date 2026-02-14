@@ -10,8 +10,8 @@ model = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash-lite",
     temperature=app_config.ai_temperature,
     max_tokens=app_config.ai_maxtokens,
-    timeout=None,
-    max_retries=3,
+    timeout=app_config.ai_sdk_timeout,
+    max_retries=app_config.ai_sdk_retries,
 )
 
 line_edit_agent = create_agent(

@@ -5,6 +5,7 @@ Handles:
 - Queuing new extraction and line edit jobs
 - Polling job status
 """
+import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, List, Any, cast
 from uuid import UUID
@@ -26,7 +27,6 @@ from app.schemas.jobs import (
     JobQueuedResponse,
     JobStatus,
     JobStatusResponse,
-    ExtractionProgress,
     JobType,
 )
 from app.utils.decorators import log_errors
@@ -103,11 +103,6 @@ class JobService:
             # Handle different states
             if state_type == StateType.RUNNING:
                 response.message = "Processing..."
-                # Try to get progress from flow run state data
-                if flow_run.state and flow_run.state.state_details:
-                    details = flow_run.state.state_details
-                    # Prefect stores task run counts in state details
-                    # We can estimate progress from this
 
             elif state_type == StateType.COMPLETED:
                 response.message = "Task complete!"
@@ -304,7 +299,7 @@ class JobService:
                 "chapter_ids": chapter_ids,
             },
             timeout=0,
-            tags=[*[f"chapter:{chapter_id}" for chapter_id in chapter_ids], "reextraction", "extraction"]
+            tags=[*[f"chapter:{chapter_id}" for chapter_id in chapter_ids], f"story:{story_id}", "reextraction", "extraction"]
         ))
         flow_run_id = str(flow_run.id)
 
@@ -317,12 +312,76 @@ class JobService:
             started_at=datetime.utcnow()
         )
 
+    async def _has_active_predecessor_extractions(
+        self,
+        story: Story,
+        chapter_number: int,
+    ) -> list[int]:
+        """Return chapter numbers with active extraction jobs that must complete first."""
+        if chapter_number <= 1:
+            return []
+
+        predecessor_ids = set(story.path_array[:chapter_number - 1])
+        if not predecessor_ids:
+            return []
+
+        async with await self._get_prefect_client() as client:
+            flow_runs = await client.read_flow_runs(
+                flow_run_filter=FlowRunFilter(
+                    tags=FlowRunFilterTags(all_=["extraction", f"story:{story.id}"]),
+                    state=FlowRunFilterState(
+                        type=FlowRunFilterStateType(any_=[
+                            StateType.RUNNING,
+                            StateType.PENDING,
+                            StateType.SCHEDULED,
+                        ])
+                    )
+                )
+            )
+
+            blocking: set[int] = set()
+            for fr in flow_runs:
+                for tag in fr.tags:
+                    if tag.startswith("chapter:"):
+                        ch_id = tag.split(":", 1)[1]
+                        if ch_id in predecessor_ids:
+                            try:
+                                blocking.add(story.path_array.index(ch_id) + 1)
+                            except ValueError:
+                                pass
+
+            return sorted(blocking)
+
+    async def _wait_for_predecessor_extractions(
+        self,
+        story: Story,
+        chapter_number: int,
+        poll_interval: int = 5,
+        max_wait: int = 300,
+    ) -> list[int]:
+        """Poll until all predecessor extractions finish. Returns empty list on success,
+        or the still-blocking chapter numbers if max_wait is exceeded."""
+        elapsed = 0
+        while elapsed < max_wait:
+            blocking = await self._has_active_predecessor_extractions(story, chapter_number)
+            if not blocking:
+                return []
+            logger.info(
+                f"Chapter {chapter_number}: waiting for predecessor chapter(s) "
+                f"{', '.join(str(n) for n in blocking)} to finish extracting... "
+                f"({elapsed}s / {max_wait}s)"
+            )
+            await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+
+        # Final check after the last sleep
+        return await self._has_active_predecessor_extractions(story, chapter_number)
+
     @log_errors
     async def queue_extraction_job(
         self,
         user_id: str,
         chapter_id: str,
-        force: bool = False,
     ) -> JobQueuedResponse:
         """Queue extraction for a single chapter"""
         chapter = await self.chapter_service.get_by_id(chapter_id, user_id)
@@ -332,7 +391,7 @@ class JobService:
                 detail="Chapter not found!",
             )
         
-          # cancel all line edit jobs first
+        # Cancel existing extraction jobs for this chapter
         cancel_result = await self._cancel_all_jobs(chapter_id, job_type="extraction")
 
         if cancel_result.get("jobs_cancelled", 0) > 0:
@@ -340,15 +399,7 @@ class JobService:
                 f"Cancelled {cancel_result['jobs_cancelled']} "
                 f"{cancel_result['job_type']} job(s) for chapter {chapter_id}"
             )
-
-        # Check if extraction needed (unless forced)
-        if not force and not chapter.needs_extraction:
-            word_delta = abs(chapter.word_count - (chapter.last_extracted_word_count or 0))
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Chapter doesn't need extraction (word delta: {word_delta} < 1000). Use force=true to override.",
-            )
-
+            
         story = await self.db.get(Story, chapter.story_id)
         if not story:
             raise HTTPException(
@@ -357,6 +408,20 @@ class JobService:
             )
 
         chapter_number = Chapter.get_chapter_number(chapter.id, story.path_array)
+
+        # Wait for predecessor extractions to finish before building context
+        blocking_chapters = await self._wait_for_predecessor_extractions(story, chapter_number)
+        if blocking_chapters:
+            ch_list = ", ".join(str(n) for n in blocking_chapters)
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Cannot extract Chapter {chapter_number}: "
+                    f"Chapter(s) {ch_list} still extracting after waiting. "
+                    f"Try again once they complete."
+                ),
+            )
+
         estimated_duration = 60  # ~60s per chapter
 
         # Build accumulated context from previous chapters
@@ -374,7 +439,7 @@ class JobService:
                 "content": chapter.content
             },
             timeout=0,
-            tags=[f"chapter:{chapter_id}", "extraction"]
+            tags=[f"chapter:{chapter_id}", f"story:{story.id}", "extraction"]
         ))
         
         flow_run_id = str(flow_run.id)

@@ -29,7 +29,7 @@ from app.flows.extraction.tasks import (
     synthesize_context_task,
     save_chapter_extraction_task,
 )
-from app.config.prefect import DEFAULT_FLOW_RETRIES, CHAPTER_FLOW_TIMEOUT
+from app.config.prefect import CHAPTER_FLOW_TIMEOUT
 
 
 @dataclass
@@ -73,13 +73,9 @@ def _build_fallback_context(
         events = [e.description for e in plot_result.events[:5]]
         parts.append(f"Events: {'; '.join(events)}")
     
-    if world_result.locations:
-        locs = [loc.name for loc in world_result.locations]
-        parts.append(f"Locations: {', '.join(locs)}")
-    
-    if world_result.timeline:
-        markers = [f"{t.event} ({t.time_reference})" for t in world_result.timeline[:5]]
-        parts.append(f"Timeline: {'; '.join(markers)}")
+    if world_result.facts:
+        facts = [f"{f.entity}/{f.attribute}/{f.value}" for f in world_result.facts[:5]]
+        parts.append(f"Facts: {'; '.join(facts)}")
     
     condensed = "\n".join(parts) if parts else f"Chapter {chapter_number} (extraction incomplete)"
     
@@ -101,8 +97,7 @@ def _build_fallback_context(
 
 @flow(
     name="extract-single-chapter",
-    retries=DEFAULT_FLOW_RETRIES,
-    retry_delay_seconds=60,
+    retries=0,
     timeout_seconds=CHAPTER_FLOW_TIMEOUT,
     persist_result=True,
 )

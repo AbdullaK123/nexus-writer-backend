@@ -30,18 +30,17 @@ class Config(BaseSettings):
     
     # Prefect configuration
     prefect_api_url: str | None = Field(default=None, description="Prefect server API URL")
-    default_task_retries: int = Field(default=3, description="Default number of retries for Prefect tasks")
-    default_task_retry_delay_1: int = Field(default=10, description="First retry delay in seconds")
-    default_task_retry_delay_2: int = Field(default=30, description="Second retry delay in seconds")
-    default_task_retry_delay_3: int = Field(default=60, description="Third retry delay in seconds")
-    default_flow_retries: int = Field(default=2, description="Default number of retries for Prefect flows")
-    extraction_task_timeout: int = Field(default=180, description="Timeout for extraction tasks in seconds (3 minutes)")
-    chapter_flow_timeout: int = Field(default=300, description="Timeout for chapter flow in seconds (5 minutes)")
+    default_task_retries: int = Field(default=1, description="Prefect task retries (1 = one retry after failure)")
+    default_task_retry_delay: int = Field(default=10, description="Delay before task retry in seconds")
+    extraction_task_timeout: int = Field(default=120, description="Timeout for extraction tasks in seconds")
+    chapter_flow_timeout: int = Field(default=180, description="Timeout for chapter extraction flow in seconds")
     result_storage_ttl: int = Field(default=86400, description="Result storage TTL in seconds (24 hours)")
 
-    #ai setttings
-    ai_temperature: float = Field(..., description="Temperature of the llm")
-    ai_maxtokens: int = Field(..., description="Max tokens to generate in structured outputs.")
+    # AI / LLM settings
+    ai_temperature: float = Field(..., description="Temperature of the LLM")
+    ai_maxtokens: int = Field(..., description="Max tokens to generate in structured outputs")
+    ai_sdk_timeout: int = Field(default=90, description="HTTP timeout per LLM request in seconds")
+    ai_sdk_retries: int = Field(default=2, description="SDK-level retries for transient HTTP errors")
 
 
 app_config = Config()

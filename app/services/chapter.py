@@ -61,11 +61,14 @@ class ChapterService:
 
         if story.path_array and len(story.path_array) > 0:
             previous_chapter_id = story.path_array[-1]
-            queue_result = await self.job_service.queue_extraction_job(
-                user_id=user_id,
-                chapter_id=previous_chapter_id,
-            )
-            logger.info(f"Queued extraction job for previous chapter {previous_chapter_id} with job ID {queue_result.job_id}")
+            try:
+                queue_result = await self.job_service.queue_extraction_job(
+                    user_id=user_id,
+                    chapter_id=previous_chapter_id,
+                )
+                logger.info(f"Queued extraction job for previous chapter {previous_chapter_id} with job ID {queue_result.job_id}")
+            except HTTPException as e:
+                logger.warning(f"Auto-extraction skipped for chapter {previous_chapter_id}: {e.detail}")
 
         try:
             # 1. Create the basic chapter (but don't commit yet!)

@@ -19,7 +19,7 @@ from app.ai.models.plot import PlotExtraction
 from app.ai.models.structure import StructureExtraction
 from app.ai.models.world import WorldExtraction
 from app.ai.models.context import CondensedChapterContext
-from app.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAYS, EXTRACTION_TASK_TIMEOUT
+from app.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAY, EXTRACTION_TASK_TIMEOUT
 from datetime import datetime
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.database import engine
@@ -29,8 +29,7 @@ from app.core.mongodb import MongoDB
 
 @task(
     name="extract-characters",
-    retries=DEFAULT_TASK_RETRIES,
-    retry_delay_seconds=DEFAULT_TASK_RETRY_DELAYS,
+    retries=0,
     timeout_seconds=EXTRACTION_TASK_TIMEOUT,
 )
 async def extract_characters_task(
@@ -49,8 +48,7 @@ async def extract_characters_task(
 
 @task(
     name="extract-plot",
-    retries=DEFAULT_TASK_RETRIES,
-    retry_delay_seconds=DEFAULT_TASK_RETRY_DELAYS,
+    retries=0,
     timeout_seconds=EXTRACTION_TASK_TIMEOUT,
 )
 async def extract_plot_task(
@@ -69,8 +67,7 @@ async def extract_plot_task(
 
 @task(
     name="extract-world",
-    retries=DEFAULT_TASK_RETRIES,
-    retry_delay_seconds=DEFAULT_TASK_RETRY_DELAYS,
+    retries=0,
     timeout_seconds=EXTRACTION_TASK_TIMEOUT,
 )
 async def extract_world_task(
@@ -89,8 +86,7 @@ async def extract_world_task(
 
 @task(
     name="extract-structure",
-    retries=DEFAULT_TASK_RETRIES,
-    retry_delay_seconds=DEFAULT_TASK_RETRY_DELAYS,
+    retries=0,
     timeout_seconds=EXTRACTION_TASK_TIMEOUT,
 )
 async def extract_structure_task(
@@ -110,7 +106,7 @@ async def extract_structure_task(
 @task(
     name="synthesize-context",
     retries=DEFAULT_TASK_RETRIES,
-    retry_delay_seconds=DEFAULT_TASK_RETRY_DELAYS,
+    retry_delay_seconds=DEFAULT_TASK_RETRY_DELAY,
     timeout_seconds=EXTRACTION_TASK_TIMEOUT,
 )
 async def synthesize_context_task(

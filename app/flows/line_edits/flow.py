@@ -11,7 +11,7 @@ from app.ai.edits import generate_line_edits
 from app.ai.models.edits import ChapterEdit, ChapterEdits
 from app.core.database import engine
 from app.models import Chapter
-from app.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAYS, EXTRACTION_TASK_TIMEOUT
+from app.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAY, EXTRACTION_TASK_TIMEOUT
 from app.core.mongodb import MongoDB
 from app.config.settings import app_config
 
@@ -19,7 +19,7 @@ from app.config.settings import app_config
 @task(
     name="generate-line-edits",
     retries=DEFAULT_TASK_RETRIES,
-    retry_delay_seconds=DEFAULT_TASK_RETRY_DELAYS,
+    retry_delay_seconds=DEFAULT_TASK_RETRY_DELAY,
     timeout_seconds=EXTRACTION_TASK_TIMEOUT,
 )
 async def generate_line_edits_task(
@@ -74,9 +74,9 @@ async def save_line_edits_task(
 
 @flow(
     name="line-edits",
-    retries=2,
-    retry_delay_seconds=60,
-    timeout_seconds=600,
+    retries=1,
+    retry_delay_seconds=15,
+    timeout_seconds=300,
     persist_result=True,
 )
 async def line_edits_flow(

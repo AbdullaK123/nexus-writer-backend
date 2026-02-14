@@ -77,31 +77,17 @@ async def queue_line_edit_job(
 @job_controller.post("/extraction/{chapter_id}", response_model=JobQueuedResponse)
 async def queue_extraction(
     chapter_id: str,
-    force: bool = Query(
-        False, 
-        description="Force extraction even if word delta < 1000"
-    ),
     current_user: User = Depends(get_current_user),
     job_service: JobService = Depends(get_job_service)
 ) -> JobQueuedResponse:
     """
     Queue extraction for a single chapter.
     
-    **Resilient workflow with checkpointing:**
-    - Results are saved immediately after extraction
-    
-    **What happens:**
-    1. Runs 4 parallel AI extractions (characters, plot, world, structure)
-    2. Synthesizes results into condensed context
-    3. Saves all extraction data to the chapter
-    
-    **Performance:**
-    - ~60 seconds per chapter
-    - All 4 extractions run concurrently
-    - Progress tracked in real-time
+    Runs 4 parallel AI extractions (characters, plot, world, structure),
+    synthesizes results into condensed context, and saves to the chapter.
+    ~60 seconds per chapter.
     """
     return await job_service.queue_extraction_job(
         user_id=current_user.id,
         chapter_id=chapter_id,
-        force=force
     )
