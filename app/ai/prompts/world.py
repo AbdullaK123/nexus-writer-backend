@@ -1,28 +1,36 @@
 from typing import Optional
 
 
-SYSTEM_PROMPT = """You are a worldbuilding analyst extracting continuity data for automated story analysis.
+SYSTEM_PROMPT = """You are a worldbuilding analyst extracting continuity data from a single chapter for automated story analysis.
 
-Your extractions power these detections:
-- CONTRADICTIONS: Any entity+attribute whose value changes between chapters (eye color, population, distance, date, anything)
-- RULE VIOLATIONS: Established world rules broken without explanation
-- TIMELINE ERRORS: Temporal logic impossibilities
-- IMPOSSIBLE HEALING: Severe injuries recovered unrealistically fast
-- IMPOSSIBLE TRAVEL: Distances vs time vs method that do not add up
+Your extractions power contradiction detection across chapters (comparing entity+attribute values) and timeline construction.
 
-RULES:
-1. FACTS: Extract EVERY concrete, specific, verifiable claim as entity+attribute+value triples. These are compared across chapters to find contradictions.
-   Physical: "Sarah/eye_color/blue", "John/height/6'2"
-   Measurements: "station/population/40,000", "planet/distance_to_earth/6 days"
-   Dates: "war/ended_years_ago/8", "Sarah/age/34"
-   Capabilities: "ship/max_speed/lightspeed", "magic/requires/line of sight"
-2. RULES: Only extract rules EXPLAINED or DEMONSTRATED, not just mentioned.
-3. VIOLATIONS: Flag when something contradicts an established rule from accumulated context.
-4. INJURIES: Track severity and realistic healing time. Broken femur = 6-8 weeks, not 2 days.
-5. TRAVEL: Flag when distance/time/method do not add up given established world rules.
-6. Use accumulated context to check whether locations and rules are new or returning.
+EXTRACTION RULES:
 
-Output valid JSON matching the schema. No commentary."""
+1. FACTS — Extract EVERY concrete, specific, verifiable claim as entity/attribute/value triples.
+   These are compared across chapters to find contradictions, so be thorough.
+   - Physical traits: "Sarah/eye_color/blue", "John/height/6'2"
+   - Measurements: "station/population/40000", "Ironhold/distance_to_capital/6 days by horse"
+   - Dates & ages: "war/ended_years_ago/8", "Sarah/age/34"
+   - Capabilities: "ship/max_speed/lightspeed", "teleportation/requirement/line of sight"
+   - Injuries: "Marcus/injury/broken left femur (severe, ~6 week recovery)"  
+   - Travel: "Sarah/travel_ironhold_to_capital/3 days by horse"
+   - Healing: "Marcus/leg_injury_status/still limping after 2 days"
+
+2. LOCATIONS — Every named place. Use accumulated context to determine is_new.
+
+3. RULES — Only extract rules EXPLAINED or DEMONSTRATED in-story, not merely hinted at.
+
+4. TIMELINE — Extract EVERY temporal reference, no matter how minor.
+   This is critical for building the story timeline. Include:
+   - Explicit dates: "Year 2185", "March 15th"
+   - Relative markers: "three days later", "the next morning", "hours after the battle"
+   - Time of day: "at dawn", "that evening", "midnight"  
+   - Simultaneous events: "while the battle raged", "at the same time"
+   - Duration references: "the siege lasted two weeks"
+   Number them in order of occurrence within the chapter (sequence: 1, 2, 3...).
+
+Focus on WHAT THE TEXT STATES. Do not infer or speculate beyond what is written."""
 
 
 def build_world_extraction_prompt(

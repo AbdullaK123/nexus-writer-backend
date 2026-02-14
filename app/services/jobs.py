@@ -29,8 +29,6 @@ from app.schemas.jobs import (
     ExtractionProgress,
     JobType,
 )
-from app.services.chapter import ChapterService
-from app.services.story import StoryService
 from app.utils.decorators import log_errors
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.mongodb import get_mongodb
@@ -56,8 +54,22 @@ class JobService:
     def __init__(self, db: AsyncSession, mongodb: AsyncIOMotorDatabase):
         self.db = db
         self.mongodb = mongodb
-        self.chapter_service = ChapterService(db, mongodb)
-        self.story_service = StoryService(db, mongodb)
+        self._chapter_service = None
+        self._story_service = None
+
+    @property
+    def chapter_service(self):
+        if self._chapter_service is None:
+            from app.services.chapter import ChapterService
+            self._chapter_service = ChapterService(db=self.db, mongodb=self.mongodb)
+        return self._chapter_service
+
+    @property
+    def story_service(self):
+        if self._story_service is None:
+            from app.services.story import StoryService
+            self._story_service = StoryService(db=self.db, mongodb=self.mongodb)
+        return self._story_service
 
     async def _get_prefect_client(self) -> PrefectClient:
         """Get Prefect client"""

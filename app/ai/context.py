@@ -7,10 +7,19 @@ from app.ai.prompts.context import SYSTEM_PROMPT, build_condensed_context_prompt
 from app.ai.models.context import CondensedChapterContext
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
+from langchain_google_genai import ChatGoogleGenerativeAI
+from app.config.settings import app_config
 
-# Create synthesis agent
+model = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash-lite",
+    temperature=app_config.ai_temperature,
+    max_tokens=app_config.ai_maxtokens,
+    timeout=None,
+    max_retries=3,
+)
+
 synthesis_agent = create_agent(
-    "google_genai:gemini-2.5-flash-lite",
+    model=model,
     tools=[],
     system_prompt=SYSTEM_PROMPT,
     response_format=ToolStrategy(CondensedChapterContext),

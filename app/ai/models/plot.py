@@ -61,9 +61,14 @@ class ContrivanceRisk(BaseModel):
 
 class PlotExtraction(BaseModel):
     """All plot data extracted from a single chapter."""
-    events: list[PlotEvent]
+    events: list[PlotEvent] = Field(default_factory=list)
     threads: list[PlotThread] = Field(default_factory=list)
     setups: list[Setup] = Field(default_factory=list)
     payoffs: list[Payoff] = Field(default_factory=list)
     questions: list[StoryQuestion] = Field(default_factory=list)
     contrivance_risks: list[ContrivanceRisk] = Field(default_factory=list)
+
+    @classmethod
+    def empty(cls) -> "PlotExtraction":
+        """Return a valid empty extraction for use as a fallback."""
+        return cls()

@@ -54,9 +54,17 @@ class StructureExtraction(BaseModel):
     structural_role: Literal[
         "exposition", "inciting_incident", "rising_action",
         "climax", "falling_action", "resolution", "transition", "flashback"
-    ] = Field(description="This chapter's function in the overall story arc")
-    scenes: list[Scene]
-    pacing: Pacing
+    ] = Field(default="exposition", description="This chapter's function in the overall story arc")
+    scenes: list[Scene] = Field(default_factory=list)
+    pacing: Pacing = Field(default_factory=lambda: Pacing(
+        action_pct=0, dialogue_pct=0, introspection_pct=0, exposition_pct=0,
+        pace="moderate", tension=1
+    ))
     themes: list[Theme] = Field(default_factory=list)
     emotional_beats: list[EmotionalBeat] = Field(default_factory=list)
-    show_vs_tell_ratio: float = Field(ge=0, le=1, description="0.0=all narrated, 1.0=all demonstrated")
+    show_vs_tell_ratio: float = Field(default=0.5, ge=0, le=1, description="0.0=all narrated, 1.0=all demonstrated")
+
+    @classmethod
+    def empty(cls) -> "StructureExtraction":
+        """Return a valid empty extraction for use as a fallback."""
+        return cls()

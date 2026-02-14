@@ -1,15 +1,22 @@
 from typing import Dict, List, Optional
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
+from langchain_google_genai import ChatGoogleGenerativeAI
 from app.ai.prompts.plot_thread import PLOT_THREADS_SYSTEM_PROMPT, build_plot_threads_extraction_prompt
 from app.ai.models.plot_thread import PlotThreadsExtraction
-from dotenv import load_dotenv
+from app.config.settings import app_config
 
-load_dotenv()
+model = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash-lite",
+    temperature=app_config.ai_temperature,
+    max_tokens=app_config.ai_maxtokens,
+    timeout=None,
+    max_retries=3,
+)
 
 plot_thread_extraction_agent = create_agent(
-    "google_genai:gemini-2.5-flash-lite",
-    tools = [],
+    model=model,
+    tools=[],
     system_prompt=PLOT_THREADS_SYSTEM_PROMPT,
     response_format=ToolStrategy(PlotThreadsExtraction),
 )

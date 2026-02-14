@@ -34,7 +34,7 @@ async def main():
             name="line-edits-deployment",
             tags=["line-edits"],
         ),
-        await reextract_chapters_flow(
+        await reextract_chapters_flow.to_deployment(
             name="chapter-reextraction-deployment",
             tags=["reextraction", "extraction", "chapters"]
         )

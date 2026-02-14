@@ -27,7 +27,14 @@ class StoryService:
         self.db = db
         self.mongodb = mongodb
         self.target_service = TargetService(db)
-        self.job_service = JobService(db, mongodb)
+        self._job_service = None
+
+    @property
+    def job_service(self):
+        if self._job_service is None:
+            from app.services.jobs import JobService
+            self._job_service = JobService(db=self.db, mongodb=self.mongodb)
+        return self._job_service
 
     async def append_to_path_end(self, story_id: str, chapter_id: str):
 

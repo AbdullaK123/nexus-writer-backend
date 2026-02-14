@@ -39,5 +39,9 @@ class Config(BaseSettings):
     chapter_flow_timeout: int = Field(default=300, description="Timeout for chapter flow in seconds (5 minutes)")
     result_storage_ttl: int = Field(default=86400, description="Result storage TTL in seconds (24 hours)")
 
+    #ai setttings
+    ai_temperature: float = Field(..., description="Temperature of the llm")
+    ai_maxtokens: int = Field(..., description="Max tokens to generate in structured outputs.")
+
 
 app_config = Config()

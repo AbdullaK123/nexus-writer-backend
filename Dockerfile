@@ -1,10 +1,15 @@
-# Stage 1: UV binary
-FROM ghcr.io/astral-sh/uv:latest AS uv
+# Stage 1: UV binary — pin a version to avoid re-pulling on every build
+FROM ghcr.io/astral-sh/uv:0.7.8 AS uv
 
 # Stage 2: Application
 FROM python:3.12-slim
 
-RUN apt-get update && apt-get install -y build-essential libpq-dev curl && rm -rf /var/lib/apt/lists/*
+# Combine apt install into a single cached layer
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libpq-dev curl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -14,12 +19,12 @@ COPY --from=uv /uv /usr/local/bin/uv
 # Copy dependency files first (for Docker cache)
 COPY pyproject.toml uv.lock ./
 
-# Ensure uv uses a CPython version that matches the lockfile
 ENV UV_PYTHON_VERSION=3.12
 ENV UV_SYSTEM_PYTHON=1
 
-# Install dependencies
-RUN uv sync
+# Install dependencies with uv cache mounted — avoids re-downloading on rebuilds
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev --frozen
 
 # Copy the rest of your code
 COPY . .

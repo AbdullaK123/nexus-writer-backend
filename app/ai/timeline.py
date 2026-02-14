@@ -1,17 +1,24 @@
 from typing import Dict, List
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
+from langchain_google_genai import ChatGoogleGenerativeAI
 from app.ai.prompts.timeline import (
     STORY_TIMELINE_SYSTEM_PROMPT,
     build_story_timeline_extraction_prompt
 )
 from app.ai.models.timeline import StoryTimeline
-from dotenv import load_dotenv
+from app.config.settings import app_config
 
-load_dotenv()
+model = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash-lite",
+    temperature=app_config.ai_temperature,
+    max_tokens=app_config.ai_maxtokens,
+    timeout=None,
+    max_retries=3,
+)
 
 story_timeline_extraction_agent = create_agent(
-    "google_genai:gemini-2.5-flash-lite",
+    model=model,
     tools=[],
     system_prompt=STORY_TIMELINE_SYSTEM_PROMPT,
     response_format=ToolStrategy(StoryTimeline),

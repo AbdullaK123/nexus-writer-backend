@@ -46,7 +46,12 @@ class TraitEvidence(BaseModel):
 
 class CharacterExtraction(BaseModel):
     """All character data extracted from a single chapter."""
-    characters: list[Character]
+    characters: list[Character] = Field(default_factory=list)
     knowledge_gains: list[KnowledgeGain] = Field(default_factory=list)
     dialogue_voices: list[DialogueVoice] = Field(default_factory=list)
     trait_evidence: list[TraitEvidence] = Field(default_factory=list)
+
+    @classmethod
+    def empty(cls) -> "CharacterExtraction":
+        """Return a valid empty extraction for use as a fallback."""
+        return cls()

@@ -16,7 +16,6 @@ from app.schemas.chapter import (
     ChapterListResponse, ChapterEditRequest
 )
 from fastapi import BackgroundTasks, HTTPException, status, Depends
-from app.services.jobs import JobService
 from app.utils.html import get_preview_content, get_word_count
 from app.jobs.chapter import (
     handle_chapter_creation,
@@ -35,7 +34,14 @@ class ChapterService:
     def __init__(self, db: AsyncSession, mongodb: AsyncIOMotorDatabase):
         self.db = db
         self.mongodb = mongodb
-        self.job_service = JobService(db, mongodb)
+        self._job_service = None
+
+    @property
+    def job_service(self):
+        if self._job_service is None:
+            from app.services.jobs import JobService
+            self._job_service = JobService(db=self.db, mongodb=self.mongodb)
+        return self._job_service
 
     # ========================================
     # CORE CRUD OPERATIONS - SIMPLE & CLEAN
@@ -53,7 +59,7 @@ class ChapterService:
         if not story:
             raise HTTPException(404, "Story not found")
 
-        if story.path_array and len(story.path_array) >= 2:
+        if story.path_array and len(story.path_array) > 0:
             previous_chapter_id = story.path_array[-1]
             queue_result = await self.job_service.queue_extraction_job(
                 user_id=user_id,
