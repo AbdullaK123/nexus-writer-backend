@@ -22,6 +22,7 @@ class JobStatus(str, Enum):
 
 class JobType(str, Enum):
     EXTRACTION = "extraction"
+    REEXTRACTION = "reextraction"
     LINE_EDIT = "line-edit"
 
 

@@ -9,7 +9,7 @@ from app.utils.logging_context import context_logger
 
 
 
-class TargetProvider:
+class TargetService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -291,7 +291,7 @@ class TargetProvider:
         }
 
 
-def get_target_provider(
+def get_target_service(
     db: AsyncSession = Depends(get_db)
-) -> TargetProvider:
-    return TargetProvider(db)
+) -> TargetService:
+    return TargetService(db)

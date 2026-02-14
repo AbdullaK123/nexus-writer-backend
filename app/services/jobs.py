@@ -1,5 +1,5 @@
 """
-Job provider for managing background tasks via Prefect.
+Job service for managing background tasks via Prefect.
 
 Handles:
 - Queuing new extraction and line edit jobs
@@ -29,8 +29,8 @@ from app.schemas.jobs import (
     ExtractionProgress,
     JobType,
 )
-from app.providers.chapter import ChapterProvider
-from app.providers.story import StoryProvider
+from app.services.chapter import ChapterService
+from app.services.story import StoryService
 from app.utils.decorators import log_errors
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.mongodb import get_mongodb
@@ -50,14 +50,14 @@ STATE_TYPE_MAP = {
 }
 
 
-class JobProvider:
-    """Provider for job management operations"""
+class JobService:
+    """Service for job management operations"""
 
     def __init__(self, db: AsyncSession, mongodb: AsyncIOMotorDatabase):
         self.db = db
         self.mongodb = mongodb
-        self.chapter_provider = ChapterProvider(db, mongodb)
-        self.story_provider = StoryProvider(db, mongodb)
+        self.chapter_service = ChapterService(db, mongodb)
+        self.story_service = StoryService(db, mongodb)
 
     async def _get_prefect_client(self) -> PrefectClient:
         """Get Prefect client"""
@@ -171,7 +171,7 @@ class JobProvider:
         force: bool = False,
     ) -> JobQueuedResponse:
         """Queue line edit generation for a chapter"""
-        chapter = await self.chapter_provider.get_by_id(chapter_id, user_id)
+        chapter = await self.chapter_service.get_by_id(chapter_id, user_id)
         if not chapter:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -214,7 +214,7 @@ class JobProvider:
                 detail="Story not found!",
             )
 
-        chapter_number = chapter.chapter_number
+        chapter_number = Chapter.get_chapter_number(chapter.id, story.path_array)
 
         # Submit flow to Prefect deployment (runs on worker container)
         flow_run = cast(FlowRun, await run_deployment(
@@ -275,6 +275,35 @@ class JobProvider:
                 contexts.append(f"=== Chapter {previous_chapter_ids.index(ch_id) + 1} ===\n{ch.condensed_context}")
         
         return "\n\n".join(contexts)
+    
+    @log_errors
+    async def queue_reextraction_job(
+        self,
+        deleted_chapter_id: str,
+        story_id: str,
+        chapter_ids: List[str],
+    ) -> JobQueuedResponse:
+        """Queue a reextraction job after chapter deletion"""
+
+        flow_run = cast(FlowRun, await run_deployment(
+            name="reextraction-flow/chapter-reextraction-deployment",
+            parameters={
+                "story_id": story_id,
+                "chapter_ids": chapter_ids,
+            },
+            timeout=0,
+            tags=[*[f"chapter:{chapter_id}" for chapter_id in chapter_ids], "reextraction", "extraction"]
+        ))
+        flow_run_id = str(flow_run.id)
+
+        logger.info(f"Queued reextraction for Chapters: {chapter_ids}")
+
+        return JobQueuedResponse(
+            job_id=flow_run_id,
+            job_name=f"Reextraction after chapter: {deleted_chapter_id} deletion",
+            job_type=JobType.REEXTRACTION,
+            started_at=datetime.utcnow()
+        )
 
     @log_errors
     async def queue_extraction_job(
@@ -284,7 +313,7 @@ class JobProvider:
         force: bool = False,
     ) -> JobQueuedResponse:
         """Queue extraction for a single chapter"""
-        chapter = await self.chapter_provider.get_by_id(chapter_id, user_id)
+        chapter = await self.chapter_service.get_by_id(chapter_id, user_id)
         if not chapter:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -315,7 +344,7 @@ class JobProvider:
                 detail="Story not found!",
             )
 
-        chapter_number = chapter.chapter_number
+        chapter_number = Chapter.get_chapter_number(chapter.id, story.path_array)
         estimated_duration = 60  # ~60s per chapter
 
         # Build accumulated context from previous chapters
@@ -355,9 +384,9 @@ class JobProvider:
         )
 
 
-async def get_job_provider(
+async def get_job_service(
     db: AsyncSession = Depends(get_db),
     mongodb: AsyncIOMotorDatabase = Depends(get_mongodb)
-) -> JobProvider:
-    """Dependency for JobProvider"""
-    return JobProvider(db=db, mongodb=mongodb)
+) -> JobService:
+    """Dependency for JobService"""
+    return JobService(db=db, mongodb=mongodb)

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, BackgroundTasks
-from app.providers.chapter import ChapterProvider, get_chapter_provider
-from app.providers.auth import get_current_user
+from app.services.chapter import ChapterService, get_chapter_service
+from app.services.auth import get_current_user
 from app.models import User
 from app.ai.models.edits import ChapterEdit
 from typing import Optional
@@ -15,9 +15,9 @@ chapter_controller = APIRouter(prefix='/chapters')
 async def get_chapter_edits(
     chapter_id: str,
     current_user: User = Depends(get_current_user),
-    chapter_provider: ChapterProvider = Depends(get_chapter_provider)
+    chapter_service: ChapterService = Depends(get_chapter_service)
 ) -> ChapterEdit:
-    return await chapter_provider.get_line_edits(
+    return await chapter_service.get_line_edits(
         current_user.id,
         chapter_id
     )
@@ -27,9 +27,9 @@ async def get_chapter_with_navigation(
     chapter_id: str,
     as_html: bool = True,
     current_user: User = Depends(get_current_user),
-    chapter_provider: ChapterProvider = Depends(get_chapter_provider)
+    chapter_service: ChapterService = Depends(get_chapter_service)
 ) -> ChapterContentResponse:
-    return await chapter_provider.get_chapter_with_navigation(
+    return await chapter_service.get_chapter_with_navigation(
         chapter_id, 
         current_user.id, 
         as_html
@@ -40,9 +40,9 @@ async def update_chapter(
     chapter_id: str,
     updated_info: UpdateChapterRequest,
     current_user: User = Depends(get_current_user),
-    chapter_provider: ChapterProvider = Depends(get_chapter_provider)
+    chapter_service: ChapterService = Depends(get_chapter_service)
 ) -> ChapterContentResponse:
-    return await chapter_provider.update(
+    return await chapter_service.update(
         chapter_id=chapter_id,
         user_id=current_user.id,
         data=updated_info
@@ -52,9 +52,9 @@ async def update_chapter(
 async def delete_chapter(
     chapter_id: str,
     current_user: User = Depends(get_current_user),
-    chapter_provider: ChapterProvider = Depends(get_chapter_provider)
+    chapter_service: ChapterService = Depends(get_chapter_service)
 ) -> dict:
-    return await chapter_provider.delete(
+    return await chapter_service.delete(
         chapter_id=chapter_id,
         user_id=current_user.id
     )

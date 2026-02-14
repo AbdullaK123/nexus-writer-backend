@@ -9,7 +9,7 @@ from prefect import aserve
 from loguru import logger
 from app.config.logging import setup_logging
 from app.core.mongodb import MongoDB
-from app.flows.extraction import extract_single_chapter_flow
+from app.flows.extraction import extract_single_chapter_flow, reextract_chapters_flow
 from app.flows.line_edits import line_edits_flow
 from dotenv import load_dotenv
 from app.config.settings import app_config
@@ -34,6 +34,10 @@ async def main():
             name="line-edits-deployment",
             tags=["line-edits"],
         ),
+        await reextract_chapters_flow(
+            name="chapter-reextraction-deployment",
+            tags=["reextraction", "extraction", "chapters"]
+        )
     )
 
 

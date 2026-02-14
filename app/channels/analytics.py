@@ -1,6 +1,6 @@
 # app/channels/analytics.py - FIXED VERSION
 from socketio.async_server import AsyncServer
-from app.providers.analytics import get_analytics_provider
+from app.services.analytics import get_analytics_service
 from app.schemas.analytics import WritingSession, WritingSessionEvent
 from app.utils.decorators import log_errors
 from app.core.redis import get_redis
@@ -8,7 +8,7 @@ from loguru import logger
 import asyncio
 import json
 
-analytics = get_analytics_provider()
+analytics = get_analytics_service()
 redis_client = get_redis()
 
 sio = AsyncServer(

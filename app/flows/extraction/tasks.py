@@ -14,11 +14,11 @@ from app.ai.plot import extract_plot_information
 from app.ai.structure import extract_story_structure
 from app.ai.world import extract_world_information
 from app.ai.context import synthesize_chapter_context
-from app.ai.models.character import CharacterExtraction, ChapterCharacterExtraction
-from app.ai.models.plot import PlotExtraction, ChapterPlotExtraction
-from app.ai.models.structure import StructureExtraction, ChapterStructureExtraction
-from app.ai.models.world import WorldExtraction, ChapterWorldExtraction
-from app.ai.models.context import CondensedChapterContext, ChapterContext
+from app.ai.models.character import CharacterExtraction
+from app.ai.models.plot import PlotExtraction
+from app.ai.models.structure import StructureExtraction
+from app.ai.models.world import WorldExtraction
+from app.ai.models.context import CondensedChapterContext
 from app.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAYS, EXTRACTION_TASK_TIMEOUT
 from datetime import datetime
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -164,93 +164,36 @@ async def save_chapter_extraction_task(
         if mongo_db is None:
             raise ValueError("MongoDB not connected")
         
-        # Save to MongoDB (new) - use replace_one with upsert for unique constraint
+        # Save to MongoDB — model_dump() handles all field serialization
+        meta = {"chapter_id": chapter_id, "story_id": chapter.story_id, "chapter_number": chapter_number}
+
         await mongo_db.character_extractions.replace_one(
             {"chapter_id": chapter_id},
-            {
-                "chapter_id": chapter_id,
-                "story_id": chapter.story_id,
-                "chapter_number": chapter_number,
-                "characters_present": [c.model_dump() for c in character_extraction.characters_present],
-                "character_actions": [a.model_dump() for a in character_extraction.character_actions],
-                "character_snapshots": [s.model_dump() for s in character_extraction.character_snapshots],
-                "dialogue_samples": [d.model_dump() for d in character_extraction.dialogue_samples],
-                "trait_claims": [t.model_dump() for t in character_extraction.trait_claims]
-            },
+            {**meta, **character_extraction.model_dump()},
             upsert=True
         )
-        
+
         await mongo_db.plot_extractions.replace_one(
             {"chapter_id": chapter_id},
-            {
-                "chapter_id": chapter_id,
-                "story_id": chapter.story_id,
-                "chapter_number": chapter_number,
-                "events": [e.model_dump() for e in plot_extraction.events],
-                "plot_threads": [t.model_dump() for t in plot_extraction.plot_threads],
-                "foreshadowing": [f.model_dump() for f in plot_extraction.foreshadowing],
-                "story_questions": [q.model_dump() for q in plot_extraction.story_questions],
-                "causal_chains": [c.model_dump() for c in plot_extraction.causal_chains],
-                "callbacks": [cb.model_dump() for cb in plot_extraction.callbacks],
-                "deus_ex_machina_risks": [d.model_dump() for d in plot_extraction.deus_ex_machina_risks]
-            },
+            {**meta, **plot_extraction.model_dump()},
             upsert=True
         )
-        
+
         await mongo_db.world_extractions.replace_one(
             {"chapter_id": chapter_id},
-            {
-                "chapter_id": chapter_id,
-                "story_id": chapter.story_id,
-                "chapter_number": chapter_number,
-                "locations": [l.model_dump() for l in world_extraction.locations],
-                "world_rules": [r.model_dump() for r in world_extraction.world_rules],
-                "rule_violations": [rv.model_dump() for rv in world_extraction.rule_violations],
-                "timeline_markers": [t.model_dump() for t in world_extraction.timeline_markers],
-                "chapter_timespan": world_extraction.chapter_timespan.model_dump() if world_extraction.chapter_timespan else None,
-                "injuries": [i.model_dump() for i in world_extraction.injuries],
-                "travel_events": [te.model_dump() for te in world_extraction.travel_events],
-                "cultural_elements": [c.model_dump() for c in world_extraction.cultural_elements],
-                "factual_claims": [f.model_dump() for f in world_extraction.factual_claims],
-                "sensory_details": world_extraction.sensory_details
-            },
+            {**meta, **world_extraction.model_dump()},
             upsert=True
         )
-        
+
         await mongo_db.structure_extractions.replace_one(
             {"chapter_id": chapter_id},
-            {
-                "chapter_id": chapter_id,
-                "story_id": chapter.story_id,
-                "chapter_number": chapter_number,
-                "pacing": structure_extraction.pacing.model_dump(),
-                "scenes": [s.model_dump() for s in structure_extraction.scenes],
-                "themes": [t.model_dump() for t in structure_extraction.themes],
-                "emotional_beats": [e.model_dump() for e in structure_extraction.emotional_beats],
-                "structural_role": structure_extraction.structural_role,
-                "show_vs_tell_ratio": structure_extraction.show_vs_tell_ratio
-            },
+            {**meta, **structure_extraction.model_dump()},
             upsert=True
         )
 
         await mongo_db.chapter_contexts.replace_one(
             {"chapter_id": chapter_id},
-            {
-                "chapter_id": chapter_id,
-                "story_id": chapter.story_id,
-                "chapter_number": chapter_number,
-                "timeline_context": context_synthesis.timeline_context,
-                "entities_summary": context_synthesis.entities_summary,
-                "events_summary": context_synthesis.events_summary,
-                "character_developments": context_synthesis.character_developments,
-                "plot_progression": context_synthesis.plot_progression,
-                "worldbuilding_additions": context_synthesis.worldbuilding_additions,
-                "themes_present": context_synthesis.themes_present,
-                "emotional_arc": context_synthesis.emotional_arc,
-                "word_count": context_synthesis.word_count,
-                "estimated_reading_time_minutes": context_synthesis.estimated_reading_time_minutes,
-                "condensed_text": context_synthesis.condensed_text
-            },
+            {**meta, **context_synthesis.model_dump()},
             upsert=True
         )
         

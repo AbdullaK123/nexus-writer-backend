@@ -4,7 +4,7 @@ from loguru import logger
 from typing import Dict, List, Any, Tuple, Optional
 from app.core.database import get_db
 from app.core.mongodb import get_mongodb
-from app.providers.target import TargetProvider
+from app.services.target import TargetService
 from app.schemas import TargetResponse
 from app.utils.decorators import log_errors
 from app.schemas.analytics import WritingSession, StoryAnalyticsResponse
@@ -17,17 +17,17 @@ from uuid import UUID
 from datetime import timedelta
 from fastapi import HTTPException, status, Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
-from app.providers.story import StoryProvider
+from app.services.story import StoryService
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
-class AnalyticsProvider:
+class AnalyticsService:
 
     def __init__(self, db: AsyncSession, mongodb: AsyncIOMotorDatabase):
         self.motherduck_url = app_config.motherduck_url
-        self.story_provider = StoryProvider(db, mongodb)
-        self.target_provider = TargetProvider(db)
-        logger.info("🦆 AnalyticsProvider initialized")
+        self.story_service = StoryService(db, mongodb)
+        self.target_service = TargetService(db)
+        logger.info("🦆 AnalyticsService initialized")
 
     @log_errors
     def _get_connection(self) -> duckdb.DuckDBPyConnection:
@@ -298,7 +298,7 @@ class AnalyticsProvider:
             user_id=user_id
         )
 
-        story = await self.story_provider.get_by_id(user_id, story_id)
+        story = await self.story_service.get_by_id(user_id, story_id)
 
         if not story:
             logger.error(
@@ -345,7 +345,7 @@ class AnalyticsProvider:
 
             logger.info(f"words_over_time={words_over_time}")
 
-            target = await self.target_provider.get_target_by_story_id_and_frequency(
+            target = await self.target_service.get_target_by_story_id_and_frequency(
                     story_id,
                     user_id,
                     frequency
@@ -498,8 +498,8 @@ class AnalyticsProvider:
         return result
 
 
-def get_analytics_provider(
+def get_analytics_service(
     db: AsyncSession = Depends(get_db),
     mongodb: AsyncIOMotorDatabase = Depends(get_mongodb)
-) -> AnalyticsProvider:
-    return AnalyticsProvider(db, mongodb)
+) -> AnalyticsService:
+    return AnalyticsService(db, mongodb)

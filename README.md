@@ -187,7 +187,7 @@ Optional pytest
 - main.py — FastAPI app + Socket.IO ASGI wrapper (socket_app)
 - app/
   - controllers/ — API routers (e.g., story endpoints, user, chapter)
-  - providers/ — Business logic and integration layers (auth, analytics, target, story, chapter)
+  - services/ — Business logic and integration layers (auth, analytics, target, story, chapter)
   - schemas/ — Pydantic models for requests/responses (story, chapter, analytics, target, etc.)
   - models/ — SQLModel models and enums
   - core/ — Infrastructure (database engine, redis client, security)
@@ -235,7 +235,7 @@ You can correlate client-side telemetry with server logs using the X-Request-ID 
 The application includes end-to-end, correlation-aware logging designed to be safe and actionable in production.
 
 What you get:
-- Correlation IDs on all requests (X-Request-ID header) and in all HTTP logs. Correlation ID is propagated to downstream logs inside providers using a request-scoped context.
+- Correlation IDs on all requests (X-Request-ID header) and in all HTTP logs. Correlation ID is propagated to downstream logs inside services using a request-scoped context.
 - Structured JSON logs for HTTP, DB operations, retries, performance, and errors, with rotation and retention configured under logs/.
 - Global exception handler captures and logs unexpected errors and returns a 500 JSON body including the correlation_id for easy support triage.
 - Sensitive paths are tagged (no request/response bodies are logged; query string has narrow redaction of password-like keys).
@@ -249,7 +249,7 @@ Where to look:
 Implementation notes:
 - Context propagation uses contextvars to carry correlation_id and user_id. See app/utils/logging_context.py.
 - HTTP middleware (app/middleware/http_logging.py) sets/clears context per-request and emits structured logs.
-- Providers use context-aware logging to ensure domain events are always tied back to the request.
+- Services use context-aware logging to ensure domain events are always tied back to the request.
 - main.py registers a global exception handler that logs with the current correlation context.
 
 Operational guidance:

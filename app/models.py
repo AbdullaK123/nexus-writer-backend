@@ -1,4 +1,3 @@
-from loguru import logger
 from sqlmodel import SQLModel, Relationship, Field, UniqueConstraint, CheckConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy import JSON, Column, String
@@ -34,7 +33,7 @@ class Session(SQLModel, TimeStampMixin,  table=True):
     expires_at: datetime
     ip_address: Optional[str] = Field(default=None)
     user_agent: Optional[str] = Field(default=None)
-    user: 'User' = Relationship(back_populates='sessions')
+    user: 'User' = Relationship(back_populates='sessions', sa_relationship_kwargs={"lazy": "raise"})
 
 
 class User(SQLModel, TimeStampMixin, table=True):
@@ -43,10 +42,10 @@ class User(SQLModel, TimeStampMixin, table=True):
     email: EmailStr = Field(index=True, unique=True)
     password_hash: str
     profile_img: Optional[str] = Field(default=None, unique=True)
-    sessions: List['Session'] = Relationship(back_populates='user', cascade_delete=True)
-    stories: List['Story'] = Relationship(back_populates='user', cascade_delete=True)
-    chapters: List['Chapter'] = Relationship(back_populates='user', cascade_delete=True)
-    targets: List['Target'] = Relationship(back_populates='user', cascade_delete=True)
+    sessions: List['Session'] = Relationship(back_populates='user', cascade_delete=True, sa_relationship_kwargs={"lazy": "raise"})
+    stories: List['Story'] = Relationship(back_populates='user', cascade_delete=True, sa_relationship_kwargs={"lazy": "raise"})
+    chapters: List['Chapter'] = Relationship(back_populates='user', cascade_delete=True, sa_relationship_kwargs={"lazy": "raise"})
+    targets: List['Target'] = Relationship(back_populates='user', cascade_delete=True, sa_relationship_kwargs={"lazy": "raise"})
     
 
 class Story(SQLModel, TimeStampMixin, table=True):
@@ -61,9 +60,9 @@ class Story(SQLModel, TimeStampMixin, table=True):
     story_context: Optional[str] = Field(default=None)
     status: StoryStatus = Field(default=StoryStatus.ONGOING)
     path_array: Optional[List[str]] = Field(sa_column=Column(ARRAY(String)))
-    chapters: List['Chapter'] = Relationship(back_populates='story', cascade_delete=True)
-    user: 'User' = Relationship(back_populates='stories')
-    target: 'Target' = Relationship(back_populates='story', cascade_delete=True)
+    chapters: List['Chapter'] = Relationship(back_populates='story', cascade_delete=True, sa_relationship_kwargs={"lazy": "raise"})
+    user: 'User' = Relationship(back_populates='stories', sa_relationship_kwargs={"lazy": "raise"})
+    target: 'Target' = Relationship(back_populates='story', cascade_delete=True, sa_relationship_kwargs={"lazy": "raise"})
 
 
 class Chapter(SQLModel, TimeStampMixin, table=True):
@@ -118,8 +117,8 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
     )
     
     # Relationships
-    story: 'Story' = Relationship(back_populates='chapters')
-    user: 'User' = Relationship(back_populates='chapters')
+    story: 'Story' = Relationship(back_populates='chapters', sa_relationship_kwargs={"lazy": "raise"})
+    user: 'User' = Relationship(back_populates='chapters', sa_relationship_kwargs={"lazy": "raise"})
     
     # Linked list for chapter ordering
     next_chapter_id: Optional[str] = Field(
@@ -148,22 +147,17 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
         """Calculate estimated reading time"""
         return max(1, self.word_count // 250)
     
-    @property
-    def chapter_number(self) -> int:
-        """Get chapter number from story's path_array"""
-        if not self.story.path_array:
-            logger.warning(f"Story {self.story.id} has no path_array")
+    @staticmethod
+    def get_chapter_number(chapter_id: str, path_array: Optional[List[str]]) -> int:
+        """Get chapter number from a story's path_array without traversing relationships."""
+        if not path_array:
             return 1
-        
-        if not self.id:
-            raise ValueError("Chapter does not have ID")
-        
         try:
-            return self.story.path_array.index(self.id) + 1
+            return path_array.index(chapter_id) + 1
         except ValueError as e:
             raise ValueError(
-                f"Chapter {self.id} not found in story {self.story.id} path_array. "
-                f"Expected one of: {self.story.path_array}"
+                f"Chapter {chapter_id} not found in path_array. "
+                f"Expected one of: {path_array}"
             ) from e
     
     @property
@@ -186,8 +180,8 @@ class Target(SQLModel, TimeStampMixin, table=True):
     frequency: FrequencyType = Field(default="Daily", description="Frequency of word count quota")
     from_date: datetime = Field(default_factory=datetime.utcnow)
     to_date: datetime = Field(default_factory=datetime.utcnow)
-    story: 'Story' = Relationship(back_populates='target')
-    user: 'User' = Relationship(back_populates='targets')
+    story: 'Story' = Relationship(back_populates='target', sa_relationship_kwargs={"lazy": "raise"})
+    user: 'User' = Relationship(back_populates='targets', sa_relationship_kwargs={"lazy": "raise"})
 
 
 

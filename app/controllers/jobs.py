@@ -10,8 +10,8 @@ from typing import Optional, List
 from fastapi import APIRouter, Query, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from app.providers.jobs import JobProvider, get_job_provider
-from app.providers.auth import get_current_user
+from app.services.jobs import JobService, get_job_service
+from app.services.auth import get_current_user
 from app.models import User
 from app.schemas.jobs import JobStatusResponse, JobQueuedResponse
 
@@ -28,7 +28,7 @@ job_controller = APIRouter(
 @job_controller.get("/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(
     job_id: str,
-    job_provider: JobProvider = Depends(get_job_provider)
+    job_service: JobService = Depends(get_job_service)
 ) -> JobStatusResponse:
     """
     Get detailed status of a background job with progress tracking.
@@ -41,7 +41,7 @@ async def get_job_status(
     - Estimated time remaining
     - Error information (if failed)
     """
-    return await job_provider.get_job_status(job_id)
+    return await job_service.get_job_status(job_id)
 
 
 # === Queue Jobs ===
@@ -54,7 +54,7 @@ async def queue_line_edit_job(
         description="Force generation even if recently generated (within 24h)"
     ),
     current_user: User = Depends(get_current_user),
-    job_provider: JobProvider = Depends(get_job_provider)
+    job_service: JobService = Depends(get_job_service)
 ) -> JobQueuedResponse:
     """
     Queue line edit generation for a chapter.
@@ -67,7 +67,7 @@ async def queue_line_edit_job(
     - Checks if edits were generated within last 24 hours
     - Use `force=true` to override and regenerate
     """
-    return await job_provider.queue_line_edit_job(
+    return await job_service.queue_line_edit_job(
         chapter_id=chapter_id,
         user_id=current_user.id,
         force=force
@@ -82,7 +82,7 @@ async def queue_extraction(
         description="Force extraction even if word delta < 1000"
     ),
     current_user: User = Depends(get_current_user),
-    job_provider: JobProvider = Depends(get_job_provider)
+    job_service: JobService = Depends(get_job_service)
 ) -> JobQueuedResponse:
     """
     Queue extraction for a single chapter.
@@ -100,7 +100,7 @@ async def queue_extraction(
     - All 4 extractions run concurrently
     - Progress tracked in real-time
     """
-    return await job_provider.queue_extraction_job(
+    return await job_service.queue_extraction_job(
         user_id=current_user.id,
         chapter_id=chapter_id,
         force=force
