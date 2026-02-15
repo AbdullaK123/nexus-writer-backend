@@ -5,9 +5,8 @@ Handles:
 - Queuing new extraction and line edit jobs
 - Polling job status
 """
-import asyncio
 from datetime import datetime, timedelta
-from typing import Optional, List, Any, cast
+from typing import Optional, List, cast
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
@@ -17,7 +16,6 @@ from prefect.client.schemas.filters import FlowRunFilter, FlowRunFilterTags, Flo
 from prefect.client.orchestration import PrefectClient
 from prefect.states import Cancelled
 from prefect.deployments import run_deployment
-from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from loguru import logger
 
@@ -132,13 +130,25 @@ class JobService:
             return response
         
     @log_errors
-    async def _cancel_all_jobs(
+    async def cancel_all_jobs(
         self,
-        chapter_id: str,
+        chapter_id: Optional[str] = None,
+        story_id: Optional[str] = None,
         job_type: Optional[str] = None
     ) -> dict:
         async with await self._get_prefect_client() as client:
-            tag_filter = [f"chapter:{chapter_id}"]
+
+            if chapter_id is None and story_id is None:
+                logger.info("No filters passed to decide which jobs to cancel. Aborting...")
+                return {
+                    "jobs_cancelled": 0
+                }
+
+            if story_id:
+                tag_filter = [f"story:{story_id}"]
+            else: 
+                tag_filter = [f"chapter:{chapter_id}"]
+
             if job_type:
                 tag_filter.append(job_type)
 
@@ -156,7 +166,7 @@ class JobService:
                 try:
                     await client.set_flow_run_state(
                         flow_run_id=flow_run.id,
-                        state=Cancelled(message=f"Flow cancelled by user for chapter {chapter_id}")
+                        state=Cancelled(message=f"Flow cancelled by user for chapter {chapter_id} and story {story_id}")
                     )
                     cancelled += 1
                     logger.info(f"Cancelled job {flow_run.id} for chapter {chapter_id}")
@@ -166,7 +176,7 @@ class JobService:
             return {
                 "chapter_id": chapter_id,
                 "jobs_cancelled": cancelled,
-                "job_type": job_type
+                "job_type": job_type if job_type else "line-edit, extraction, and reextraction"
             }
 
 
@@ -182,11 +192,11 @@ class JobService:
         if not chapter:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Chapter not found",
+                detail="We couldn't find this chapter. It may have been deleted.",
             )
         
         # cancel all line edit jobs first
-        cancel_result = await self._cancel_all_jobs(chapter_id, job_type="line-edit")
+        cancel_result = await self.cancel_all_jobs(chapter_id=chapter_id, job_type="line-edit")
 
         if cancel_result.get("jobs_cancelled", 0) > 0:
             logger.info(
@@ -207,7 +217,7 @@ class JobService:
                 hours_ago = time_since.seconds // 3600
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Line edits generated {hours_ago}h ago. Use force=true to regenerate.",
+                    detail=f"Line edits were generated {hours_ago}h ago. Click 'Regenerate' to get fresh edits.",
                 )
         
         # Log if we're regenerating due to stale edits
@@ -218,7 +228,7 @@ class JobService:
         if not story:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Story not found!",
+                detail="We couldn't find the story this chapter belongs to.",
             )
 
         chapter_number = Chapter.get_chapter_number(chapter.id, story.path_array)
@@ -234,7 +244,7 @@ class JobService:
                 "chapter_content": chapter.content
             },
             timeout=0,
-            tags=[f"chapter:{chapter_id}", "line-edits"]
+            tags=[f"chapter:{chapter_id}", f"story:{story.id}", "line-edits"]
         ))
         
         flow_run_id = str(flow_run.id)
@@ -255,34 +265,6 @@ class JobService:
             estimated_duration_seconds=60,
         )
 
-    async def _build_accumulated_context(
-        self,
-        story: Story,
-        chapter_number: int,
-    ) -> str:
-        """Build accumulated context from all previous chapters' condensed contexts"""
-        if not story.path_array or chapter_number <= 1:
-            return ""
-        
-        # Get chapter IDs before current chapter
-        previous_chapter_ids = story.path_array[:chapter_number - 1]
-        if not previous_chapter_ids:
-            return ""
-        
-        # Fetch previous chapters
-        query = select(Chapter).where(Chapter.id.in_(previous_chapter_ids))  # type: ignore[union-attr]
-        result = await self.db.execute(query)
-        previous_chapters = {ch.id: ch for ch in result.scalars().all()}
-        
-        # Build accumulated context in order
-        contexts = []
-        for ch_id in previous_chapter_ids:
-            ch = previous_chapters.get(ch_id)
-            if ch and ch.condensed_context:
-                contexts.append(f"=== Chapter {previous_chapter_ids.index(ch_id) + 1} ===\n{ch.condensed_context}")
-        
-        return "\n\n".join(contexts)
-    
     @log_errors
     async def queue_reextraction_job(
         self,
@@ -292,6 +274,14 @@ class JobService:
     ) -> JobQueuedResponse:
         """Queue a reextraction job after chapter deletion"""
 
+        cancel_result = await self.cancel_all_jobs(story_id=story_id, job_type="reextraction")
+
+        if cancel_result.get("jobs_cancelled", 0) > 0:
+            logger.info(
+                f"Cancelled {cancel_result['jobs_cancelled']} "
+                f"{cancel_result['job_type']} job(s) for story {story_id}"
+            )
+
         flow_run = cast(FlowRun, await run_deployment(
             name="reextraction-flow/chapter-reextraction-deployment",
             parameters={
@@ -299,7 +289,7 @@ class JobService:
                 "chapter_ids": chapter_ids,
             },
             timeout=0,
-            tags=[*[f"chapter:{chapter_id}" for chapter_id in chapter_ids], f"story:{story_id}", "reextraction", "extraction"]
+            tags=[*[f"chapter:{chapter_id}" for chapter_id in chapter_ids], f"story:{story_id}", "reextraction"]
         ))
         flow_run_id = str(flow_run.id)
 
@@ -312,71 +302,6 @@ class JobService:
             started_at=datetime.utcnow()
         )
 
-    async def _has_active_predecessor_extractions(
-        self,
-        story: Story,
-        chapter_number: int,
-    ) -> list[int]:
-        """Return chapter numbers with active extraction jobs that must complete first."""
-        if chapter_number <= 1:
-            return []
-
-        predecessor_ids = set(story.path_array[:chapter_number - 1])
-        if not predecessor_ids:
-            return []
-
-        async with await self._get_prefect_client() as client:
-            flow_runs = await client.read_flow_runs(
-                flow_run_filter=FlowRunFilter(
-                    tags=FlowRunFilterTags(all_=["extraction", f"story:{story.id}"]),
-                    state=FlowRunFilterState(
-                        type=FlowRunFilterStateType(any_=[
-                            StateType.RUNNING,
-                            StateType.PENDING,
-                            StateType.SCHEDULED,
-                        ])
-                    )
-                )
-            )
-
-            blocking: set[int] = set()
-            for fr in flow_runs:
-                for tag in fr.tags:
-                    if tag.startswith("chapter:"):
-                        ch_id = tag.split(":", 1)[1]
-                        if ch_id in predecessor_ids:
-                            try:
-                                blocking.add(story.path_array.index(ch_id) + 1)
-                            except ValueError:
-                                pass
-
-            return sorted(blocking)
-
-    async def _wait_for_predecessor_extractions(
-        self,
-        story: Story,
-        chapter_number: int,
-        poll_interval: int = 5,
-        max_wait: int = 300,
-    ) -> list[int]:
-        """Poll until all predecessor extractions finish. Returns empty list on success,
-        or the still-blocking chapter numbers if max_wait is exceeded."""
-        elapsed = 0
-        while elapsed < max_wait:
-            blocking = await self._has_active_predecessor_extractions(story, chapter_number)
-            if not blocking:
-                return []
-            logger.info(
-                f"Chapter {chapter_number}: waiting for predecessor chapter(s) "
-                f"{', '.join(str(n) for n in blocking)} to finish extracting... "
-                f"({elapsed}s / {max_wait}s)"
-            )
-            await asyncio.sleep(poll_interval)
-            elapsed += poll_interval
-
-        # Final check after the last sleep
-        return await self._has_active_predecessor_extractions(story, chapter_number)
-
     @log_errors
     async def queue_extraction_job(
         self,
@@ -388,11 +313,11 @@ class JobService:
         if not chapter:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Chapter not found!",
+                detail="We couldn't find this chapter. It may have been deleted.",
             )
         
         # Cancel existing extraction jobs for this chapter
-        cancel_result = await self._cancel_all_jobs(chapter_id, job_type="extraction")
+        cancel_result = await self.cancel_all_jobs(chapter_id=chapter_id, job_type="extraction")
 
         if cancel_result.get("jobs_cancelled", 0) > 0:
             logger.info(
@@ -404,30 +329,13 @@ class JobService:
         if not story:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Story not found!",
+                detail="We couldn't find the story this chapter belongs to.",
             )
 
         chapter_number = Chapter.get_chapter_number(chapter.id, story.path_array)
 
-        # Wait for predecessor extractions to finish before building context
-        blocking_chapters = await self._wait_for_predecessor_extractions(story, chapter_number)
-        if blocking_chapters:
-            ch_list = ", ".join(str(n) for n in blocking_chapters)
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=(
-                    f"Cannot extract Chapter {chapter_number}: "
-                    f"Chapter(s) {ch_list} still extracting after waiting. "
-                    f"Try again once they complete."
-                ),
-            )
-
-        estimated_duration = 60  # ~60s per chapter
-
-        # Build accumulated context from previous chapters
-        accumulated_context = await self._build_accumulated_context(story, chapter_number)
-
         # Submit flow to Prefect deployment (runs on worker container)
+        # Predecessor waiting and context building happen inside the flow
         flow_run = cast(FlowRun, await run_deployment(
             name="extract-single-chapter/chapter-extraction-deployment",
             parameters={
@@ -435,7 +343,8 @@ class JobService:
                 "chapter_number": chapter_number,
                 "chapter_title": chapter.title,
                 "word_count": chapter.word_count,
-                "accumulated_context": accumulated_context,
+                "story_id": story.id,
+                "story_path_array": story.path_array,
                 "content": chapter.content
             },
             timeout=0,
@@ -457,7 +366,7 @@ class JobService:
             status=JobStatus.QUEUED,
             chapter_id=chapter.id,
             chapter_number=chapter_number,
-            estimated_duration_seconds=estimated_duration,
+            estimated_duration_seconds=60,
         )
 
 

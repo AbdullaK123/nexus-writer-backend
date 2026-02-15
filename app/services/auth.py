@@ -40,7 +40,7 @@ class AuthService:
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid Credentials"
+                detail="Incorrect email or password. Please try again."
             )
         
         context_logger(db_operation=True).info(
@@ -90,7 +90,7 @@ class AuthService:
             context_logger(db_operation=True).warning("Missing or malformed session cookie")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Invalid session"
+                detail="Your session is invalid. Please log in again."
             )
         
         
@@ -102,14 +102,14 @@ class AuthService:
             context_logger(db_operation=True).warning("Session not found in DB")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, 
-                detail="Invalid session"
+                detail="Your session has expired. Please log in again."
             )
 
         if session.expires_at < datetime.utcnow():
             context_logger(db_operation=True).warning("Session expired user_id={user_id}", user_id=session.user_id)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Session expired"
+                detail="Your session has expired. Please log in again."
             )
         
         user_id = session.user_id
@@ -118,7 +118,7 @@ class AuthService:
             context_logger(db_operation=True).warning("Session without user_id")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Invalid session"
+                detail="Your session is invalid. Please log in again."
             )
         
         user_query = select(User).where(User.id == user_id)
@@ -181,7 +181,7 @@ class AuthService:
             )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"A user with that email already exists"
+                detail="An account with this email already exists. Try logging in instead."
             )
 
         user_to_create = User(

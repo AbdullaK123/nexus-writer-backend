@@ -27,6 +27,7 @@ import time
 from app.ai.models.edits import ChapterEdit, LineEdit
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.mongodb import get_mongodb
+from fastapi import BackgroundTasks
 
 
 class ChapterService:
@@ -51,24 +52,14 @@ class ChapterService:
         self, 
         story_id: str, 
         user_id: str, 
-        data: CreateChapterRequest
+        data: CreateChapterRequest,
+        background_tasks: BackgroundTasks
     ) -> ChapterContentResponse:
         """Create new chapter with immediate pointer setup - SINGLE TRANSACTION"""
 
         story = await self.db.get(Story, story_id)
         if not story:
-            raise HTTPException(404, "Story not found")
-
-        if story.path_array and len(story.path_array) > 0:
-            previous_chapter_id = story.path_array[-1]
-            try:
-                queue_result = await self.job_service.queue_extraction_job(
-                    user_id=user_id,
-                    chapter_id=previous_chapter_id,
-                )
-                logger.info(f"Queued extraction job for previous chapter {previous_chapter_id} with job ID {queue_result.job_id}")
-            except HTTPException as e:
-                logger.warning(f"Auto-extraction skipped for chapter {previous_chapter_id}: {e.detail}")
+            raise HTTPException(404, "We couldn't find this story. It may have been deleted.")
 
         try:
             # 1. Create the basic chapter (but don't commit yet!)
@@ -87,6 +78,14 @@ class ChapterService:
             # 3. Only commit if EVERYTHING succeeded
             await self.db.commit()
             await self.db.refresh(chapter_to_create)
+
+            if story.path_array and len(story.path_array) > 1:
+                previous_chapter_id = story.path_array[-2]
+                background_tasks.add_task(
+                    self.job_service.queue_extraction_job,
+                    user_id,
+                    previous_chapter_id
+                )
             
             # 4. Return complete chapter with all pointers set
             return await self.get_chapter_with_navigation(
@@ -98,7 +97,7 @@ class ChapterService:
         except Exception as e:
             await self.db.rollback()  # Rollback everything
             logger.error(f"❌ Failed to create chapter: {e}")
-            raise HTTPException(500, "Failed to create chapter")
+            raise HTTPException(500, "Something went wrong while creating your chapter. Please try again.")
 
     async def get_by_id(self, chapter_id: str, user_id: str) -> Optional[Chapter]:
         """Get single chapter by ID with user security and story eagerly loaded"""
@@ -135,7 +134,7 @@ class ChapterService:
             logger.error(f"Chapter {chapter_id} not found for user {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Chapter not found"
+                detail="We couldn't find this chapter. It may have been deleted."
             )
         
         # Get edits from MongoDB
@@ -181,7 +180,7 @@ class ChapterService:
 
         result = (await self.db.execute(query)).first()
         if not result:
-            raise HTTPException(404, "Chapter not found")
+            raise HTTPException(404, "We couldn't find this chapter. It may have been deleted.")
             
         story_title, chapter = result
 
@@ -217,6 +216,11 @@ class ChapterService:
         user_id: str
     ) -> dict:
         """Delete chapter with pointer cleanup - SINGLE TRANSACTION"""
+
+        cancel_result = await self.job_service.cancel_all_jobs(chapter_id=chapter_id)
+
+        if cancel_result['jobs_cancelled'] > 0:
+            logger.info(f"Cancelled {cancel_result['jobs_cancelled']} pending or running jobs on chapter {chapter_id} of type {[cancel_result['job_type']]}")
         
         chapter_query = select(Chapter).where(
             Chapter.user_id == user_id,
@@ -224,7 +228,7 @@ class ChapterService:
         )
         chapter: Optional[Chapter] = (await self.db.execute(chapter_query)).scalar_one_or_none()
         if not chapter:
-            raise HTTPException(404, "Chapter does not exist")
+            raise HTTPException(404, "We couldn't find this chapter. It may have been deleted.")
         
         story_id = chapter.story_id
 
@@ -266,7 +270,7 @@ class ChapterService:
         except Exception as e:
             await self.db.rollback()  # Rollback everything
             logger.error(f"❌ Failed to delete chapter: {e}")
-            raise HTTPException(500, "Failed to delete chapter")
+            raise HTTPException(500, "Something went wrong while deleting your chapter. Please try again.")
 
     # ========================================
     # STORY CHAPTER OPERATIONS
@@ -278,7 +282,7 @@ class ChapterService:
         # Get story with user check
         story = await self._get_story_with_user_check(story_id, user_id)
         if not story:
-            raise HTTPException(404, "Story not found")
+            raise HTTPException(404, "We couldn't find this story. It may have been deleted.")
         
         story_path = story.path_array
         story_title = story.title
@@ -350,7 +354,7 @@ class ChapterService:
         
         result = (await self.db.execute(query)).first()
         if not result:
-            raise HTTPException(404, "Chapter not found")
+            raise HTTPException(404, "We couldn't find this chapter. It may have been deleted.")
         
         chapter, story_title = result
 
@@ -375,24 +379,34 @@ class ChapterService:
         self, 
         story_id: str, 
         user_id: str, 
-        data: ReorderChapterRequest
+        data: ReorderChapterRequest,
+        background_tasks: BackgroundTasks
     ) -> dict:
         """Reorder chapters with pointer updates - SINGLE TRANSACTION"""
+
+        cancel_edit_result = await self.job_service.cancel_all_jobs(story_id=story_id, job_type="line-edit")
+        cancel_extraction_result = await self.job_service.cancel_all_jobs(story_id=story_id, job_type="extraction")
+
+        if cancel_edit_result['jobs_cancelled'] > 0:
+            logger.info(f"Cancelled {cancel_edit_result['jobs_cancelled']} jobs of type 'line-edit' for story {story_id}")
+
+        if cancel_extraction_result['jobs_cancelled'] > 0:
+            logger.info(f"Cancelled {cancel_extraction_result['jobs_cancelled']} jobs of type 'extraction' for story {story_id}")
         
         story = await self._get_story_with_user_check(story_id, user_id)
         if not story:
-            raise HTTPException(404, "Story not found")
+            raise HTTPException(404, "We couldn't find this story. It may have been deleted.")
         
         if not story.path_array:
-            raise HTTPException(400, "Story has no chapters to reorder")
+            raise HTTPException(400, "This story has no chapters to reorder.")
             
         max_pos = len(story.path_array) - 1
         
         if data.from_pos < 0 or data.from_pos > max_pos:
-            raise HTTPException(400, f"from_pos must be between 0 and {max_pos}")
+            raise HTTPException(400, f"Invalid chapter position. Must be between 0 and {max_pos}.")
             
         if data.to_pos < 0 or data.to_pos > max_pos:
-            raise HTTPException(400, f"to_pos must be between 0 and {max_pos}")
+            raise HTTPException(400, f"Invalid target position. Must be between 0 and {max_pos}.")
         
         if data.from_pos == data.to_pos:
             return {"message": "No reordering needed"}
@@ -400,11 +414,23 @@ class ChapterService:
         try:
             await handle_chapter_reordering(story_id, data.from_pos, data.to_pos, self.db)
             await self.db.commit()
+            await self.db.refresh(story)
+
+            # trigger a reextraction
+            new_freshest_chapter_id = story.path_array[(min(data.from_pos, data.to_pos))]
+            chapter_ids_to_reextract = story.path_array[min(data.from_pos, data.to_pos):]
+            background_tasks.add_task(
+                self.job_service.queue_reextraction_job,
+                new_freshest_chapter_id,
+                story_id,
+                chapter_ids_to_reextract
+            )
+
             return {"message": "Chapters reordered successfully"}
         except Exception as e:
             await self.db.rollback()
             logger.error(f"❌ Failed to reorder chapters: {e}")
-            raise HTTPException(500, "Failed to reorder chapters")
+            raise HTTPException(500, "Something went wrong while reordering your chapters. Please try again.")
 
     # ========================================
     # HELPER METHODS

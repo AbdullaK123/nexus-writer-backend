@@ -2,6 +2,8 @@
 Tier 2: Single chapter extraction sub-flow with checkpointing.
 
 This flow:
+- Waits for predecessor chapters to finish extracting (ordering guard)
+- Builds accumulated context from predecessor results
 - Runs all 4 AI extractions concurrently
 - Tolerates individual extraction failures (uses fallback empty models)
 - Synthesizes results (with fallback if synthesis fails)
@@ -11,11 +13,21 @@ This flow:
 import asyncio
 from dataclasses import dataclass, field
 from typing import Optional, List
-from prefect import flow
-from prefect.runtime import flow_run
+from prefect import flow, get_client
+from prefect.client.schemas.filters import (
+    FlowRunFilter,
+    FlowRunFilterTags,
+    FlowRunFilterState,
+    FlowRunFilterStateType,
+)
+from prefect.client.schemas.objects import StateType
 from loguru import logger
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 from app.config.settings import app_config
+from app.core.database import engine
 from app.core.mongodb import MongoDB
+from app.models import Chapter
 from app.ai.models.character import CharacterExtraction
 from app.ai.models.plot import PlotExtraction
 from app.ai.models.world import WorldExtraction
@@ -95,6 +107,92 @@ def _build_fallback_context(
     )
 
 
+async def _wait_for_predecessor_extractions(
+    story_id: str,
+    chapter_number: int,
+    story_path_array: List[str],
+    poll_interval: int = 5,
+    max_wait: int = 300,
+) -> None:
+    """Poll until all predecessor chapter extractions finish.
+    
+    This runs INSIDE the flow (not in the API server), so all sibling
+    flow runs are already registered in Prefect and visible.
+    """
+    if chapter_number <= 1:
+        return
+
+    predecessor_ids = set(story_path_array[:chapter_number - 1])
+    if not predecessor_ids:
+        return
+
+    elapsed = 0
+    while elapsed < max_wait:
+        async with get_client() as client:
+            flow_runs = await client.read_flow_runs(
+                flow_run_filter=FlowRunFilter(
+                    tags=FlowRunFilterTags(all_=["extraction", f"story:{story_id}"]),
+                    state=FlowRunFilterState(
+                        type=FlowRunFilterStateType(any_=[
+                            StateType.RUNNING,
+                            StateType.PENDING,
+                            StateType.SCHEDULED,
+                        ])
+                    )
+                )
+            )
+
+        blocking: List[str] = []
+        for fr in flow_runs:
+            for tag in fr.tags:
+                if tag.startswith("chapter:"):
+                    ch_id = tag.split(":", 1)[1]
+                    if ch_id in predecessor_ids:
+                        blocking.append(ch_id)
+
+        if not blocking:
+            if elapsed > 0:
+                logger.info(f"Chapter {chapter_number}: predecessors complete after {elapsed}s wait")
+            return
+
+        logger.info(
+            f"Chapter {chapter_number}: waiting for {len(blocking)} predecessor(s) "
+            f"({elapsed}s / {max_wait}s)"
+        )
+        await asyncio.sleep(poll_interval)
+        elapsed += poll_interval
+
+    logger.warning(
+        f"Chapter {chapter_number}: predecessors still running after {max_wait}s, proceeding anyway"
+    )
+
+
+async def _build_accumulated_context(
+    chapter_number: int,
+    story_path_array: List[str],
+) -> str:
+    """Build accumulated context from predecessor chapters' condensed contexts (Postgres)."""
+    if chapter_number <= 1:
+        return ""
+
+    previous_chapter_ids = story_path_array[:chapter_number - 1]
+    if not previous_chapter_ids:
+        return ""
+
+    async with AsyncSession(engine) as db:
+        query = select(Chapter).where(Chapter.id.in_(previous_chapter_ids))  # type: ignore[union-attr]
+        result = await db.execute(query)
+        previous_chapters = {ch.id: ch for ch in result.scalars().all()}
+
+    contexts = []
+    for i, ch_id in enumerate(previous_chapter_ids):
+        ch = previous_chapters.get(ch_id)
+        if ch and ch.condensed_context:
+            contexts.append(f"=== Chapter {i + 1} ===\n{ch.condensed_context}")
+
+    return "\n\n".join(contexts)
+
+
 @flow(
     name="extract-single-chapter",
     retries=0,
@@ -106,7 +204,8 @@ async def extract_single_chapter_flow(
     chapter_number: int,
     chapter_title: Optional[str],
     word_count: int,
-    accumulated_context: str,
+    story_id: str,
+    story_path_array: List[str],
     content: str
 ) -> ChapterExtractionResult:
     """Extract context from a single chapter with checkpointing.
@@ -116,6 +215,12 @@ async def extract_single_chapter_flow(
     """
     
     await MongoDB.connect(app_config.mongodb_url)
+
+    # 1. Wait for predecessor chapters to finish extracting
+    await _wait_for_predecessor_extractions(story_id, chapter_number, story_path_array)
+
+    # 2. Build accumulated context from predecessor results (after they're done)
+    accumulated_context = await _build_accumulated_context(chapter_number, story_path_array)
 
     logger.info(f"Starting extraction for Chapter {chapter_number} ({chapter_id})")
 

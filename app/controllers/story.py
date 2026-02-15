@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, BackgroundTasks
 from app.services.story import StoryService, get_story_service
 from app.services.chapter import ChapterService, get_chapter_service
 from app.services.auth import get_current_user
@@ -67,13 +67,15 @@ async def get_story_details(
 async def create_chapter(
     story_id: str,
     chapter_info: CreateChapterRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     chapter_service: ChapterService = Depends(get_chapter_service)
 ) -> ChapterContentResponse:
     return await chapter_service.create(
         story_id,
         current_user.id,
-        chapter_info
+        chapter_info,
+        background_tasks
     )
 
 @story_controller.post('/{story_id}/chapters/reorder', response_model=dict)

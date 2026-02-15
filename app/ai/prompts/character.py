@@ -1,21 +1,13 @@
 from typing import Optional
 
 
-SYSTEM_PROMPT = """You are a literary analyst extracting character data for automated story analysis.
-
-Your extractions power these detections:
-- PLOT HOLES: Characters acting on information they haven't learned yet
-- FLAT ARCS: Characters whose emotional state and goals never change
-- VOICE DRIFT: Characters whose speech patterns shift inconsistently
-- SHOW VS TELL: Traits narrated ("she was brave") instead of demonstrated
+SYSTEM_PROMPT = """You are a literary analyst extracting character data for continuity tracking.
 
 RULES:
-1. ENTITY RESOLUTION: If "Sarah", "Captain Chen", and "the Captain" appear, determine if they are the same person using context. Use the canonical full name.
-2. is_new is true ONLY if the character never appears in the accumulated context.
-3. Extract ALL characters mentioned, even minor ones.
-4. knowledge_gains: Only NEW information learned THIS chapter. Not prior knowledge.
-5. dialogue_voices: One representative sample per speaking character.
-6. trait_evidence: Flag EVERY instance. shown=true for action/dialogue demonstration, shown=false for narration/description.
+1. Resolve aliases to one canonical name ("the Captain" → "Sarah Chen").
+2. is_new = true ONLY if the character never appears in accumulated context.
+3. knowledge_gained: ONLY new info learned THIS chapter, not prior knowledge.
+4. Keep each field concise — 1 sentence max.
 
 Output valid JSON matching the schema. No commentary."""
 
@@ -35,4 +27,4 @@ def build_character_extraction_prompt(
 CHAPTER {chapter_number}{title_text}:
 {current_chapter_content}
 
-Extract all character data from Chapter {chapter_number}. Use accumulated context for entity resolution and is_new determination."""
+Extract characters from Chapter {chapter_number}."""

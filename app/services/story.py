@@ -99,7 +99,7 @@ class StoryService:
         if story:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="A story with that title already exists"
+                detail="You already have a story with this title. Please choose a different one."
             )
         
         story_to_add = Story(
@@ -124,7 +124,7 @@ class StoryService:
         if not story:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Story does not exist"
+                detail="We couldn't find this story. It may have been deleted."
             )
         
         if story.path_array and len(story.path_array) > 0 and update_info.status == StoryStatus.COMPLETE:
@@ -149,13 +149,18 @@ class StoryService:
 
 
     async def delete(self, user_id: str, story_id: str) -> dict:
+
+        cancel_result = await self.job_service.cancel_all_jobs(story_id=story_id)
+
+        if cancel_result['jobs_cancelled'] > 0:
+            logger.info(f"Cancelled all pending or running jobs on story {story_id}")
         
         story = await self.get_by_id(user_id, story_id)
 
         if not story:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Story does not exist"
+                detail="We couldn't find this story. It may have been deleted."
             )
         
         await self.db.delete(story)
