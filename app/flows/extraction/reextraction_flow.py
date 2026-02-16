@@ -7,6 +7,7 @@ from app.core.database import engine
 from app.models import Chapter, Story
 from app.core.mongodb import MongoDB
 from app.config.settings import app_config
+from app.utils.html import html_to_plain_text
 
 
 @flow(name="reextraction-flow")
@@ -46,7 +47,7 @@ async def reextract_chapters_flow(story_id: str, chapter_ids: List[str]):
                 word_count=chapter.word_count,
                 story_id=story_id,
                 story_path_array=story.path_array,
-                content=chapter.content
+                content=html_to_plain_text(chapter.content)
             )
             
             logger.info(f"✅ Completed re-extraction for Chapter {chapter_number}")

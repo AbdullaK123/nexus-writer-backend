@@ -30,6 +30,7 @@ from app.schemas.jobs import (
 from app.utils.decorators import log_errors
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.mongodb import get_mongodb
+from app.utils.html import html_to_plain_text
 
 
 # Map Prefect states to our JobStatus enum
@@ -178,6 +179,24 @@ class JobService:
                 "jobs_cancelled": cancelled,
                 "job_type": job_type if job_type else "line-edit, extraction, and reextraction"
             }
+        
+    @log_errors
+    async def _build_accumulated_context(
+        self,
+        story_id: str,
+        chapter_number: int
+    ) -> str:
+        chapter_contexts = await self.mongodb.chapter_contexts.find(
+            {
+                "story_id": story_id, 
+                "chapter_number": {"$lt": chapter_number}
+            }
+        ).to_list(length=None)
+        contexts = [
+            context["condensed_text"]
+            for context in chapter_contexts
+        ]
+        return "\n\n".join(contexts)
 
 
     @log_errors
@@ -233,14 +252,21 @@ class JobService:
 
         chapter_number = Chapter.get_chapter_number(chapter.id, story.path_array)
 
+        accumulated_context = await self._build_accumulated_context(
+            chapter.story_id, 
+            chapter.get_chapter_number(chapter.id, story.path_array)
+        )
+
         # Submit flow to Prefect deployment (runs on worker container)
         flow_run = cast(FlowRun, await run_deployment(
             name="line-edits/line-edits-deployment",
             parameters={
+                "story_id": story.id,
                 "chapter_id": chapter.id,
                 "chapter_number": chapter_number,
                 "chapter_title": chapter.title,
-                "story_context": story.story_context or "",
+                "story_context": accumulated_context or "",
+                "story_path_array": story.path_array,
                 "chapter_content": chapter.content
             },
             timeout=0,
@@ -345,7 +371,7 @@ class JobService:
                 "word_count": chapter.word_count,
                 "story_id": story.id,
                 "story_path_array": story.path_array,
-                "content": chapter.content
+                "content": html_to_plain_text(chapter.content)
             },
             timeout=0,
             tags=[f"chapter:{chapter_id}", f"story:{story.id}", "extraction"]

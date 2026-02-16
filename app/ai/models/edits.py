@@ -4,26 +4,21 @@ from datetime import datetime
 from typing import Optional
 
 class LineEdit(BaseModel):
-    paragraph_idx: int = Field(description="The index of the paragraph you are editing.")
-    original_paragraph: str = Field(description="The original, unedited paragraph.")
-    edited_paragraph: str = Field(description="The edited paragraph")
-    justification: str = Field(description="Your justification for the edit.")
+    paragraph_idx: int = Field(description="Zero-based index of the paragraph being edited, corresponding to its position in the chapter's paragraph list")
+    original_paragraph: str = Field(description="The exact, unmodified paragraph text as it appears in the chapter — must match the source verbatim for diffing")
+    edited_paragraph: str = Field(description="The revised paragraph with line-level prose improvements applied (e.g., tighter wording, stronger verbs, better rhythm). Must preserve the original meaning and plot content.")
+    justification: str = Field(description="A concise explanation of what was changed and why — cite the specific craft issue addressed (e.g., 'Replaced filter words', 'Broke up run-on sentence', 'Converted telling to showing')")
 
 
 class ChapterEdit(BaseModel):
-    edits: List[LineEdit]
-    last_generated_at: datetime | None
-    is_stale: bool = Field(
-        default=False,
-        description="Indicates if content has changed since edits were generated"
-    )
-
+    edits: List[LineEdit] = Field(max_length=30)
+  
 class ChapterEdits(BaseModel):
     chapter_id: str
     story_id: str
     chapter_number: int 
     
-    edits: List[LineEdit] = []
+    edits: List[LineEdit] = Field(default=[], max_length=30)
     last_generated_at: Optional[datetime] = None
     is_stale: bool = False
 

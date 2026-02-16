@@ -112,7 +112,7 @@ async def _wait_for_predecessor_extractions(
     chapter_number: int,
     story_path_array: List[str],
     poll_interval: int = 5,
-    max_wait: int = 300,
+    max_wait: int = 600,
 ) -> None:
     """Poll until all predecessor chapter extractions finish.
     
@@ -181,8 +181,8 @@ async def _build_accumulated_context(
 
     async with AsyncSession(engine) as db:
         query = select(Chapter).where(Chapter.id.in_(previous_chapter_ids))  # type: ignore[union-attr]
-        result = await db.execute(query)
-        previous_chapters = {ch.id: ch for ch in result.scalars().all()}
+        result = await db.exec(query)
+        previous_chapters = {ch.id: ch for ch in result.all()}
 
     contexts = []
     for i, ch_id in enumerate(previous_chapter_ids):

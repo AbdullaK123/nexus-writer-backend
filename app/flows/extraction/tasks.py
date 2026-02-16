@@ -161,7 +161,12 @@ async def save_chapter_extraction_task(
             raise ValueError("MongoDB not connected")
         
         # Save to MongoDB — model_dump() handles all field serialization
-        meta = {"chapter_id": chapter_id, "story_id": chapter.story_id, "chapter_number": chapter_number}
+        meta = {
+            "chapter_id": chapter_id, 
+            "story_id": chapter.story_id, 
+            "user_id": chapter.user_id, 
+            "chapter_number": chapter_number
+        }
 
         await mongo_db.character_extractions.replace_one(
             {"chapter_id": chapter_id},

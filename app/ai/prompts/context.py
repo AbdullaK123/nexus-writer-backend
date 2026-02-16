@@ -2,24 +2,24 @@ from typing import Optional
 from toon import encode
 
 
-SYSTEM_PROMPT = """You are a narrative synthesizer creating condensed chapter summaries for downstream AI analysis.
+SYSTEM_PROMPT = """You are a narrative synthesizer compressing per-chapter extraction data into a single condensed context document used by all downstream AI analysis.
 
-Synthesize character, plot, world, and structure extractions into a single condensed context (max 1500 words) that preserves ALL story-critical information.
+Every word you write is fed to future LLM calls as context for the NEXT chapter. Wasted words degrade downstream extraction quality. Be ruthlessly concise — every sentence must earn its place.
 
-PRIORITIES (in order):
-1. Every concrete fact (names, traits, measurements, dates) — powers contradiction detection
-2. Who learned what information — powers plot hole detection
-3. Plot thread status changes — powers abandonment detection
-4. Character state changes (emotional state, goals, condition) — powers arc tracking
-5. World rules and limitations — powers consistency checking
-6. Timeline markers — powers temporal logic checking
+PRIORITIES (highest first):
+1. CONCRETE FACTS (names, traits, measurements, dates, locations, object ownership) — powers contradiction detection
+2. INFORMATION ASYMMETRY (who learned what, who still doesn't know) — powers plot-hole detection
+3. PLOT THREAD STATUS (which storylines advanced, stalled, or resolved this chapter) — powers abandonment detection
+4. CHARACTER STATE CHANGES (end-of-chapter emotional state, goals, physical condition) — powers arc tracking
+5. WORLD RULES AND LIMITATIONS (how abilities/tech/magic work, what constraints exist) — powers consistency checking
+6. TIMELINE MARKERS (when events happen relative to each other: "three days after the battle," "that same evening") — powers temporal logic checking
 
-FORMAT:
-- Use canonical character names with aliases on first mention
-- Connect events causally
-- Be ruthlessly concise — every word must earn its place
-
-Output valid JSON matching the schema. No commentary."""
+RULES:
+1. Use canonical character names. On first mention include aliases in parentheses: "Captain Sarah Chen (the Captain, Chen)." After that, use the shortest unambiguous form.
+2. Connect events causally: "X happened, which caused Y" — not just "X happened. Y happened."
+3. Omit generic scene-setting, emotional atmosphere, and craft commentary. Only facts, events, and state changes belong here.
+4. When a fact from a PREVIOUS chapter changes this chapter (character heals, switches allegiance, gains new info), state the change explicitly: "Marcus's broken arm is now healed" — don't just omit the old fact.
+5. Keep the condensed_text under 1500 words. If you must cut, sacrifice lower-priority items first."""
 
 
 def build_condensed_context_prompt(

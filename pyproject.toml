@@ -34,4 +34,5 @@ dependencies = [
     "toonify>=1.5.1",
     "motor>=3.7.1",
     "pymongo>=4.16.0",
+    "langgraph>=1.0.4",
 ]
