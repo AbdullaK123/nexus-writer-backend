@@ -22,11 +22,16 @@ COPY pyproject.toml uv.lock ./
 ENV UV_PYTHON_VERSION=3.12
 ENV UV_SYSTEM_PYTHON=1
 
+
 # Install dependencies with uv cache mounted — avoids re-downloading on rebuilds
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev --frozen
 
 # Copy the rest of your code
-COPY . .
+RUN useradd --system --create-home --shell /usr/sbin/nologin appuser
+RUN mkdir -p /app/logs && chown appuser:appuser /app/logs
+COPY --chown=appuser:appuser . .
+
+USER appuser
 
 CMD ["uv", "run", "main.py"]
