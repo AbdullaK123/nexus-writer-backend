@@ -24,7 +24,7 @@ from app.jobs.chapter import (
 )
 from loguru import logger
 import time
-from app.ai.models.edits import ChapterEdit, LineEdit
+from app.ai.models.edits import ChapterEdit, ChapterEditResponse, LineEdit
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.mongodb import get_mongodb
 from fastapi import BackgroundTasks
@@ -117,7 +117,7 @@ class ChapterService:
         self,
         user_id: str,
         chapter_id: str
-    ) -> ChapterEdit:
+    ) -> ChapterEditResponse:
         """Get line edits from MongoDB only"""
         
         # Verify chapter exists and user owns it
@@ -142,7 +142,7 @@ class ChapterService:
         
         if not chapter_edits:
             logger.info(f"Edits not generated yet for chapter {chapter_id}, returning empty edits")
-            return ChapterEdit(
+            return ChapterEditResponse(
                 edits=[],
                 last_generated_at=None,
                 is_stale=False
@@ -152,7 +152,7 @@ class ChapterService:
         last_generated_at = chapter_edits.get("last_generated_at")
         is_stale = chapter_edits.get("is_stale", False)
 
-        return ChapterEdit(
+        return ChapterEditResponse(
             edits=[
                 LineEdit(**edit)
                 for edit in line_edits

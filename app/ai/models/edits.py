@@ -12,6 +12,11 @@ class LineEdit(BaseModel):
 
 class ChapterEdit(BaseModel):
     edits: List[LineEdit] = Field(max_length=30)
+
+class ChapterEditResponse(BaseModel):
+    edits: List[LineEdit]
+    last_generated_at: Optional[datetime] = None
+    is_stale: bool = False
   
 class ChapterEdits(BaseModel):
     chapter_id: str

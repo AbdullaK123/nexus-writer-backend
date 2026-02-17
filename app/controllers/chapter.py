@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, BackgroundTasks
 from app.services.chapter import ChapterService, get_chapter_service
 from app.services.auth import get_current_user
 from app.models import User
-from app.ai.models.edits import ChapterEdit
+from app.ai.models.edits import ChapterEdit, ChapterEditResponse
 from typing import Optional
 from app.schemas.chapter import (
     ChapterContentResponse,
@@ -11,12 +11,12 @@ from app.schemas.chapter import (
 
 chapter_controller = APIRouter(prefix='/chapters')
 
-@chapter_controller.get('/edit/{chapter_id}', response_model=ChapterEdit)
+@chapter_controller.get('/edit/{chapter_id}', response_model=ChapterEditResponse)
 async def get_chapter_edits(
     chapter_id: str,
     current_user: User = Depends(get_current_user),
     chapter_service: ChapterService = Depends(get_chapter_service)
-) -> ChapterEdit:
+) -> ChapterEditResponse:
     return await chapter_service.get_line_edits(
         current_user.id,
         chapter_id

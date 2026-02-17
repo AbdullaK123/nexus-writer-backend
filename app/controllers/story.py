@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, Query, BackgroundTasks
+from app.schemas.plot import DeusExMachinaResponse, PlotThreadsResponse, SetupResponse, StoryQuestionsResponse
+from app.services.plot import PlotService, get_plot_service
 from app.services.story import StoryService, get_story_service
 from app.services.chapter import ChapterService, get_chapter_service
 from app.services.auth import get_current_user
@@ -82,13 +84,15 @@ async def create_chapter(
 async def reorder_chapters(
     story_id: str,
     reorder_info: ReorderChapterRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     chapter_service: ChapterService = Depends(get_chapter_service)
 ) -> dict:
     return await chapter_service.reorder_chapters(
         story_id,
         current_user.id,
-        reorder_info
+        reorder_info,
+        background_tasks
     )
 
 @story_controller.get('/{story_id}/chapters', response_model=ChapterListResponse)
@@ -181,4 +185,50 @@ async def delete_target(
         story_id,
         current_user.id,
         target_id
+    )
+
+@story_controller.get("/{story_id}/plot/threads", response_model=PlotThreadsResponse)
+async def get_unresolved_plot_threads(
+    story_id: str,
+    current_user: User = Depends(get_current_user),
+    plot_service: PlotService = Depends(get_plot_service)
+) -> PlotThreadsResponse:
+    return await plot_service.get_all_unresolved_plot_threads(
+        user_id=current_user.id,
+        story_id=story_id
+    )
+
+
+@story_controller.get("/{story_id}/plot/questions", response_model=StoryQuestionsResponse)
+async def get_unanswered_questions(
+    story_id: str,
+    current_user: User = Depends(get_current_user),
+    plot_service: PlotService = Depends(get_plot_service)
+) -> StoryQuestionsResponse:
+    return await plot_service.get_all_unanswered_story_questions(
+        user_id=current_user.id,
+        story_id=story_id
+    )
+
+
+@story_controller.get("/{story_id}/plot/setups", response_model=SetupResponse)
+async def get_setups_with_no_payoff(
+    story_id: str,
+    current_user: User = Depends(get_current_user),
+    plot_service: PlotService = Depends(get_plot_service)
+) -> SetupResponse:
+    return await plot_service.get_all_setups_with_no_payoffs(
+        user_id=current_user.id,
+        story_id=story_id
+    )
+
+@story_controller.get("/{story_id}/plot/deus-ex-machinas", response_model=DeusExMachinaResponse)
+async def get_deus_ex_machinas(
+    story_id: str,
+    current_user: User = Depends(get_current_user),
+    plot_service: PlotService = Depends(get_plot_service)
+) -> DeusExMachinaResponse:
+    return await plot_service.get_all_deus_ex_machinas(
+        user_id=current_user.id,
+        story_id=story_id
     )
