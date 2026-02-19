@@ -13,3 +13,7 @@ class SetupResponse(SQLModel):
 
 class DeusExMachinaResponse(SQLModel):
     problems: Optional[List[ContrivanceRisk]] = []
+
+class PlotStructuralReportResponse(SQLModel):
+    story_id: str
+    report: str = ""

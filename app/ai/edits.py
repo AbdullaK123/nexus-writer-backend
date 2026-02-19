@@ -2,6 +2,7 @@ from typing import Annotated, Dict, List, Optional
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_anthropic import ChatAnthropic
 from langchain.messages import SystemMessage, HumanMessage, AIMessage
 from app.ai.prompts.edits import (
     PARSER_SYSTEM_PROMPT, 
@@ -19,6 +20,10 @@ from langgraph.graph import StateGraph, END
 from langgraph.types import RetryPolicy
 from pydantic import BaseModel
 from app.utils.html import html_to_paragraphs
+from app.utils.ai import extract_text
+
+
+
 
 heavy_retry = RetryPolicy(
     max_attempts=3,
@@ -27,7 +32,7 @@ heavy_retry = RetryPolicy(
 )
 
 model = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
+    model="gemini-2.5-flash-lite",
     temperature=app_config.ai_temperature,
     max_tokens=app_config.ai_maxtokens,
     timeout=app_config.ai_sdk_timeout,
@@ -58,7 +63,7 @@ async def generate_edit_plan_node(state: EditorState) -> dict:
         HumanMessage(content=build_critic_user_prompt(state.story_context, state.current_chapter_content))
     ])
     return {
-        "editor_plan": editor_plan_result.content,
+        "editor_plan": extract_text(editor_plan_result.content),
         "paragraphs": html_to_paragraphs(state.current_chapter_content)
     }
 
@@ -78,7 +83,7 @@ async def generate_line_edits_node(state: EditorState) -> dict:
     ])
 
     return {
-        "current_edits": current_edits_result.content
+        "current_edits": extract_text(current_edits_result.content)
     }
 
 async def review_line_edits_node(state: EditorState) -> dict:
@@ -97,7 +102,7 @@ async def review_line_edits_node(state: EditorState) -> dict:
     ])
 
     return {
-        "current_edits": revised_edits_result.content
+        "current_edits": extract_text(revised_edits_result.content)
     }
 
 async def generate_edit_model_node(state: EditorState) -> dict:

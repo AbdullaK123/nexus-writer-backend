@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 class PlotEvent(BaseModel):
     """A significant event that happened in this chapter."""
     event: str = Field(description="What happened in 1-2 sentences, focusing on the action and its immediate stakes (e.g., 'Vex discovers the signal is coming from inside the station, not the asteroid belt as assumed')")
-    characters: list[str] = Field(max_length=8, description="Characters directly involved in or materially affected by this event (canonical full names). Exclude bystanders.")
+    characters: list[str] = Field(default_factory=list, max_length=8, description="Characters directly involved in or materially affected by this event (canonical full names). Exclude bystanders.")
     location: str = Field(description="The specific location where this event takes place, using the most precise name available (e.g., 'Bridge of the Artemis' not just 'the ship')")
     outcome: str = Field(description="The immediate consequence or result of this event that changes the story state (e.g., 'The crew is now trapped on Deck 7 with no comms')")
 
@@ -64,6 +64,34 @@ class ContrivanceRisk(BaseModel):
     has_prior_setup: bool = Field(description="True ONLY if this solution was explicitly foreshadowed, demonstrated, or established in a prior chapter visible in the accumulated context. False if the ability, tool, or knowledge appears for the first time in the same chapter it is needed. When in doubt, set to False — it is better to flag a potential contrivance than to miss one.")
 
 
+# ── Per-component parser models ──────────────────────────────
+
+
+class EventsExtraction(BaseModel):
+    """Plot events extracted from analysis."""
+    events: list[PlotEvent] = Field(default_factory=list, max_length=8, description="3-8 SIGNIFICANT plot events in this chapter. Only events that change the story state — not every action a character takes.")
+
+
+class ThreadsExtraction(BaseModel):
+    """Plot threads extracted from analysis."""
+    threads: list[PlotThread] = Field(default_factory=list, max_length=10, description="All storylines active or referenced in this chapter. REUSE EXACT thread names from accumulated context. Only create new thread names for genuinely new storylines not present in prior chapters.")
+
+
+class SetupsPayoffsExtraction(BaseModel):
+    """Setups and payoffs extracted from analysis. Grouped together because payoffs reference setups by exact element string."""
+    setups: list[Setup] = Field(default_factory=list, max_length=5, description="0-5 foreshadowing or Chekhov's gun elements INTRODUCED in this chapter. Use short, fixed, lowercase labels as element names. Do NOT duplicate setups already present in accumulated context — only new setups.")
+    payoffs: list[Payoff] = Field(default_factory=list, max_length=5, description="Resolutions of setups from EARLIER chapters. The element field MUST exactly match a Setup.element from a prior chapter. Only include if a prior setup is actually addressed in this chapter's text.")
+
+
+class QuestionsContrivancesExtraction(BaseModel):
+    """Story questions and contrivance risks extracted from analysis."""
+    questions: list[StoryQuestion] = Field(default_factory=list, max_length=5, description="0-5 narrative questions raised or answered in this chapter. Use short, fixed, lowercase question strings. When answering a prior question, copy the exact question string from accumulated context.")
+    contrivance_risks: list[ContrivanceRisk] = Field(default_factory=list, max_length=3, description="0-3 potential deus ex machina situations. Only flag solutions that feel unearned or insufficiently foreshadowed. Check accumulated context thoroughly before setting has_prior_setup to True.")
+
+
+# ── Composite model ─────────────────────────────────────────
+
+
 class PlotExtraction(BaseModel):
     """All plot data extracted from a single chapter."""
     events: list[PlotEvent] = Field(default_factory=list, max_length=8, description="3-8 SIGNIFICANT plot events in this chapter. Only events that change the story state — not every action a character takes.")
@@ -72,6 +100,24 @@ class PlotExtraction(BaseModel):
     payoffs: list[Payoff] = Field(default_factory=list, max_length=5, description="Resolutions of setups from EARLIER chapters. The element field MUST exactly match a Setup.element from a prior chapter. Only include if a prior setup is actually addressed in this chapter's text.")
     questions: list[StoryQuestion] = Field(default_factory=list, max_length=5, description="0-5 narrative questions raised or answered in this chapter. Use short, fixed, lowercase question strings. When answering a prior question, copy the exact question string from accumulated context.")
     contrivance_risks: list[ContrivanceRisk] = Field(default_factory=list, max_length=3, description="0-3 potential deus ex machina situations. Only flag solutions that feel unearned or insufficiently foreshadowed. Check accumulated context thoroughly before setting has_prior_setup to True.")
+
+    @classmethod
+    def from_components(
+        cls,
+        events: EventsExtraction,
+        threads: ThreadsExtraction,
+        setups_payoffs: SetupsPayoffsExtraction,
+        questions_contrivances: QuestionsContrivancesExtraction,
+    ) -> "PlotExtraction":
+        """Synthesize from individual parser results."""
+        return cls(
+            events=events.events,
+            threads=threads.threads,
+            setups=setups_payoffs.setups,
+            payoffs=setups_payoffs.payoffs,
+            questions=questions_contrivances.questions,
+            contrivance_risks=questions_contrivances.contrivance_risks,
+        )
 
     @classmethod
     def empty(cls) -> "PlotExtraction":

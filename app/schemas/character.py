@@ -28,3 +28,13 @@ class CharacterArcResponse(SQLModel):
     emotional_states: List[ChapterEmotionalState] = []
     goals: List[ChapterGoals] = []
     knowledge_gained: List[ChapterKnowledgeGained] = []
+
+
+class CharacterKnowledgeResponse(SQLModel):
+    character_name: str
+    chapter_number: int
+    knowledge: List[str] = []
+
+class CharacterInconsistencyResponse(SQLModel):
+    character_name: str
+    report: str = ""

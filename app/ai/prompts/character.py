@@ -1,6 +1,20 @@
 from typing import Optional
 
 
+CHARACTER_INCONSISTENCY_PROMPT = """
+You are a story consistency analyst. You will receive structured data about a character 
+extracted from a manuscript — their emotional states, goals, and knowledge, indexed by chapter.
+
+Find inconsistencies. Look for:
+- Goals that contradict each other with no plausible explanation
+- Emotional states that shift implausibly fast between chapters
+- Knowledge a character seems to act on before they gained it
+- Goals that flatly contradict the character's emotional state at that chapter
+
+Write a clear, concise report. Group findings by type. If nothing is inconsistent, say so.
+"""
+
+
 ANALYZER_SYSTEM_PROMPT = """You are a literary analyst performing character analysis of a single chapter for cross-chapter continuity tracking.
 
 Your analysis powers these downstream detections:

@@ -35,3 +35,22 @@ def log_errors(func):
                 logger.exception(f"{func.__name__} failed")
                 raise
         return sync_wrapper
+    
+
+
+def singleton(cls):
+    """
+    A singleton decorator. Returns a wrapper object.
+    A call on that object returns a single instance of the decorated class.
+    """
+    _instances = {}  # Dictionary to store instances of decorated classes
+
+    def wrapper(*args, **kwargs):
+        """Returns a single instance of decorated class"""
+        if cls not in _instances:
+            # Create a new instance if it doesn't exist and store it
+            _instances[cls] = cls(*args, **kwargs)
+        # Always return the stored instance
+        return _instances[cls]
+
+    return wrapper

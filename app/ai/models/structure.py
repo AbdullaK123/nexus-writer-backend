@@ -16,10 +16,10 @@ class Scene(BaseModel):
     )
     location: str = Field(description="The specific place where this scene occurs, using the most precise name from the text (e.g., 'Engineering Bay, Deck 3' not 'the ship')")
     pov: str | None = Field(default=None, description="The point-of-view character whose perspective this scene is filtered through, using canonical name. None if the narration is omniscient or the POV is unclear.")
-    goal: str = Field(description="What the POV character (or primary character) wants to accomplish in this scene — their immediate objective driving the scene forward")
-    conflict: str = Field(description="The obstacle, opposition, or tension preventing the goal from being easily achieved — what creates dramatic friction in this scene")
-    outcome: str = Field(description="The scene's result and how it changes the story state: 'success' (goal achieved), 'failure' (goal blocked), 'partial' (mixed result), or 'twist' (unexpected redirect)")
-    word_count: int = Field(description="Approximate word count of this scene based on its proportion of the chapter")
+    goal: str = Field(default="", description="What the POV character (or primary character) wants to accomplish in this scene — their immediate objective driving the scene forward. Empty for scenes without a clear character objective (e.g., pure exposition or transitions).")
+    conflict: str = Field(default="", description="The obstacle, opposition, or tension preventing the goal from being easily achieved — what creates dramatic friction in this scene. Empty for scenes without direct conflict (e.g., expository or transitional scenes).")
+    outcome: str = Field(default="", description="The scene's result and how it changes the story state: 'success' (goal achieved), 'failure' (goal blocked), 'partial' (mixed result), or 'twist' (unexpected redirect). Empty for scenes without a clear resolution.")
+    word_count: int = Field(default=0, description="Approximate word count of this scene based on its proportion of the chapter")
 
 
 class Pacing(BaseModel):
@@ -43,10 +43,44 @@ class EmotionalBeat(BaseModel):
     """A moment designed to create emotional impact on the reader."""
     moment: str = Field(description="The specific scene moment in 1-2 sentences, described concretely enough to locate in the text (e.g., 'When Vex finds the child's drawing in the wreckage')")
     emotion: str = Field(description="The primary emotion this moment is designed to evoke in the reader (e.g., 'heartbreak', 'dread', 'cathartic relief', 'righteous anger', 'bittersweet hope')")
-    techniques: list[str] = Field(max_length=5, description="Craft techniques used to achieve the emotional effect (e.g., ['sensory detail', 'short staccato sentences', 'callback to Ch. 2 promise', 'silence/white space', 'contrast with preceding humor'])")
+    techniques: list[str] = Field(default_factory=list, max_length=5, description="Craft techniques used to achieve the emotional effect (e.g., ['sensory detail', 'short staccato sentences', 'callback to Ch. 2 promise', 'silence/white space', 'contrast with preceding humor'])")
     effectiveness: Literal["strong", "moderate", "weak"] = Field(
         description="Honest assessment of craft execution: 'strong' (lands powerfully, well-crafted), 'moderate' (works but could be sharper), 'weak' (falls flat due to telling, rushed setup, or cliché)"
     )
+
+
+# ── Per-component parser models ──────────────────────────────
+
+
+class ScenesExtraction(BaseModel):
+    """Scenes and structural role extracted from analysis."""
+    structural_role: Literal[
+        "exposition", "inciting_incident", "rising_action",
+        "climax", "falling_action", "resolution", "transition", "flashback"
+    ] = Field(default="exposition", description="This chapter's function in the overall story arc: 'exposition' (establishes world/characters), 'inciting_incident' (disrupts status quo), 'rising_action' (escalates conflict), 'climax' (peak confrontation), 'falling_action' (aftermath), 'resolution' (wraps up), 'transition' (bridges major story sections), 'flashback' (reveals past events)")
+    scenes: list[Scene] = Field(default_factory=list, max_length=12, description="All distinct scenes in the chapter, in narrative order")
+
+
+class PacingExtraction(BaseModel):
+    """Pacing metrics and show-vs-tell ratio extracted from analysis."""
+    pacing: Pacing = Field(default_factory=lambda: Pacing(
+        action_pct=0, dialogue_pct=0, introspection_pct=0, exposition_pct=0,
+        pace="moderate", tension=1
+    ), description="Pacing breakdown for this chapter including content distribution and tension level")
+    show_vs_tell_ratio: float = Field(default=0.5, ge=0, le=1, description="Ratio of demonstrated/dramatized content vs. narrated/explained content: 0.0 = entirely told (narrator summarizes everything), 0.5 = balanced, 1.0 = entirely shown (all action, dialogue, and sensory detail)")
+
+
+class ThemesExtraction(BaseModel):
+    """Themes extracted from analysis."""
+    themes: list[Theme] = Field(default_factory=list, max_length=5, description="Themes actively explored in this chapter (not just present — the chapter must engage with them through action, dialogue, or imagery)")
+
+
+class EmotionalBeatsExtraction(BaseModel):
+    """Emotional beats extracted from analysis."""
+    emotional_beats: list[EmotionalBeat] = Field(default_factory=list, max_length=8, description="Key moments designed to create emotional impact on the reader, in order of appearance")
+
+
+# ── Composite model ─────────────────────────────────────────
 
 
 class StructureExtraction(BaseModel):
@@ -63,6 +97,24 @@ class StructureExtraction(BaseModel):
     themes: list[Theme] = Field(default_factory=list, max_length=5, description="Themes actively explored in this chapter (not just present — the chapter must engage with them through action, dialogue, or imagery)")
     emotional_beats: list[EmotionalBeat] = Field(default_factory=list, max_length=8, description="Key moments designed to create emotional impact on the reader, in order of appearance")
     show_vs_tell_ratio: float = Field(default=0.5, ge=0, le=1, description="Ratio of demonstrated/dramatized content vs. narrated/explained content: 0.0 = entirely told (narrator summarizes everything), 0.5 = balanced, 1.0 = entirely shown (all action, dialogue, and sensory detail)")
+
+    @classmethod
+    def from_components(
+        cls,
+        scenes: ScenesExtraction,
+        pacing: PacingExtraction,
+        themes: ThemesExtraction,
+        emotional_beats: EmotionalBeatsExtraction,
+    ) -> "StructureExtraction":
+        """Synthesize from individual parser results."""
+        return cls(
+            structural_role=scenes.structural_role,
+            scenes=scenes.scenes,
+            pacing=pacing.pacing,
+            show_vs_tell_ratio=pacing.show_vs_tell_ratio,
+            themes=themes.themes,
+            emotional_beats=emotional_beats.emotional_beats,
+        )
 
     @classmethod
     def empty(cls) -> "StructureExtraction":

@@ -32,6 +32,50 @@ RULES:
 6. Do not infer or add information beyond what the analysis states."""
 
 
+# ── Per-component parser prompts ─────────────────────────────
+
+
+SCENES_PARSER_SYSTEM_PROMPT = """You are a structured data formatter. Extract ONLY the scene breakdown and structural role from the analysis below.
+
+RULES:
+1. Map every scene from the analysis into Scene objects in narrative order.
+2. Transfer all values faithfully: scene type, location, POV, goal, conflict, outcome, and word count.
+3. Determine the structural_role from the analysis's Structural Role section.
+4. Use exact text from the analysis for descriptions.
+5. Do not add scenes not described in the analysis.
+6. Do not infer or add information beyond what the analysis states."""
+
+
+PACING_PARSER_SYSTEM_PROMPT = """You are a structured data formatter. Extract ONLY the pacing metrics and show-vs-tell ratio from the analysis below.
+
+RULES:
+1. Transfer pacing percentages exactly as stated in the analysis: action_pct, dialogue_pct, introspection_pct, exposition_pct.
+2. Ensure pacing percentages sum to 100.
+3. Transfer the overall pace category and tension level exactly.
+4. Transfer the show_vs_tell_ratio from the analysis.
+5. Do not infer or add information beyond what the analysis states."""
+
+
+THEMES_PARSER_SYSTEM_PROMPT = """You are a structured data formatter. Extract ONLY the themes from the analysis below.
+
+RULES:
+1. Map every theme from the analysis into Theme objects.
+2. Transfer the theme name, how_explored explanation, and symbols list faithfully.
+3. Use exact text from the analysis for all fields.
+4. Do not add themes not described in the analysis.
+5. Do not infer or add information beyond what the analysis states."""
+
+
+EMOTIONAL_BEATS_PARSER_SYSTEM_PROMPT = """You are a structured data formatter. Extract ONLY the emotional beats from the analysis below.
+
+RULES:
+1. Map every emotional beat from the analysis into EmotionalBeat objects in order of appearance.
+2. Transfer the moment description, emotion, techniques list, and effectiveness rating faithfully.
+3. Use exact text from the analysis for all fields.
+4. Do not add beats not described in the analysis.
+5. Do not infer or add information beyond what the analysis states."""
+
+
 def build_structure_analysis_prompt(
     extraction_plan: str,
     current_chapter_content: str,
@@ -54,3 +98,31 @@ def build_structure_parser_prompt(analysis: str) -> str:
 {analysis}
 
 Convert this analysis into structured StructureExtraction data. Include every scene, theme, and emotional beat. Do not add or remove anything."""
+
+
+def build_scenes_parser_prompt(analysis: str) -> str:
+    return f"""STRUCTURE ANALYSIS:
+{analysis}
+
+Extract the structural role and all scenes from this analysis. Map every scene with its type, location, POV, goal, conflict, outcome, and word count. Do not add or remove any scenes."""
+
+
+def build_pacing_parser_prompt(analysis: str) -> str:
+    return f"""STRUCTURE ANALYSIS:
+{analysis}
+
+Extract the pacing breakdown (action/dialogue/introspection/exposition percentages, overall pace, tension level) and the show-vs-tell ratio from this analysis. Ensure percentages sum to 100."""
+
+
+def build_themes_parser_prompt(analysis: str) -> str:
+    return f"""STRUCTURE ANALYSIS:
+{analysis}
+
+Extract all themes from this analysis. For each theme, include the theme name, how it is explored, and any symbols or motifs. Do not add or remove any themes."""
+
+
+def build_emotional_beats_parser_prompt(analysis: str) -> str:
+    return f"""STRUCTURE ANALYSIS:
+{analysis}
+
+Extract all emotional beats from this analysis in order of appearance. For each, include the moment, emotion, techniques, and effectiveness rating. Do not add or remove any beats."""

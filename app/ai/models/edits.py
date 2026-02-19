@@ -11,7 +11,7 @@ class LineEdit(BaseModel):
 
 
 class ChapterEdit(BaseModel):
-    edits: List[LineEdit] = Field(max_length=30)
+    edits: List[LineEdit] = Field(default=[])
 
 class ChapterEditResponse(BaseModel):
     edits: List[LineEdit]
@@ -23,7 +23,7 @@ class ChapterEdits(BaseModel):
     story_id: str
     chapter_number: int 
     
-    edits: List[LineEdit] = Field(default=[], max_length=30)
+    edits: List[LineEdit] = Field(default=[])
     last_generated_at: Optional[datetime] = None
     is_stale: bool = False
 

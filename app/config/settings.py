@@ -1,7 +1,7 @@
+from functools import lru_cache
+
 from pydantic import Field
 from pydantic_settings import SettingsConfigDict, BaseSettings
-
-
 class Config(BaseSettings):
 
     model_config = SettingsConfigDict(
@@ -43,4 +43,9 @@ class Config(BaseSettings):
     ai_sdk_retries: int = Field(default=2, description="SDK-level retries for transient HTTP errors")
 
 
-app_config = Config()
+@lru_cache
+def get_settings() -> Config:
+    return Config()
+
+
+app_config = get_settings()
