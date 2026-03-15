@@ -18,12 +18,12 @@ from app.schemas.story import (
 )
 from loguru import logger
 from app.utils.html import get_word_count
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 from app.core.mongodb import get_mongodb
 
 class StoryService:
 
-    def __init__(self, db: AsyncSession, mongodb: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncSession, mongodb: AsyncDatabase):
         self.db = db
         self.mongodb = mongodb
         self.target_service = TargetService(db)
@@ -370,6 +370,6 @@ class StoryService:
 
 async def get_story_service(
     db: AsyncSession = Depends(get_db),
-    mongodb: AsyncIOMotorDatabase = Depends(get_mongodb)
+    mongodb: AsyncDatabase = Depends(get_mongodb)
 ):
     return StoryService(db, mongodb)

@@ -18,12 +18,12 @@ from datetime import timedelta
 from fastapi import HTTPException, status, Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.services.story import StoryService
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 
 class AnalyticsService:
 
-    def __init__(self, db: AsyncSession, mongodb: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncSession, mongodb: AsyncDatabase):
         self.motherduck_url = app_config.motherduck_url
         self.story_service = StoryService(db, mongodb)
         self.target_service = TargetService(db)
@@ -500,6 +500,6 @@ class AnalyticsService:
 
 def get_analytics_service(
     db: AsyncSession = Depends(get_db),
-    mongodb: AsyncIOMotorDatabase = Depends(get_mongodb)
+    mongodb: AsyncDatabase = Depends(get_mongodb)
 ) -> AnalyticsService:
     return AnalyticsService(db, mongodb)
