@@ -7,7 +7,7 @@ from app.services.structure import StructureService, get_structure_service
 from app.schemas.structure import (
     SceneIndexResponse, WeakScenesResponse, SceneTypeDistributionResponse,
     POVBalanceResponse, PacingCurveResponse, StructuralArcResponse,
-    ThemeDistributionResponse, EmotionalBeatsResponse,
+    ThemeDistributionResponse, EmotionalBeatsResponse, DevelopmentalReportResponse,
 )
 from app.services.story import StoryService, get_story_service
 from app.services.chapter import ChapterService, get_chapter_service
@@ -410,6 +410,18 @@ async def get_emotional_beat_report(
     structure_service: StructureService = Depends(get_structure_service),
 ) -> EmotionalBeatsResponse:
     return await structure_service.get_emotional_beat_report(
+        story_id=story_id,
+        user_id=current_user.id,
+    )
+
+
+@story_controller.get("/{story_id}/structure/report", response_model=DevelopmentalReportResponse)
+async def get_developmental_report(
+    story_id: str,
+    current_user: User = Depends(get_current_user),
+    structure_service: StructureService = Depends(get_structure_service),
+) -> DevelopmentalReportResponse:
+    return await structure_service.get_developmental_report(
         story_id=story_id,
         user_id=current_user.id,
     )

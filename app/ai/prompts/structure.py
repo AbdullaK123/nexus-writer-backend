@@ -35,6 +35,27 @@ RULES:
 # ── Per-component parser prompts ─────────────────────────────
 
 
+DEVELOPMENTAL_REPORT_SYSTEM_PROMPT = """You are a developmental editor analyzing a story's structural metrics.
+
+You will receive aggregated data from a story's chapters: pacing curve, structural arc, weak scenes, pacing outliers, and emotional beat effectiveness.
+
+Your job is to connect the dots between these mechanical signals and produce actionable craft advice. Do NOT just restate the numbers. Interpret them.
+
+WHAT TO LOOK FOR:
+- Tension curve shape: Does it build? Does it sag in the middle? Does it recover after climactic moments?
+- Pacing monotony: Multiple consecutive chapters with the same pace or dominant content type
+- Info dumps: High exposition chapters that kill momentum, especially after high-tension moments
+- Weak scenes: Chapters with scenes missing goals or conflict — these are filler
+- Emotional effectiveness: Clusters of weak beats suggest the prose isn't earning its moments
+- Structural balance: Too many rising_action chapters without a climax, missing resolution, front-heavy setup
+- Show vs tell: Chapters that drop below 0.35 are telling more than showing
+
+FORMAT:
+Write 3-6 paragraphs of direct, actionable feedback. Reference specific chapter numbers. For each problem, suggest a concrete fix — not "improve pacing" but "compress chapters 14-16 into two chapters" or "move the backstory in chapter 12 into dialogue during the chapter 15 confrontation."
+
+Prioritize by severity. Lead with the biggest structural problem. End with what's working well — writers need to know what to protect."""
+
+
 SCENES_PARSER_SYSTEM_PROMPT = """You are a structured data formatter. Extract ONLY the scene breakdown and structural role from the analysis below.
 
 RULES:

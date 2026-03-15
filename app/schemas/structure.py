@@ -139,3 +139,8 @@ class ChapterEmotionalBeats(SQLModel):
 
 class EmotionalBeatsResponse(SQLModel):
     chapter_distributions: Optional[List[ChapterEmotionalBeats]] = []
+
+
+class DevelopmentalReportResponse(SQLModel):
+    story_id: str
+    report: str = ""

@@ -1,15 +1,29 @@
+import asyncio
 from typing import Optional, Literal
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
+from langchain.messages import HumanMessage, SystemMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
 from pymongo.asynchronous.database import AsyncDatabase
 from app.core.mongodb import get_mongodb
+from app.config.settings import app_config
 from app.ai.models.structure import Scene
+from app.ai.prompts.structure import DEVELOPMENTAL_REPORT_SYSTEM_PROMPT
 from app.schemas.structure import *
+from app.utils.ai import extract_text
+from loguru import logger
 
 
 class StructureService:
 
     def __init__(self, mongodb: AsyncDatabase):
         self.mongodb = mongodb
+        self._model = ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash-lite",
+            temperature=app_config.ai_temperature,
+            max_tokens=app_config.ai_maxtokens,
+            timeout=app_config.ai_sdk_timeout,
+            max_retries=app_config.ai_sdk_retries,
+        )
 
     async def get_scene_index(
         self,
@@ -331,7 +345,93 @@ class StructureService:
         ]
         return EmotionalBeatsResponse(chapter_distributions=chapter_distributions)
 
+    def _build_developmental_report_prompt(
+        self,
+        pacing: PacingCurveResponse,
+        arc: StructuralArcResponse,
+        weak: WeakScenesResponse,
+        emotional: EmotionalBeatsResponse,
+    ) -> str:
 
+        pacing_curve = "\n".join(
+            f"  Ch {p.chapter_number}: pace={p.pace}, tension={p.tension}, "
+            f"action={p.action_pct}% dialogue={p.dialogue_pct}% "
+            f"introspection={p.introspection_pct}% exposition={p.exposition_pct}%"
+            for p in pacing.chapter_distributions  # type: ignore
+        ) or "  No pacing data."
+
+        structural_arc = "\n".join(
+            f"  Ch {r.chapter_number}: {r.structural_role}"
+            for r in arc.roles  # type: ignore
+        ) or "  No structural roles."
+
+        weak_scenes = "\n".join(
+            f"  Ch {ch.chapter_number}: {len(ch.scenes)} weak scene(s) — "
+            + ", ".join(
+                f"{s.type} (goal={'✓' if s.goal else '✗'} conflict={'✓' if s.conflict else '✗'} outcome={'✓' if s.outcome else '✗'})"
+                for s in ch.scenes  # type: ignore
+            )
+            for ch in weak.weak_scenes  # type: ignore
+        ) or "  None."
+
+        emotional_beats = "\n".join(
+            f"  Ch {e.chapter_number}: strong={e.strong} moderate={e.moderate} weak={e.weak}"
+            for e in emotional.chapter_distributions  # type: ignore
+        ) or "  No emotional beat data."
+
+        return f"""
+PACING CURVE:
+{pacing_curve}
+
+STRUCTURAL ARC:
+{structural_arc}
+
+WEAK SCENES (missing goal, conflict, or outcome):
+{weak_scenes}
+
+EMOTIONAL BEAT EFFECTIVENESS:
+{emotional_beats}
+"""
+
+    async def get_developmental_report(
+        self,
+        story_id: str,
+        user_id: str,
+    ) -> DevelopmentalReportResponse:
+        """AI-generated developmental editor report synthesizing structural metrics."""
+
+        results = await asyncio.gather(
+            self.get_pacing_curve(story_id, user_id),
+            self.get_structural_arc(story_id, user_id),
+            self.get_weak_scenes(story_id, user_id),
+            self.get_emotional_beat_report(story_id, user_id),
+            return_exceptions=True,
+        )
+
+        for result in results:
+            if isinstance(result, Exception):
+                logger.warning(f"Error generating developmental report: {str(result)}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="An error occurred while generating your report. Please try again later.",
+                )
+
+        pacing, arc, weak, emotional = results
+
+        response = await self._model.ainvoke([
+            SystemMessage(content=DEVELOPMENTAL_REPORT_SYSTEM_PROMPT),
+            HumanMessage(content=self._build_developmental_report_prompt(
+                pacing,   # type: ignore
+                arc,      # type: ignore
+                weak,     # type: ignore
+                emotional,  # type: ignore
+            )),
+        ])
+
+        return DevelopmentalReportResponse(
+            story_id=story_id,
+            report=extract_text(response),
+        )
 
 
 async def get_structure_service(
