@@ -1,15 +1,16 @@
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from typing import Optional
 import pymongo
 import asyncio
 
 class MongoDB:
-    client: Optional[AsyncIOMotorClient] = None
-    db: Optional[AsyncIOMotorDatabase] = None
+    client: Optional[AsyncMongoClient] = None
+    db: Optional[AsyncDatabase] = None
 
     @classmethod
     async def connect(cls, url: str):
-        cls.client = AsyncIOMotorClient(url)
+        cls.client = AsyncMongoClient(url)
         cls.db = cls.client.get_database("nexus_extractions")
         
         # Create indexes for all collections
@@ -57,10 +58,10 @@ class MongoDB:
     @classmethod
     async def close(cls):
         if cls.client:
-            cls.client.close()
+            await cls.client.close()
 
 
-def get_mongodb() -> AsyncIOMotorDatabase:
+def get_mongodb() -> AsyncDatabase:
     if MongoDB.db is None:
         raise Exception("MongoDB client is not connected. Call MongoDB.connect() first.")
     return MongoDB.db

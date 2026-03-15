@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, status
 from langchain.messages import HumanMessage, SystemMessage
-from motor.motor_asyncio import AsyncIOMotorDatabase, AsyncIOMotorCommandCursor
+from pymongo.asynchronous.database import AsyncDatabase
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.config.settings import app_config
 from app.ai.prompts.character import CHARACTER_INCONSISTENCY_PROMPT
@@ -11,7 +11,7 @@ from app.utils.ai import extract_text
 
 class CharacterService:
 
-    def __init__(self, mongodb: AsyncIOMotorDatabase):
+    def __init__(self, mongodb: AsyncDatabase):
         self.mongodb = mongodb
         self._model = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash-lite",
@@ -57,7 +57,7 @@ class CharacterService:
 
     async def get_all_characters(self, story_id: str, user_id: str) -> CharacterResponse:
 
-        cursor: AsyncIOMotorCommandCursor = self.mongodb.character_extractions.aggregate([
+        cursor = await self.mongodb.character_extractions.aggregate([
             {"$match": {"story_id": story_id, "user_id": user_id}},
             {"$unwind": "$characters"},
             {"$sort": {"chapter_number": -1}},
@@ -80,7 +80,7 @@ class CharacterService:
         user_id: str
     ) -> CharacterArcResponse:
 
-        cursor: AsyncIOMotorCommandCursor = self.mongodb.character_extractions.aggregate([
+        cursor = await self.mongodb.character_extractions.aggregate([
             {"$match": {"story_id": story_id, "user_id": user_id}},
             {"$unwind": "$characters"},
             {"$match": {"characters.name": character_name}},
@@ -133,7 +133,7 @@ class CharacterService:
         chapter_number: int
     ) -> CharacterKnowledgeResponse:
 
-        cursor: AsyncIOMotorCommandCursor = self.mongodb.character_extractions.aggregate([
+        cursor = await self.mongodb.character_extractions.aggregate([
             {"$match": {
                 "story_id": story_id,
                 "user_id": user_id,

@@ -28,7 +28,7 @@ from app.schemas.jobs import (
     JobType,
 )
 from app.utils.decorators import log_errors
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 from app.core.mongodb import get_mongodb
 from app.utils.html import html_to_plain_text
 
@@ -50,7 +50,7 @@ STATE_TYPE_MAP = {
 class JobService:
     """Service for job management operations"""
 
-    def __init__(self, db: AsyncSession, mongodb: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncSession, mongodb: AsyncDatabase):
         self.db = db
         self.mongodb = mongodb
         self._chapter_service = None
@@ -398,7 +398,7 @@ class JobService:
 
 async def get_job_service(
     db: AsyncSession = Depends(get_db),
-    mongodb: AsyncIOMotorDatabase = Depends(get_mongodb)
+    mongodb: AsyncDatabase = Depends(get_mongodb)
 ) -> JobService:
     """Dependency for JobService"""
     return JobService(db=db, mongodb=mongodb)

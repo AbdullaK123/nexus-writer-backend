@@ -25,14 +25,14 @@ from app.jobs.chapter import (
 from loguru import logger
 import time
 from app.ai.models.edits import ChapterEdit, ChapterEditResponse, LineEdit
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 from app.core.mongodb import get_mongodb
 from fastapi import BackgroundTasks
 
 
 class ChapterService:
 
-    def __init__(self, db: AsyncSession, mongodb: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncSession, mongodb: AsyncDatabase):
         self.db = db
         self.mongodb = mongodb
         self._job_service = None
@@ -448,6 +448,6 @@ class ChapterService:
 # Simple dependency - no Redis needed!
 async def get_chapter_service(
     db: AsyncSession = Depends(get_db),
-    mongodb: AsyncIOMotorDatabase = Depends(get_mongodb)
+    mongodb: AsyncDatabase = Depends(get_mongodb)
 ):
     return ChapterService(db, mongodb)
