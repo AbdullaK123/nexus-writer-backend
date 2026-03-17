@@ -1,14 +1,22 @@
 # app/channels/analytics.py - FIXED VERSION
 from socketio.async_server import AsyncServer
-from app.services.analytics import get_analytics_service
+from app.services.analytics import AnalyticsService
 from app.schemas.analytics import WritingSession, WritingSessionEvent
 from app.utils.decorators import log_errors
 from app.core.redis import get_redis
+from app.core.mongodb import get_mongodb
 from loguru import logger
 import asyncio
 import json
 
-analytics = get_analytics_service()
+_analytics = None
+
+def _get_analytics() -> AnalyticsService:
+    global _analytics
+    if _analytics is None:
+        _analytics = AnalyticsService(mongodb=get_mongodb())
+    return _analytics
+
 redis_client = get_redis()
 
 sio = AsyncServer(
@@ -190,7 +198,7 @@ def handle_task_completion(task, session_id: str, sid: str):
 @log_errors
 async def save_to_duckdb_async(session: WritingSession, sid: str):
     """Save to DuckDB asynchronously - CLEAN VERSION"""
-    saved_session = await analytics.write_session(session)
+    saved_session = await _get_analytics().write_session(session)
     # Success is logged in the task completion handler
     return saved_session
 

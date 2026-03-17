@@ -1,4 +1,4 @@
-from sqlmodel import SQLModel, Field
+from pydantic import BaseModel, Field
 from pydantic import model_validator
 from typing import Optional, List
 from app.models import FrequencyType
@@ -14,7 +14,7 @@ def _to_naive_utc(dt: Optional[datetime]) -> Optional[datetime]:
     return dt
 
 
-class TargetResponse(SQLModel):
+class TargetResponse(BaseModel):
     quota: int = Field(default=0)
     frequency: FrequencyType = Field(default="Daily")
     from_date: datetime = Field(default_factory=datetime.utcnow)
@@ -32,10 +32,10 @@ class TargetResponse(SQLModel):
         return self
 
 
-class TargetListResponse(SQLModel):
+class TargetListResponse(BaseModel):
     targets: List[TargetResponse]
 
-class UpdateTargetRequest(SQLModel):
+class UpdateTargetRequest(BaseModel):
     quota: Optional[int] = None
     frequency: Optional[FrequencyType] = None 
     from_date: Optional[datetime] = None 
@@ -53,7 +53,7 @@ class UpdateTargetRequest(SQLModel):
         return self
 
 
-class CreateTargetRequest(SQLModel):
+class CreateTargetRequest(BaseModel):
     quota: int
     frequency: FrequencyType
     from_date: datetime

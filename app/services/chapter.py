@@ -1,12 +1,7 @@
 import asyncio
 from datetime import datetime
-from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select
-from sqlalchemy.orm import selectinload
 from typing import Dict, Optional, List, Sequence
-from app.core.redis import get_redis
 from app.models import Chapter, Story
-from app.core.database import get_db
 from app.schemas.chapter import (
     CreateChapterRequest,
     UpdateChapterRequest,
@@ -23,17 +18,15 @@ from app.jobs.chapter import (
     handle_chapter_reordering
 )
 from loguru import logger
-import time
 from app.ai.models.edits import ChapterEdit, ChapterEditResponse, LineEdit
 from pymongo.asynchronous.database import AsyncDatabase
 from app.core.mongodb import get_mongodb
-from fastapi import BackgroundTasks
+from tortoise.transactions import in_transaction
 
 
 class ChapterService:
 
-    def __init__(self, db: AsyncSession, mongodb: AsyncDatabase):
-        self.db = db
+    def __init__(self, mongodb: AsyncDatabase):
         self.mongodb = mongodb
         self._job_service = None
 
@@ -41,7 +34,7 @@ class ChapterService:
     def job_service(self):
         if self._job_service is None:
             from app.services.jobs import JobService
-            self._job_service = JobService(db=self.db, mongodb=self.mongodb)
+            self._job_service = JobService(mongodb=self.mongodb)
         return self._job_service
 
     # ========================================
@@ -55,29 +48,24 @@ class ChapterService:
         data: CreateChapterRequest,
         background_tasks: BackgroundTasks
     ) -> ChapterContentResponse:
-        """Create new chapter with immediate pointer setup - SINGLE TRANSACTION"""
+        """Create new chapter with immediate pointer setup"""
 
-        story = await self.db.get(Story, story_id)
+        story = await Story.get_or_none(id=story_id)
         if not story:
             raise HTTPException(404, "We couldn't find this story. It may have been deleted.")
 
         try:
-            # 1. Create the basic chapter (but don't commit yet!)
-            chapter_to_create = Chapter(
+            chapter_to_create = await Chapter.create(
                 story_id=story_id,
                 user_id=user_id,
                 title=data.title,
                 content=data.content
             )
-            self.db.add(chapter_to_create)
-            await self.db.flush()  # Gets the ID without committing
             
-            # 2. Handle path array and pointer updates (still same transaction!)
-            await handle_chapter_creation(story_id, chapter_to_create.id, self.db)
-            
-            # 3. Only commit if EVERYTHING succeeded
-            await self.db.commit()
-            await self.db.refresh(chapter_to_create)
+            await handle_chapter_creation(story_id, chapter_to_create.id)
+
+            # Refresh story to get updated path_array
+            await story.refresh_from_db()
 
             if story.path_array and len(story.path_array) > 1:
                 previous_chapter_id = story.path_array[-2]
@@ -87,31 +75,24 @@ class ChapterService:
                     previous_chapter_id
                 )
             
-            # 4. Return complete chapter with all pointers set
             return await self.get_chapter_with_navigation(
                 chapter_to_create.id,
                 user_id,
                 as_html=True
             )
             
+        except HTTPException:
+            raise
         except Exception as e:
-            await self.db.rollback()  # Rollback everything
             logger.error(f"❌ Failed to create chapter: {e}")
             raise HTTPException(500, "Something went wrong while creating your chapter. Please try again.")
 
     async def get_by_id(self, chapter_id: str, user_id: str) -> Optional[Chapter]:
-        """Get single chapter by ID with user security and story eagerly loaded"""
-        
-        chapter_query = (
-            select(Chapter)
-            .where(
-                Chapter.user_id == user_id,
-                Chapter.id == chapter_id
-            )
-            .options(selectinload(Chapter.story)) # type: ignore
-        )
-        chapter = (await self.db.execute(chapter_query)).scalar_one_or_none()
-        return chapter
+        """Get single chapter by ID with user security and story prefetched"""
+        return await Chapter.filter(
+            user_id=user_id,
+            id=chapter_id
+        ).prefetch_related('story').first()
     
     async def get_line_edits(
         self,
@@ -121,14 +102,10 @@ class ChapterService:
         """Get line edits from MongoDB only"""
         
         # Verify chapter exists and user owns it
-        chapter_query = (
-            select(Chapter.id)
-            .where(
-                Chapter.user_id == user_id,
-                Chapter.id == chapter_id
-            )
-        )
-        chapter_exists = (await self.db.exec(chapter_query)).first()
+        chapter_exists = await Chapter.filter(
+            user_id=user_id,
+            id=chapter_id
+        ).exists()
         
         if not chapter_exists:
             logger.error(f"Chapter {chapter_id} not found for user {user_id}")
@@ -169,20 +146,15 @@ class ChapterService:
     ) -> ChapterContentResponse:
         """Update chapter content, title, or published status"""
 
-        query = (
-            select(Story.title, Chapter)
-            .join(Chapter)
-            .where(
-                Chapter.id == chapter_id,
-                Chapter.user_id == user_id
-            )
-        )
+        chapter = await Chapter.filter(
+            id=chapter_id,
+            user_id=user_id
+        ).prefetch_related('story').first()
 
-        result = (await self.db.execute(query)).first()
-        if not result:
+        if not chapter:
             raise HTTPException(404, "We couldn't find this chapter. It may have been deleted.")
             
-        story_title, chapter = result
+        story_title = chapter.story.title
 
         # Mark line edits as stale in MongoDB if content changed
         if data.content and chapter.content != data.content:
@@ -195,7 +167,7 @@ class ChapterService:
         updated_data = data.model_dump(exclude_unset=True)
         for field, value in updated_data.items():
             setattr(chapter, field, value)
-        await self.db.commit()
+        await chapter.save(update_fields=list(updated_data.keys()))
 
         return ChapterContentResponse(
             id=chapter.id,
@@ -215,24 +187,23 @@ class ChapterService:
         chapter_id: str, 
         user_id: str
     ) -> dict:
-        """Delete chapter with pointer cleanup - SINGLE TRANSACTION"""
+        """Delete chapter with pointer cleanup"""
 
         cancel_result = await self.job_service.cancel_all_jobs(chapter_id=chapter_id)
 
         if cancel_result['jobs_cancelled'] > 0:
             logger.info(f"Cancelled {cancel_result['jobs_cancelled']} pending or running jobs on chapter {chapter_id} of type {[cancel_result['job_type']]}")
         
-        chapter_query = select(Chapter).where(
-            Chapter.user_id == user_id,
-            Chapter.id == chapter_id
-        )
-        chapter: Optional[Chapter] = (await self.db.execute(chapter_query)).scalar_one_or_none()
+        chapter = await Chapter.filter(
+            user_id=user_id,
+            id=chapter_id
+        ).first()
         if not chapter:
             raise HTTPException(404, "We couldn't find this chapter. It may have been deleted.")
         
         story_id = chapter.story_id
 
-        story = await self.db.get(Story, story_id)
+        story = await Story.get_or_none(id=story_id)
 
         if story and story.path_array and len(story.path_array) > 0:
             chapter_idx = story.path_array.index(chapter_id)
@@ -245,15 +216,8 @@ class ChapterService:
             logger.info(f"Queued reextraction job after chapter {chapter_id} deletion with id {queued_result.job_id}")
         
         try:
-            # 1. Delete the chapter (but don't commit yet!)
-            await self.db.delete(chapter)
-            await self.db.flush()  # Apply deletion without committing
-            
-            # 2. Clean up pointers and path (still same transaction!)
-            await handle_chapter_deletion(story_id, chapter_id, self.db)
-            
-            # 3. Only commit if EVERYTHING succeeded
-            await self.db.commit()
+            await chapter.delete()
+            await handle_chapter_deletion(story_id, chapter_id)
 
             # delete all chapter extractions and edits related to this chapter in MongoDB
             await asyncio.gather(
@@ -268,7 +232,6 @@ class ChapterService:
             return {"message": "Chapter was successfully deleted"}
             
         except Exception as e:
-            await self.db.rollback()  # Rollback everything
             logger.error(f"❌ Failed to delete chapter: {e}")
             raise HTTPException(500, "Something went wrong while deleting your chapter. Please try again.")
 
@@ -290,14 +253,10 @@ class ChapterService:
         story_last_updated = story.updated_at
         
         # Get all chapters for this story
-        chapters_query = (
-            select(Chapter)
-            .where(
-                Chapter.story_id == story_id,
-                Chapter.user_id == user_id
-            )
+        chapters = await Chapter.filter(
+            story_id=story_id,
+            user_id=user_id
         )
-        chapters = (await self.db.execute(chapters_query)).scalars().all()
         
         if not story_path or not chapters:
             return ChapterListResponse(
@@ -343,20 +302,15 @@ class ChapterService:
     ) -> ChapterContentResponse:
         """Get chapter with prev/next navigation and story context"""
 
-        query = (
-            select(Chapter, Story.title)
-            .join(Story)
-            .where(
-                Chapter.id == chapter_id,
-                Chapter.user_id == user_id
-            )
-        )
+        chapter = await Chapter.filter(
+            id=chapter_id,
+            user_id=user_id
+        ).prefetch_related('story').first()
         
-        result = (await self.db.execute(query)).first()
-        if not result:
+        if not chapter:
             raise HTTPException(404, "We couldn't find this chapter. It may have been deleted.")
         
-        chapter, story_title = result
+        story_title = chapter.story.title
 
         return ChapterContentResponse(
             id=chapter.id,
@@ -382,7 +336,7 @@ class ChapterService:
         data: ReorderChapterRequest,
         background_tasks: BackgroundTasks
     ) -> dict:
-        """Reorder chapters with pointer updates - SINGLE TRANSACTION"""
+        """Reorder chapters with pointer updates"""
 
         cancel_edit_result = await self.job_service.cancel_all_jobs(story_id=story_id, job_type="line-edit")
         cancel_extraction_result = await self.job_service.cancel_all_jobs(story_id=story_id, job_type="extraction")
@@ -412,9 +366,8 @@ class ChapterService:
             return {"message": "No reordering needed"}
         
         try:
-            await handle_chapter_reordering(story_id, data.from_pos, data.to_pos, self.db)
-            await self.db.commit()
-            await self.db.refresh(story)
+            await handle_chapter_reordering(story_id, data.from_pos, data.to_pos)
+            await story.refresh_from_db()
 
             # trigger a reextraction
             new_freshest_chapter_id = story.path_array[(min(data.from_pos, data.to_pos))]
@@ -428,7 +381,6 @@ class ChapterService:
 
             return {"message": "Chapters reordered successfully"}
         except Exception as e:
-            await self.db.rollback()
             logger.error(f"❌ Failed to reorder chapters: {e}")
             raise HTTPException(500, "Something went wrong while reordering your chapters. Please try again.")
 
@@ -438,16 +390,14 @@ class ChapterService:
 
     async def _get_story_with_user_check(self, story_id: str, user_id: str) -> Optional[Story]:
         """Get story ensuring user ownership"""
-        query = select(Story).where(
-            Story.id == story_id,
-            Story.user_id == user_id
-        )
-        return (await self.db.execute(query)).scalar_one_or_none()
+        return await Story.filter(
+            id=story_id,
+            user_id=user_id
+        ).first()
 
 
-# Simple dependency - no Redis needed!
+# Simple dependency - no db session needed with Tortoise!
 async def get_chapter_service(
-    db: AsyncSession = Depends(get_db),
     mongodb: AsyncDatabase = Depends(get_mongodb)
 ):
-    return ChapterService(db, mongodb)
+    return ChapterService(mongodb)

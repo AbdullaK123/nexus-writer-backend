@@ -21,8 +21,8 @@ from app.ai.models.world import WorldExtraction
 from app.ai.models.context import CondensedChapterContext
 from app.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAY, EXTRACTION_TASK_TIMEOUT
 from datetime import datetime
-from sqlmodel.ext.asyncio.session import AsyncSession
-from app.core.database import engine
+from tortoise import Tortoise
+from app.core.database import TORTOISE_ORM
 from app.models import Chapter
 from app.core.mongodb import MongoDB
 
@@ -151,8 +151,9 @@ async def save_chapter_extraction_task(
 ) -> None:
     """Save extraction results to both MongoDB and Postgres."""
     
-    async with AsyncSession(engine) as db:
-        chapter = await db.get(Chapter, chapter_id)
+    await Tortoise.init(config=TORTOISE_ORM)
+    try:
+        chapter = await Chapter.get_or_none(id=chapter_id)
         if not chapter:
             raise ValueError(f"Chapter {chapter_id} not found")
         
@@ -210,6 +211,11 @@ async def save_chapter_extraction_task(
         chapter.last_extracted_word_count = word_count
         chapter.extraction_version = "2.0.0"
         
-        await db.commit()
+        await chapter.save(update_fields=[
+            'condensed_context', 'timeline_context', 'emotional_arc',
+            'last_extracted_at', 'last_extracted_word_count', 'extraction_version'
+        ])
+    finally:
+        await Tortoise.close_connections()
         
     logger.info(f"✅ Chapter {chapter_id} extraction saved (checkpoint)")

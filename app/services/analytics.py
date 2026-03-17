@@ -2,7 +2,6 @@ import duckdb
 from app.config.settings import app_config
 from loguru import logger
 from typing import Dict, List, Any, Tuple, Optional
-from app.core.database import get_db
 from app.core.mongodb import get_mongodb
 from app.services.target import TargetService
 from app.schemas import TargetResponse
@@ -16,17 +15,16 @@ import uuid
 from uuid import UUID
 from datetime import timedelta
 from fastapi import HTTPException, status, Depends
-from sqlmodel.ext.asyncio.session import AsyncSession
 from app.services.story import StoryService
 from pymongo.asynchronous.database import AsyncDatabase
 
 
 class AnalyticsService:
 
-    def __init__(self, db: AsyncSession, mongodb: AsyncDatabase):
+    def __init__(self, mongodb: AsyncDatabase):
         self.motherduck_url = app_config.motherduck_url
-        self.story_service = StoryService(db, mongodb)
-        self.target_service = TargetService(db)
+        self.story_service = StoryService(mongodb)
+        self.target_service = TargetService()
         logger.info("🦆 AnalyticsService initialized")
 
     @log_errors
@@ -499,7 +497,6 @@ class AnalyticsService:
 
 
 def get_analytics_service(
-    db: AsyncSession = Depends(get_db),
     mongodb: AsyncDatabase = Depends(get_mongodb)
 ) -> AnalyticsService:
-    return AnalyticsService(db, mongodb)
+    return AnalyticsService(mongodb)

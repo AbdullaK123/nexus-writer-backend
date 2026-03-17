@@ -1,23 +1,23 @@
-from sqlmodel import SQLModel
+from pydantic import BaseModel
 from pydantic import EmailStr
 from typing import Optional
 
-class RegistrationData(SQLModel):
+class RegistrationData(BaseModel):
     username: str
     email: EmailStr
     password: str
     profile_img: Optional[str] = None
 
-class AuthCredentials(SQLModel):
+class AuthCredentials(BaseModel):
     email: EmailStr
     password: str
 
-class UserResponse(SQLModel):
+class UserResponse(BaseModel):
     id: str
     username: str
     email: str
     profile_img: Optional[str]
 
-class ConnectionDetails(SQLModel):
+class ConnectionDetails(BaseModel):
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None

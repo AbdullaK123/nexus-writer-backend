@@ -16,10 +16,8 @@ from prefect.client.schemas.filters import FlowRunFilter, FlowRunFilterTags, Flo
 from prefect.client.orchestration import PrefectClient
 from prefect.states import Cancelled
 from prefect.deployments import run_deployment
-from sqlmodel.ext.asyncio.session import AsyncSession
 from loguru import logger
 
-from app.core.database import get_db
 from app.models import Story, Chapter
 from app.schemas.jobs import (
     JobQueuedResponse,
@@ -50,8 +48,7 @@ STATE_TYPE_MAP = {
 class JobService:
     """Service for job management operations"""
 
-    def __init__(self, db: AsyncSession, mongodb: AsyncDatabase):
-        self.db = db
+    def __init__(self, mongodb: AsyncDatabase):
         self.mongodb = mongodb
         self._chapter_service = None
         self._story_service = None
@@ -60,14 +57,14 @@ class JobService:
     def chapter_service(self):
         if self._chapter_service is None:
             from app.services.chapter import ChapterService
-            self._chapter_service = ChapterService(db=self.db, mongodb=self.mongodb)
+            self._chapter_service = ChapterService(mongodb=self.mongodb)
         return self._chapter_service
 
     @property
     def story_service(self):
         if self._story_service is None:
             from app.services.story import StoryService
-            self._story_service = StoryService(db=self.db, mongodb=self.mongodb)
+            self._story_service = StoryService(mongodb=self.mongodb)
         return self._story_service
 
     async def _get_prefect_client(self) -> PrefectClient:
@@ -243,7 +240,7 @@ class JobService:
         if is_stale:
             logger.info(f"Regenerating line edits for chapter {chapter_id} (marked as stale due to content change)")
 
-        story = await self.db.get(Story, chapter.story_id)
+        story = await Story.get_or_none(id=chapter.story_id)
         if not story:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -254,7 +251,7 @@ class JobService:
 
         accumulated_context = await self._build_accumulated_context(
             chapter.story_id, 
-            chapter.get_chapter_number(chapter.id, story.path_array)
+            Chapter.get_chapter_number(chapter.id, story.path_array)
         )
 
         # Submit flow to Prefect deployment (runs on worker container)
@@ -351,7 +348,7 @@ class JobService:
                 f"{cancel_result['job_type']} job(s) for chapter {chapter_id}"
             )
             
-        story = await self.db.get(Story, chapter.story_id)
+        story = await Story.get_or_none(id=chapter.story_id)
         if not story:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -397,8 +394,7 @@ class JobService:
 
 
 async def get_job_service(
-    db: AsyncSession = Depends(get_db),
     mongodb: AsyncDatabase = Depends(get_mongodb)
 ) -> JobService:
     """Dependency for JobService"""
-    return JobService(db=db, mongodb=mongodb)
+    return JobService(mongodb=mongodb)

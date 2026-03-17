@@ -1,4 +1,4 @@
-from sqlmodel import SQLModel, Field
+from pydantic import BaseModel, Field
 from pydantic import model_validator
 from typing import List, Optional, Literal
 from app.ai.models.structure import Scene, Pacing
@@ -20,25 +20,25 @@ class SceneWithContext(Scene):
             **scene.model_dump()
         )
 
-class SceneIndexResponse(SQLModel):
+class SceneIndexResponse(BaseModel):
     scenes: Optional[List[SceneWithContext]] = []
 
-class ChapterScenes(SQLModel):
+class ChapterScenes(BaseModel):
     chapter_number: int
     chapter_id: str
     scenes: Optional[List[Scene]] = []
 
 
-class WeakScenesResponse(SQLModel):
+class WeakScenesResponse(BaseModel):
     weak_scenes: Optional[List[ChapterScenes]] = []
 
 
-class SceneDistribution(SQLModel):
+class SceneDistribution(BaseModel):
     type: Literal["action", "dialogue", "introspection", "exposition", "transition"]
     scene_count: int
     pct: float = Field(default=0.0, le=1.0)
 
-class ChapterSceneDistribution(SQLModel):
+class ChapterSceneDistribution(BaseModel):
     chapter_number: int
     chapter_id: str
     distributions: Optional[List[SceneDistribution]] = []
@@ -53,17 +53,17 @@ class ChapterSceneDistribution(SQLModel):
 
         return self
     
-class SceneTypeDistributionResponse(SQLModel):
+class SceneTypeDistributionResponse(BaseModel):
     chapter_distributions: Optional[List[ChapterSceneDistribution]] = []
 
 
-class POVDistribution(SQLModel):
+class POVDistribution(BaseModel):
     pov: str
     scene_count: int 
     estimated_word_count: int
     pct: float = Field(default=0.0, le=1.0)
 
-class ChapterPOVBalance(SQLModel):
+class ChapterPOVBalance(BaseModel):
     chapter_number: int
     chapter_id: str
     distributions: Optional[List[POVDistribution]] = []
@@ -77,7 +77,7 @@ class ChapterPOVBalance(SQLModel):
         
         return self
 
-class POVBalanceResponse(SQLModel):
+class POVBalanceResponse(BaseModel):
     chapter_distributions: Optional[List[ChapterPOVBalance]] = []
 
 
@@ -85,10 +85,10 @@ class ChapterPacingDistribution(Pacing):
     chapter_number: int
     chapter_id: str
 
-class PacingCurveResponse(SQLModel):
+class PacingCurveResponse(BaseModel):
     chapter_distributions: Optional[List[ChapterPacingDistribution]] = []
 
-class ChapterRole(SQLModel):
+class ChapterRole(BaseModel):
     chapter_number: int 
     chapter_id: str
     structural_role: Literal[
@@ -96,16 +96,16 @@ class ChapterRole(SQLModel):
         "climax", "falling_action", "resolution", "transition", "flashback"
     ] = Field(default="exposition", description="This chapter's function in the overall story arc: 'exposition' (establishes world/characters), 'inciting_incident' (disrupts status quo), 'rising_action' (escalates conflict), 'climax' (peak confrontation), 'falling_action' (aftermath), 'resolution' (wraps up), 'transition' (bridges major story sections), 'flashback' (reveals past events)")
 
-class StructuralArcResponse(SQLModel):
+class StructuralArcResponse(BaseModel):
     roles: Optional[List[ChapterRole]] = []
 
-class ThemeDistribution(SQLModel):
+class ThemeDistribution(BaseModel):
     chapter_ids: List[str]
     theme: str 
     count: int 
     perc: float = Field(default=0.0, le=1.0)
 
-class ThemeDistributionResponse(SQLModel):
+class ThemeDistributionResponse(BaseModel):
     theme_distributions: Optional[List[ThemeDistribution]] = []
 
     @model_validator(mode="after")
@@ -117,7 +117,7 @@ class ThemeDistributionResponse(SQLModel):
         
         return self
 
-class ChapterEmotionalBeats(SQLModel):
+class ChapterEmotionalBeats(BaseModel):
     chapter_number: int
     chapter_id: str
     strong: int = 0
@@ -137,10 +137,10 @@ class ChapterEmotionalBeats(SQLModel):
         return self
 
 
-class EmotionalBeatsResponse(SQLModel):
+class EmotionalBeatsResponse(BaseModel):
     chapter_distributions: Optional[List[ChapterEmotionalBeats]] = []
 
 
-class DevelopmentalReportResponse(SQLModel):
+class DevelopmentalReportResponse(BaseModel):
     story_id: str
     report: str = ""

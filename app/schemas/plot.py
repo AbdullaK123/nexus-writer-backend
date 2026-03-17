@@ -1,19 +1,19 @@
 from typing import List, Optional
-from sqlmodel import SQLModel
+from pydantic import BaseModel
 from app.ai.models.plot import ContrivanceRisk, PlotThread, Setup, StoryQuestion
 
-class PlotThreadsResponse(SQLModel):
+class PlotThreadsResponse(BaseModel):
     plot_threads: Optional[List[PlotThread]] = []
 
-class StoryQuestionsResponse(SQLModel):
+class StoryQuestionsResponse(BaseModel):
     questions: Optional[List[StoryQuestion]] = []
 
-class SetupResponse(SQLModel):
+class SetupResponse(BaseModel):
     setups: Optional[List[Setup]] = []
 
-class DeusExMachinaResponse(SQLModel):
+class DeusExMachinaResponse(BaseModel):
     problems: Optional[List[ContrivanceRisk]] = []
 
-class PlotStructuralReportResponse(SQLModel):
+class PlotStructuralReportResponse(BaseModel):
     story_id: str
     report: str = ""

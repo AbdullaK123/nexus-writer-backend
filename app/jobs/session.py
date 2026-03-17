@@ -1,7 +1,4 @@
 from app.models import Session
-from app.core.database import engine
-from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select, delete
 from datetime import datetime
 from loguru import logger
 
@@ -9,32 +6,26 @@ from loguru import logger
 async def cleanup_expired_sessions_batched():
     """Remove expired sessions in batches for better performance"""
     
-    async with AsyncSession(engine) as db:
-        now = datetime.utcnow()
-        batch_size = 1000
-        total_deleted = 0
+    now = datetime.utcnow()
+    batch_size = 1000
+    total_deleted = 0
+    
+    while True:
+        expired_sessions = await Session.filter(
+            expires_at__lt=now
+        ).limit(batch_size).values_list('session_id', flat=True)
         
-        while True:
-            batch_query = (
-                select(Session.session_id)
-                .where(Session.expires_at < now)
-                .limit(batch_size)
-            )
-            
-            session_ids = (await db.execute(batch_query)).scalars().all()
-            
-            if not session_ids:
-                break
-            
-            delete_query = delete(Session).where(Session.session_id.in_(session_ids))
-            await db.execute(delete_query)
-            await db.commit()
-            
-            batch_count = len(session_ids)
-            total_deleted += batch_count
-            
-            if batch_count < batch_size:
-                break
+        if not expired_sessions:
+            break
         
-        if total_deleted > 0:
-            logger.info(f"Session cleanup: {total_deleted} expired sessions removed")
+        deleted_count = await Session.filter(
+            session_id__in=list(expired_sessions)
+        ).delete()
+        
+        total_deleted += deleted_count
+        
+        if len(expired_sessions) < batch_size:
+            break
+    
+    if total_deleted > 0:
+        logger.info(f"Session cleanup: {total_deleted} expired sessions removed")

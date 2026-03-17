@@ -1,29 +1,29 @@
-from sqlmodel import SQLModel
+from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 from app.models import StoryStatus
 
-class CreateChapterRequest(SQLModel):
+class CreateChapterRequest(BaseModel):
     title: str
     content: str = ""
 
-class UpdateChapterRequest(SQLModel):
+class UpdateChapterRequest(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
     published: Optional[bool] = None
 
-class ReorderChapterRequest(SQLModel):
+class ReorderChapterRequest(BaseModel):
     from_pos: int
     to_pos: int
 
-class ChapterListItem(SQLModel):
+class ChapterListItem(BaseModel):
     id: str
     title: str
     published: bool
     word_count: int
     updated_at: datetime
 
-class ChapterContentResponse(SQLModel):
+class ChapterContentResponse(BaseModel):
     id: str
     title: str
     published: bool
@@ -35,12 +35,12 @@ class ChapterContentResponse(SQLModel):
     previous_chapter_id: Optional[str] = None
     next_chapter_id: Optional[str] = None
 
-class ChapterListResponse(SQLModel):
+class ChapterListResponse(BaseModel):
     story_id: str
     story_title: str
     story_status: StoryStatus
     story_last_updated: datetime
     chapters: List[ChapterListItem]
 
-class ChapterEditRequest(SQLModel):
+class ChapterEditRequest(BaseModel):
     content: str

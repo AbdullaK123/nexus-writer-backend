@@ -2,8 +2,8 @@ from prefect import flow
 from loguru import logger
 from app.flows.extraction.chapter_flow import extract_single_chapter_flow
 from typing import List
-from sqlmodel.ext.asyncio.session import AsyncSession
-from app.core.database import engine
+from tortoise import Tortoise
+from app.core.database import TORTOISE_ORM
 from app.models import Chapter, Story
 from app.core.mongodb import MongoDB
 from app.config.settings import app_config
@@ -15,10 +15,11 @@ async def reextract_chapters_flow(story_id: str, chapter_ids: List[str]):
     """Re-extract chapters in sequence after deletion, each with proper accumulated context"""
 
     await MongoDB.connect(app_config.mongodb_url)
+    await Tortoise.init(config=TORTOISE_ORM)
     
-    async with AsyncSession(engine) as db:
+    try:
         # Get story
-        story = await db.get(Story, story_id)
+        story = await Story.get_or_none(id=story_id)
         if not story or not story.path_array:
             raise ValueError(f"Story {story_id} not found or has no chapters")
         
@@ -27,7 +28,7 @@ async def reextract_chapters_flow(story_id: str, chapter_ids: List[str]):
         # Process each chapter IN ORDER (chapter_ids is already ordered from path_array)
         for chapter_id in chapter_ids:
             # Get chapter
-            chapter = await db.get(Chapter, chapter_id)
+            chapter = await Chapter.get_or_none(id=chapter_id)
             if not chapter:
                 logger.warning(f"Chapter {chapter_id} not found, skipping")
                 continue
@@ -53,3 +54,5 @@ async def reextract_chapters_flow(story_id: str, chapter_ids: List[str]):
             logger.info(f"✅ Completed re-extraction for Chapter {chapter_number}")
         
         logger.success(f"✅ Re-extraction complete for {len(chapter_ids)} chapters")
+    finally:
+        await Tortoise.close_connections()

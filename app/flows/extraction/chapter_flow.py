@@ -22,12 +22,11 @@ from prefect.client.schemas.filters import (
 )
 from prefect.client.schemas.objects import StateType
 from loguru import logger
-from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
 from app.config.settings import app_config
-from app.core.database import engine
+from app.core.database import TORTOISE_ORM
 from app.core.mongodb import MongoDB
 from app.models import Chapter
+from tortoise import Tortoise
 from app.ai.models.character import CharacterExtraction
 from app.ai.models.plot import PlotExtraction
 from app.ai.models.world import WorldExtraction
@@ -179,10 +178,12 @@ async def _build_accumulated_context(
     if not previous_chapter_ids:
         return ""
 
-    async with AsyncSession(engine) as db:
-        query = select(Chapter).where(Chapter.id.in_(previous_chapter_ids))  # type: ignore[union-attr]
-        result = await db.exec(query)
-        previous_chapters = {ch.id: ch for ch in result.all()}
+    await Tortoise.init(config=TORTOISE_ORM)
+    try:
+        previous_chapters_list = await Chapter.filter(id__in=previous_chapter_ids)
+        previous_chapters = {ch.id: ch for ch in previous_chapters_list}
+    finally:
+        await Tortoise.close_connections()
 
     contexts = []
     for i, ch_id in enumerate(previous_chapter_ids):

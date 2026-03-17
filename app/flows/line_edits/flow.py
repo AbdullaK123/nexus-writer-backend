@@ -4,11 +4,11 @@ Line edits flow for generating prose improvements.
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from prefect import flow, get_client, task
-from sqlmodel.ext.asyncio.session import AsyncSession
+from tortoise import Tortoise
 from loguru import logger
 from app.ai.edits import generate_line_edits
 from app.ai.models.edits import ChapterEdit, ChapterEdits
-from app.core.database import engine
+from app.core.database import TORTOISE_ORM
 from app.models import Chapter
 from app.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAY, EXTRACTION_TASK_TIMEOUT
 from app.core.mongodb import MongoDB
@@ -116,10 +116,9 @@ async def save_line_edits_task(
     line_edits: ChapterEdit,
 ) -> None:
     """Save line edits to MongoDB only"""
-    async with AsyncSession(engine) as db:
-
-
-        chapter = await db.get(Chapter, chapter_id)
+    await Tortoise.init(config=TORTOISE_ORM)
+    try:
+        chapter = await Chapter.get_or_none(id=chapter_id)
         if not chapter:
             raise ValueError(f"Chapter {chapter_id} not found")
         
@@ -142,6 +141,8 @@ async def save_line_edits_task(
             upsert=True
         )
         logger.info(f"✅ Saved {len(line_edits.edits)} edits to MongoDB")
+    finally:
+        await Tortoise.close_connections()
         
     logger.info(f"✅ Line edits saved for chapter {chapter_id}")
 

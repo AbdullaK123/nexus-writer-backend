@@ -1,9 +1,8 @@
-from sqlmodel import SQLModel, Relationship, Field, UniqueConstraint, CheckConstraint
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy import JSON, Column, String
-from pydantic import EmailStr
+from tortoise import fields
+from tortoise.models import Model
+from tortoise.contrib.postgres.fields import ArrayField
 from datetime import datetime
-from typing import Literal, Optional, List
+from typing import Optional, List
 import uuid
 from enum import Enum
 
@@ -22,116 +21,98 @@ class FrequencyType(str, Enum):
     MONTHLY = "Monthly"
 
 
-class TimeStampMixin:
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+class TimestampMixin:
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
 
 
-class Session(SQLModel, TimeStampMixin,  table=True):
-    session_id: str = Field(index=True, primary_key=True)
-    user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
-    expires_at: datetime
-    ip_address: Optional[str] = Field(default=None)
-    user_agent: Optional[str] = Field(default=None)
-    user: 'User' = Relationship(back_populates='sessions', sa_relationship_kwargs={"lazy": "raise"})
-
-
-class User(SQLModel, TimeStampMixin, table=True):
-    id: Optional[str] = Field(default_factory=generate_uuid, primary_key=True)
-    username: str
-    email: EmailStr = Field(index=True, unique=True)
-    password_hash: str
-    profile_img: Optional[str] = Field(default=None, unique=True)
-    sessions: List['Session'] = Relationship(back_populates='user', cascade_delete=True, sa_relationship_kwargs={"lazy": "raise"})
-    stories: List['Story'] = Relationship(back_populates='user', cascade_delete=True, sa_relationship_kwargs={"lazy": "raise"})
-    chapters: List['Chapter'] = Relationship(back_populates='user', cascade_delete=True, sa_relationship_kwargs={"lazy": "raise"})
-    targets: List['Target'] = Relationship(back_populates='user', cascade_delete=True, sa_relationship_kwargs={"lazy": "raise"})
-    
-
-class Story(SQLModel, TimeStampMixin, table=True):
-
-    __table_args__ = (
-        UniqueConstraint('user_id', 'title'),
+class Session(Model, TimestampMixin):
+    session_id = fields.CharField(max_length=255, pk=True, index=True)
+    user: fields.ForeignKeyRelation['User'] = fields.ForeignKeyField(
+        'models.User', related_name='sessions', on_delete=fields.CASCADE, index=True
     )
+    expires_at = fields.DatetimeField()
+    ip_address = fields.CharField(max_length=45, null=True)
+    user_agent = fields.CharField(max_length=512, null=True)
 
-    id: Optional[str] = Field(default_factory=generate_uuid, primary_key=True)
-    user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
-    title: str = Field(index=True)
-    story_context: Optional[str] = Field(default=None)
-    status: StoryStatus = Field(default=StoryStatus.ONGOING)
-    path_array: Optional[List[str]] = Field(sa_column=Column(ARRAY(String)))
-    chapters: List['Chapter'] = Relationship(back_populates='story', cascade_delete=True, sa_relationship_kwargs={"lazy": "raise"})
-    user: 'User' = Relationship(back_populates='stories', sa_relationship_kwargs={"lazy": "raise"})
-    target: 'Target' = Relationship(back_populates='story', cascade_delete=True, sa_relationship_kwargs={"lazy": "raise"})
+    class Meta:
+        table = "session"
 
 
-class Chapter(SQLModel, TimeStampMixin, table=True):
+class User(Model, TimestampMixin):
+    id = fields.CharField(max_length=36, pk=True, default=generate_uuid)
+    username = fields.CharField(max_length=255)
+    email = fields.CharField(max_length=255, unique=True, index=True)
+    password_hash = fields.CharField(max_length=255)
+    profile_img = fields.CharField(max_length=512, null=True, unique=True)
 
-    __table_args__ = (
-        UniqueConstraint('user_id', 'story_id', 'title'),
-        CheckConstraint('id != prev_chapter_id', name='no_self_prev_reference'),
-        CheckConstraint('id != next_chapter_id', name='no_self_next_reference'),
-        CheckConstraint(
-            'prev_chapter_id != next_chapter_id OR prev_chapter_id IS NULL OR next_chapter_id IS NULL', 
-            name='no_circular_prev_next'
-        ),
+    # Reverse relations (populated by ForeignKeyField on the other side)
+    sessions: fields.ReverseRelation['Session']
+    stories: fields.ReverseRelation['Story']
+    chapters: fields.ReverseRelation['Chapter']
+    targets: fields.ReverseRelation['Target']
+
+    class Meta:
+        table = "user"
+
+
+class Story(Model, TimestampMixin):
+    id = fields.CharField(max_length=36, pk=True, default=generate_uuid)
+    user: fields.ForeignKeyRelation['User'] = fields.ForeignKeyField(
+        'models.User', related_name='stories', on_delete=fields.CASCADE, index=True
     )
+    title = fields.CharField(max_length=255, index=True)
+    story_context = fields.TextField(null=True)
+    status = fields.CharEnumField(StoryStatus, default=StoryStatus.ONGOING)
+    path_array = ArrayField(element_type="text", null=True)
 
+    # Reverse relations
+    chapters: fields.ReverseRelation['Chapter']
+    target: fields.ReverseRelation['Target']
+
+    class Meta:
+        table = "story"
+        unique_together = (("user_id", "title"),)
+
+
+class Chapter(Model, TimestampMixin):
     # Primary fields
-    id: Optional[str] = Field(default_factory=generate_uuid, primary_key=True)
-    story_id: str = Field(index=True, foreign_key='story.id', ondelete='CASCADE')
-    user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
-    title: str 
-    content: str  # Raw chapter text
-    published: bool = Field(default=False)
-    
+    id = fields.CharField(max_length=36, pk=True, default=generate_uuid)
+    story: fields.ForeignKeyRelation['Story'] = fields.ForeignKeyField(
+        'models.Story', related_name='chapters', on_delete=fields.CASCADE, index=True
+    )
+    user: fields.ForeignKeyRelation['User'] = fields.ForeignKeyField(
+        'models.User', related_name='chapters', on_delete=fields.CASCADE, index=True
+    )
+    title = fields.CharField(max_length=255)
+    content = fields.TextField()
+    published = fields.BooleanField(default=False)
+
     # Word count tracking
-    word_count: int = Field(default=0, description="Current word count")
-    last_extracted_word_count: Optional[int] = Field(
-        default=None, 
-        description="Word count at last extraction (for delta checking)"
-    )
-    
+    word_count = fields.IntField(default=0)
+    last_extracted_word_count = fields.IntField(null=True)
+
     # Condensed context (rolling context extraction result)
-    condensed_context: Optional[str] = Field(
-        default=None,
-        description="Final 1500-word condensed context in structured prose"
-    )
-    timeline_context: Optional[str] = Field(
-        default=None,
-        description="When this chapter occurs in the story timeline"
-    )
-    emotional_arc: Optional[str] = Field(
-        default=None,
-        description="Emotional journey of the chapter"
-    )
-    
+    condensed_context = fields.TextField(null=True)
+    timeline_context = fields.TextField(null=True)
+    emotional_arc = fields.TextField(null=True)
+
     # Extraction metadata
-    last_extracted_at: Optional[datetime] = Field(
-        default=None,
-        description="When extraction was last run"
+    last_extracted_at = fields.DatetimeField(null=True)
+    extraction_version = fields.CharField(max_length=50, null=True)
+
+    # Linked list for chapter ordering (self-referencing)
+    next_chapter: fields.ForeignKeyRelation['Chapter'] = fields.ForeignKeyField(
+        'models.Chapter', related_name='prev_of', null=True, on_delete=fields.SET_NULL
     )
-    extraction_version: Optional[str] = Field(
-        default=None,
-        description="Version of extraction prompts used (e.g., '1.0.0')"
+    prev_chapter: fields.ForeignKeyRelation['Chapter'] = fields.ForeignKeyField(
+        'models.Chapter', related_name='next_of', null=True, on_delete=fields.SET_NULL
     )
-    
-    # Relationships
-    story: 'Story' = Relationship(back_populates='chapters', sa_relationship_kwargs={"lazy": "raise"})
-    user: 'User' = Relationship(back_populates='chapters', sa_relationship_kwargs={"lazy": "raise"})
-    
-    # Linked list for chapter ordering
-    next_chapter_id: Optional[str] = Field(
-        default=None, 
-        foreign_key="chapter.id", 
-        ondelete='SET NULL'
-    )
-    prev_chapter_id: Optional[str] = Field(
-        default=None, 
-        foreign_key="chapter.id", 
-        ondelete='SET NULL'
-    )
-    
+
+    class Meta:
+        table = "chapter"
+        unique_together = (("user_id", "story_id", "title"),)
+
     @staticmethod
     def get_chapter_number(chapter_id: str, path_array: Optional[List[str]]) -> int:
         """Get chapter number from a story's path_array without traversing relationships."""
@@ -144,29 +125,29 @@ class Chapter(SQLModel, TimeStampMixin, table=True):
                 f"Chapter {chapter_id} not found in path_array. "
                 f"Expected one of: {path_array}"
             ) from e
-    
+
     @property
     def has_extractions(self) -> bool:
         """Check if extraction is complete (condensed context exists)"""
         return bool(self.condensed_context)
 
 
-class Target(SQLModel, TimeStampMixin, table=True):
-
-    __table_args__ = (
-        UniqueConstraint('story_id', 'frequency'),
-        CheckConstraint('to_date >= from_date', name='to_date_gte_from_date')
+class Target(Model, TimestampMixin):
+    id = fields.CharField(max_length=36, pk=True, default=generate_uuid)
+    story: fields.ForeignKeyRelation['Story'] = fields.ForeignKeyField(
+        'models.Story', related_name='target', on_delete=fields.CASCADE, index=True
     )
+    user: fields.ForeignKeyRelation['User'] = fields.ForeignKeyField(
+        'models.User', related_name='targets', on_delete=fields.CASCADE, index=True
+    )
+    quota = fields.IntField(default=0)
+    frequency = fields.CharEnumField(FrequencyType, default=FrequencyType.DAILY)
+    from_date = fields.DatetimeField(default=datetime.utcnow)
+    to_date = fields.DatetimeField(default=datetime.utcnow)
 
-    id: Optional[str] = Field(default_factory=generate_uuid, primary_key=True)
-    story_id: str = Field(index=True, foreign_key='story.id', ondelete='CASCADE')
-    user_id: str = Field(index=True, foreign_key='user.id', ondelete='CASCADE')
-    quota: int = Field(ge=0, default=0, description="Word count target")
-    frequency: FrequencyType = Field(default="Daily", description="Frequency of word count quota")
-    from_date: datetime = Field(default_factory=datetime.utcnow)
-    to_date: datetime = Field(default_factory=datetime.utcnow)
-    story: 'Story' = Relationship(back_populates='target', sa_relationship_kwargs={"lazy": "raise"})
-    user: 'User' = Relationship(back_populates='targets', sa_relationship_kwargs={"lazy": "raise"})
+    class Meta:
+        table = "target"
+        unique_together = (("story_id", "frequency"),)
 
 
 

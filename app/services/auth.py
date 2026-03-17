@@ -1,5 +1,4 @@
 from app.config.settings import app_config
-from app.core.database import get_db
 from app.models import User, Session
 from app.schemas.auth import RegistrationData, UserResponse, AuthCredentials, ConnectionDetails
 from app.core.security import (
@@ -9,9 +8,7 @@ from app.core.security import (
     encrypt_session_data,
     decrypt_session_data
 )
-from sqlmodel.ext.asyncio.session import AsyncSession
 from fastapi import HTTPException
-from sqlmodel import select
 from fastapi import status, Cookie, Response, Request, Depends
 from typing import Optional, Union
 from datetime import datetime, timedelta
@@ -21,13 +18,8 @@ from app.utils.logging_context import context_logger, set_user_id
 
 class AuthService:
 
-    def __init__(self, db: AsyncSession):
-        self.db = db
-
     async def get_user_by_email(self, email: str) -> Optional[User]:  
-        query = select(User).where(User.email == email)
-        user = (await self.db.execute(query)).scalar_one_or_none()
-        return user
+        return await User.filter(email=email).first()
     
 
     async def authenticate_user(self, credentials: AuthCredentials) -> User:
@@ -57,16 +49,13 @@ class AuthService:
         expires_at = datetime.utcnow() + timedelta(days=1)
 
         # create record in db
-        session = Session(
+        await Session.create(
             session_id=session_id,
             user_id=user_id,
             expires_at=expires_at,
             ip_address=connection_details.ip_address,
             user_agent=connection_details.user_agent
         )
-        self.db.add(session)
-        await self.db.commit()
-        await self.db.refresh(session)
         context_logger(db_operation=True).info(
             "Session created user_id={user_id} session_id={session_id}",
             user_id=user_id,
@@ -80,10 +69,8 @@ class AuthService:
     
     async def validate_session(self, encrypted_cookie_data: Union[bytes, str]) -> Optional[User]:
 
-
         if isinstance(encrypted_cookie_data, bytes):
             encrypted_cookie_data = encrypted_cookie_data.decode('utf-8')
-
 
         decrypted_cookie = decrypt_session_data(encrypted_cookie_data)
         if not decrypted_cookie or 'session_id' not in decrypted_cookie:
@@ -93,10 +80,9 @@ class AuthService:
                 detail="Your session is invalid. Please log in again."
             )
         
-        
-        session_query = select(Session).where(Session.session_id == decrypted_cookie.get('session_id'))
-
-        session = (await self.db.execute(session_query)).scalar_one_or_none()
+        session = await Session.filter(
+            session_id=decrypted_cookie.get('session_id')
+        ).first()
 
         if not session:
             context_logger(db_operation=True).warning("Session not found in DB")
@@ -121,8 +107,7 @@ class AuthService:
                 detail="Your session is invalid. Please log in again."
             )
         
-        user_query = select(User).where(User.id == user_id)
-        user = (await self.db.execute(user_query)).scalar_one_or_none()
+        user = await User.filter(id=user_id).first()
         if user:
             set_user_id(user.id)
 
@@ -133,13 +118,12 @@ class AuthService:
 
         if decrypted_cookie and 'session_id' in decrypted_cookie:
 
-            session_query = select(Session).where(Session.session_id == decrypted_cookie.get('session_id'))
-
-            session = (await self.db.execute(session_query)).scalar_one_or_none()
+            session = await Session.filter(
+                session_id=decrypted_cookie.get('session_id')
+            ).first()
 
             if session:
-                await self.db.delete(session)
-                await self.db.commit()
+                await session.delete()
                 context_logger(db_operation=True).info("Session deleted for user_id={user_id}", user_id=session.user_id)
             else:
                 context_logger(db_operation=True).warning("Logout requested but session not found")
@@ -184,15 +168,12 @@ class AuthService:
                 detail="An account with this email already exists. Try logging in instead."
             )
 
-        user_to_create = User(
+        user_to_create = await User.create(
             username=registration_data.username,
             email=registration_data.email,
             password_hash=hash_password(registration_data.password),
             profile_img=registration_data.profile_img
         )
-        self.db.add(user_to_create)
-        await self.db.commit()
-        await self.db.refresh(user_to_create)
         context_logger(db_operation=True).info(
             "User registered user_id={user_id}",
             user_id=user_to_create.id,
@@ -207,8 +188,8 @@ class AuthService:
 
 
 
-def get_auth_service(db: AsyncSession = Depends(get_db)):
-    return AuthService(db)
+def get_auth_service():
+    return AuthService()
 
 async def get_current_user(
     request: Request,

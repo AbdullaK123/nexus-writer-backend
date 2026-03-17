@@ -1,13 +1,9 @@
 import asyncio
-from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select, desc
 from typing import Optional, List
 from app.models import Story, Chapter, StoryStatus, Target
 from app.services.target import TargetService
-from sqlalchemy.orm import selectinload
 from app.schemas.chapter import ChapterListItem
 from fastapi import HTTPException, status, Depends
-from app.core.database import get_db
 from app.schemas.story import (
     CreateStoryRequest,
     StoryListItemResponse,
@@ -23,22 +19,21 @@ from app.core.mongodb import get_mongodb
 
 class StoryService:
 
-    def __init__(self, db: AsyncSession, mongodb: AsyncDatabase):
-        self.db = db
+    def __init__(self, mongodb: AsyncDatabase):
         self.mongodb = mongodb
-        self.target_service = TargetService(db)
+        self.target_service = TargetService()
         self._job_service = None
 
     @property
     def job_service(self):
         if self._job_service is None:
             from app.services.jobs import JobService
-            self._job_service = JobService(db=self.db, mongodb=self.mongodb)
+            self._job_service = JobService(mongodb=self.mongodb)
         return self._job_service
 
     async def append_to_path_end(self, story_id: str, chapter_id: str):
 
-        story = await self.db.get(Story, story_id)
+        story = await Story.get_or_none(id=story_id)
 
         logger.debug(f"Append to path triggered!")
         logger.debug(f"Current path array: {story.path_array}")
@@ -49,30 +44,34 @@ class StoryService:
         if story.path_array is None:
             story.path_array = []
 
-        story.path_array.append(chapter_id)
+        path = list(story.path_array)
+        path.append(chapter_id)
+        story.path_array = path
 
         logger.debug(f"Current path array: {story.path_array}")
 
-        await self.db.commit()
+        await story.save(update_fields=['path_array'])
 
     async def remove_from_path(self, story_id: str, chapter_id: str):
 
-        story = await self.db.get(Story, story_id)
+        story = await Story.get_or_none(id=story_id)
 
         if not story or story.path_array is None:
             return 
         
         logger.debug(f"Current path array: {story.path_array}")
         
-        story.path_array.remove(chapter_id)
+        path = list(story.path_array)
+        path.remove(chapter_id)
+        story.path_array = path
 
         logger.debug(f"Current path array: {story.path_array}")
 
-        await self.db.commit()
+        await story.save(update_fields=['path_array'])
 
     async def reorder_path(self, story_id: str, from_pos: int, to_pos: int):
 
-        story = await self.db.get(Story, story_id)
+        story = await Story.get_or_none(id=story_id)
 
         if not story or story.path_array is None:
             raise ValueError(f"Story {story_id} does not have a path array")
@@ -85,12 +84,14 @@ class StoryService:
         
         logger.debug(f"Current path array: {story.path_array}")
 
-        chapter_id = story.path_array.pop(from_pos)
-        story.path_array.insert(to_pos, chapter_id)
+        path = list(story.path_array)
+        chapter_id = path.pop(from_pos)
+        path.insert(to_pos, chapter_id)
+        story.path_array = path
 
         logger.debug(f"Current path array: {story.path_array}")
 
-        await self.db.commit()
+        await story.save(update_fields=['path_array'])
 
     async def create(self, user_id: str, story_info: CreateStoryRequest) -> dict:
 
@@ -102,15 +103,11 @@ class StoryService:
                 detail="You already have a story with this title. Please choose a different one."
             )
         
-        story_to_add = Story(
+        await Story.create(
             user_id=user_id,
             title=story_info.title,
             path_array=[]
         )
-
-        self.db.add(story_to_add)
-        await self.db.commit()
-        await self.db.refresh(story_to_add)
 
         return {
             "message": "Story successfully created"
@@ -140,8 +137,7 @@ class StoryService:
         for field, value in update_data.items():
             setattr(story, field, value)
 
-        await self.db.commit()
-        await self.db.refresh(story)
+        await story.save(update_fields=list(update_data.keys()))
 
         return {
             "message": "Story successfully updated"
@@ -163,8 +159,7 @@ class StoryService:
                 detail="We couldn't find this story. It may have been deleted."
             )
         
-        await self.db.delete(story)
-        await self.db.commit()
+        await story.delete()
 
         # delete all extractions and edits related to the story in MongoDB
         await asyncio.gather(
@@ -187,16 +182,10 @@ class StoryService:
         story = await self.get_by_id(user_id, story_id)
         
         # Get ALL chapters in one query
-        chapter_query = (
-            select(Chapter)
-            .where(
-                Chapter.user_id == user_id,
-                Chapter.story_id == story_id
-            )
-            .options(selectinload(Chapter.story))
-        )
-        
-        all_chapters = (await self.db.execute(chapter_query)).scalars().all()
+        all_chapters = await Chapter.filter(
+            user_id=user_id,
+            story_id=story_id
+        ).prefetch_related('story')
         
         if not story.path_array:
             # Fallback: return by creation date
@@ -216,34 +205,18 @@ class StoryService:
 
     async def get_by_title(self, user_id: str, title: str) -> Optional[Story]:
 
-        query = (
-            select(Story)
-            .where(
-                Story.user_id == user_id, 
-                Story.title == title
-            )
-        )
-
-        story = (await self.db.execute(query)).scalar_one_or_none()
-
-        return story
+        return await Story.filter(
+            user_id=user_id,
+            title=title
+        ).first()
     
 
     async def get_by_id(self, user_id: str, id: str) -> Optional[Story]:
 
-        print(f"DEBUG StoryService.get_by_id: story_id={id}, user_id={user_id}")
-
-        query = (
-            select(Story)
-            .where(
-                Story.user_id == user_id, 
-                Story.id == id
-            )
-        )
-
-        story = (await self.db.execute(query)).scalar_one_or_none()
-
-        return story
+        return await Story.filter(
+            user_id=user_id,
+            id=id
+        ).first()
     
     async def get_story_details(self, user_id: str, story_id: str) -> StoryDetailResponse:
 
@@ -279,35 +252,18 @@ class StoryService:
     
     async def get_all_stories(self, user_id: str) -> StoryGridResponse:
 
-        stories_query = (
-            select(Story)
-            .where(
-                Story.user_id == user_id
-            )
-            .order_by(
-                desc(Story.created_at) # default ordering
-            )
-        )
+        stories = await Story.filter(
+            user_id=user_id
+        ).order_by('-created_at')
 
-        stories = (await self.db.execute(stories_query)).scalars().all()
-
-        chapter_queries = {
-            story.id: (
-                select(Chapter)
-                .where(
-                    Chapter.story_id == story.id
-                ).order_by(
-                    desc(Chapter.created_at)
-                )
-            )
-            for story in stories
-        }
-
-        chapters = {
-            story_id: (await self.db.execute(query)).scalars().all()
-            for story_id, query
-            in chapter_queries.items()
-        }
+        # Get all chapters for all stories in one query
+        story_ids = [story.id for story in stories]
+        all_chapters = await Chapter.filter(story_id__in=story_ids)
+        
+        # Group chapters by story_id
+        chapters = {}
+        for chapter in all_chapters:
+            chapters.setdefault(chapter.story_id, []).append(chapter)
     
         story_cards = [
             StoryCardResponse(
@@ -315,8 +271,8 @@ class StoryService:
                 latest_chapter_id=story.path_array[-1] if story.path_array else None,
                 title=story.title,
                 status=story.status,
-                total_chapters=len(chapters[story.id]),
-                word_count=sum(get_word_count(chapter.content) for chapter in chapters[story.id]),
+                total_chapters=len(chapters.get(story.id, [])),
+                word_count=sum(get_word_count(chapter.content) for chapter in chapters.get(story.id, [])),
                 created_at=story.created_at,
                 updated_at=story.updated_at
             )
@@ -327,39 +283,24 @@ class StoryService:
     
     async def get_all_story_list_items(self, user_id: str) -> List[StoryListItemResponse]:
         
-        stories_query = (
-            select(Story)
-            .where(Story.user_id == user_id)
-            .order_by(
-                desc(Story.created_at)
-            )
-        )
+        stories = await Story.filter(
+            user_id=user_id
+        ).order_by('-created_at')
 
-        stories = (await self.db.execute(stories_query)).scalars().all()
-
-        chapter_queries = {
-            story.id: (
-                select(Chapter)
-                .where(
-                    Chapter.story_id == story.id
-                ).order_by(
-                    desc(Chapter.created_at)
-                )
-            )
-            for story in stories
-        }
-
-        chapters = {
-            story_id: (await self.db.execute(query)).scalars().all()
-            for story_id, query
-            in chapter_queries.items()
-        }
+        # Get all chapters for all stories in one query
+        story_ids = [story.id for story in stories]
+        all_chapters = await Chapter.filter(story_id__in=story_ids)
+        
+        # Group chapters by story_id
+        chapters = {}
+        for chapter in all_chapters:
+            chapters.setdefault(chapter.story_id, []).append(chapter)
 
         list_responses = [
             StoryListItemResponse(
                 id=story.id,
                 title=story.title,
-                word_count=sum(get_word_count(chapter.content) for chapter in chapters[story.id]),
+                word_count=sum(get_word_count(chapter.content) for chapter in chapters.get(story.id, [])),
                 targets = (await self.target_service.get_all_targets_by_story_id(story.id, user_id))
             )
             for story in stories
@@ -369,7 +310,6 @@ class StoryService:
     
 
 async def get_story_service(
-    db: AsyncSession = Depends(get_db),
     mongodb: AsyncDatabase = Depends(get_mongodb)
 ):
-    return StoryService(db, mongodb)
+    return StoryService(mongodb)

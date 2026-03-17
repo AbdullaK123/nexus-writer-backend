@@ -1,18 +1,15 @@
-from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models import FrequencyType, Target, Story
 from typing import Optional, Dict, List
-from sqlmodel import select
 from app.schemas import UpdateTargetRequest, CreateTargetRequest, TargetResponse
 from fastapi import HTTPException, status, Depends
-from app.core.database import get_db
 from app.utils.logging_context import context_logger
 
 
 
 class TargetService:
 
-    def __init__(self, db: AsyncSession):
-        self.db = db
+    def __init__(self):
+        pass
 
     # create a target
     async def create_target(
@@ -22,7 +19,7 @@ class TargetService:
         payload: CreateTargetRequest
     ) -> TargetResponse:
         
-        story = await self.db.get(Story, story_id)
+        story = await Story.get_or_none(id=story_id)
 
         if story is None:
             context_logger(db_operation=True).warning(
@@ -55,13 +52,11 @@ class TargetService:
                 detail="A target with that frequency already exists"
             )
         
-        target_to_create = Target(
+        target_to_create = await Target.create(
             story_id=story_id,
             user_id=user_id,
             **payload.model_dump()
         )
-        self.db.add(target_to_create)
-        await self.db.commit()
         context_logger(db_operation=True).info(
             "Target created story_id={story_id} user_id={user_id} frequency={frequency} quota={quota}",
             story_id=story_id,
@@ -88,16 +83,11 @@ class TargetService:
         frequency: FrequencyType
     ) -> Optional[TargetResponse]:
         
-        target_query = (
-            select(Target)
-            .where(
-                Target.story_id == story_id,
-                Target.user_id == user_id,
-                Target.frequency == frequency
-            )
-        )
-
-        target = (await self.db.exec(target_query)).first()
+        target = await Target.filter(
+            story_id=story_id,
+            user_id=user_id,
+            frequency=frequency
+        ).first()
 
         if target:
             context_logger(db_operation=True).info(
@@ -130,7 +120,7 @@ class TargetService:
         user_id: str
     ) -> List[TargetResponse]:
         
-        story = await self.db.get(Story, story_id)
+        story = await Story.get_or_none(id=story_id)
 
         if story is None:
             context_logger(db_operation=True).warning(
@@ -151,15 +141,10 @@ class TargetService:
                 detail="Only the story owner can view targets for it"
             )
         
-        target_query = (
-            select(Target)
-            .where(
-                Target.story_id == story_id,
-                Target.user_id == user_id
-            )
+        targets = await Target.filter(
+            story_id=story_id,
+            user_id=user_id
         )
-
-        targets = (await self.db.exec(target_query)).all()
         context_logger(db_operation=True).info(
             "List targets story_id={story_id} user_id={user_id} count={count}",
             story_id=story_id,
@@ -188,7 +173,7 @@ class TargetService:
         payload: UpdateTargetRequest
     ) -> TargetResponse:
         
-        target = await self.db.get(Target, target_id)
+        target = await Target.get_or_none(id=target_id)
 
         if target is None:
             context_logger(db_operation=True).warning(
@@ -199,7 +184,7 @@ class TargetService:
                 detail="Target not found"
             )
         
-        story = await self.db.get(Story, story_id)
+        story = await Story.get_or_none(id=story_id)
             
         if story is None:
             context_logger(db_operation=True).warning(
@@ -220,11 +205,11 @@ class TargetService:
                 detail="Only the story owner can update targets for it"
             )
         
-
-        for field, value in payload.model_dump(exclude_unset=True).items():
+        update_data = payload.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
             setattr(target, field, value)
 
-        await self.db.commit()
+        await target.save(update_fields=list(update_data.keys()))
         context_logger(db_operation=True).info(
             "Target updated target_id={target_id} story_id={story_id} user_id={user_id}",
             target_id=target.id, story_id=story_id, user_id=user_id
@@ -247,7 +232,7 @@ class TargetService:
         target_id: str
     ) -> Dict[str, str]:
         
-        target = await self.db.get(Target, target_id)
+        target = await Target.get_or_none(id=target_id)
 
         if target is None:
             context_logger(db_operation=True).warning(
@@ -258,7 +243,7 @@ class TargetService:
                 detail="Target not found"
             )
         
-        story = await self.db.get(Story, story_id)
+        story = await Story.get_or_none(id=story_id)
             
         if story is None:
             context_logger(db_operation=True).warning(
@@ -279,8 +264,7 @@ class TargetService:
                 detail="Only the story owner can update targets for it"
             )
 
-        await self.db.delete(target)
-        await self.db.commit()
+        await target.delete()
         context_logger(db_operation=True).info(
             "Target deleted target_id={target_id} story_id={story_id} user_id={user_id}",
             target_id=target_id, story_id=story_id, user_id=user_id
@@ -291,7 +275,5 @@ class TargetService:
         }
 
 
-def get_target_service(
-    db: AsyncSession = Depends(get_db)
-) -> TargetService:
-    return TargetService(db)
+def get_target_service() -> TargetService:
+    return TargetService()

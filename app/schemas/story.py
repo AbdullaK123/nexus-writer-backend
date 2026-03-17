@@ -1,18 +1,18 @@
 from app.models import StoryStatus
-from sqlmodel import SQLModel
+from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 from app.schemas.chapter import ChapterListItem
 from app.schemas.target import TargetResponse
 
-class CreateStoryRequest(SQLModel):
+class CreateStoryRequest(BaseModel):
     title: str
 
-class UpdateStoryRequest(SQLModel):
+class UpdateStoryRequest(BaseModel):
     title: Optional[str] = None
     status: Optional[StoryStatus] = None
 
-class StoryCardResponse(SQLModel):
+class StoryCardResponse(BaseModel):
     id: str
     latest_chapter_id: Optional[str] = None
     title: str
@@ -22,7 +22,7 @@ class StoryCardResponse(SQLModel):
     created_at: datetime
     updated_at: datetime
 
-class StoryListItemResponse(SQLModel):
+class StoryListItemResponse(BaseModel):
     id: str
     title: str
     word_count: int
@@ -31,7 +31,7 @@ class StoryListItemResponse(SQLModel):
 class StoryDetailResponse(StoryCardResponse):
     chapters: List['ChapterListItem']
 
-class StoryGridResponse(SQLModel):
+class StoryGridResponse(BaseModel):
     stories: List['StoryCardResponse']
 
 

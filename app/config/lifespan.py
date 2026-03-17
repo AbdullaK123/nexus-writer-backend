@@ -5,10 +5,15 @@ from contextlib import asynccontextmanager
 from loguru import logger
 from app.core.mongodb import MongoDB
 from app.config.settings import app_config
+from tortoise import Tortoise
+from app.core.database import TORTOISE_ORM
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+
+    logger.info("Initializing Tortoise ORM...")
+    await Tortoise.init(config=TORTOISE_ORM)
 
     session_cleaner = AsyncBackgroundWorker()
 
@@ -33,3 +38,6 @@ async def lifespan(app: FastAPI):
 
     logger.info("Closing connection to mongodb database...")
     await MongoDB.close()
+
+    logger.info("Closing Tortoise ORM connections...")
+    await Tortoise.close_connections()
