@@ -38,3 +38,49 @@ class CharacterKnowledgeResponse(BaseModel):
 class CharacterInconsistencyResponse(BaseModel):
     character_name: str
     report: str = ""
+
+
+class CharacterAppearance(BaseModel):
+    chapter_number: int 
+    chapter_id: str
+
+
+class CharacterAppearanceMap(BaseModel):
+    character_name: str 
+    appearances: Optional[List[CharacterAppearance]] = []
+
+class CharacterAppearancesResponse(BaseModel):
+    maps: Optional[List[CharacterAppearanceMap]] = []
+
+class CharacterIntroductionCount(BaseModel):
+    chapter_number: int 
+    chapter_id: str 
+    characters_introduced: int 
+
+class CharacterIntroductionResponse(BaseModel):
+    counts: Optional[List[CharacterIntroductionCount]] = []
+
+class CharacterGoalsResponse(BaseModel):
+    character_name: str
+    goals: Optional[List[ChapterGoals]] = []
+
+class CharacterKnowledgeMap(BaseModel):
+    chapter_number: int 
+    chapter_id: str 
+    knowledge: Optional[List[str]] = []
+
+class CharacterKnowledgeMapResponse(BaseModel):
+    character_name: str 
+    maps: Optional[List[CharacterKnowledgeMap]] = []
+
+class ChapterCharacterDensity(BaseModel):
+    chapter_number: int 
+    chapter_id: str 
+    characters_present: int 
+
+class CharacterDensityResponse(BaseModel):
+    counts: Optional[List[ChapterCharacterDensity]] = []
+
+class CastManagementReportResponse(BaseModel):
+    story_id: str
+    report: str = ""
