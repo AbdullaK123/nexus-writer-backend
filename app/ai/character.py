@@ -44,6 +44,7 @@ class CharacterExtractionState(BaseModel):
     current_chapter_content: str
     chapter_number: int
     chapter_title: Optional[str] = None
+    use_lfm: bool = False
     extraction_plan: Optional[str] = None
     analysis: Optional[str] = None
     result: Optional[CharacterExtraction] = None
@@ -73,13 +74,19 @@ async def character_analyzer_node(state: CharacterExtractionState) -> dict:
 
 
 async def character_parser_node(state: CharacterExtractionState) -> dict:
-    result = await character_parser_agent.ainvoke({
-        "messages": [
-            SystemMessage(content=PARSER_SYSTEM_PROMPT),
-            HumanMessage(content=build_character_parser_prompt(state.analysis or ""))
-        ]
-    })
-    return {"result": result["structured_response"]}
+    prompt = build_character_parser_prompt(state.analysis or "")
+    if state.use_lfm:
+        from app.ai.utils.extractors import character_extractor
+        result = await character_extractor.extract(prompt)
+    else:
+        resp = await character_parser_agent.ainvoke({
+            "messages": [
+                SystemMessage(content=PARSER_SYSTEM_PROMPT),
+                HumanMessage(content=prompt)
+            ]
+        })
+        result = resp["structured_response"]
+    return {"result": result}
 
 
 graph = StateGraph(CharacterExtractionState)
@@ -97,13 +104,15 @@ async def extract_characters(
     story_context: str,
     current_chapter_content: str,
     chapter_number: int,
-    chapter_title: Optional[str] = None
+    chapter_title: Optional[str] = None,
+    use_lfm: bool = False,
 ) -> CharacterExtraction:
     state = CharacterExtractionState(
         story_context=story_context,
         current_chapter_content=current_chapter_content,
         chapter_number=chapter_number,
         chapter_title=chapter_title,
+        use_lfm=use_lfm,
     )
     result = await character_app.ainvoke(state)  # type: ignore
     return result["result"]

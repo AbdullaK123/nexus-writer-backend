@@ -207,7 +207,8 @@ async def extract_single_chapter_flow(
     word_count: int,
     story_id: str,
     story_path_array: List[str],
-    content: str
+    content: str,
+    use_lfm: bool = False,
 ) -> ChapterExtractionResult:
     """Extract context from a single chapter with checkpointing.
     
@@ -230,10 +231,10 @@ async def extract_single_chapter_flow(
     # Run all 4 extractions concurrently — gather instead of TaskGroup
     # so that one failure doesn't cancel the others
     results = await asyncio.gather(
-        extract_characters_task(accumulated_context, content, chapter_number, chapter_title),
-        extract_plot_task(accumulated_context, content, chapter_number, chapter_title),
-        extract_world_task(accumulated_context, content, chapter_number, chapter_title),
-        extract_structure_task(accumulated_context, content, chapter_number, chapter_title),
+        extract_characters_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm),
+        extract_plot_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm),
+        extract_world_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm),
+        extract_structure_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm),
         return_exceptions=True,
     )
 
@@ -285,6 +286,7 @@ async def extract_single_chapter_flow(
             plot_extraction=plot_result.model_dump(),
             world_extraction=world_result.model_dump(),
             structure_extraction=structure_result.model_dump(),
+            use_lfm=use_lfm,
         )
     except Exception as e:
         logger.error(f"Chapter {chapter_number}: Synthesis failed: {e}. Building fallback context.")

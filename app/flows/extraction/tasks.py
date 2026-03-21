@@ -37,10 +37,12 @@ async def extract_characters_task(
     chapter_content: str,
     chapter_number: int,
     chapter_title: Optional[str] = None,
+    use_lfm: bool = False,
 ) -> CharacterExtraction:
     """Extract character information from chapter"""
     result: CharacterExtraction = await extract_characters(
-        story_context, chapter_content, chapter_number, chapter_title
+        story_context, chapter_content, chapter_number, chapter_title,
+        use_lfm=use_lfm,
     )
     logger.debug(f"Chapter {chapter_number}: Character extraction complete")
     return result
@@ -56,10 +58,12 @@ async def extract_plot_task(
     chapter_content: str,
     chapter_number: int,
     chapter_title: Optional[str] = None,
+    use_lfm: bool = False,
 ) -> PlotExtraction:
     """Extract plot information from chapter"""
     result: PlotExtraction = await extract_plot_information(
-        story_context, chapter_content, chapter_number, chapter_title
+        story_context, chapter_content, chapter_number, chapter_title,
+        use_lfm=use_lfm,
     )
     logger.debug(f"Chapter {chapter_number}: Plot extraction complete")
     return result
@@ -75,10 +79,12 @@ async def extract_world_task(
     chapter_content: str,
     chapter_number: int,
     chapter_title: Optional[str] = None,
+    use_lfm: bool = False,
 ) -> WorldExtraction:
     """Extract world/setting information from chapter"""
     result: WorldExtraction = await extract_world_information(
-        story_context, chapter_content, chapter_number, chapter_title
+        story_context, chapter_content, chapter_number, chapter_title,
+        use_lfm=use_lfm,
     )
     logger.debug(f"Chapter {chapter_number}: World extraction complete")
     return result
@@ -94,10 +100,12 @@ async def extract_structure_task(
     chapter_content: str,
     chapter_number: int,
     chapter_title: Optional[str] = None,
+    use_lfm: bool = False,
 ) -> StructureExtraction:
     """Extract narrative structure from chapter"""
     result: StructureExtraction = await extract_story_structure(
-        story_context, chapter_content, chapter_number, chapter_title
+        story_context, chapter_content, chapter_number, chapter_title,
+        use_lfm=use_lfm,
     )
     logger.debug(f"Chapter {chapter_number}: Structure extraction complete")
     return result
@@ -118,6 +126,7 @@ async def synthesize_context_task(
     plot_extraction: dict,
     world_extraction: dict,
     structure_extraction: dict,
+    use_lfm: bool = False,
 ) -> CondensedChapterContext:
     """Synthesize all extractions into condensed context"""
     # Convert dicts back to models for synthesis
@@ -128,7 +137,8 @@ async def synthesize_context_task(
     
     result: CondensedChapterContext = await synthesize_chapter_context(
         chapter_id, chapter_number, chapter_title, word_count,
-        char_model, plot_model, world_model, struct_model
+        char_model, plot_model, world_model, struct_model,
+        use_lfm=use_lfm,
     )
     logger.debug(f"Chapter {chapter_number}: Context synthesis complete")
     return result

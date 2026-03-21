@@ -51,6 +51,7 @@ class EditorState(BaseModel):
     current_chapter_content: str
     chapter_number: int
     chapter_title: Optional[str] = None
+    use_lfm: bool = False
     editor_plan: Optional[str] = None
     current_edits: Optional[str] = None
     paragraphs: Optional[List[str]] = None
@@ -106,22 +107,23 @@ async def review_line_edits_node(state: EditorState) -> dict:
     }
 
 async def generate_edit_model_node(state: EditorState) -> dict:
-
-    result = await parser_agent.ainvoke(
-        {
-            "messages": [
-                SystemMessage(content=PARSER_SYSTEM_PROMPT),
-                HumanMessage(
-                    content=build_parser_user_prompt(
-                        state.current_edits if state.current_edits else "", 
-                        state.paragraphs if state.paragraphs else []
-                    )
-                )
-            ]
-        }
+    prompt = build_parser_user_prompt(
+        state.current_edits if state.current_edits else "",
+        state.paragraphs if state.paragraphs else []
     )
-
-    structured: ChapterEdit = result["structured_response"]
+    if state.use_lfm:
+        from app.ai.utils.extractors import edits_extractor
+        structured = await edits_extractor.extract(prompt)
+    else:
+        result = await parser_agent.ainvoke(
+            {
+                "messages": [
+                    SystemMessage(content=PARSER_SYSTEM_PROMPT),
+                    HumanMessage(content=prompt)
+                ]
+            }
+        )
+        structured: ChapterEdit = result["structured_response"]
     return {
         "edits": structured.edits
     }
@@ -144,13 +146,15 @@ async def generate_line_edits(
     story_context: str,
     current_chapter_content: str,
     chapter_number: int,
-    chapter_title: Optional[str] = None
+    chapter_title: Optional[str] = None,
+    use_lfm: bool = False,
 ) -> ChapterEdit:
     state = EditorState(
         story_context=story_context,
         current_chapter_content=current_chapter_content,
         chapter_number=chapter_number,
-        chapter_title=chapter_title
+        chapter_title=chapter_title,
+        use_lfm=use_lfm,
     )
     result = await app.ainvoke(state) # type: ignore
     edits = result["edits"]

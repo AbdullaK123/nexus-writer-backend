@@ -95,13 +95,15 @@ async def generate_line_edits_task(
     chapter_content: str,
     chapter_number: int,
     chapter_title: Optional[str] = None,
+    use_lfm: bool = False,
 ) -> ChapterEdit:
     """Generate line edits for chapter"""
     return await generate_line_edits(
         story_context, 
         chapter_content, 
         chapter_number, 
-        chapter_title
+        chapter_title,
+        use_lfm=use_lfm,
     )
 
 
@@ -161,7 +163,8 @@ async def line_edits_flow(
     chapter_title: Optional[str],
     story_context: str,
     story_path_array: List[str],
-    chapter_content: str
+    chapter_content: str,
+    use_lfm: bool = False,
 ) -> Dict[str, Any]:
     """Generate line edits for a chapter."""
     await MongoDB.connect(app_config.mongodb_url)
@@ -180,6 +183,7 @@ async def line_edits_flow(
         chapter_content=chapter_content,
         chapter_number=chapter_number,
         chapter_title=chapter_title,
+        use_lfm=use_lfm,
     )
     
     # Save to database

@@ -9,6 +9,7 @@ from app.core.mongodb import get_mongodb
 from app.config.settings import app_config
 from app.schemas.plot import *
 from app.utils.ai import extract_text
+from app.utils.retry import retry_llm, retry_mongo
 
 
 PLOT_RHYTHM_REPORT_SYSTEM_PROMPT = """You are a story structure analyst evaluating a manuscript's plot rhythm and thread management.
@@ -57,6 +58,7 @@ class PlotTrackerService:
             max_retries=app_config.ai_sdk_retries,
         )
 
+    @retry_mongo
     async def get_thread_timeline(
         self,
         story_id: str,
@@ -87,6 +89,7 @@ class PlotTrackerService:
             states=thread_states
         )
 
+    @retry_mongo
     async def get_dormant_threads(
         self,
         story_id: str,
@@ -153,6 +156,7 @@ class PlotTrackerService:
 
         return DormantThreadsResponse(threads=dormant_threads)
 
+    @retry_mongo
     async def get_event_density(
         self,
         story_id: str,
@@ -181,6 +185,7 @@ class PlotTrackerService:
 
         return EventDensityResponse(chapter_counts=event_counts)
 
+    @retry_mongo
     async def get_setup_payoff_map(
         self,
         story_id: str,
@@ -242,6 +247,7 @@ class PlotTrackerService:
         ]
 
 
+    @retry_mongo
     async def get_plot_density(
         self,
         story_id: str,
@@ -270,6 +276,7 @@ class PlotTrackerService:
 
         return PlotDensityResponse(distributions=distributions)
 
+    @retry_llm
     async def get_plot_rhythm_report(
         self,
         story_id: str,

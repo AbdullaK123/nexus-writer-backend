@@ -22,6 +22,7 @@ from app.ai.models.edits import ChapterEdit, ChapterEditResponse, LineEdit
 from pymongo.asynchronous.database import AsyncDatabase
 from app.core.mongodb import get_mongodb
 from tortoise.transactions import in_transaction
+from app.utils.retry import retry_mongo
 
 
 class ChapterService:
@@ -94,6 +95,7 @@ class ChapterService:
             id=chapter_id
         ).prefetch_related('story').first()
     
+    @retry_mongo
     async def get_line_edits(
         self,
         user_id: str,

@@ -9,6 +9,7 @@ from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.config.settings import app_config
+from app.utils.retry import retry_llm
 
 model = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash-lite",
@@ -25,6 +26,7 @@ synthesis_agent = create_agent(
     response_format=ToolStrategy(CondensedChapterContext),
 )
 
+@retry_llm
 async def synthesize_chapter_context(
     chapter_id: str,
     chapter_number: int,
@@ -33,9 +35,9 @@ async def synthesize_chapter_context(
     char_extract: CharacterExtraction,
     plot_extract: PlotExtraction,
     world_extract: WorldExtraction,
-    struct_extract: StructureExtraction
+    struct_extract: StructureExtraction,
+    use_lfm: bool = False,
 ) -> CondensedChapterContext:
-    
     prompt = build_condensed_context_prompt(
         chapter_id=chapter_id,
         chapter_number=chapter_number,
@@ -47,6 +49,10 @@ async def synthesize_chapter_context(
         structure_extraction=struct_extract.model_dump()
     )
     
+    if use_lfm:
+        from app.ai.utils.extractors import context_extractor
+        return await context_extractor.extract(prompt)
+
     result = await synthesis_agent.ainvoke({
         "messages": [{
             "role": "user",

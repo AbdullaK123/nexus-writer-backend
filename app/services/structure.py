@@ -10,6 +10,7 @@ from app.ai.models.structure import Scene
 from app.ai.prompts.structure import DEVELOPMENTAL_REPORT_SYSTEM_PROMPT
 from app.schemas.structure import *
 from app.utils.ai import extract_text
+from app.utils.retry import retry_llm, retry_mongo
 from loguru import logger
 
 
@@ -25,6 +26,7 @@ class StructureService:
             max_retries=app_config.ai_sdk_retries,
         )
 
+    @retry_mongo
     async def get_scene_index(
         self,
         story_id: str,
@@ -69,6 +71,7 @@ class StructureService:
         ]
         return SceneIndexResponse(scenes=scenes)
 
+    @retry_mongo
     async def get_weak_scenes(
         self,
         story_id: str,
@@ -119,6 +122,7 @@ class StructureService:
 
 
 
+    @retry_mongo
     async def get_scene_type_distribution(
         self,
         story_id: str,
@@ -172,6 +176,7 @@ class StructureService:
 
         return SceneTypeDistributionResponse(chapter_distributions=chapter_distributions)
 
+    @retry_mongo
     async def get_pov_balance(
         self,
         story_id: str,
@@ -226,6 +231,7 @@ class StructureService:
 
         return POVBalanceResponse(chapter_distributions=chapter_distributions)
 
+    @retry_mongo
     async def get_pacing_curve(
         self,
         story_id: str,
@@ -256,6 +262,7 @@ class StructureService:
         return PacingCurveResponse(chapter_distributions=chapter_distributions)
 
 
+    @retry_mongo
     async def get_structural_arc(
         self,
         story_id: str,
@@ -280,6 +287,7 @@ class StructureService:
 
         return StructuralArcResponse(roles=roles)
 
+    @retry_mongo
     async def get_theme_tracker(
         self,
         story_id: str,
@@ -314,6 +322,7 @@ class StructureService:
         return ThemeDistributionResponse(theme_distributions=theme_distributions)
 
 
+    @retry_mongo
     async def get_emotional_beat_report(
         self,
         story_id: str,
@@ -393,6 +402,7 @@ EMOTIONAL BEAT EFFECTIVENESS:
 {emotional_beats}
 """
 
+    @retry_llm
     async def get_developmental_report(
         self,
         story_id: str,

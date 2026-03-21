@@ -11,7 +11,7 @@ from app.utils.html import html_to_plain_text
 
 
 @flow(name="reextraction-flow")
-async def reextract_chapters_flow(story_id: str, chapter_ids: List[str]):
+async def reextract_chapters_flow(story_id: str, chapter_ids: List[str], use_lfm: bool = False):
     """Re-extract chapters in sequence after deletion, each with proper accumulated context"""
 
     await MongoDB.connect(app_config.mongodb_url)
@@ -48,7 +48,8 @@ async def reextract_chapters_flow(story_id: str, chapter_ids: List[str]):
                 word_count=chapter.word_count,
                 story_id=story_id,
                 story_path_array=story.path_array,
-                content=html_to_plain_text(chapter.content)
+                content=html_to_plain_text(chapter.content),
+                use_lfm=use_lfm,
             )
             
             logger.info(f"✅ Completed re-extraction for Chapter {chapter_number}")

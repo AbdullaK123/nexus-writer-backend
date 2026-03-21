@@ -9,6 +9,7 @@ from app.core.mongodb import get_mongodb
 from app.config.settings import app_config
 from app.schemas.character import *
 from app.utils.ai import extract_text
+from app.utils.retry import retry_llm, retry_mongo
 
 
 CAST_MANAGEMENT_REPORT_SYSTEM_PROMPT = """You are a story editor evaluating how well an author manages their cast of characters across a manuscript.
@@ -55,6 +56,7 @@ class CharacterTrackerService:
             max_retries=app_config.ai_sdk_retries,
         )
 
+    @retry_mongo
     async def get_character_presence_map(
         self,
         story_id: str,
@@ -100,6 +102,7 @@ class CharacterTrackerService:
 
         return CharacterAppearancesResponse(maps=character_appearances)
 
+    @retry_mongo
     async def get_character_introduction_rate(
         self,
         story_id: str,
@@ -129,6 +132,7 @@ class CharacterTrackerService:
 
         return CharacterIntroductionResponse(counts=counts)
 
+    @retry_mongo
     async def get_goal_evolution(
         self,
         story_id: str,
@@ -159,6 +163,7 @@ class CharacterTrackerService:
             goals=chapter_goals,
         )
 
+    @retry_mongo
     async def get_knowledge_asymmetry(
         self,
         story_id: str,
@@ -196,6 +201,7 @@ class CharacterTrackerService:
             maps=maps,
         )
 
+    @retry_mongo
     async def get_cast_density(
         self,
         story_id: str,
@@ -221,6 +227,7 @@ class CharacterTrackerService:
 
         return CharacterDensityResponse(counts=counts)
 
+    @retry_llm
     async def get_cast_management_report(
         self,
         story_id: str,

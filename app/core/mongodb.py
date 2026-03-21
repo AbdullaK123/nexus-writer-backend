@@ -3,6 +3,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from typing import Optional
 import pymongo
 import asyncio
+from app.utils.retry import retry_mongo
 
 class MongoDB:
     client: Optional[AsyncMongoClient] = None
@@ -17,6 +18,7 @@ class MongoDB:
         await cls._create_indexes()
 
     @classmethod
+    @retry_mongo
     async def _create_indexes(cls):
         """Create all necessary indexes for MongoDB collections"""
         if cls.db is None:

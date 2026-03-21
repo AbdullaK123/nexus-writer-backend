@@ -9,6 +9,7 @@ from app.config.settings import app_config
 from app.ai.prompts.world import WORLD_CONSISTENCY_REPORT_SYSTEM_PROMPT
 from app.schemas.world import *
 from app.utils.ai import extract_text
+from app.utils.retry import retry_llm, retry_mongo
 from loguru import logger
 
 
@@ -24,6 +25,7 @@ class WorldConsistencyService:
             max_retries=app_config.ai_sdk_retries,
         )
 
+    @retry_mongo
     async def get_contradictions(
         self,
         story_id: str,
@@ -73,6 +75,7 @@ class WorldConsistencyService:
 
         return ContradictionResponse(contradictions=contradictions)
 
+    @retry_mongo
     async def get_entity_registry(
         self,
         story_id: str,
@@ -127,6 +130,7 @@ class WorldConsistencyService:
 
         return entity_facts
 
+    @retry_mongo
     async def get_entity_timeline(
         self,
         story_id: str,
@@ -176,6 +180,7 @@ class WorldConsistencyService:
         return EntityTimelineResponse(chapter_facts=chapter_facts)
 
 
+    @retry_mongo
     async def get_fact_density(
         self,
         story_id: str,
@@ -231,6 +236,7 @@ FACT DENSITY BY CHAPTER:
 {density_lines}
 """
 
+    @retry_llm
     async def get_consistency_report(
         self,
         story_id: str,

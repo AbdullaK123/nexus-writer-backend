@@ -43,6 +43,7 @@ class WorldExtractionState(BaseModel):
     current_chapter_content: str
     chapter_number: int
     chapter_title: Optional[str] = None
+    use_lfm: bool = False
     extraction_plan: Optional[str] = None
     analysis: Optional[str] = None
     result: Optional[WorldExtraction] = None
@@ -72,13 +73,19 @@ async def world_analyzer_node(state: WorldExtractionState) -> dict:
 
 
 async def world_parser_node(state: WorldExtractionState) -> dict:
-    result = await world_parser_agent.ainvoke({
-        "messages": [
-            SystemMessage(content=PARSER_SYSTEM_PROMPT),
-            HumanMessage(content=build_world_parser_prompt(state.analysis or ""))
-        ]
-    })
-    return {"result": result["structured_response"]}
+    prompt = build_world_parser_prompt(state.analysis or "")
+    if state.use_lfm:
+        from app.ai.utils.extractors import world_extractor
+        result = await world_extractor.extract(prompt)
+    else:
+        resp = await world_parser_agent.ainvoke({
+            "messages": [
+                SystemMessage(content=PARSER_SYSTEM_PROMPT),
+                HumanMessage(content=prompt)
+            ]
+        })
+        result = resp["structured_response"]
+    return {"result": result}
 
 
 graph = StateGraph(WorldExtractionState)
@@ -96,13 +103,15 @@ async def extract_world_information(
     story_context: str,
     current_chapter_content: str,
     chapter_number: int,
-    chapter_title: Optional[str] = None
+    chapter_title: Optional[str] = None,
+    use_lfm: bool = False,
 ) -> WorldExtraction:
     state = WorldExtractionState(
         story_context=story_context,
         current_chapter_content=current_chapter_content,
         chapter_number=chapter_number,
         chapter_title=chapter_title,
+        use_lfm=use_lfm,
     )
     result = await world_app.ainvoke(state)  # type: ignore
     return result["result"]

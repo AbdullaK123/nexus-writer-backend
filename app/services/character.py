@@ -8,6 +8,7 @@ from app.ai.models.character import Character
 from app.core.mongodb import get_mongodb
 from app.schemas.character import ChapterEmotionalState, ChapterGoals, ChapterKnowledgeGained, CharacterArcResponse, CharacterInconsistencyResponse, CharacterKnowledgeResponse, CharacterResponse
 from app.utils.ai import extract_text
+from app.utils.retry import retry_llm, retry_mongo
 
 class CharacterService:
 
@@ -55,6 +56,7 @@ class CharacterService:
         """
 
 
+    @retry_mongo
     async def get_all_characters(self, story_id: str, user_id: str) -> CharacterResponse:
 
         cursor = await self.mongodb.character_extractions.aggregate([
@@ -73,6 +75,7 @@ class CharacterService:
 
         return CharacterResponse(characters=characters)
     
+    @retry_mongo
     async def get_character_arc(
         self, 
         character_name: str, 
@@ -125,6 +128,7 @@ class CharacterService:
             knowledge_gained=[ChapterKnowledgeGained(**chapter_knowledge) for chapter_knowledge in character_arc["knowledge_gained"]]
         )
 
+    @retry_mongo
     async def get_knowledge_at_chapter(
         self,
         character_name: str,
@@ -171,6 +175,7 @@ class CharacterService:
             knowledge=docs[0]["knowledge"]
         )
     
+    @retry_llm
     async def get_inconsistency_report(
         self,
         story_id: str,

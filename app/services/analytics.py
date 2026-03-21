@@ -6,6 +6,7 @@ from app.core.mongodb import get_mongodb
 from app.services.target import TargetService
 from app.schemas import TargetResponse
 from app.utils.decorators import log_errors
+from app.utils.retry import retry_network
 from app.schemas.analytics import WritingSession, StoryAnalyticsResponse
 from app.models import FrequencyType
 from datetime import datetime
@@ -27,6 +28,7 @@ class AnalyticsService:
         self.target_service = TargetService()
         logger.info("🦆 AnalyticsService initialized")
 
+    @retry_network
     @log_errors
     def _get_connection(self) -> duckdb.DuckDBPyConnection:
         logger.debug("🔌 Establishing DuckDB connection", extra={"db_operation": True})
@@ -42,6 +44,7 @@ class AnalyticsService:
         )
         return conn
 
+    @retry_network
     @log_errors
     def _sql_sync(
             self,

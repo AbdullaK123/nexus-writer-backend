@@ -11,6 +11,7 @@ from app.config.settings import app_config
 from loguru import logger
 from app.ai.prompts.plot import PLOT_STRUCTURAL_REPORT_PROMPT
 from app.utils.ai import extract_text
+from app.utils.retry import retry_llm, retry_mongo
 
 class PlotService:
 
@@ -68,6 +69,7 @@ class PlotService:
         {contrivance_risks}
         """
 
+    @retry_mongo
     async def get_all_unresolved_plot_threads(self, user_id: str, story_id: str) -> PlotThreadsResponse: 
 
         plot_threads_cursor = await self.mongodb.plot_extractions.aggregate([
@@ -82,6 +84,7 @@ class PlotService:
         ]
         return PlotThreadsResponse(plot_threads=threads)
     
+    @retry_mongo
     async def get_all_unanswered_story_questions(self, user_id: str, story_id: str) -> StoryQuestionsResponse:     
 
         raised_questions_cursor = await self.mongodb.plot_extractions.aggregate([
@@ -111,6 +114,7 @@ class PlotService:
         ]
         return StoryQuestionsResponse(questions=unanswered_questions)
     
+    @retry_mongo
     async def get_all_setups_with_no_payoffs(self, user_id: str, story_id: str) -> SetupResponse:
 
         match = {"$match": {"story_id": story_id, "user_id": user_id}}
@@ -135,6 +139,7 @@ class PlotService:
 
         return SetupResponse(setups=unresolved)
     
+    @retry_mongo
     async def get_all_deus_ex_machinas(self, user_id: str, story_id: str) -> DeusExMachinaResponse:
     
         dues_ex_machina_cursor = await self.mongodb.plot_extractions.aggregate([
@@ -151,6 +156,7 @@ class PlotService:
         ]
         return DeusExMachinaResponse(problems=dues_ex_machinas)
     
+    @retry_llm
     async def get_structural_report(
         self,
         story_id: str,

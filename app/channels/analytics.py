@@ -5,6 +5,7 @@ from app.schemas.analytics import WritingSession, WritingSessionEvent
 from app.utils.decorators import log_errors
 from app.core.redis import get_redis
 from app.core.mongodb import get_mongodb
+from app.utils.retry import retry_redis
 from loguru import logger
 import asyncio
 import json
@@ -26,6 +27,7 @@ sio = AsyncServer(
     engineio_logger=True
 )
 
+@retry_redis
 def save_session_to_redis(sid: str, data: dict):
     """Save session data to Redis - SYNC and RELIABLE"""
     redis_key = f"analytics_session:{sid}"
@@ -39,6 +41,7 @@ def save_session_to_redis(sid: str, data: dict):
     redis_client.setex(redis_key, 3600, json.dumps(serializable_data))  # 1 hour TTL
     logger.debug(f"💾 Saved session to Redis: {redis_key}")
 
+@retry_redis
 def get_session_from_redis(sid: str) -> dict:
     """Get session data from Redis - SYNC and RELIABLE"""
     redis_key = f"analytics_session:{sid}"
@@ -53,6 +56,7 @@ def get_session_from_redis(sid: str) -> dict:
     logger.debug(f"❌ No session found in Redis: {redis_key}")
     return None
 
+@retry_redis
 def delete_session_from_redis(sid: str):
     """Delete session data from Redis - SYNC and RELIABLE"""
     redis_key = f"analytics_session:{sid}"

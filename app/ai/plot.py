@@ -83,6 +83,7 @@ class PlotExtractionState(BaseModel):
     current_chapter_content: str
     chapter_number: int
     chapter_title: Optional[str] = None
+    use_lfm: bool = False
     extraction_plan: Optional[str] = None
     analysis: Optional[str] = None
     events_result: Optional[EventsExtraction] = None
@@ -119,43 +120,67 @@ async def plot_analyzer_node(state: PlotExtractionState) -> dict:
 
 
 async def events_parser_node(state: PlotExtractionState) -> dict:
-    result = await events_parser_agent.ainvoke({
-        "messages": [
-            SystemMessage(content=EVENTS_PARSER_SYSTEM_PROMPT),
-            HumanMessage(content=build_events_parser_prompt(state.analysis or ""))
-        ]
-    })
-    return {"events_result": result["structured_response"]}
+    prompt = build_events_parser_prompt(state.analysis or "")
+    if state.use_lfm:
+        from app.ai.utils.extractors import events_extractor
+        result = await events_extractor.extract(prompt)
+    else:
+        resp = await events_parser_agent.ainvoke({
+            "messages": [
+                SystemMessage(content=EVENTS_PARSER_SYSTEM_PROMPT),
+                HumanMessage(content=prompt)
+            ]
+        })
+        result = resp["structured_response"]
+    return {"events_result": result}
 
 
 async def threads_parser_node(state: PlotExtractionState) -> dict:
-    result = await threads_parser_agent.ainvoke({
-        "messages": [
-            SystemMessage(content=THREADS_PARSER_SYSTEM_PROMPT),
-            HumanMessage(content=build_threads_parser_prompt(state.analysis or ""))
-        ]
-    })
-    return {"threads_result": result["structured_response"]}
+    prompt = build_threads_parser_prompt(state.analysis or "")
+    if state.use_lfm:
+        from app.ai.utils.extractors import threads_extractor
+        result = await threads_extractor.extract(prompt)
+    else:
+        resp = await threads_parser_agent.ainvoke({
+            "messages": [
+                SystemMessage(content=THREADS_PARSER_SYSTEM_PROMPT),
+                HumanMessage(content=prompt)
+            ]
+        })
+        result = resp["structured_response"]
+    return {"threads_result": result}
 
 
 async def setups_payoffs_parser_node(state: PlotExtractionState) -> dict:
-    result = await setups_payoffs_parser_agent.ainvoke({
-        "messages": [
-            SystemMessage(content=SETUPS_PAYOFFS_PARSER_SYSTEM_PROMPT),
-            HumanMessage(content=build_setups_payoffs_parser_prompt(state.analysis or ""))
-        ]
-    })
-    return {"setups_payoffs_result": result["structured_response"]}
+    prompt = build_setups_payoffs_parser_prompt(state.analysis or "")
+    if state.use_lfm:
+        from app.ai.utils.extractors import setups_payoffs_extractor
+        result = await setups_payoffs_extractor.extract(prompt)
+    else:
+        resp = await setups_payoffs_parser_agent.ainvoke({
+            "messages": [
+                SystemMessage(content=SETUPS_PAYOFFS_PARSER_SYSTEM_PROMPT),
+                HumanMessage(content=prompt)
+            ]
+        })
+        result = resp["structured_response"]
+    return {"setups_payoffs_result": result}
 
 
 async def questions_contrivances_parser_node(state: PlotExtractionState) -> dict:
-    result = await questions_contrivances_parser_agent.ainvoke({
-        "messages": [
-            SystemMessage(content=QUESTIONS_CONTRIVANCES_PARSER_SYSTEM_PROMPT),
-            HumanMessage(content=build_questions_contrivances_parser_prompt(state.analysis or ""))
-        ]
-    })
-    return {"questions_contrivances_result": result["structured_response"]}
+    prompt = build_questions_contrivances_parser_prompt(state.analysis or "")
+    if state.use_lfm:
+        from app.ai.utils.extractors import questions_contrivances_extractor
+        result = await questions_contrivances_extractor.extract(prompt)
+    else:
+        resp = await questions_contrivances_parser_agent.ainvoke({
+            "messages": [
+                SystemMessage(content=QUESTIONS_CONTRIVANCES_PARSER_SYSTEM_PROMPT),
+                HumanMessage(content=prompt)
+            ]
+        })
+        result = resp["structured_response"]
+    return {"questions_contrivances_result": result}
 
 
 async def synthesize_node(state: PlotExtractionState) -> dict:
@@ -201,13 +226,15 @@ async def extract_plot_information(
     story_context: str,
     current_chapter_content: str,
     chapter_number: int,
-    chapter_title: Optional[str] = None
+    chapter_title: Optional[str] = None,
+    use_lfm: bool = False,
 ) -> PlotExtraction:
     state = PlotExtractionState(
         story_context=story_context,
         current_chapter_content=current_chapter_content,
         chapter_number=chapter_number,
         chapter_title=chapter_title,
+        use_lfm=use_lfm,
     )
     result = await plot_app.ainvoke(state)  # type: ignore
     return result["result"]

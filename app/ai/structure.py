@@ -83,6 +83,7 @@ class StructureExtractionState(BaseModel):
     current_chapter_content: str
     chapter_number: int
     chapter_title: Optional[str] = None
+    use_lfm: bool = False
     extraction_plan: Optional[str] = None
     analysis: Optional[str] = None
     scenes_result: Optional[ScenesExtraction] = None
@@ -119,43 +120,67 @@ async def structure_analyzer_node(state: StructureExtractionState) -> dict:
 
 
 async def scenes_parser_node(state: StructureExtractionState) -> dict:
-    result = await scenes_parser_agent.ainvoke({
-        "messages": [
-            SystemMessage(content=SCENES_PARSER_SYSTEM_PROMPT),
-            HumanMessage(content=build_scenes_parser_prompt(state.analysis or ""))
-        ]
-    })
-    return {"scenes_result": result["structured_response"]}
+    prompt = build_scenes_parser_prompt(state.analysis or "")
+    if state.use_lfm:
+        from app.ai.utils.extractors import scenes_extractor
+        result = await scenes_extractor.extract(prompt)
+    else:
+        resp = await scenes_parser_agent.ainvoke({
+            "messages": [
+                SystemMessage(content=SCENES_PARSER_SYSTEM_PROMPT),
+                HumanMessage(content=prompt)
+            ]
+        })
+        result = resp["structured_response"]
+    return {"scenes_result": result}
 
 
 async def pacing_parser_node(state: StructureExtractionState) -> dict:
-    result = await pacing_parser_agent.ainvoke({
-        "messages": [
-            SystemMessage(content=PACING_PARSER_SYSTEM_PROMPT),
-            HumanMessage(content=build_pacing_parser_prompt(state.analysis or ""))
-        ]
-    })
-    return {"pacing_result": result["structured_response"]}
+    prompt = build_pacing_parser_prompt(state.analysis or "")
+    if state.use_lfm:
+        from app.ai.utils.extractors import pacing_extractor
+        result = await pacing_extractor.extract(prompt)
+    else:
+        resp = await pacing_parser_agent.ainvoke({
+            "messages": [
+                SystemMessage(content=PACING_PARSER_SYSTEM_PROMPT),
+                HumanMessage(content=prompt)
+            ]
+        })
+        result = resp["structured_response"]
+    return {"pacing_result": result}
 
 
 async def themes_parser_node(state: StructureExtractionState) -> dict:
-    result = await themes_parser_agent.ainvoke({
-        "messages": [
-            SystemMessage(content=THEMES_PARSER_SYSTEM_PROMPT),
-            HumanMessage(content=build_themes_parser_prompt(state.analysis or ""))
-        ]
-    })
-    return {"themes_result": result["structured_response"]}
+    prompt = build_themes_parser_prompt(state.analysis or "")
+    if state.use_lfm:
+        from app.ai.utils.extractors import themes_extractor
+        result = await themes_extractor.extract(prompt)
+    else:
+        resp = await themes_parser_agent.ainvoke({
+            "messages": [
+                SystemMessage(content=THEMES_PARSER_SYSTEM_PROMPT),
+                HumanMessage(content=prompt)
+            ]
+        })
+        result = resp["structured_response"]
+    return {"themes_result": result}
 
 
 async def emotional_beats_parser_node(state: StructureExtractionState) -> dict:
-    result = await emotional_beats_parser_agent.ainvoke({
-        "messages": [
-            SystemMessage(content=EMOTIONAL_BEATS_PARSER_SYSTEM_PROMPT),
-            HumanMessage(content=build_emotional_beats_parser_prompt(state.analysis or ""))
-        ]
-    })
-    return {"emotional_beats_result": result["structured_response"]}
+    prompt = build_emotional_beats_parser_prompt(state.analysis or "")
+    if state.use_lfm:
+        from app.ai.utils.extractors import emotional_beats_extractor
+        result = await emotional_beats_extractor.extract(prompt)
+    else:
+        resp = await emotional_beats_parser_agent.ainvoke({
+            "messages": [
+                SystemMessage(content=EMOTIONAL_BEATS_PARSER_SYSTEM_PROMPT),
+                HumanMessage(content=prompt)
+            ]
+        })
+        result = resp["structured_response"]
+    return {"emotional_beats_result": result}
 
 
 async def synthesize_node(state: StructureExtractionState) -> dict:
@@ -201,13 +226,15 @@ async def extract_story_structure(
     story_context: str,
     current_chapter_content: str,
     chapter_number: int,
-    chapter_title: Optional[str] = None
+    chapter_title: Optional[str] = None,
+    use_lfm: bool = False,
 ) -> StructureExtraction:
     state = StructureExtractionState(
         story_context=story_context,
         current_chapter_content=current_chapter_content,
         chapter_number=chapter_number,
         chapter_title=chapter_title,
+        use_lfm=use_lfm,
     )
     result = await structure_app.ainvoke(state)  # type: ignore
     return result["result"]

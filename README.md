@@ -1,6 +1,6 @@
 # Nexus Writer Backend
 
-FastAPI-based backend API for the Nexus Writer application. It provides user, story, chapter, target, and analytics endpoints, and exposes a Socket.IO ASGI app for realtime features.
+FastAPI-based backend API for the Nexus Writer application. It provides user, story, chapter, target, and analytics endpoints, AI-powered manuscript analysis (plot, character, structure, world-building), Prefect-orchestrated extraction workflows, and a Socket.IO ASGI app for realtime features.
 
 This README documents the tech stack, requirements, environment variables, setup instructions, run commands, scripts, migrations, testing, project structure, and licensing notes.
 
@@ -8,8 +8,11 @@ This README documents the tech stack, requirements, environment variables, setup
 - Framework: FastAPI (ASGI)
 - Realtime: python-socketio (ASGIApp wrapper around FastAPI)
 - Data access: SQLModel (on top of SQLAlchemy Async), asyncpg (PostgreSQL)
+- Document store: MongoDB (AI extractions — plot, character, structure, world)
 - Migrations: Alembic
 - Caching/queues: Redis (redis[hiredis])
+- Workflow orchestration: Prefect (extraction flows, line-edit flows)
+- AI / LLM: Google Gemini (langchain-google-genai), OpenAI
 - Analytics: DuckDB / MotherDuck (see motherduck_url), with pandas/numpy for metrics
 - Cloud integrations: AWS S3 via boto3 (mypy-boto3-s3 types)
 - Logging: loguru
@@ -33,18 +36,34 @@ Required:
 - motherduck_url: Analytics data warehouse connection string (DuckDB/MotherDuck)
 - database_url: Async SQLAlchemy connection string for the app DB
   - Example: postgresql+asyncpg://USER:PASS@HOST:5432/DBNAME
+- database_sync_url: Sync SQLAlchemy connection string for the app DB
 - migration_url: Sync SQLAlchemy connection string for Alembic migrations
   - Example: postgresql://USER:PASS@HOST:5432/DBNAME
+- mongodb_url: MongoDB connection string for AI extraction data
+  - Example: mongodb://localhost:27017/nexus_writer
 - app_secret_key: Secret key for password hashing
 - cookie_signing_key: Key for verifying the signature of encrypted session ids
 - cookie_encryption_key: Key for encrypting cookies
 - redis_url: Redis connection URI
   - Example: redis://localhost:6379/0
+- redis_broker_url: Redis broker URI (for task queues)
+- openai_api_key: OpenAI API key
+- gemini_api_key: Google Gemini API key
+- ai_temperature: LLM temperature for structured outputs
+- ai_maxtokens: Max tokens for LLM structured outputs
 
 Optional:
 - env: Runtime environment label (default: dev)
 - debug: Enable verbose logging/SQL echo (bool, default: false)
 - password_pattern: Regex for password complexity (default present in code)
+- prefect_api_url: Prefect server API URL (required when running with Prefect orchestration)
+- default_task_retries: Prefect task retry count (default: 1)
+- default_task_retry_delay: Retry delay in seconds (default: 10)
+- extraction_task_timeout: Per-task timeout for extraction in seconds (default: 120)
+- chapter_flow_timeout: Chapter extraction flow timeout in seconds (default: 180)
+- result_storage_ttl: Prefect result storage TTL in seconds (default: 86400)
+- ai_sdk_timeout: HTTP timeout per LLM request in seconds (default: 90)
+- ai_sdk_retries: SDK-level retries for transient LLM errors (default: 2)
 
 Tip: See app/config/settings.py for authoritative field descriptions and defaults.
 
@@ -185,17 +204,49 @@ Optional pytest
 
 ## Project structure (high-level)
 - main.py — FastAPI app + Socket.IO ASGI wrapper (socket_app)
+- worker.py — Prefect worker entry point (serves extraction & line-edit flow deployments)
 - app/
-  - controllers/ — API routers (e.g., story endpoints, user, chapter)
-  - services/ — Business logic and integration layers (auth, analytics, target, story, chapter)
-  - schemas/ — Pydantic models for requests/responses (story, chapter, analytics, target, etc.)
+  - controllers/ — API routers
+    - auth.py — Registration, login, sessions, logout
+    - chapter.py — Chapter CRUD and operations
+    - jobs.py — Job status and management
+    - story.py — Story CRUD, includes sub-routers for nested resources
+    - story_characters.py — Character extraction endpoints + tracker (presence map, introduction rate, density, goals, knowledge map, cast report)
+    - story_plot.py — Plot extraction endpoints + tracker (threads, dormant threads, event density, setup-payoff map, density, rhythm report)
+    - story_structure.py — Structure and pacing endpoints
+    - story_targets.py — Writing target endpoints
+    - story_world.py — World-building endpoints
+  - services/ — Business logic and integration layers
+    - analytics.py — MotherDuck analytics queries
+    - auth.py — Authentication logic
+    - chapter.py — Chapter operations
+    - character.py — Character extraction service (arc, knowledge, inconsistency report)
+    - character_tracker.py — Character tracker service (presence map, introduction rate, goals, knowledge asymmetry, cast density, cast management report)
+    - jobs.py — Job orchestration
+    - plot.py — Plot extraction service (threads, questions, setups, contrivances, structural report)
+    - plot_tracker.py — Plot tracker service (thread timeline, dormant threads, event density, setup-payoff map, plot density, rhythm report)
+    - story.py — Story CRUD operations
+    - structure.py — Structure service (pacing, structural arc, weak scenes, emotional beats, developmental report)
+    - target.py — Writing target service
+    - world.py — World-building service (facts, contradictions, consistency report)
+  - ai/ — AI / LLM integration layer
+    - Top-level modules invoke LLMs and parse structured output: character.py, character_bio.py, context.py, edits.py, plot.py, plot_thread.py, structure.py, structure_and_pacing.py, timeline.py, world.py, world_bible.py
+    - models/ — Pydantic schemas for structured LLM output (one per domain)
+    - prompts/ — System and human prompt templates (one per domain)
+  - schemas/ — Pydantic models for API requests/responses (story, chapter, analytics, target, character, plot, structure, world, jobs)
   - models/ — SQLModel models and enums
-  - core/ — Infrastructure (database engine, redis client, security)
-  - config/ — Settings, logging, application lifespan
-  - utils/ — Utility modules and types
+  - core/ — Infrastructure (database engine, MongoDB client, Redis client, security)
+  - config/ — Settings, logging, Prefect config, application lifespan
+  - flows/ — Prefect workflows
+    - extraction/ — Chapter extraction flow, re-extraction flow, shared tasks
+    - line_edits/ — Line-edit suggestion flow
+  - jobs/ — Job dispatching (chapter, session)
+  - workers/ — Worker base abstraction
+  - utils/ — Utility modules (AI helpers, decorators, HTML/Lexical parsing, logging context)
   - channels/ — Socket.IO server setup (analytics channel)
+  - middleware/ — HTTP logging middleware
 - migrations/ — Alembic migration environment and versions
-- scripts/ — Helper scripts (dev DB bootstrap)
+- scripts/ — Helper scripts (dev DB bootstrap, DB reset)
 - pyproject.toml — Project metadata and dependencies
 - uv.lock — uv lockfile with pinned dependency resolutions
 - alembic.ini — Alembic configuration

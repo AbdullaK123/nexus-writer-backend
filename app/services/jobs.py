@@ -26,6 +26,7 @@ from app.schemas.jobs import (
     JobType,
 )
 from app.utils.decorators import log_errors
+from app.utils.retry import retry_network, retry_mongo
 from pymongo.asynchronous.database import AsyncDatabase
 from app.core.mongodb import get_mongodb
 from app.utils.html import html_to_plain_text
@@ -177,6 +178,7 @@ class JobService:
                 "job_type": job_type if job_type else "line-edit, extraction, and reextraction"
             }
         
+    @retry_mongo
     @log_errors
     async def _build_accumulated_context(
         self,
@@ -196,6 +198,7 @@ class JobService:
         return "\n\n".join(contexts)
 
 
+    @retry_network
     @log_errors
     async def queue_line_edit_job(
         self,
@@ -288,6 +291,7 @@ class JobService:
             estimated_duration_seconds=60,
         )
 
+    @retry_network
     @log_errors
     async def queue_reextraction_job(
         self,
@@ -325,6 +329,7 @@ class JobService:
             started_at=datetime.utcnow()
         )
 
+    @retry_network
     @log_errors
     async def queue_extraction_job(
         self,
