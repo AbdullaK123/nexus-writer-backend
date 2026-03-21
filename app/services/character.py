@@ -1,8 +1,8 @@
 from fastapi import Depends, HTTPException, status
 from langchain.messages import HumanMessage, SystemMessage
 from pymongo.asynchronous.database import AsyncDatabase
-from langchain_google_genai import ChatGoogleGenerativeAI
 from app.config.settings import app_config
+from app.ai.utils.model_factory import create_chat_model
 from app.ai.prompts.character import CHARACTER_INCONSISTENCY_PROMPT
 from app.ai.models.character import Character
 from app.core.mongodb import get_mongodb
@@ -14,13 +14,7 @@ class CharacterService:
 
     def __init__(self, mongodb: AsyncDatabase):
         self.mongodb = mongodb
-        self._model = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash-lite",
-            temperature=app_config.ai_temperature,
-            max_tokens=app_config.ai_maxtokens,
-            timeout=app_config.ai_sdk_timeout,
-            max_retries=app_config.ai_sdk_retries,
-        )
+        self._model = create_chat_model(app_config.ai_lite_model)
 
     def _build_inconsistency_prompt(
         self,

@@ -1,8 +1,6 @@
 from typing import Annotated, Dict, List, Optional
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_anthropic import ChatAnthropic
 from langchain.messages import SystemMessage, HumanMessage, AIMessage
 from app.ai.prompts.edits import (
     PARSER_SYSTEM_PROMPT, 
@@ -16,6 +14,7 @@ from app.ai.prompts.edits import (
 )
 from app.ai.models.edits import ChapterEdit, LineEdit
 from app.config.settings import app_config
+from app.ai.utils.model_factory import create_chat_model
 from langgraph.graph import StateGraph, END
 from langgraph.types import RetryPolicy
 from pydantic import BaseModel
@@ -31,13 +30,7 @@ heavy_retry = RetryPolicy(
     backoff_factor=2.0,    # exponential backoff
 )
 
-model = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash-lite",
-    temperature=app_config.ai_temperature,
-    max_tokens=app_config.ai_maxtokens,
-    timeout=app_config.ai_sdk_timeout,
-    max_retries=app_config.ai_sdk_retries,
-)
+model = create_chat_model(app_config.ai_lite_model)
 
 parser_agent = create_agent(
     model=model,

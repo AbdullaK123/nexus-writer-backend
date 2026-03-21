@@ -1,11 +1,12 @@
 import json
-import os
 from typing import TypeVar, Generic, Type
 
 from httpx import ConnectError, ReadTimeout
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+from app.config.settings import app_config
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -15,14 +16,14 @@ class LFMExtractor(Generic[T]):
         self,
         model: Type[T],
         system_prompt: str,
-        ollama_model: str = "lfm2-1.2b-extract",
+        ollama_model: str | None = None,
         base_url: str | None = None,
     ):
         self._model = model
         self._system_prompt = self._build_system_prompt(system_prompt, model)
-        self._ollama_model = ollama_model
+        self._ollama_model = ollama_model or app_config.ollama_model
         self._client = AsyncOpenAI(
-            base_url=base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
+            base_url=base_url or app_config.ollama_base_url,
             api_key="ollama",
         )
 

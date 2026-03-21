@@ -2,10 +2,10 @@ import asyncio
 from typing import Optional, Literal
 from fastapi import Depends, HTTPException, status
 from langchain.messages import HumanMessage, SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
 from pymongo.asynchronous.database import AsyncDatabase
 from app.core.mongodb import get_mongodb
 from app.config.settings import app_config
+from app.ai.utils.model_factory import create_chat_model
 from app.ai.models.structure import Scene
 from app.ai.prompts.structure import DEVELOPMENTAL_REPORT_SYSTEM_PROMPT
 from app.schemas.structure import *
@@ -18,13 +18,7 @@ class StructureService:
 
     def __init__(self, mongodb: AsyncDatabase):
         self.mongodb = mongodb
-        self._model = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash-lite",
-            temperature=app_config.ai_temperature,
-            max_tokens=app_config.ai_maxtokens,
-            timeout=app_config.ai_sdk_timeout,
-            max_retries=app_config.ai_sdk_retries,
-        )
+        self._model = create_chat_model(app_config.ai_lite_model)
 
     @retry_mongo
     async def get_scene_index(

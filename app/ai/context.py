@@ -7,17 +7,11 @@ from app.ai.prompts.context import SYSTEM_PROMPT, build_condensed_context_prompt
 from app.ai.models.context import CondensedChapterContext
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
-from langchain_google_genai import ChatGoogleGenerativeAI
 from app.config.settings import app_config
+from app.ai.utils.model_factory import create_chat_model
 from app.utils.retry import retry_llm
 
-model = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash-lite",
-    temperature=app_config.ai_temperature,
-    max_tokens=app_config.ai_maxtokens,
-    timeout=app_config.ai_sdk_timeout,
-    max_retries=app_config.ai_sdk_retries,
-)
+model = create_chat_model(app_config.ai_lite_model)
 
 synthesis_agent = create_agent(
     model=model,

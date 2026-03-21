@@ -30,6 +30,7 @@ from app.utils.retry import retry_network, retry_mongo
 from pymongo.asynchronous.database import AsyncDatabase
 from app.core.mongodb import get_mongodb
 from app.utils.html import html_to_plain_text
+from app.config.settings import app_config
 
 
 # Map Prefect states to our JobStatus enum
@@ -267,7 +268,8 @@ class JobService:
                 "chapter_title": chapter.title,
                 "story_context": accumulated_context or "",
                 "story_path_array": story.path_array,
-                "chapter_content": chapter.content
+                "chapter_content": chapter.content,
+                "use_lfm": app_config.use_lfm,
             },
             timeout=0,
             tags=[f"chapter:{chapter_id}", f"story:{story.id}", "line-edits"]
@@ -314,6 +316,7 @@ class JobService:
             parameters={
                 "story_id": story_id,
                 "chapter_ids": chapter_ids,
+                "use_lfm": app_config.use_lfm,
             },
             timeout=0,
             tags=[*[f"chapter:{chapter_id}" for chapter_id in chapter_ids], f"story:{story_id}", "reextraction"]
@@ -373,7 +376,8 @@ class JobService:
                 "word_count": chapter.word_count,
                 "story_id": story.id,
                 "story_path_array": story.path_array,
-                "content": html_to_plain_text(chapter.content)
+                "content": html_to_plain_text(chapter.content),
+                "use_lfm": app_config.use_lfm,
             },
             timeout=0,
             tags=[f"chapter:{chapter_id}", f"story:{story.id}", "extraction"]

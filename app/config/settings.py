@@ -37,10 +37,17 @@ class Config(BaseSettings):
     result_storage_ttl: int = Field(default=86400, description="Result storage TTL in seconds (24 hours)")
 
     # AI / LLM settings
+    ai_model: str = Field(default="google/gemini-2.5-flash", description="Primary LLM in provider/model format (google, openai, anthropic, ollama)")
+    ai_lite_model: str = Field(default="google/gemini-2.5-flash-lite", description="Lightweight LLM for cheaper tasks in provider/model format")
     ai_temperature: float = Field(..., description="Temperature of the LLM")
     ai_maxtokens: int = Field(..., description="Max tokens to generate in structured outputs")
     ai_sdk_timeout: int = Field(default=90, description="HTTP timeout per LLM request in seconds")
     ai_sdk_retries: int = Field(default=2, description="SDK-level retries for transient HTTP errors")
+
+    # Ollama / LFM settings
+    use_lfm: bool = Field(default=False, description="Use Liquid Foundation Model via Ollama for parser nodes instead of Gemini")
+    ollama_base_url: str = Field(default="http://localhost:11434/v1", description="Ollama API base URL (OpenAI-compatible)")
+    ollama_model: str = Field(default="lfm2-1.2b-extract", description="Ollama model name for LFM extraction")
 
 
 @lru_cache
