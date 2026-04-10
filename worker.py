@@ -7,12 +7,12 @@ It should be run in a dedicated container separate from the API server.
 import asyncio
 from prefect import aserve
 from loguru import logger
-from app.config.logging import setup_logging
-from app.core.mongodb import MongoDB
-from app.flows.extraction import extract_single_chapter_flow, reextract_chapters_flow
-from app.flows.line_edits import line_edits_flow
+from src.infrastructure.config.logging import setup_logging
+from src.infrastructure.db.mongodb import MongoDB
+from src.service.flows.extraction import extract_single_chapter_flow, reextract_chapters_flow
+from src.service.flows.line_edits import line_edits_flow
 from dotenv import load_dotenv
-from app.config.settings import app_config
+from src.infrastructure.config import settings
 
 load_dotenv()
 setup_logging()

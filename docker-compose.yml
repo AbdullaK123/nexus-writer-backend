@@ -80,18 +80,11 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      test: ["CMD", "ollama", "list"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 30s
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     networks:
       - nexus-network
     restart: unless-stopped
@@ -125,7 +118,7 @@ services:
       sh -c "uv run python worker.py"
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://nexus_user:password@postgres-nexus:5432/nexus_writer
+      DATABASE_URL: asyncpg://nexus_user:password@postgres-nexus:5432/nexus_writer
       REDIS_URL: redis://redis-nexus:6379/0
       REDIS_BROKER_URL: redis://redis-nexus:6379/1
       PREFECT_API_URL: http://prefect-server:4200/api
@@ -155,7 +148,7 @@ services:
       sh -c "uv run aerich upgrade && uv run uvicorn main:app --host 0.0.0.0 --port 8000"
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://nexus_user:password@postgres-nexus:5432/nexus_writer
+      DATABASE_URL: asyncpg://nexus_user:password@postgres-nexus:5432/nexus_writer
       REDIS_URL: redis://redis-nexus:6379/0
       REDIS_BROKER_URL: redis://redis-nexus:6379/1
       PREFECT_API_URL: http://prefect-server:4200/api
