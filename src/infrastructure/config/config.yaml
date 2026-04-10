@@ -1,0 +1,20 @@
+auth:
+  password_pattern: '^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};:''"\\|,.<>/?]).{8,}$'
+
+prefect:
+  task_retries: 1
+  task_retry_delay: 10
+  extraction_task_timeout: 120
+  chapter_flow_timeout: 180
+  result_storage_ttl: 86400
+
+ai:
+  model: google/gemini-2.5-flash
+  lite_model: google/gemini-2.5-flash-lite
+  temperature: 0.7
+  max_tokens: 4096
+  sdk_timeout: 90
+  sdk_retries: 2
+
+ollama:
+  model: lfm2-1.2b-extract
