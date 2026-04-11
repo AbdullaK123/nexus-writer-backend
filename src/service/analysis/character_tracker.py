@@ -1,11 +1,8 @@
 import asyncio
-from fastapi import Depends
 from src.service.exceptions import InternalError
 from langchain.messages import HumanMessage, SystemMessage
+from langchain_core.language_models.chat_models import BaseChatModel
 from loguru import logger
-from src.infrastructure.db.mongodb import get_mongodb
-from src.infrastructure.config import config
-from src.service.ai.utils.model_factory import create_chat_model
 from src.data.schemas.character import *
 from src.service.ai.utils.ai import extract_text
 from src.infrastructure.utils.retry import retry_llm
@@ -46,9 +43,9 @@ End with what's working — which characters are well-managed, which introductio
 
 class CharacterTrackerService:
 
-    def __init__(self, repo: CharacterExtractionRepo):
+    def __init__(self, repo: CharacterExtractionRepo, model: BaseChatModel):
         self.repo = repo
-        self._model = create_chat_model(config.ai.lite_model)
+        self._model = model
 
     async def get_character_presence_map(
         self,
@@ -208,7 +205,4 @@ CAST DENSITY:
 """
 
 
-async def get_character_tracker_service(
-    mongodb=Depends(get_mongodb)
-) -> CharacterTrackerService:
-    return CharacterTrackerService(repo=CharacterExtractionRepo(mongodb))
+

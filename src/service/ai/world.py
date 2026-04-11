@@ -9,7 +9,7 @@ from src.service.ai.prompts.world import (
     build_world_parser_prompt,
 )
 from src.service.ai.prompts.planners import WORLD_PLANNER_SYSTEM_PROMPT, build_world_planner_prompt
-from src.service.ai.models.world import WorldExtraction
+from src.data.models.ai.world import WorldExtraction
 from src.infrastructure.config.settings import config
 from src.service.ai.utils.model_factory import create_chat_model
 from langgraph.graph import StateGraph, END

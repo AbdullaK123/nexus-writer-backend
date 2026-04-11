@@ -1,34 +1,26 @@
-# app/channels/analytics.py - FIXED VERSION
 from socketio.async_server import AsyncServer
+from redis import Redis
 from src.service.analytics.service import AnalyticsService
 from src.data.schemas.analytics import WritingSession, WritingSessionEvent
 from src.shared.utils.decorators import log_errors
-from src.infrastructure.redis.client import get_redis
-from src.infrastructure.db.mongodb import get_mongodb
+from dependency_injector.wiring import inject, Provide
 from src.infrastructure.utils.retry import retry_redis
+from src.infrastructure.config import settings
 from loguru import logger
 import asyncio
 import json
 
-_analytics = None
-
-def _get_analytics() -> AnalyticsService:
-    global _analytics
-    if _analytics is None:
-        _analytics = AnalyticsService(mongodb=get_mongodb())
-    return _analytics
-
-redis_client = get_redis()
 
 sio = AsyncServer(
     async_mode='asgi',
-    cors_allowed_origins=['http://localhost:3000', 'http://127.0.0.1:3000'],
+    cors_allowed_origins=settings.cors_origins,
     logger=True,
     engineio_logger=True
 )
 
 @retry_redis
-def save_session_to_redis(sid: str, data: dict):
+@inject
+def save_session_to_redis(sid: str, data: dict, redis_client: Redis = Provide["redis_client"]):
     """Save session data to Redis - SYNC and RELIABLE"""
     redis_key = f"analytics_session:{sid}"
     serializable_data = {}
@@ -37,12 +29,12 @@ def save_session_to_redis(sid: str, data: dict):
             serializable_data[key] = value.isoformat()
         else:
             serializable_data[key] = value
-    
     redis_client.setex(redis_key, 3600, json.dumps(serializable_data))  # 1 hour TTL
     logger.debug(f"💾 Saved session to Redis: {redis_key}")
 
 @retry_redis
-def get_session_from_redis(sid: str) -> dict:
+@inject
+def get_session_from_redis(sid: str, redis_client: Redis = Provide["redis_client"]) -> dict:
     """Get session data from Redis - SYNC and RELIABLE"""
     redis_key = f"analytics_session:{sid}"
     data = redis_client.get(redis_key)
@@ -57,7 +49,8 @@ def get_session_from_redis(sid: str) -> dict:
     return None
 
 @retry_redis
-def delete_session_from_redis(sid: str):
+@inject
+def delete_session_from_redis(sid: str, redis_client: Redis = Provide["redis_client"]):
     """Delete session data from Redis - SYNC and RELIABLE"""
     redis_key = f"analytics_session:{sid}"
     deleted = redis_client.delete(redis_key)
@@ -200,9 +193,14 @@ def handle_task_completion(task, session_id: str, sid: str):
         )
 
 @log_errors
-async def save_to_duckdb_async(session: WritingSession, sid: str):
+@inject
+async def save_to_duckdb_async(
+    session: WritingSession,
+    sid: str,
+    analytics: AnalyticsService = Provide["analytics_service"],
+):
     """Save to DuckDB asynchronously - CLEAN VERSION"""
-    saved_session = await _get_analytics().write_session(session)
+    saved_session = await analytics.write_session(session)
     # Success is logged in the task completion handler
     return saved_session
 

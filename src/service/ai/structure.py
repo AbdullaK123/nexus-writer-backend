@@ -17,7 +17,7 @@ from src.service.ai.prompts.structure import (
     build_emotional_beats_parser_prompt,
 )
 from src.service.ai.prompts.planners import STRUCTURE_PLANNER_SYSTEM_PROMPT, build_structure_planner_prompt
-from src.service.ai.models.structure import (
+from src.data.models.ai.structure import (
     StructureExtraction,
     ScenesExtraction,
     PacingExtraction,

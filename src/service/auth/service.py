@@ -5,6 +5,7 @@ from src.infrastructure.auth.password import hash_password, verify_password
 from src.infrastructure.auth.session import generate_session_id, encrypt_session_data, decrypt_session_data
 from src.service.exceptions import AuthError, ForbiddenError, ConflictError
 from fastapi import status, Cookie, Response, Request, Depends
+from dependency_injector.wiring import inject, Provide
 from typing import Optional, Union
 from datetime import datetime, timedelta, timezone
 from loguru import logger
@@ -164,14 +165,11 @@ class AuthService:
         )
 
 
-
-def get_auth_service():
-    return AuthService()
-
+@inject
 async def get_current_user(
     request: Request,
     session_id: Union[bytes, str] = Cookie(),
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: AuthService = Depends(Provide["auth_service"])
 ) -> Optional[User]:
     user = await auth_service.validate_session(session_id)
     # make user id available for logging middleware

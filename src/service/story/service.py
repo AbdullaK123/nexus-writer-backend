@@ -3,7 +3,6 @@ from typing import Optional, List
 from src.data.models import Story, Chapter, StoryStatus, Target
 from src.service.target.service import TargetService
 from src.data.schemas.chapter import ChapterListItem
-from fastapi import Depends
 from src.service.exceptions import NotFoundError, ConflictError
 from src.data.schemas.story import (
     CreateStoryRequest,
@@ -16,21 +15,13 @@ from src.data.schemas.story import (
 from loguru import logger
 from src.shared.utils.html import get_word_count
 from pymongo.asynchronous.database import AsyncDatabase
-from src.infrastructure.db.mongodb import get_mongodb
 
 class StoryService:
 
-    def __init__(self, mongodb: AsyncDatabase):
+    def __init__(self, mongodb: AsyncDatabase, target_service: TargetService):
         self.mongodb = mongodb
-        self.target_service = TargetService()
-        self._job_service = None
-
-    @property
-    def job_service(self):
-        if self._job_service is None:
-            from src.service.jobs.service import JobService
-            self._job_service = JobService(mongodb=self.mongodb)
-        return self._job_service
+        self.target_service = target_service
+        self.job_service = None  # set by container via wire_circular_deps
 
     async def append_to_path_end(self, story_id: str, chapter_id: str):
 
@@ -296,9 +287,3 @@ class StoryService:
         ]
 
         return list_responses
-    
-
-async def get_story_service(
-    mongodb: AsyncDatabase = Depends(get_mongodb)
-):
-    return StoryService(mongodb)

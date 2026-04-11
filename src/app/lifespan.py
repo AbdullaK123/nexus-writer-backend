@@ -3,8 +3,8 @@ from src.service.jobs.session import cleanup_expired_sessions_batched
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from loguru import logger
-from src.infrastructure.db.mongodb import MongoDB
-from src.infrastructure.config import settings, config
+from src.infrastructure.di import container
+from src.infrastructure.di.containers import wire_circular_deps
 from tortoise import Tortoise
 from src.infrastructure.db.postgres import TORTOISE_ORM
 
@@ -14,6 +14,10 @@ async def lifespan(app: FastAPI):
 
     logger.info("Initializing Tortoise ORM...")
     await Tortoise.init(config=TORTOISE_ORM)
+
+    logger.info("Initializing DI container resources...")
+    await container.init_resources()
+    wire_circular_deps(container)
 
     session_cleaner = AsyncBackgroundWorker()
 
@@ -25,9 +29,6 @@ async def lifespan(app: FastAPI):
     logger.info("Starting session cleanup background worker...")
     await session_cleaner.start()
 
-    logger.info("Connecting to mongo db database...")
-    await MongoDB.connect(settings.mongodb_url)
-
     yield
 
     logger.info("Removing all jobs...")
@@ -36,8 +37,8 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down session cleanup background worker")
     await session_cleaner.stop()
 
-    logger.info("Closing connection to mongodb database...")
-    await MongoDB.close()
+    logger.info("Shutting down DI container resources...")
+    await container.shutdown_resources()
 
     logger.info("Closing Tortoise ORM connections...")
     await Tortoise.close_connections()

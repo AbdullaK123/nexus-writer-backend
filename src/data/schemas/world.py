@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
-from src.service.ai.models.world import Fact
+from src.data.models.ai.world import Fact
 
 
 class ContradictingFact(BaseModel):

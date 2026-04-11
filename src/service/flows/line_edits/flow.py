@@ -7,7 +7,7 @@ from prefect import flow, get_client, task
 from tortoise import Tortoise
 from loguru import logger
 from src.service.ai.edits import generate_line_edits
-from src.service.ai.models.edits import ChapterEdit, ChapterEdits
+from src.data.models.ai.edits import ChapterEdit, ChapterEdits
 from src.infrastructure.db.postgres import TORTOISE_ORM
 from src.data.models import Chapter
 from src.infrastructure.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAY, EXTRACTION_TASK_TIMEOUT

@@ -1,10 +1,10 @@
 from typing import Optional
-from src.service.ai.models.character import CharacterExtraction
-from src.service.ai.models.plot import PlotExtraction
-from src.service.ai.models.structure import StructureExtraction
-from src.service.ai.models.world import WorldExtraction
+from src.data.models.ai.character import CharacterExtraction
+from src.data.models.ai.plot import PlotExtraction
+from src.data.models.ai.structure import StructureExtraction
+from src.data.models.ai.world import WorldExtraction
 from src.service.ai.prompts.context import SYSTEM_PROMPT, build_condensed_context_prompt
-from src.service.ai.models.context import CondensedChapterContext
+from src.data.models.ai.context import CondensedChapterContext
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 from src.infrastructure.config.settings import config

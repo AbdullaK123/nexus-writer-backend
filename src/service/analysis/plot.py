@@ -1,13 +1,10 @@
 import asyncio
 
-from fastapi import Depends
 from src.service.exceptions import InternalError
 from langchain.messages import HumanMessage, SystemMessage
-from src.service.ai.models.plot import ContrivanceRisk, Payoff, PlotThread, Setup, StoryQuestion
-from src.infrastructure.db.mongodb import get_mongodb
+from langchain_core.language_models.chat_models import BaseChatModel
+from src.data.models.ai.plot import ContrivanceRisk, Payoff, PlotThread, Setup, StoryQuestion
 from src.data.schemas.plot import DeusExMachinaResponse, PlotStructuralReportResponse, PlotThreadsResponse, SetupResponse, StoryQuestionsResponse
-from src.infrastructure.config import config
-from src.service.ai.utils.model_factory import create_chat_model
 from loguru import logger
 from src.service.ai.prompts.plot import PLOT_STRUCTURAL_REPORT_PROMPT
 from src.service.ai.utils.ai import extract_text
@@ -16,9 +13,9 @@ from src.data.repositories.mongo.plot_extraction import PlotExtractionRepo
 
 class PlotService:
 
-    def __init__(self, repo: PlotExtractionRepo):
+    def __init__(self, repo: PlotExtractionRepo, model: BaseChatModel):
         self.repo = repo
-        self._model = create_chat_model(config.ai.lite_model)
+        self._model = model
 
     def _build_structural_report_prompt(
         self,
@@ -137,7 +134,4 @@ class PlotService:
         )
         
     
-def get_plot_service(
-    mongodb=Depends(get_mongodb)
-) -> PlotService:
-    return PlotService(repo=PlotExtractionRepo(mongodb))
+

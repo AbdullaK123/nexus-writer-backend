@@ -12,22 +12,22 @@ only the parser/formatter step while keeping Gemini for planning and analysis.
 from toon import encode
 
 from src.service.ai.utils.lfm_extractor import LFMExtractor
-from src.service.ai.models.character import CharacterExtraction
-from src.service.ai.models.plot import (
+from src.data.models.ai.character import CharacterExtraction
+from src.data.models.ai.plot import (
     EventsExtraction,
     ThreadsExtraction,
     SetupsPayoffsExtraction,
     QuestionsContrivancesExtraction,
 )
-from src.service.ai.models.world import WorldExtraction
-from src.service.ai.models.structure import (
+from src.data.models.ai.world import WorldExtraction
+from src.data.models.ai.structure import (
     ScenesExtraction,
     PacingExtraction,
     ThemesExtraction,
     EmotionalBeatsExtraction,
 )
-from src.service.ai.models.context import CondensedChapterContext
-from src.service.ai.models.edits import ChapterEdit
+from src.data.models.ai.context import CondensedChapterContext
+from src.data.models.ai.edits import ChapterEdit
 
 
 # ── System Prompts (parser-level: analysis text → structured JSON) ────────

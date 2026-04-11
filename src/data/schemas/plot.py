@@ -1,6 +1,6 @@
 from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
-from src.service.ai.models.plot import ContrivanceRisk, PlotThread, Setup, StoryQuestion
+from src.data.models.ai.plot import ContrivanceRisk, PlotThread, Setup, StoryQuestion
 
 class PlotThreadsResponse(BaseModel):
     plot_threads: Optional[List[PlotThread]] = []

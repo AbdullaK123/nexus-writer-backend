@@ -1,6 +1,6 @@
 from typing import List, Optional
 from pydantic import BaseModel
-from src.service.ai.models.character import Character
+from src.data.models.ai.character import Character
 
 
 

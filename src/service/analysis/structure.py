@@ -1,12 +1,9 @@
 import asyncio
 from typing import Optional, Literal
-from fastapi import Depends
 from src.service.exceptions import InternalError
 from langchain.messages import HumanMessage, SystemMessage
-from src.infrastructure.db.mongodb import get_mongodb
-from src.infrastructure.config import config
-from src.service.ai.utils.model_factory import create_chat_model
-from src.service.ai.models.structure import Scene
+from langchain_core.language_models.chat_models import BaseChatModel
+from src.data.models.ai.structure import Scene
 from src.service.ai.prompts.structure import DEVELOPMENTAL_REPORT_SYSTEM_PROMPT
 from src.data.schemas.structure import *
 from src.service.ai.utils.ai import extract_text
@@ -17,9 +14,9 @@ from loguru import logger
 
 class StructureService:
 
-    def __init__(self, repo: StructureExtractionRepo):
+    def __init__(self, repo: StructureExtractionRepo, model: BaseChatModel):
         self.repo = repo
-        self._model = create_chat_model(config.ai.lite_model)
+        self._model = model
 
     async def get_scene_index(
         self,
@@ -296,7 +293,4 @@ EMOTIONAL BEAT EFFECTIVENESS:
         )
 
 
-async def get_structure_service(
-    mongodb=Depends(get_mongodb)
-) -> StructureService:
-    return StructureService(repo=StructureExtractionRepo(mongodb))
+

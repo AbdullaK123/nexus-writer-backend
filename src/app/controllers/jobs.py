@@ -8,9 +8,10 @@ Endpoints for:
 from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Query, Depends
+from dependency_injector.wiring import inject, Provide
 from pydantic import BaseModel
 
-from src.service.jobs.service import JobService, get_job_service
+from src.service.jobs.service import JobService
 from src.service.auth.service import get_current_user
 from src.data.models import User
 from src.data.schemas.jobs import JobStatusResponse, JobQueuedResponse
@@ -26,9 +27,10 @@ job_controller = APIRouter(
 # === Job Status ===
 
 @job_controller.get("/{job_id}", response_model=JobStatusResponse)
+@inject
 async def get_job_status(
     job_id: str,
-    job_service: JobService = Depends(get_job_service)
+    job_service: JobService = Depends(Provide["job_service"])
 ) -> JobStatusResponse:
     """
     Get detailed status of a background job with progress tracking.
@@ -47,6 +49,7 @@ async def get_job_status(
 # === Queue Jobs ===
 
 @job_controller.post("/line-edits/{chapter_id}", response_model=JobQueuedResponse)
+@inject
 async def queue_line_edit_job(
     chapter_id: str,
     force: bool = Query(
@@ -54,7 +57,7 @@ async def queue_line_edit_job(
         description="Force generation even if recently generated (within 24h)"
     ),
     current_user: User = Depends(get_current_user),
-    job_service: JobService = Depends(get_job_service)
+    job_service: JobService = Depends(Provide["job_service"])
 ) -> JobQueuedResponse:
     """
     Queue line edit generation for a chapter.
@@ -75,10 +78,11 @@ async def queue_line_edit_job(
 
 
 @job_controller.post("/extraction/{chapter_id}", response_model=JobQueuedResponse)
+@inject
 async def queue_extraction(
     chapter_id: str,
     current_user: User = Depends(get_current_user),
-    job_service: JobService = Depends(get_job_service)
+    job_service: JobService = Depends(Provide["job_service"])
 ) -> JobQueuedResponse:
     """
     Queue extraction for a single chapter.
