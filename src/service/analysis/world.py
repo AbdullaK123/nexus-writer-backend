@@ -1,11 +1,8 @@
 import asyncio
 from typing import Any, List, Optional
-from fastapi import Depends
 from src.service.exceptions import InternalError
 from langchain.messages import HumanMessage, SystemMessage
-from src.infrastructure.db.mongodb import get_mongodb
-from src.infrastructure.config import config
-from src.service.ai.utils.model_factory import create_chat_model
+from langchain_core.language_models.chat_models import BaseChatModel
 from src.service.ai.prompts.world import WORLD_CONSISTENCY_REPORT_SYSTEM_PROMPT
 from src.data.schemas.world import *
 from src.service.ai.utils.ai import extract_text
@@ -16,9 +13,9 @@ from loguru import logger
 
 class WorldConsistencyService:
 
-    def __init__(self, repo: WorldExtractionRepo):
+    def __init__(self, repo: WorldExtractionRepo, model: BaseChatModel):
         self.repo = repo
-        self._model = create_chat_model(config.ai.lite_model)
+        self._model = model
 
     async def get_contradictions(
         self,
@@ -178,7 +175,4 @@ FACT DENSITY BY CHAPTER:
         )
 
 
-async def get_world_consistency_service(
-    mongodb=Depends(get_mongodb)
-) -> WorldConsistencyService:
-    return WorldConsistencyService(repo=WorldExtractionRepo(mongodb))
+

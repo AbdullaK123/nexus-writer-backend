@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, BackgroundTasks
-from src.service.chapter.service import ChapterService, get_chapter_service
+from dependency_injector.wiring import inject, Provide
+from src.service.chapter.service import ChapterService
 from src.service.auth.service import get_current_user
 from src.data.models import User
-from src.service.ai.models.edits import ChapterEdit, ChapterEditResponse
+from src.data.models.ai.edits import ChapterEdit, ChapterEditResponse
 from typing import Optional
 from src.data.schemas.chapter import (
     ChapterContentResponse,
@@ -12,10 +13,11 @@ from src.data.schemas.chapter import (
 chapter_controller = APIRouter(prefix='/chapters')
 
 @chapter_controller.get('/edit/{chapter_id}', response_model=ChapterEditResponse)
+@inject
 async def get_chapter_edits(
     chapter_id: str,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(get_chapter_service)
+    chapter_service: ChapterService = Depends(Provide["chapter_service"])
 ) -> ChapterEditResponse:
     return await chapter_service.get_line_edits(
         current_user.id,
@@ -23,11 +25,12 @@ async def get_chapter_edits(
     )
 
 @chapter_controller.get('/{chapter_id}', response_model=ChapterContentResponse)
+@inject
 async def get_chapter_with_navigation(
     chapter_id: str,
     as_html: bool = True,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(get_chapter_service)
+    chapter_service: ChapterService = Depends(Provide["chapter_service"])
 ) -> ChapterContentResponse:
     return await chapter_service.get_chapter_with_navigation(
         chapter_id, 
@@ -36,11 +39,12 @@ async def get_chapter_with_navigation(
     )
 
 @chapter_controller.put('/{chapter_id}', response_model=ChapterContentResponse)
+@inject
 async def update_chapter(
     chapter_id: str,
     updated_info: UpdateChapterRequest,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(get_chapter_service)
+    chapter_service: ChapterService = Depends(Provide["chapter_service"])
 ) -> ChapterContentResponse:
     return await chapter_service.update(
         chapter_id=chapter_id,
@@ -49,10 +53,11 @@ async def update_chapter(
     )
 
 @chapter_controller.delete('/{chapter_id}', response_model=dict)
+@inject
 async def delete_chapter(
     chapter_id: str,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(get_chapter_service)
+    chapter_service: ChapterService = Depends(Provide["chapter_service"])
 ) -> dict:
     return await chapter_service.delete(
         chapter_id=chapter_id,

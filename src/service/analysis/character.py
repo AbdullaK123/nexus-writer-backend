@@ -1,10 +1,7 @@
-from fastapi import Depends
 from langchain.messages import HumanMessage, SystemMessage
-from src.infrastructure.config import config
-from src.service.ai.utils.model_factory import create_chat_model
+from langchain_core.language_models.chat_models import BaseChatModel
 from src.service.ai.prompts.character import CHARACTER_INCONSISTENCY_PROMPT
-from src.service.ai.models.character import Character
-from src.infrastructure.db.mongodb import get_mongodb
+from src.data.models.ai.character import Character
 from src.data.schemas.character import ChapterEmotionalState, ChapterGoals, ChapterKnowledgeGained, CharacterArcResponse, CharacterInconsistencyResponse, CharacterKnowledgeResponse, CharacterResponse
 from src.service.ai.utils.ai import extract_text
 from src.infrastructure.utils.retry import retry_llm
@@ -12,9 +9,9 @@ from src.data.repositories.mongo.character_extraction import CharacterExtraction
 
 class CharacterService:
 
-    def __init__(self, repo: CharacterExtractionRepo):
+    def __init__(self, repo: CharacterExtractionRepo, model: BaseChatModel):
         self.repo = repo
-        self._model = create_chat_model(config.ai.lite_model)
+        self._model = model
 
     def _build_inconsistency_prompt(
         self,
@@ -125,7 +122,4 @@ class CharacterService:
         )
     
 
-async def get_character_service(
-    mongodb=Depends(get_mongodb)
-) -> CharacterService:
-    return CharacterService(repo=CharacterExtractionRepo(mongodb))
+

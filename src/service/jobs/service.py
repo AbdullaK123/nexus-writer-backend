@@ -9,7 +9,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List, cast
 from uuid import UUID
 
-from fastapi import Depends
 from src.service.exceptions import NotFoundError, ValidationError
 from prefect import get_client
 from prefect.client.schemas.objects import StateType, FlowRun
@@ -29,7 +28,6 @@ from src.data.schemas.jobs import (
 from src.shared.utils.decorators import log_errors
 from src.infrastructure.utils.retry import retry_network, retry_mongo
 from pymongo.asynchronous.database import AsyncDatabase
-from src.infrastructure.db.mongodb import get_mongodb
 from src.shared.utils.html import html_to_plain_text
 from src.infrastructure.config import settings, config
 
@@ -53,22 +51,8 @@ class JobService:
 
     def __init__(self, mongodb: AsyncDatabase):
         self.mongodb = mongodb
-        self._chapter_service = None
-        self._story_service = None
-
-    @property
-    def chapter_service(self):
-        if self._chapter_service is None:
-            from src.service.chapter.service import ChapterService
-            self._chapter_service = ChapterService(mongodb=self.mongodb)
-        return self._chapter_service
-
-    @property
-    def story_service(self):
-        if self._story_service is None:
-            from src.service.story.service import StoryService
-            self._story_service = StoryService(mongodb=self.mongodb)
-        return self._story_service
+        self.chapter_service = None  # set by container via wire_circular_deps
+        self.story_service = None    # set by container via wire_circular_deps
 
     async def _get_prefect_client(self) -> PrefectClient:
         """Get Prefect client"""
@@ -390,8 +374,3 @@ class JobService:
         )
 
 
-async def get_job_service(
-    mongodb: AsyncDatabase = Depends(get_mongodb)
-) -> JobService:
-    """Dependency for JobService"""
-    return JobService(mongodb=mongodb)

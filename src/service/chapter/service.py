@@ -10,7 +10,7 @@ from src.data.schemas.chapter import (
     ChapterContentResponse,
     ChapterListResponse, ChapterEditRequest
 )
-from fastapi import BackgroundTasks, Depends
+from fastapi import BackgroundTasks
 from src.service.exceptions import NotFoundError, ValidationError, InternalError
 from src.shared.utils.html import get_preview_content, get_word_count
 from src.service.jobs.chapter import (
@@ -19,9 +19,8 @@ from src.service.jobs.chapter import (
     handle_chapter_reordering
 )
 from loguru import logger
-from src.service.ai.models.edits import ChapterEdit, ChapterEditResponse, LineEdit
+from src.data.models.ai.edits import ChapterEdit, ChapterEditResponse, LineEdit
 from pymongo.asynchronous.database import AsyncDatabase
-from src.infrastructure.db.mongodb import get_mongodb
 from tortoise.transactions import in_transaction
 from src.infrastructure.utils.retry import retry_mongo
 
@@ -30,14 +29,7 @@ class ChapterService:
 
     def __init__(self, mongodb: AsyncDatabase):
         self.mongodb = mongodb
-        self._job_service = None
-
-    @property
-    def job_service(self):
-        if self._job_service is None:
-            from src.service.jobs.service import JobService
-            self._job_service = JobService(mongodb=self.mongodb)
-        return self._job_service
+        self.job_service = None  # set by container via wire_circular_deps
 
     # ========================================
     # CORE CRUD OPERATIONS - SIMPLE & CLEAN
@@ -395,9 +387,3 @@ class ChapterService:
             user_id=user_id
         ).first()
 
-
-# Simple dependency - no db session needed with Tortoise!
-async def get_chapter_service(
-    mongodb: AsyncDatabase = Depends(get_mongodb)
-):
-    return ChapterService(mongodb)

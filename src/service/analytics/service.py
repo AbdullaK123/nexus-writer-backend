@@ -1,7 +1,6 @@
 from src.infrastructure.config import settings
 from loguru import logger
 from typing import Dict, List, Any, Optional
-from src.infrastructure.db.mongodb import get_mongodb
 from src.service.target.service import TargetService
 from src.data.schemas import TargetResponse
 from src.shared.utils.decorators import log_errors
@@ -9,7 +8,6 @@ from src.data.schemas.analytics import WritingSession, StoryAnalyticsResponse
 from src.data.models import FrequencyType
 from datetime import datetime, timezone
 from datetime import timedelta
-from fastapi import Depends
 from src.service.exceptions import NotFoundError, ValidationError
 from src.service.story.service import StoryService
 from src.data.repositories.analytics.analytics import AnalyticsRepo
@@ -18,11 +16,10 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 class AnalyticsService:
 
-    def __init__(self, repo: AnalyticsRepo, mongodb: AsyncDatabase):
+    def __init__(self, repo: AnalyticsRepo, story_service: StoryService, target_service: TargetService):
         self.repo = repo
-        self.story_service = StoryService(mongodb)
-        self.target_service = TargetService()
-        logger.info("AnalyticsService initialized")
+        self.story_service = story_service
+        self.target_service = target_service
 
     async def get_writing_kpis(
             self,
@@ -157,10 +154,3 @@ class AnalyticsService:
         )
 
 
-def get_analytics_service(
-    mongodb=Depends(get_mongodb)
-) -> AnalyticsService:
-    return AnalyticsService(
-        repo=AnalyticsRepo(settings.motherduck_url),
-        mongodb=mongodb
-    )

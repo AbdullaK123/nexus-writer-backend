@@ -14,11 +14,11 @@ from src.service.ai.plot import extract_plot_information
 from src.service.ai.structure import extract_story_structure
 from src.service.ai.world import extract_world_information
 from src.service.ai.context import synthesize_chapter_context
-from src.service.ai.models.character import CharacterExtraction
-from src.service.ai.models.plot import PlotExtraction
-from src.service.ai.models.structure import StructureExtraction
-from src.service.ai.models.world import WorldExtraction
-from src.service.ai.models.context import CondensedChapterContext
+from src.data.models.ai.character import CharacterExtraction
+from src.data.models.ai.plot import PlotExtraction
+from src.data.models.ai.structure import StructureExtraction
+from src.data.models.ai.world import WorldExtraction
+from src.data.models.ai.context import CondensedChapterContext
 from src.infrastructure.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAY, EXTRACTION_TASK_TIMEOUT
 from datetime import datetime, timezone
 from tortoise import Tortoise

@@ -17,7 +17,7 @@ from src.service.ai.prompts.plot import (
     build_questions_contrivances_parser_prompt,
 )
 from src.service.ai.prompts.planners import PLOT_PLANNER_SYSTEM_PROMPT, build_plot_planner_prompt
-from src.service.ai.models.plot import (
+from src.data.models.ai.plot import (
     PlotExtraction,
     EventsExtraction,
     ThreadsExtraction,

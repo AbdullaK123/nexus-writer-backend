@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from pydantic import model_validator
 from typing import List, Optional, Literal
-from src.service.ai.models.structure import Scene, Pacing
+from src.data.models.ai.structure import Scene, Pacing
 
 class SceneWithContext(Scene):
     chapter_number: int

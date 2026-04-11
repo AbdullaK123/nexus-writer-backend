@@ -9,7 +9,7 @@ from src.service.ai.prompts.character import (
     build_character_parser_prompt,
 )
 from src.service.ai.prompts.planners import CHARACTER_PLANNER_SYSTEM_PROMPT, build_character_planner_prompt
-from src.service.ai.models.character import CharacterExtraction
+from src.data.models.ai.character import CharacterExtraction
 from typing import Optional, List
 from src.infrastructure.config.settings import config
 from src.service.ai.utils.model_factory import create_chat_model

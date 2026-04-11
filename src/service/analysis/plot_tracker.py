@@ -1,12 +1,9 @@
 import asyncio
 from typing import List
-from fastapi import Depends
 from src.service.exceptions import InternalError
 from langchain.messages import HumanMessage, SystemMessage
+from langchain_core.language_models.chat_models import BaseChatModel
 from loguru import logger
-from src.infrastructure.db.mongodb import get_mongodb
-from src.infrastructure.config import config
-from src.service.ai.utils.model_factory import create_chat_model
 from src.data.schemas.plot import *
 from src.service.ai.utils.ai import extract_text
 from src.infrastructure.utils.retry import retry_llm
@@ -49,9 +46,9 @@ End with what's working — which threads are well-managed, which setups pay off
 
 class PlotTrackerService:
 
-    def __init__(self, repo: PlotExtractionRepo):
+    def __init__(self, repo: PlotExtractionRepo, model: BaseChatModel):
         self.repo = repo
-        self._model = create_chat_model(config.ai.lite_model)
+        self._model = model
 
     async def get_thread_timeline(
         self,
@@ -240,7 +237,4 @@ SETUP-PAYOFF MAP:
 """
 
 
-async def get_plot_tracker_service(
-    mongodb=Depends(get_mongodb)
-) -> PlotTrackerService:
-    return PlotTrackerService(repo=PlotExtractionRepo(mongodb))
+

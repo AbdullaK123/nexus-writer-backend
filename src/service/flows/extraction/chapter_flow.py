@@ -27,11 +27,11 @@ from src.infrastructure.db.postgres import TORTOISE_ORM
 from src.infrastructure.db.mongodb import MongoDB
 from src.data.models import Chapter
 from tortoise import Tortoise
-from src.service.ai.models.character import CharacterExtraction
-from src.service.ai.models.plot import PlotExtraction
-from src.service.ai.models.world import WorldExtraction
-from src.service.ai.models.structure import StructureExtraction
-from src.service.ai.models.context import CondensedChapterContext
+from src.data.models.ai.character import CharacterExtraction
+from src.data.models.ai.plot import PlotExtraction
+from src.data.models.ai.world import WorldExtraction
+from src.data.models.ai.structure import StructureExtraction
+from src.data.models.ai.context import CondensedChapterContext
 from src.service.flows.extraction.tasks import (
     extract_characters_task,
     extract_plot_task,

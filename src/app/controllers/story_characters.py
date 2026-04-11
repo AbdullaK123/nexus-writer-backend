@@ -1,5 +1,5 @@
-from typing import List
 from fastapi import APIRouter, Depends, Query
+from dependency_injector.wiring import inject, Provide
 from src.data.schemas.character import (
     CharacterAppearancesResponse,
     CharacterArcResponse,
@@ -12,8 +12,8 @@ from src.data.schemas.character import (
     CharacterResponse,
     CastManagementReportResponse,
 )
-from src.service.analysis.character import CharacterService, get_character_service
-from src.service.analysis.character_tracker import CharacterTrackerService, get_character_tracker_service
+from src.service.analysis.character import CharacterService
+from src.service.analysis.character_tracker import CharacterTrackerService
 from src.service.auth.service import get_current_user
 from src.data.models import User
 
@@ -22,10 +22,11 @@ router = APIRouter()
 
 
 @router.get("/", response_model=CharacterResponse)
+@inject
 async def get_characters(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    character_service: CharacterService = Depends(get_character_service)
+    character_service: CharacterService = Depends(Provide["character_service"])
 ) -> CharacterResponse:
     return await character_service.get_all_characters(
         story_id=story_id,
@@ -34,11 +35,12 @@ async def get_characters(
 
 
 @router.get("/{character_name}/arc", response_model=CharacterArcResponse)
+@inject
 async def get_character_arc(
     story_id: str,
     character_name: str,
     current_user: User = Depends(get_current_user),
-    character_service: CharacterService = Depends(get_character_service)
+    character_service: CharacterService = Depends(Provide["character_service"])
 ) -> CharacterArcResponse:
     return await character_service.get_character_arc(
         character_name=character_name,
@@ -48,12 +50,13 @@ async def get_character_arc(
 
 
 @router.get("/{character_name}/knowledge", response_model=CharacterKnowledgeResponse)
+@inject
 async def get_character_knowledge(
     story_id: str,
     character_name: str,
     chapter_number: int = Query(..., ge=1, description="Cumulative knowledge up to this chapter"),
     current_user: User = Depends(get_current_user),
-    character_service: CharacterService = Depends(get_character_service)
+    character_service: CharacterService = Depends(Provide["character_service"])
 ) -> CharacterKnowledgeResponse:
     return await character_service.get_knowledge_at_chapter(
         character_name=character_name,
@@ -64,11 +67,12 @@ async def get_character_knowledge(
 
 
 @router.get("/{character_name}/inconsistencies", response_model=CharacterInconsistencyResponse)
+@inject
 async def get_character_inconsistencies(
     story_id: str,
     character_name: str,
     current_user: User = Depends(get_current_user),
-    character_service: CharacterService = Depends(get_character_service)
+    character_service: CharacterService = Depends(Provide["character_service"])
 ) -> CharacterInconsistencyResponse:
     return await character_service.get_inconsistency_report(
         story_id=story_id,
@@ -78,10 +82,11 @@ async def get_character_inconsistencies(
 
 
 @router.get("/presence-map", response_model=CharacterAppearancesResponse)
+@inject
 async def get_character_presence_map(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    service: CharacterTrackerService = Depends(get_character_tracker_service),
+    service: CharacterTrackerService = Depends(Provide["character_tracker_service"]),
 ) -> CharacterAppearancesResponse:
     return await service.get_character_presence_map(
         story_id=story_id,
@@ -90,10 +95,11 @@ async def get_character_presence_map(
 
 
 @router.get("/introduction-rate", response_model=CharacterIntroductionResponse)
+@inject
 async def get_character_introduction_rate(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    service: CharacterTrackerService = Depends(get_character_tracker_service),
+    service: CharacterTrackerService = Depends(Provide["character_tracker_service"]),
 ) -> CharacterIntroductionResponse:
     return await service.get_character_introduction_rate(
         story_id=story_id,
@@ -102,10 +108,11 @@ async def get_character_introduction_rate(
 
 
 @router.get("/density", response_model=CharacterDensityResponse)
+@inject
 async def get_cast_density(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    service: CharacterTrackerService = Depends(get_character_tracker_service),
+    service: CharacterTrackerService = Depends(Provide["character_tracker_service"]),
 ) -> CharacterDensityResponse:
     return await service.get_cast_density(
         story_id=story_id,
@@ -114,10 +121,11 @@ async def get_cast_density(
 
 
 @router.get("/cast-report", response_model=CastManagementReportResponse)
+@inject
 async def get_cast_management_report(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    service: CharacterTrackerService = Depends(get_character_tracker_service),
+    service: CharacterTrackerService = Depends(Provide["character_tracker_service"]),
 ) -> CastManagementReportResponse:
     return await service.get_cast_management_report(
         story_id=story_id,
@@ -126,11 +134,12 @@ async def get_cast_management_report(
 
 
 @router.get("/{character_name}/goals", response_model=CharacterGoalsResponse)
+@inject
 async def get_goal_evolution(
     story_id: str,
     character_name: str,
     current_user: User = Depends(get_current_user),
-    service: CharacterTrackerService = Depends(get_character_tracker_service),
+    service: CharacterTrackerService = Depends(Provide["character_tracker_service"]),
 ) -> CharacterGoalsResponse:
     return await service.get_goal_evolution(
         story_id=story_id,
@@ -140,12 +149,13 @@ async def get_goal_evolution(
 
 
 @router.get("/{character_name}/knowledge-map", response_model=CharacterKnowledgeMapResponse)
+@inject
 async def get_knowledge_asymmetry(
     story_id: str,
     character_name: str,
     chapter_number: int = Query(..., ge=1, description="Cumulative knowledge up to this chapter"),
     current_user: User = Depends(get_current_user),
-    service: CharacterTrackerService = Depends(get_character_tracker_service),
+    service: CharacterTrackerService = Depends(Provide["character_tracker_service"]),
 ) -> CharacterKnowledgeMapResponse:
     return await service.get_knowledge_asymmetry(
         story_id=story_id,

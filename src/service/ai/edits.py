@@ -12,7 +12,7 @@ from src.service.ai.prompts.edits import (
     build_critic_user_prompt,
     build_parser_user_prompt
 )
-from src.service.ai.models.edits import ChapterEdit, LineEdit
+from src.data.models.ai.edits import ChapterEdit, LineEdit
 from src.infrastructure.config.settings import config
 from src.service.ai.utils.model_factory import create_chat_model
 from langgraph.graph import StateGraph, END
