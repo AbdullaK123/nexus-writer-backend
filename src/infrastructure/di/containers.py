@@ -83,19 +83,22 @@ class ApplicationContainer(containers.DeclarativeContainer):
 
     analytics_repo = providers.Singleton(AnalyticsRepo, motherduck_url=settings.motherduck_url)
 
-    # ── Core services (circular triangle wired post-init) ────────────
+    # ── Core services ──────────────────────────────────────────────
 
     auth_service = providers.Singleton(AuthService)
 
     target_service = providers.Singleton(TargetService)
 
-    chapter_service = providers.Singleton(ChapterService, mongodb=mongodb)
+    job_service = providers.Singleton(JobService, mongodb=mongodb)
+
+    chapter_service = providers.Singleton(
+        ChapterService, mongodb=mongodb, job_service=job_service,
+    )
 
     story_service = providers.Singleton(
         StoryService, mongodb=mongodb, target_service=target_service,
+        job_service=job_service,
     )
-
-    job_service = providers.Singleton(JobService, mongodb=mongodb)
 
     analytics_service = providers.Singleton(
         AnalyticsService,
@@ -129,15 +132,3 @@ class ApplicationContainer(containers.DeclarativeContainer):
     plot_tracker_service = providers.Singleton(
         PlotTrackerService, repo=plot_extraction_repo, model=chat_model,
     )
-
-
-def wire_circular_deps(container: ApplicationContainer):
-    """Wire ChapterService ↔ JobService ↔ StoryService after construction."""
-    chapter_svc = container.chapter_service()
-    story_svc = container.story_service()
-    job_svc = container.job_service()
-
-    chapter_svc.job_service = job_svc
-    story_svc.job_service = job_svc
-    job_svc.chapter_service = chapter_svc
-    job_svc.story_service = story_svc

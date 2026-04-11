@@ -18,10 +18,10 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 class StoryService:
 
-    def __init__(self, mongodb: AsyncDatabase, target_service: TargetService):
+    def __init__(self, mongodb: AsyncDatabase, target_service: TargetService, job_service):
         self.mongodb = mongodb
         self.target_service = target_service
-        self.job_service = None  # set by container via wire_circular_deps
+        self.job_service = job_service
 
     async def append_to_path_end(self, story_id: str, chapter_id: str):
 

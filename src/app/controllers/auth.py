@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, Response, Depends, Cookie
 from dependency_injector.wiring import inject, Provide
+from src.infrastructure.di.containers import ApplicationContainer
 from src.data.schemas.auth import UserResponse, RegistrationData, AuthCredentials
 from src.data.models import User
 from src.service.auth.service import AuthService, get_current_user
@@ -11,7 +12,7 @@ user_controller = APIRouter(prefix='/auth')
 async def register_user(
     request: Request, 
     registration_data: RegistrationData,
-    auth_service: AuthService = Depends(Provide["auth_service"])
+    auth_service: AuthService = Depends(Provide[ApplicationContainer.auth_service])
 ) -> UserResponse:
     return await auth_service.register_user(registration_data)
 
@@ -22,7 +23,7 @@ async def login_user(
     request: Request,
     response: Response,
     credentials: AuthCredentials,
-    auth_service: AuthService = Depends(Provide["auth_service"])
+    auth_service: AuthService = Depends(Provide[ApplicationContainer.auth_service])
 ) -> UserResponse:
     return await auth_service.login_user(
         request,
@@ -37,7 +38,7 @@ async def logout_user(
     response: Response,
     user: User = Depends(get_current_user),
     session_id: str = Cookie(),
-    auth_service: AuthService = Depends(Provide["auth_service"])
+    auth_service: AuthService = Depends(Provide[ApplicationContainer.auth_service])
 ) -> dict:
     await auth_service.logout_user(session_id)
     response.delete_cookie("session_id")

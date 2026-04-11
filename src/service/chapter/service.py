@@ -27,9 +27,9 @@ from src.infrastructure.utils.retry import retry_mongo
 
 class ChapterService:
 
-    def __init__(self, mongodb: AsyncDatabase):
+    def __init__(self, mongodb: AsyncDatabase, job_service):
         self.mongodb = mongodb
-        self.job_service = None  # set by container via wire_circular_deps
+        self.job_service = job_service
 
     # ========================================
     # CORE CRUD OPERATIONS - SIMPLE & CLEAN

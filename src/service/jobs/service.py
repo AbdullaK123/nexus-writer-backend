@@ -51,8 +51,6 @@ class JobService:
 
     def __init__(self, mongodb: AsyncDatabase):
         self.mongodb = mongodb
-        self.chapter_service = None  # set by container via wire_circular_deps
-        self.story_service = None    # set by container via wire_circular_deps
 
     async def _get_prefect_client(self) -> PrefectClient:
         """Get Prefect client"""
@@ -193,7 +191,7 @@ class JobService:
         force: bool = False,
     ) -> JobQueuedResponse:
         """Queue line edit generation for a chapter"""
-        chapter = await self.chapter_service.get_by_id(chapter_id, user_id)
+        chapter = await Chapter.get_or_none(id=chapter_id)
         if not chapter:
             raise NotFoundError("We couldn't find this chapter. It may have been deleted.")
         
@@ -318,7 +316,7 @@ class JobService:
         chapter_id: str,
     ) -> JobQueuedResponse:
         """Queue extraction for a single chapter"""
-        chapter = await self.chapter_service.get_by_id(chapter_id, user_id)
+        chapter = await Chapter.get_or_none(id=chapter_id)
         if not chapter:
             raise NotFoundError("We couldn't find this chapter. It may have been deleted.")
         

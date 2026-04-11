@@ -4,6 +4,7 @@ from src.service.analytics.service import AnalyticsService
 from src.data.schemas.analytics import WritingSession, WritingSessionEvent
 from src.shared.utils.decorators import log_errors
 from dependency_injector.wiring import inject, Provide
+from src.infrastructure.di.containers import ApplicationContainer
 from src.infrastructure.utils.retry import retry_redis
 from src.infrastructure.config import settings
 from loguru import logger
@@ -20,7 +21,7 @@ sio = AsyncServer(
 
 @retry_redis
 @inject
-def save_session_to_redis(sid: str, data: dict, redis_client: Redis = Provide["redis_client"]):
+def save_session_to_redis(sid: str, data: dict, redis_client: Redis = Provide[ApplicationContainer.redis_client]):
     """Save session data to Redis - SYNC and RELIABLE"""
     redis_key = f"analytics_session:{sid}"
     serializable_data = {}
@@ -34,7 +35,7 @@ def save_session_to_redis(sid: str, data: dict, redis_client: Redis = Provide["r
 
 @retry_redis
 @inject
-def get_session_from_redis(sid: str, redis_client: Redis = Provide["redis_client"]) -> dict:
+def get_session_from_redis(sid: str, redis_client: Redis = Provide[ApplicationContainer.redis_client]) -> dict:
     """Get session data from Redis - SYNC and RELIABLE"""
     redis_key = f"analytics_session:{sid}"
     data = redis_client.get(redis_key)
@@ -50,7 +51,7 @@ def get_session_from_redis(sid: str, redis_client: Redis = Provide["redis_client
 
 @retry_redis
 @inject
-def delete_session_from_redis(sid: str, redis_client: Redis = Provide["redis_client"]):
+def delete_session_from_redis(sid: str, redis_client: Redis = Provide[ApplicationContainer.redis_client]):
     """Delete session data from Redis - SYNC and RELIABLE"""
     redis_key = f"analytics_session:{sid}"
     deleted = redis_client.delete(redis_key)
@@ -197,7 +198,7 @@ def handle_task_completion(task, session_id: str, sid: str):
 async def save_to_duckdb_async(
     session: WritingSession,
     sid: str,
-    analytics: AnalyticsService = Provide["analytics_service"],
+    analytics: AnalyticsService = Provide[ApplicationContainer.analytics_service],
 ):
     """Save to DuckDB asynchronously - CLEAN VERSION"""
     saved_session = await analytics.write_session(session)

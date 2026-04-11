@@ -4,7 +4,6 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from loguru import logger
 from src.infrastructure.di import container
-from src.infrastructure.di.containers import wire_circular_deps
 from tortoise import Tortoise
 from src.infrastructure.db.postgres import TORTOISE_ORM
 
@@ -17,7 +16,6 @@ async def lifespan(app: FastAPI):
 
     logger.info("Initializing DI container resources...")
     await container.init_resources()
-    wire_circular_deps(container)
 
     session_cleaner = AsyncBackgroundWorker()
 

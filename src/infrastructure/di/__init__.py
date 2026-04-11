@@ -1,5 +1,5 @@
-from src.infrastructure.di.containers import ApplicationContainer, wire_circular_deps
+from src.infrastructure.di.containers import ApplicationContainer
 
 container = ApplicationContainer()
 
-__all__ = ["container", "ApplicationContainer", "wire_circular_deps"]
+__all__ = ["container", "ApplicationContainer"]
