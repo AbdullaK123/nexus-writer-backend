@@ -47,6 +47,8 @@ class LFMExtractor(Generic[T]):
             ],
         )
         raw = response.choices[0].message.content
+        if raw is None:
+            raise ValueError("LLM returned empty content")
         return self._model.model_validate_json(raw)
 
     async def extract_many(self, texts: list[str]) -> list[T]:

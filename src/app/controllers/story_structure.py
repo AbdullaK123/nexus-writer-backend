@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from dependency_injector.wiring import inject, Provide
-from src.infrastructure.di.containers import ApplicationContainer
+from src.app.di.containers import ApplicationContainer
 from typing import Optional
 from src.data.schemas.structure import (
     SceneIndexResponse, WeakScenesResponse, SceneTypeDistributionResponse,
@@ -8,7 +8,7 @@ from src.data.schemas.structure import (
     ThemeDistributionResponse, EmotionalBeatsResponse, DevelopmentalReportResponse,
 )
 from src.service.analysis.structure import StructureService
-from src.service.auth.service import get_current_user
+from src.app.dependencies import get_current_user
 from src.data.models import User
 
 
@@ -28,7 +28,7 @@ async def get_scene_index(
     return await structure_service.get_scene_index(
         story_id=story_id,
         user_id=current_user.id,
-        scene_type=scene_type,
+        scene_type=scene_type,  # type: ignore[arg-type]
         pov=pov,
         location=location,
     )

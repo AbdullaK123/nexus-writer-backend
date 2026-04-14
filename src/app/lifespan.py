@@ -1,21 +1,19 @@
 from src.service.workers import AsyncBackgroundWorker
 from src.service.jobs.session import cleanup_expired_sessions_batched
+from src.infrastructure.config.logging import setup_logging
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from loguru import logger
-from src.infrastructure.di import container
-from tortoise import Tortoise
-from src.infrastructure.db.postgres import TORTOISE_ORM
+from src.app.di import container
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
-    logger.info("Initializing Tortoise ORM...")
-    await Tortoise.init(config=TORTOISE_ORM)
+    setup_logging()
 
     logger.info("Initializing DI container resources...")
-    await container.init_resources()
+    await container.init_resources()  # type: ignore[misc]
 
     session_cleaner = AsyncBackgroundWorker()
 
@@ -36,7 +34,4 @@ async def lifespan(app: FastAPI):
     await session_cleaner.stop()
 
     logger.info("Shutting down DI container resources...")
-    await container.shutdown_resources()
-
-    logger.info("Closing Tortoise ORM connections...")
-    await Tortoise.close_connections()
+    await container.shutdown_resources()  # type: ignore[misc]

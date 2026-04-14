@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Request, Response, Depends, Cookie
 from dependency_injector.wiring import inject, Provide
-from src.infrastructure.di.containers import ApplicationContainer
+from src.app.di.containers import ApplicationContainer
 from src.data.schemas.auth import UserResponse, RegistrationData, AuthCredentials
 from src.data.models import User
-from src.service.auth.service import AuthService, get_current_user
+from src.service.auth.service import AuthService
+from src.app.dependencies import get_current_user
 
 user_controller = APIRouter(prefix='/auth')
 
@@ -25,11 +26,22 @@ async def login_user(
     credentials: AuthCredentials,
     auth_service: AuthService = Depends(Provide[ApplicationContainer.auth_service])
 ) -> UserResponse:
-    return await auth_service.login_user(
-        request,
-        response,
-        credentials
+    from src.data.schemas.auth import ConnectionDetails
+    from src.infrastructure.config import settings
+    connection_details = ConnectionDetails(
+        ip_address=request.headers.get('X-Real-IP'),
+        user_agent=request.headers.get('User-Agent'),
     )
+    user_response, encrypted_cookie = await auth_service.login_user(credentials, connection_details)
+    response.set_cookie(
+        key='session_id',
+        value=encrypted_cookie,
+        max_age=86400,
+        httponly=True,
+        samesite='lax',
+        secure=(settings.env == 'prod'),
+    )
+    return user_response
 
 @user_controller.post('/logout')
 @inject

@@ -1,3 +1,5 @@
+from typing import Any
+
 from langchain_core.language_models.chat_models import BaseChatModel
 from src.infrastructure.config.settings import config
 
@@ -13,7 +15,7 @@ def create_chat_model(model_string: str) -> BaseChatModel:
             f"Invalid model string '{model_string}'. Expected format: 'provider/model-name'"
         )
 
-    shared = dict(
+    shared: dict[str, Any] = dict(
         temperature=config.ai.temperature,
         max_tokens=config.ai.max_tokens,
         timeout=config.ai.sdk_timeout,

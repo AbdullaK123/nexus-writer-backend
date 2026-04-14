@@ -81,7 +81,7 @@ def _build_fallback_context(
         parts.append(f"Characters: {', '.join(names)}")
     
     if plot_result.events:
-        events = [e.description for e in plot_result.events[:5]]
+        events = [e.event for e in plot_result.events[:5]]
         parts.append(f"Events: {'; '.join(events)}")
     
     if world_result.facts:

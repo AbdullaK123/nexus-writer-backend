@@ -27,11 +27,11 @@ class StoryService:
 
         story = await Story.get_or_none(id=story_id)
 
-        logger.debug(f"Append to path triggered!")
-        logger.debug(f"Current path array: {story.path_array}")
-
         if not story:
             raise ValueError(f"Story {story_id} not found")
+
+        logger.debug(f"Append to path triggered!")
+        logger.debug(f"Current path array: {story.path_array}")
         
         if story.path_array is None:
             story.path_array = []
@@ -163,6 +163,9 @@ class StoryService:
     async def get_ordered_chapters(self, user_id: str, story_id: str) -> List[Chapter]:
 
         story = await self.get_by_id(user_id, story_id)
+
+        if not story:
+            raise NotFoundError("Story not found")
         
         # Get ALL chapters in one query
         all_chapters = await Chapter.filter(
@@ -216,6 +219,7 @@ class StoryService:
                 id=chapter.id,
                 title=chapter.title,
                 published=chapter.published,
+                word_count=chapter.word_count,
                 updated_at=chapter.updated_at
             )
             for chapter in chapters
@@ -225,6 +229,8 @@ class StoryService:
             id=story_id,
             title=story.title,
             status=story.status,
+            total_chapters=len(chapter_items),
+            word_count=sum(c.word_count for c in chapter_items),
             created_at=story.created_at,
             updated_at=story.updated_at,
             chapters=chapter_items
@@ -241,9 +247,9 @@ class StoryService:
         all_chapters = await Chapter.filter(story_id__in=story_ids)
         
         # Group chapters by story_id
-        chapters = {}
+        chapters: dict[str, list[Chapter]] = {}
         for chapter in all_chapters:
-            chapters.setdefault(chapter.story_id, []).append(chapter)
+            chapters.setdefault(chapter.story_id, []).append(chapter)  # type: ignore[attr-defined]
     
         story_cards = [
             StoryCardResponse(
@@ -252,7 +258,7 @@ class StoryService:
                 title=story.title,
                 status=story.status,
                 total_chapters=len(chapters.get(story.id, [])),
-                word_count=sum(get_word_count(chapter.content) for chapter in chapters.get(story.id, [])),
+                word_count=sum(get_word_count(chapter.content) for chapter in chapters.get(story.id, [])),  # type: ignore[misc]
                 created_at=story.created_at,
                 updated_at=story.updated_at
             )
@@ -272,15 +278,15 @@ class StoryService:
         all_chapters = await Chapter.filter(story_id__in=story_ids)
         
         # Group chapters by story_id
-        chapters = {}
+        chapters: dict[str, list[Chapter]] = {}
         for chapter in all_chapters:
-            chapters.setdefault(chapter.story_id, []).append(chapter)
+            chapters.setdefault(chapter.story_id, []).append(chapter)  # type: ignore[attr-defined]
 
         list_responses = [
             StoryListItemResponse(
                 id=story.id,
                 title=story.title,
-                word_count=sum(get_word_count(chapter.content) for chapter in chapters.get(story.id, [])),
+                word_count=sum(get_word_count(chapter.content) for chapter in chapters.get(story.id, [])),  # type: ignore[misc]
                 targets = (await self.target_service.get_all_targets_by_story_id(story.id, user_id))
             )
             for story in stories

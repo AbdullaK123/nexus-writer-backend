@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, BackgroundTasks
 from dependency_injector.wiring import inject, Provide
-from src.infrastructure.di.containers import ApplicationContainer
+from src.app.di.containers import ApplicationContainer
 from src.service.chapter.service import ChapterService
-from src.service.auth.service import get_current_user
+from src.app.dependencies import get_current_user
 from src.data.models import User
 from src.data.models.ai.edits import ChapterEdit, ChapterEditResponse
 from typing import Optional

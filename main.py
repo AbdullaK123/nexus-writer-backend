@@ -5,7 +5,6 @@ from src.app.controllers.auth import user_controller
 from src.app.controllers.chapter import chapter_controller
 from src.app.controllers.story import story_controller
 from src.app.controllers.jobs import job_controller
-from src.infrastructure.config.logging import setup_logging
 from src.app.channels.analytics import sio
 from socketio.asgi import ASGIApp  # type: ignore
 from src.app.lifespan import lifespan
@@ -26,8 +25,6 @@ app = FastAPI(
     version="1.0",
     lifespan=lifespan
 )
-
-setup_logging()
 
 # HTTP logging middleware should wrap as wide as possible
 app.add_middleware(HTTPLoggingMiddleware)

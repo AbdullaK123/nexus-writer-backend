@@ -174,8 +174,8 @@ async def save_chapter_extraction_task(
         # Save to MongoDB — model_dump() handles all field serialization
         meta = {
             "chapter_id": chapter_id, 
-            "story_id": chapter.story_id, 
-            "user_id": chapter.user_id, 
+            "story_id": chapter.story_id,  # type: ignore[attr-defined]
+            "user_id": chapter.user_id,  # type: ignore[attr-defined]
             "chapter_number": chapter_number
         }
 

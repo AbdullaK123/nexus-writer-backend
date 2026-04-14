@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Query
 from dependency_injector.wiring import inject, Provide
-from src.infrastructure.di.containers import ApplicationContainer
+from src.app.di.containers import ApplicationContainer
 from typing import Optional
 from src.service.target.service import TargetService
-from src.service.auth.service import get_current_user
+from src.app.dependencies import get_current_user
 from src.data.models import User, FrequencyType
 from src.data.schemas.target import TargetResponse, CreateTargetRequest, UpdateTargetRequest, TargetListResponse
 

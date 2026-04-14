@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Query, BackgroundTasks
 from dependency_injector.wiring import inject, Provide
-from src.infrastructure.di.containers import ApplicationContainer
+from src.app.di.containers import ApplicationContainer
 from src.service.story.service import StoryService
 from src.service.chapter.service import ChapterService
-from src.service.auth.service import get_current_user
+from src.app.dependencies import get_current_user
 from src.data.models import User, FrequencyType
 from src.data.schemas.analytics import StoryAnalyticsResponse
 from src.data.schemas.story import CreateStoryRequest, StoryListItemResponse, UpdateStoryRequest, StoryGridResponse, StoryDetailResponse

@@ -1,15 +1,13 @@
 from socketio.async_server import AsyncServer
-from redis import Redis
 from src.service.analytics.service import AnalyticsService
+from src.service.analytics.session_cache import SessionCacheService
 from src.data.schemas.analytics import WritingSession, WritingSessionEvent
 from src.shared.utils.decorators import log_errors
 from dependency_injector.wiring import inject, Provide
-from src.infrastructure.di.containers import ApplicationContainer
-from src.infrastructure.utils.retry import retry_redis
+from src.app.di.containers import ApplicationContainer
 from src.infrastructure.config import settings
 from loguru import logger
 import asyncio
-import json
 
 
 sio = AsyncServer(
@@ -19,50 +17,16 @@ sio = AsyncServer(
     engineio_logger=True
 )
 
-@retry_redis
-@inject
-def save_session_to_redis(sid: str, data: dict, redis_client: Redis = Provide[ApplicationContainer.redis_client]):
-    """Save session data to Redis - SYNC and RELIABLE"""
-    redis_key = f"analytics_session:{sid}"
-    serializable_data = {}
-    for key, value in data.items():
-        if hasattr(value, 'isoformat'):  # datetime object
-            serializable_data[key] = value.isoformat()
-        else:
-            serializable_data[key] = value
-    redis_client.setex(redis_key, 3600, json.dumps(serializable_data))  # 1 hour TTL
-    logger.debug(f"💾 Saved session to Redis: {redis_key}")
-
-@retry_redis
-@inject
-def get_session_from_redis(sid: str, redis_client: Redis = Provide[ApplicationContainer.redis_client]) -> dict:
-    """Get session data from Redis - SYNC and RELIABLE"""
-    redis_key = f"analytics_session:{sid}"
-    data = redis_client.get(redis_key)
-    if data:
-        logger.debug(f"📖 Retrieved session from Redis: {redis_key}")
-        parsed_data = json.loads(data)
-        from datetime import datetime
-        if 'timestamp' in parsed_data:
-            parsed_data['timestamp'] = datetime.fromisoformat(parsed_data['timestamp'])
-        return parsed_data
-    logger.debug(f"❌ No session found in Redis: {redis_key}")
-    return None
-
-@retry_redis
-@inject
-def delete_session_from_redis(sid: str, redis_client: Redis = Provide[ApplicationContainer.redis_client]):
-    """Delete session data from Redis - SYNC and RELIABLE"""
-    redis_key = f"analytics_session:{sid}"
-    deleted = redis_client.delete(redis_key)
-    if deleted:
-        logger.debug(f"🗑️ Deleted session from Redis: {redis_key}")
-
 @sio.on('session_start', namespace='/analytics')
 @log_errors
-def handle_session_start(sid: str, session_start_data: dict):
+@inject
+def handle_session_start(
+    sid: str,
+    session_start_data: dict,
+    session_cache: SessionCacheService = Provide[ApplicationContainer.session_cache_service],
+):
     logger.info(
-        "📝 Writing session start event received", 
+        "Writing session start event received", 
         sid=sid, 
         extra={"event_type": "session_start"}
     )
@@ -71,7 +35,7 @@ def handle_session_start(sid: str, session_start_data: dict):
     event = WritingSessionEvent(**session_start_data)
     
     logger.debug(
-        "✅ Session data validated successfully", 
+        "Session data validated successfully", 
         session_id=event.sessionId,
         user_id=event.userId,
         story_id=event.storyId, 
@@ -80,11 +44,10 @@ def handle_session_start(sid: str, session_start_data: dict):
         sid=sid
     )
     
-    # ✅ SAVE TO REDIS - SYNC AND BULLETPROOF
-    save_session_to_redis(sid, event.model_dump())
+    session_cache.save(sid, event.model_dump())
     
     logger.success(
-        "🚀 Writing session started and stored in Redis", 
+        "Writing session started and stored", 
         session_id=event.sessionId,
         user_id=event.userId,
         sid=sid,
@@ -93,9 +56,14 @@ def handle_session_start(sid: str, session_start_data: dict):
 
 @sio.on('session_end', namespace='/analytics')
 @log_errors 
-def handle_session_end(sid: str, session_end_data: dict):
+@inject
+def handle_session_end(
+    sid: str,
+    session_end_data: dict,
+    session_cache: SessionCacheService = Provide[ApplicationContainer.session_cache_service],
+):
     logger.info(
-        "🏁 Writing session end event received", 
+        "Writing session end event received", 
         sid=sid,
         extra={"event_type": "session_end"}
     )
@@ -104,18 +72,17 @@ def handle_session_end(sid: str, session_end_data: dict):
     end_event = WritingSessionEvent(**session_end_data)
     
     logger.debug(
-        "✅ End event data validated", 
+        "End event data validated", 
         session_id=end_event.sessionId,
         final_word_count=end_event.wordCount,
         sid=sid
     )
     
-    # ✅ GET FROM REDIS - SYNC AND BULLETPROOF
-    start_data = get_session_from_redis(sid)
+    start_data = session_cache.get(sid)
     
     if not start_data:
         logger.warning(
-            "⚠️ No session start data found in Redis", 
+            "No session start data found", 
             sid=sid,
             session_id=end_event.sessionId,
             extra={"data_consistency_issue": True}
@@ -130,7 +97,7 @@ def handle_session_end(sid: str, session_end_data: dict):
     duration_minutes = duration_seconds / 60
     
     logger.debug(
-        "📊 Session metrics calculated", 
+        "Session metrics calculated", 
         session_id=end_event.sessionId,
         words_written=words_written,
         duration_minutes=round(duration_minutes, 2),
@@ -151,7 +118,7 @@ def handle_session_end(sid: str, session_end_data: dict):
     )
     
     logger.info(
-        "💾 Saving writing session to DuckDB", 
+        "Saving writing session to DuckDB", 
         session_id=session.id,
         user_id=session.user_id,
         words_written=words_written,
@@ -160,32 +127,25 @@ def handle_session_end(sid: str, session_end_data: dict):
         extra={"db_operation": True}
     )
     
-    # ✅ ASYNC TASK FOR DUCKDB SAVE - FIRE AND FORGET WITH PROPER ERROR HANDLING
     loop = asyncio.get_event_loop()
     task = loop.create_task(save_to_duckdb_async(session, sid))
-    
-    # Add a callback to handle task completion without blocking
     task.add_done_callback(lambda t: handle_task_completion(t, session.id, sid))
     
-    # ✅ CLEAN UP REDIS - SYNC
-    delete_session_from_redis(sid)
+    session_cache.delete(sid)
 
 @log_errors
 def handle_task_completion(task, session_id: str, sid: str):
-    """Handle the completion of the DuckDB save task"""
-        # Check if the task completed successfully
     if task.exception() is None:
         logger.success(
-            "🎯 Writing session successfully saved to DuckDB", 
+            "Writing session successfully saved to DuckDB", 
             session_id=session_id,
             sid=sid,
             extra={"analytics_success": True, "performance_tracking": True}
         )
     else:
-        # Log the actual exception
         exception = task.exception()
         logger.error(
-            "❌ Failed to save session to DuckDB",
+            "Failed to save session to DuckDB",
             session_id=session_id,
             error_type=type(exception).__name__,
             error_message=str(exception),
@@ -200,16 +160,14 @@ async def save_to_duckdb_async(
     sid: str,
     analytics: AnalyticsService = Provide[ApplicationContainer.analytics_service],
 ):
-    """Save to DuckDB asynchronously - CLEAN VERSION"""
     saved_session = await analytics.write_session(session)
-    # Success is logged in the task completion handler
     return saved_session
 
 @sio.on('connect', namespace='/analytics')
 @log_errors
 def on_connect(sid, environ, auth=None):
     logger.info(
-        "🔌 Client connected to analytics namespace", 
+        "Client connected to analytics namespace", 
         sid=sid,
         user_agent=environ.get('HTTP_USER_AGENT', 'unknown'),
         origin=environ.get('HTTP_ORIGIN', 'unknown'),
@@ -219,22 +177,26 @@ def on_connect(sid, environ, auth=None):
 
 @sio.on('disconnect', namespace='/analytics')
 @log_errors
-def on_disconnect(sid, reason):
+@inject
+def on_disconnect(
+    sid,
+    reason,
+    session_cache: SessionCacheService = Provide[ApplicationContainer.session_cache_service],
+):
     logger.info(
-        "🔌 Client disconnected from analytics namespace", 
+        "Client disconnected from analytics namespace", 
         sid=sid,
         reason=reason,
         extra={"connection_event": True}
     )
-    session_data = get_session_from_redis(sid)
+    session_data = session_cache.get(sid)
     if session_data:
         logger.warning(
-            "⚠️ Client disconnected with incomplete session - cleaning up Redis", 
+            "Client disconnected with incomplete session - cleaning up", 
             sid=sid,
             reason=reason,
             session_id=session_data.get('sessionId'),
             user_id=session_data.get('userId'),
             extra={"incomplete_session": True}
         )
-        # Clean up the Redis session
-        delete_session_from_redis(sid)
+        session_cache.delete(sid)

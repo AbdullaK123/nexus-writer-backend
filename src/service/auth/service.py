@@ -4,9 +4,6 @@ from src.data.schemas.auth import RegistrationData, UserResponse, AuthCredential
 from src.infrastructure.auth.password import hash_password, verify_password
 from src.infrastructure.auth.session import generate_session_id, encrypt_session_data, decrypt_session_data
 from src.service.exceptions import AuthError, ForbiddenError, ConflictError
-from fastapi import status, Cookie, Response, Request, Depends
-from dependency_injector.wiring import inject, Provide
-from src.infrastructure.di.containers import ApplicationContainer
 from typing import Optional, Union
 from datetime import datetime, timedelta, timezone
 from loguru import logger
@@ -36,7 +33,7 @@ class AuthService:
         return user
     
 
-    async def create_session(self, user_id: str, connection_details: ConnectionDetails) -> Union[bytes, str]:
+    async def create_session(self, user_id: str, connection_details: ConnectionDetails) -> str:
 
         # create session id and expiry time
         session_id = generate_session_id()
@@ -80,10 +77,10 @@ class AuthService:
             raise ForbiddenError("Your session has expired. Please log in again.")
 
         if session.expires_at < datetime.now(timezone.utc):
-            context_logger(db_operation=True).warning("Session expired user_id={user_id}", user_id=session.user_id)
+            context_logger(db_operation=True).warning("Session expired user_id={user_id}", user_id=session.user_id)  # type: ignore[attr-defined]
             raise ForbiddenError("Your session has expired. Please log in again.")
         
-        user_id = session.user_id
+        user_id = session.user_id  # type: ignore[attr-defined]
 
         if not user_id:
             context_logger(db_operation=True).warning("Session without user_id")
@@ -106,24 +103,13 @@ class AuthService:
 
             if session:
                 await session.delete()
-                context_logger(db_operation=True).info("Session deleted for user_id={user_id}", user_id=session.user_id)
+                context_logger(db_operation=True).info("Session deleted for user_id={user_id}", user_id=session.user_id)  # type: ignore[attr-defined]
             else:
                 context_logger(db_operation=True).warning("Logout requested but session not found")
     
-    async def login_user(self, request: Request, response: Response, credentials: AuthCredentials) -> UserResponse:
+    async def login_user(self, credentials: AuthCredentials, connection_details: ConnectionDetails) -> tuple[UserResponse, str]:
         user = await self.authenticate_user(credentials)
-        ip_address = request.headers.get('X-Real-IP')
-        user_agent = request.headers.get('User-Agent')
-        connection_details = ConnectionDetails(ip_address=ip_address, user_agent=user_agent)
-        encypted_cookie = await self.create_session(user.id, connection_details=connection_details)
-        response.set_cookie(
-            key='session_id',
-            value=encypted_cookie,
-            max_age=86400,
-            httponly=True,
-            samesite='lax',
-            secure=(settings.env == 'prod')
-        )
+        encrypted_cookie = await self.create_session(user.id, connection_details=connection_details)
         context_logger(db_operation=True).info(
             "User logged in user_id={user_id}",
             user_id=user.id,
@@ -133,7 +119,7 @@ class AuthService:
             username=user.username,
             email=user.email,
             profile_img=user.profile_img
-        )
+        ), encrypted_cookie
 
 
     async def register_user(self, registration_data: RegistrationData) -> UserResponse:
@@ -164,23 +150,3 @@ class AuthService:
             email=registration_data.email,
             profile_img=registration_data.profile_img
         )
-
-
-@inject
-async def get_current_user(
-    request: Request,
-    session_id: Union[bytes, str] = Cookie(),
-    auth_service: AuthService = Depends(Provide[ApplicationContainer.auth_service])
-) -> Optional[User]:
-    user = await auth_service.validate_session(session_id)
-    # make user id available for logging middleware
-    if user is not None:
-        try:
-            request.state.user_id = user.id  # type: ignore[attr-defined]
-        except Exception:
-            pass
-        try:
-            set_user_id(user.id)
-        except Exception:
-            pass
-    return user

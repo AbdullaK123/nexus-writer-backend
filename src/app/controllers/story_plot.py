@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, Query
 from dependency_injector.wiring import inject, Provide
-from src.infrastructure.di.containers import ApplicationContainer
+from src.app.di.containers import ApplicationContainer
 from src.data.schemas.plot import (
     DeusExMachinaResponse,
     DormantThreadsResponse,
@@ -17,7 +17,7 @@ from src.data.schemas.plot import (
 )
 from src.service.analysis.plot import PlotService
 from src.service.analysis.plot_tracker import PlotTrackerService
-from src.service.auth.service import get_current_user
+from src.app.dependencies import get_current_user
 from src.data.models import User
 
 

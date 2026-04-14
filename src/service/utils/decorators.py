@@ -49,7 +49,7 @@ def validate(schema_class):
             except PydanticError as e:
                 from src.service.exceptions import ValidationError
 
-                fields = {}
+                fields: dict[str, list[str]] = {}
                 for error in e.errors():
                     field = str(error["loc"][0])
                     fields.setdefault(field, []).append(error["msg"])

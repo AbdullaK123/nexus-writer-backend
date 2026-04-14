@@ -116,7 +116,7 @@ async def generate_edit_model_node(state: EditorState) -> dict:
                 ]
             }
         )
-        structured: ChapterEdit = result["structured_response"]
+        structured = result["structured_response"]
     return {
         "edits": structured.edits
     }

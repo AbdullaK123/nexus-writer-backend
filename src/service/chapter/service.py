@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime
-from typing import Dict, Optional, List, Sequence
+from typing import Dict, Optional, List, Sequence, Protocol, Any
 from src.data.models import Chapter, Story
 from src.data.schemas.chapter import (
     CreateChapterRequest,
@@ -10,7 +10,6 @@ from src.data.schemas.chapter import (
     ChapterContentResponse,
     ChapterListResponse, ChapterEditRequest
 )
-from fastapi import BackgroundTasks
 from src.service.exceptions import NotFoundError, ValidationError, InternalError
 from src.shared.utils.html import get_preview_content, get_word_count
 from src.service.jobs.chapter import (
@@ -23,6 +22,10 @@ from src.data.models.ai.edits import ChapterEdit, ChapterEditResponse, LineEdit
 from pymongo.asynchronous.database import AsyncDatabase
 from tortoise.transactions import in_transaction
 from src.infrastructure.utils.retry import retry_mongo
+
+
+class BackgroundTaskRunner(Protocol):
+    def add_task(self, func: Any, *args: Any, **kwargs: Any) -> None: ...
 
 
 class ChapterService:
@@ -40,7 +43,7 @@ class ChapterService:
         story_id: str, 
         user_id: str, 
         data: CreateChapterRequest,
-        background_tasks: BackgroundTasks
+        background_tasks: BackgroundTaskRunner
     ) -> ChapterContentResponse:
         """Create new chapter with immediate pointer setup"""
 
@@ -166,12 +169,12 @@ class ChapterService:
             title=chapter.title,
             content=chapter.content,
             published=chapter.published,
-            story_id=chapter.story_id,
+            story_id=chapter.story_id,  # type: ignore[attr-defined]
             story_title=story_title,
             created_at=chapter.created_at,
             updated_at=chapter.updated_at,
-            previous_chapter_id=chapter.prev_chapter_id,
-            next_chapter_id=chapter.next_chapter_id
+            previous_chapter_id=chapter.prev_chapter_id,  # type: ignore[attr-defined]
+            next_chapter_id=chapter.next_chapter_id  # type: ignore[attr-defined]
         )
 
     async def delete(
@@ -193,7 +196,7 @@ class ChapterService:
         if not chapter:
             raise NotFoundError("We couldn't find this chapter. It may have been deleted.")
         
-        story_id = chapter.story_id
+        story_id = chapter.story_id  # type: ignore[attr-defined]
 
         story = await Story.get_or_none(id=story_id)
 
@@ -309,12 +312,12 @@ class ChapterService:
             title=chapter.title,
             content=chapter.content if as_html else get_preview_content(chapter.content),
             published=chapter.published,
-            story_id=chapter.story_id,
+            story_id=chapter.story_id,  # type: ignore[attr-defined]
             story_title=story_title,
             created_at=chapter.created_at,
             updated_at=chapter.updated_at,
-            previous_chapter_id=chapter.prev_chapter_id,
-            next_chapter_id=chapter.next_chapter_id
+            previous_chapter_id=chapter.prev_chapter_id,  # type: ignore[attr-defined]
+            next_chapter_id=chapter.next_chapter_id  # type: ignore[attr-defined]
         )
 
     # ========================================
@@ -326,7 +329,7 @@ class ChapterService:
         story_id: str, 
         user_id: str, 
         data: ReorderChapterRequest,
-        background_tasks: BackgroundTasks
+        background_tasks: BackgroundTaskRunner
     ) -> dict:
         """Reorder chapters with pointer updates"""
 

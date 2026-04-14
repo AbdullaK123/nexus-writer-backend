@@ -227,7 +227,7 @@ class StructureService:
         ) or "  No structural roles."
 
         weak_scenes = "\n".join(
-            f"  Ch {ch.chapter_number}: {len(ch.scenes)} weak scene(s) — "
+            f"  Ch {ch.chapter_number}: {len(ch.scenes)} weak scene(s) — "  # type: ignore[arg-type]
             + ", ".join(
                 f"{s.type} (goal={'✓' if s.goal else '✗'} conflict={'✓' if s.conflict else '✗'} outcome={'✓' if s.outcome else '✗'})"
                 for s in ch.scenes  # type: ignore

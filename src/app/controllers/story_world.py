@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, Query
 from dependency_injector.wiring import inject, Provide
-from src.infrastructure.di.containers import ApplicationContainer
+from src.app.di.containers import ApplicationContainer
 from typing import List, Optional
 from src.data.schemas.world import (
     ContradictionResponse, EntityFactResponse, EntityTimelineResponse,
     StoryFactCountsResponse, WorldConsistencyReport,
 )
 from src.service.analysis.world import WorldConsistencyService
-from src.service.auth.service import get_current_user
+from src.app.dependencies import get_current_user
 from src.data.models import User
 
 

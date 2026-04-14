@@ -16,7 +16,7 @@ def _to_naive_utc(dt: Optional[datetime]) -> Optional[datetime]:
 
 class TargetResponse(BaseModel):
     quota: int = Field(default=0)
-    frequency: FrequencyType = Field(default="Daily")
+    frequency: FrequencyType = Field(default=FrequencyType.DAILY)
     from_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     to_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     story_id: str

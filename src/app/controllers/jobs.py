@@ -9,11 +9,11 @@ from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Query, Depends
 from dependency_injector.wiring import inject, Provide
-from src.infrastructure.di.containers import ApplicationContainer
+from src.app.di.containers import ApplicationContainer
 from pydantic import BaseModel
 
 from src.service.jobs.service import JobService
-from src.service.auth.service import get_current_user
+from src.app.dependencies import get_current_user
 from src.data.models import User
 from src.data.schemas.jobs import JobStatusResponse, JobQueuedResponse
 

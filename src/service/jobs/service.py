@@ -90,7 +90,7 @@ class JobService:
                 # Try to get result
                 if flow_run.state:
                     try:
-                        result = await flow_run.state.result(raise_on_failure=False)
+                        result = await flow_run.state.result(raise_on_failure=False)  # type: ignore[misc]
                         if isinstance(result, dict):
                             response.result = result
                             if result.get("chapters_extracted"):
@@ -223,14 +223,14 @@ class JobService:
         if is_stale:
             logger.info(f"Regenerating line edits for chapter {chapter_id} (marked as stale due to content change)")
 
-        story = await Story.get_or_none(id=chapter.story_id)
+        story = await Story.get_or_none(id=chapter.story_id)  # type: ignore[attr-defined]
         if not story:
             raise NotFoundError("We couldn't find the story this chapter belongs to.")
 
         chapter_number = Chapter.get_chapter_number(chapter.id, story.path_array)
 
         accumulated_context = await self._build_accumulated_context(
-            chapter.story_id, 
+            chapter.story_id,  # type: ignore[attr-defined]
             Chapter.get_chapter_number(chapter.id, story.path_array)
         )
 
@@ -329,7 +329,7 @@ class JobService:
                 f"{cancel_result['job_type']} job(s) for chapter {chapter_id}"
             )
             
-        story = await Story.get_or_none(id=chapter.story_id)
+        story = await Story.get_or_none(id=chapter.story_id)  # type: ignore[attr-defined]
         if not story:
             raise NotFoundError("We couldn't find the story this chapter belongs to.")
 

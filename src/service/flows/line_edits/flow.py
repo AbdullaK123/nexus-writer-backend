@@ -133,8 +133,8 @@ async def save_line_edits_task(
             {"chapter_id": chapter_id},
             {
                 "chapter_id": chapter_id,
-                "story_id": chapter.story_id,
-                "user_id": chapter.user_id,
+                "story_id": chapter.story_id,  # type: ignore[attr-defined]
+                "user_id": chapter.user_id,  # type: ignore[attr-defined]
                 "chapter_number": chapter_number,
                 "edits": [edit.model_dump() for edit in line_edits.edits],
                 "last_generated_at": datetime.now(timezone.utc),
