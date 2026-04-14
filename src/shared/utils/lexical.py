@@ -14,7 +14,7 @@ def get_word_count(lexical_json_string: str) -> int:
     try:
         lexical_json = json.loads(lexical_json_string)
     except JSONDecodeError as e:
-        log.error(f"Failed to parse lexical json string: \n {e}")
+        log.error("lexical.parse_failed", error=str(e))
         return 0
 
     def get_text(node: dict) -> str:
@@ -35,7 +35,7 @@ def get_preview_content(lexical_json_string: str) -> str:
     try:
         lexical_json = json.loads(lexical_json_string)
     except JSONDecodeError as e:
-        log.error(f"Failed to parse lexical json string: \n {e}")
+        log.error("lexical.parse_failed", error=str(e))
         return ""
 
     def get_text(node: dict) -> str:

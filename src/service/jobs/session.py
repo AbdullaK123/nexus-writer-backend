@@ -30,4 +30,4 @@ async def cleanup_expired_sessions_batched():
             break
     
     if total_deleted > 0:
-        log.info(f"Session cleanup: {total_deleted} expired sessions removed")
+        log.info("session.cleanup_complete", sessions_deleted=total_deleted)

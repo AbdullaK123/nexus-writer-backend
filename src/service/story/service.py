@@ -32,8 +32,7 @@ class StoryService:
         if not story:
             raise ValueError(f"Story {story_id} not found")
 
-        log.debug(f"Append to path triggered!")
-        log.debug(f"Current path array: {story.path_array}")
+        log.debug("story.path_append", story_id=story_id, chapter_id=chapter_id, path_before=story.path_array)
         
         if story.path_array is None:
             story.path_array = []
@@ -42,7 +41,7 @@ class StoryService:
         path.append(chapter_id)
         story.path_array = path
 
-        log.debug(f"Current path array: {story.path_array}")
+        log.debug("story.path_append: saved", story_id=story_id, path_after=story.path_array)
 
         await story.save(update_fields=['path_array'])
 
@@ -53,13 +52,13 @@ class StoryService:
         if not story or story.path_array is None:
             return 
         
-        log.debug(f"Current path array: {story.path_array}")
+        log.debug("story.path_remove", story_id=story_id, chapter_id=chapter_id, path_before=story.path_array)
         
         path = list(story.path_array)
         path.remove(chapter_id)
         story.path_array = path
 
-        log.debug(f"Current path array: {story.path_array}")
+        log.debug("story.path_remove: saved", story_id=story_id, path_after=story.path_array)
 
         await story.save(update_fields=['path_array'])
 
@@ -76,14 +75,14 @@ class StoryService:
         if to_pos < 0 or to_pos >= len(story.path_array):
             raise ValueError(f"Invalid to_pos! Must be between 0 and {len(story.path_array) - 1}")
         
-        log.debug(f"Current path array: {story.path_array}")
+        log.debug("story.path_reorder", story_id=story_id, from_pos=from_pos, to_pos=to_pos, path_before=story.path_array)
 
         path = list(story.path_array)
         chapter_id = path.pop(from_pos)
         path.insert(to_pos, chapter_id)
         story.path_array = path
 
-        log.debug(f"Current path array: {story.path_array}")
+        log.debug("story.path_reorder: saved", story_id=story_id, path_after=story.path_array)
 
         await story.save(update_fields=['path_array'])
 
@@ -118,7 +117,12 @@ class StoryService:
                 user_id=user_id,
                 chapter_id=last_chapter_id,
             )
-            log.info(f"Queued extraction job for last chapter {last_chapter_id} with job ID {queue_result['job_id']} due to story completion")
+            log.info(
+                "story.completed: queued extraction for final chapter",
+                story_id=story_id,
+                chapter_id=last_chapter_id,
+                job_id=queue_result['job_id'],
+            )
             
         
         update_data = update_info.model_dump(exclude_unset=True)
@@ -137,7 +141,11 @@ class StoryService:
         cancel_result = await self.job_service.cancel_all_jobs(story_id=story_id)
 
         if cancel_result['jobs_cancelled'] > 0:
-            log.info(f"Cancelled all pending or running jobs on story {story_id}")
+            log.info(
+                "story.delete: cancelled pending jobs",
+                story_id=story_id,
+                jobs_cancelled=cancel_result['jobs_cancelled'],
+            )
         
         story = await self.get_by_id(user_id, story_id)
 

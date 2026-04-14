@@ -153,18 +153,27 @@ async def _wait_for_predecessor_extractions(
 
         if not blocking:
             if elapsed > 0:
-                log.info(f"Chapter {chapter_number}: predecessors complete after {elapsed}s wait")
+                log.info(
+                    "extraction.predecessors_complete",
+                    chapter_number=chapter_number,
+                    waited_seconds=elapsed,
+                )
             return
 
         log.info(
-            f"Chapter {chapter_number}: waiting for {len(blocking)} predecessor(s) "
-            f"({elapsed}s / {max_wait}s)"
+            "extraction.waiting_for_predecessors",
+            chapter_number=chapter_number,
+            blocking_count=len(blocking),
+            elapsed_seconds=elapsed,
+            max_wait_seconds=max_wait,
         )
         await asyncio.sleep(poll_interval)
         elapsed += poll_interval
 
     log.warning(
-        f"Chapter {chapter_number}: predecessors still running after {max_wait}s, proceeding anyway"
+        "extraction.predecessors_timeout: proceeding without predecessors",
+        chapter_number=chapter_number,
+        max_wait_seconds=max_wait,
     )
 
 
@@ -226,44 +235,44 @@ async def extract_single_chapter_flow(
     # 2. Build accumulated context from predecessor results (after they're done)
     accumulated_context = await _build_accumulated_context(chapter_number, story_path_array)
 
-    log.info(f"Starting extraction for Chapter {chapter_number} ({chapter_id})")
+    log.info("extraction.started", chapter_number=chapter_number, chapter_id=chapter_id)
 
     failed_extractions: List[str] = []
 
     # Run all 4 extractions concurrently — gather instead of TaskGroup
     # so that one failure doesn't cancel the others
     results = await asyncio.gather(
-        extract_characters_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm),
-        extract_plot_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm),
-        extract_world_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm),
-        extract_structure_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm),
+        extract_characters_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm, story_id=story_id),
+        extract_plot_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm, story_id=story_id),
+        extract_world_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm, story_id=story_id),
+        extract_structure_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm, story_id=story_id),
         return_exceptions=True,
     )
 
     # Unpack results — substitute fallbacks for any failures
     if isinstance(results[0], BaseException):
-        log.error(f"Chapter {chapter_number}: Character extraction failed: {results[0]}")
+        log.error("extraction.characters_failed", chapter_number=chapter_number, error=str(results[0]))
         failed_extractions.append("characters")
         character_result = CharacterExtraction.empty()
     else:
         character_result = results[0]
 
     if isinstance(results[1], BaseException):
-        log.error(f"Chapter {chapter_number}: Plot extraction failed: {results[1]}")
+        log.error("extraction.plot_failed", chapter_number=chapter_number, error=str(results[1]))
         failed_extractions.append("plot")
         plot_result = PlotExtraction.empty()
     else:
         plot_result = results[1]
 
     if isinstance(results[2], BaseException):
-        log.error(f"Chapter {chapter_number}: World extraction failed: {results[2]}")
+        log.error("extraction.world_failed", chapter_number=chapter_number, error=str(results[2]))
         failed_extractions.append("world")
         world_result = WorldExtraction.empty()
     else:
         world_result = results[2]
 
     if isinstance(results[3], BaseException):
-        log.error(f"Chapter {chapter_number}: Structure extraction failed: {results[3]}")
+        log.error("extraction.structure_failed", chapter_number=chapter_number, error=str(results[3]))
         failed_extractions.append("structure")
         structure_result = StructureExtraction.empty()
     else:
@@ -271,11 +280,13 @@ async def extract_single_chapter_flow(
     
     if failed_extractions:
         log.warning(
-            f"Chapter {chapter_number}: {len(failed_extractions)}/4 extractions failed "
-            f"({', '.join(failed_extractions)}). Using fallbacks."
+            "extraction.partial: some extractions failed, using fallbacks",
+            chapter_number=chapter_number,
+            failed_count=len(failed_extractions),
+            failed=failed_extractions,
         )
     else:
-        log.info(f"Chapter {chapter_number}: All extractions complete, synthesizing...")
+        log.info("extraction.all_complete: synthesizing", chapter_number=chapter_number)
     
     # Synthesize into condensed context — with fallback
     try:
@@ -291,7 +302,7 @@ async def extract_single_chapter_flow(
             use_lfm=use_lfm,
         )
     except Exception as e:
-        log.error(f"Chapter {chapter_number}: Synthesis failed: {e}. Building fallback context.")
+        log.error("extraction.synthesis_failed: building fallback context", chapter_number=chapter_number, error=str(e))
         failed_extractions.append("synthesis")
         synthesis_result = _build_fallback_context(
             chapter_number=chapter_number,
@@ -318,11 +329,13 @@ async def extract_single_chapter_flow(
     is_partial = len(failed_extractions) > 0
     if is_partial:
         log.warning(
-            f"⚠️ Chapter {chapter_number} extraction saved (partial — "
-            f"failed: {', '.join(failed_extractions)})"
+            "extraction.saved_partial",
+            chapter_number=chapter_number,
+            chapter_id=chapter_id,
+            failed=failed_extractions,
         )
     else:
-        log.success(f"✅ Chapter {chapter_number} extraction complete and checkpointed")
+        log.info("extraction.saved", chapter_number=chapter_number, chapter_id=chapter_id)
     
     return ChapterExtractionResult(
         chapter_id=chapter_id,

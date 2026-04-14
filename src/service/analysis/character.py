@@ -1,3 +1,5 @@
+import time
+
 from langchain.messages import HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 from src.service.ai.prompts.character import CHARACTER_INCONSISTENCY_PROMPT
@@ -6,6 +8,9 @@ from src.data.schemas.character import ChapterEmotionalState, ChapterGoals, Chap
 from src.service.ai.utils.ai import extract_text
 from src.infrastructure.utils.retry import retry_llm
 from src.data.repositories.mongo.character_extraction import CharacterExtractionRepo
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 
 class CharacterService:
 
@@ -109,12 +114,27 @@ class CharacterService:
         )
 
         if not arc.emotional_states and not arc.goals and not arc.knowledge_gained:
+            log.debug("analysis.inconsistency_report.empty_arc", story_id=story_id, character_name=character_name)
             return CharacterInconsistencyResponse(character_name=character_name)
         
-        response = await self._model.ainvoke([
-            SystemMessage(content=CHARACTER_INCONSISTENCY_PROMPT),
-            HumanMessage(content=self._build_inconsistency_prompt(arc))
-        ])
+        log.info("analysis.inconsistency_report.start", story_id=story_id, character_name=character_name)
+        t0 = time.perf_counter()
+        try:
+            response = await self._model.ainvoke([
+                SystemMessage(content=CHARACTER_INCONSISTENCY_PROMPT),
+                HumanMessage(content=self._build_inconsistency_prompt(arc))
+            ])
+        except Exception:
+            log.opt(exception=True).error(
+                "analysis.inconsistency_report.error", story_id=story_id, character_name=character_name,
+                elapsed_s=round(time.perf_counter() - t0, 2),
+            )
+            raise
+        elapsed = round(time.perf_counter() - t0, 2)
+        log.info(
+            "analysis.inconsistency_report.done", story_id=story_id, character_name=character_name,
+            elapsed_s=elapsed, tokens=getattr(response, 'usage_metadata', None),
+        )
 
         return CharacterInconsistencyResponse(
             character_name=character_name,

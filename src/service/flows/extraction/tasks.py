@@ -40,13 +40,16 @@ async def extract_characters_task(
     chapter_number: int,
     chapter_title: Optional[str] = None,
     use_lfm: bool = False,
+    story_id: str = "",
 ) -> CharacterExtraction:
     """Extract character information from chapter"""
+    log.debug("task.character_extraction.start", chapter_number=chapter_number, story_id=story_id)
     result: CharacterExtraction = await extract_characters(
         story_context, chapter_content, chapter_number, chapter_title,
         use_lfm=use_lfm,
+        story_id=story_id,
     )
-    log.debug(f"Chapter {chapter_number}: Character extraction complete")
+    log.debug("task.character_extraction_complete", chapter_number=chapter_number)
     return result
 
 
@@ -61,13 +64,16 @@ async def extract_plot_task(
     chapter_number: int,
     chapter_title: Optional[str] = None,
     use_lfm: bool = False,
+    story_id: str = "",
 ) -> PlotExtraction:
     """Extract plot information from chapter"""
+    log.debug("task.plot_extraction.start", chapter_number=chapter_number, story_id=story_id)
     result: PlotExtraction = await extract_plot_information(
         story_context, chapter_content, chapter_number, chapter_title,
         use_lfm=use_lfm,
+        story_id=story_id,
     )
-    log.debug(f"Chapter {chapter_number}: Plot extraction complete")
+    log.debug("task.plot_extraction_complete", chapter_number=chapter_number)
     return result
 
 
@@ -82,13 +88,16 @@ async def extract_world_task(
     chapter_number: int,
     chapter_title: Optional[str] = None,
     use_lfm: bool = False,
+    story_id: str = "",
 ) -> WorldExtraction:
     """Extract world/setting information from chapter"""
+    log.debug("task.world_extraction.start", chapter_number=chapter_number, story_id=story_id)
     result: WorldExtraction = await extract_world_information(
         story_context, chapter_content, chapter_number, chapter_title,
         use_lfm=use_lfm,
+        story_id=story_id,
     )
-    log.debug(f"Chapter {chapter_number}: World extraction complete")
+    log.debug("task.world_extraction_complete", chapter_number=chapter_number)
     return result
 
 
@@ -103,13 +112,16 @@ async def extract_structure_task(
     chapter_number: int,
     chapter_title: Optional[str] = None,
     use_lfm: bool = False,
+    story_id: str = "",
 ) -> StructureExtraction:
     """Extract narrative structure from chapter"""
+    log.debug("task.structure_extraction.start", chapter_number=chapter_number, story_id=story_id)
     result: StructureExtraction = await extract_story_structure(
         story_context, chapter_content, chapter_number, chapter_title,
         use_lfm=use_lfm,
+        story_id=story_id,
     )
-    log.debug(f"Chapter {chapter_number}: Structure extraction complete")
+    log.debug("task.structure_extraction_complete", chapter_number=chapter_number)
     return result
 
 
@@ -142,7 +154,7 @@ async def synthesize_context_task(
         char_model, plot_model, world_model, struct_model,
         use_lfm=use_lfm,
     )
-    log.debug(f"Chapter {chapter_number}: Context synthesis complete")
+    log.debug("task.context_synthesis_complete", chapter_number=chapter_number)
     return result
 
 
@@ -211,7 +223,7 @@ async def save_chapter_extraction_task(
             upsert=True
         )
         
-        log.info(f"✅ Saved extractions to MongoDB for chapter {chapter_id}")
+        log.info("task.extractions_saved_mongo", chapter_id=chapter_id)
         
         # Save synthesized context to Postgres
         chapter.condensed_context = context_synthesis.condensed_text
@@ -230,4 +242,4 @@ async def save_chapter_extraction_task(
     finally:
         await Tortoise.close_connections()
         
-    log.info(f"✅ Chapter {chapter_id} extraction saved (checkpoint)")
+    log.info("task.extraction_checkpoint_saved", chapter_id=chapter_id, chapter_number=chapter_number)

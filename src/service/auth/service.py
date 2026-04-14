@@ -22,14 +22,14 @@ class AuthService:
 
         if not user or not verify_password(credentials.password, user.password_hash):
             log.warning(
-                "Authentication failed for email={email}",
+                "auth.login_failed: invalid credentials",
                 email=credentials.email,
             )
             raise AuthError("Incorrect email or password. Please try again.")
         
         log.info(
-            "Authentication succeeded for user_id={user_id}",
-            user_id=(user.id if user else None),
+            "auth.login_succeeded",
+            user_id=str(user.id),
         )
         return user
     
@@ -49,9 +49,10 @@ class AuthService:
             user_agent=connection_details.user_agent
         )
         log.info(
-            "Session created user_id={user_id} session_id={session_id}",
+            "session.created",
             user_id=user_id,
             session_id=session_id,
+            expires_at=str(expires_at),
         )
         
         # encypt and set the cookie
@@ -66,7 +67,7 @@ class AuthService:
 
         decrypted_cookie = decrypt_session_data(encrypted_cookie_data)
         if not decrypted_cookie or 'session_id' not in decrypted_cookie:
-            log.warning("Missing or malformed session cookie")
+            log.warning("session.validate_failed: missing or malformed cookie")
             raise ForbiddenError("Your session is invalid. Please log in again.")
         
         session = await Session.filter(
@@ -74,17 +75,17 @@ class AuthService:
         ).first()
 
         if not session:
-            log.warning("Session not found in DB")
+            log.warning("session.validate_failed: session not found in DB")
             raise ForbiddenError("Your session has expired. Please log in again.")
 
         if session.expires_at < datetime.now(timezone.utc):
-            log.warning("Session expired user_id={user_id}", user_id=session.user_id)  # type: ignore[attr-defined]
+            log.warning("session.validate_failed: expired", user_id=session.user_id)  # type: ignore[attr-defined]
             raise ForbiddenError("Your session has expired. Please log in again.")
         
         user_id = session.user_id  # type: ignore[attr-defined]
 
         if not user_id:
-            log.warning("Session without user_id")
+            log.warning("session.validate_failed: session has no user_id")
             raise ForbiddenError("Your session is invalid. Please log in again.")
         
         user = await User.filter(id=user_id).first()
@@ -104,16 +105,16 @@ class AuthService:
 
             if session:
                 await session.delete()
-                log.info("Session deleted for user_id={user_id}", user_id=session.user_id)  # type: ignore[attr-defined]
+                log.info("session.deleted", user_id=session.user_id)  # type: ignore[attr-defined]
             else:
-                log.warning("Logout requested but session not found")
+                log.warning("session.logout_failed: session not found")
     
     async def login_user(self, credentials: AuthCredentials, connection_details: ConnectionDetails) -> tuple[UserResponse, str]:
         user = await self.authenticate_user(credentials)
         encrypted_cookie = await self.create_session(user.id, connection_details=connection_details)
         log.info(
-            "User logged in user_id={user_id}",
-            user_id=user.id,
+            "auth.user_logged_in",
+            user_id=str(user.id),
         )
         return UserResponse(
             id=str(user.id),
@@ -129,7 +130,7 @@ class AuthService:
 
         if user:
             log.warning(
-                "Registration attempted with duplicate email={email}",
+                "auth.register_failed: duplicate email",
                 email=registration_data.email,
             )
             raise ConflictError("An account with this email already exists. Try logging in instead.")
@@ -141,8 +142,8 @@ class AuthService:
             profile_img=registration_data.profile_img
         )
         log.info(
-            "User registered user_id={user_id}",
-            user_id=user_to_create.id,
+            "auth.user_registered",
+            user_id=str(user_to_create.id),
         )
 
         return UserResponse(

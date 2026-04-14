@@ -27,11 +27,13 @@ def handle_service_errors(func):
             raise ConflictError(f"{e.entity} with this {e.field} already exists")
         except DatabaseError as e:
             log.error(
-                f"Infrastructure failure in {func.__qualname__}: {e.original}"
+                "service.infrastructure_failure",
+                func=func.__qualname__,
+                error=str(e.original),
             )
             raise ServiceError("A database error occurred")
         except RedisError as e:
-            log.error(f"Cache failure in {func.__qualname__}: {e.original}")
+            log.error("service.cache_failure", func=func.__qualname__, error=str(e.original))
             raise ServiceError("Cache unavailable")
 
     return wrapper

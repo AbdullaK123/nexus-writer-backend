@@ -1,5 +1,7 @@
 import asyncio
+import time
 from typing import Optional, Literal
+
 from src.service.exceptions import InternalError
 from langchain.messages import HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -274,20 +276,34 @@ EMOTIONAL BEAT EFFECTIVENESS:
 
         for result in results:
             if isinstance(result, Exception):
-                log.warning(f"Error generating developmental report: {str(result)}")
+                log.warning("analysis.developmental_report.data_failed", story_id=story_id, error=str(result))
                 raise InternalError("An error occurred while generating your report. Please try again later.")
 
         pacing, arc, weak, emotional = results
 
-        response = await self._model.ainvoke([
-            SystemMessage(content=DEVELOPMENTAL_REPORT_SYSTEM_PROMPT),
-            HumanMessage(content=self._build_developmental_report_prompt(
-                pacing,   # type: ignore
-                arc,      # type: ignore
-                weak,     # type: ignore
-                emotional,  # type: ignore
-            )),
-        ])
+        log.info("analysis.developmental_report.start", story_id=story_id)
+        t0 = time.perf_counter()
+        try:
+            response = await self._model.ainvoke([
+                SystemMessage(content=DEVELOPMENTAL_REPORT_SYSTEM_PROMPT),
+                HumanMessage(content=self._build_developmental_report_prompt(
+                    pacing,   # type: ignore
+                    arc,      # type: ignore
+                    weak,     # type: ignore
+                    emotional,  # type: ignore
+                )),
+            ])
+        except Exception:
+            log.opt(exception=True).error(
+                "analysis.developmental_report.error", story_id=story_id,
+                elapsed_s=round(time.perf_counter() - t0, 2),
+            )
+            raise
+        elapsed = round(time.perf_counter() - t0, 2)
+        log.info(
+            "analysis.developmental_report.done", story_id=story_id,
+            elapsed_s=elapsed, tokens=getattr(response, 'usage_metadata', None),
+        )
 
         return DevelopmentalReportResponse(
             story_id=story_id,

@@ -10,6 +10,10 @@ from langchain.agents.structured_output import ToolStrategy
 from src.infrastructure.config.settings import config
 from src.service.ai.utils.model_factory import create_chat_model
 from src.infrastructure.utils.retry import retry_llm
+import time
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 
 model = create_chat_model(config.ai.lite_model)
 
@@ -32,6 +36,8 @@ async def synthesize_chapter_context(
     struct_extract: StructureExtraction,
     use_lfm: bool = False,
 ) -> CondensedChapterContext:
+    log.info("ai.context_synthesis.start", chapter_number=chapter_number, chapter_id=chapter_id, use_lfm=use_lfm)
+    t0 = time.perf_counter()
     prompt = build_condensed_context_prompt(
         chapter_id=chapter_id,
         chapter_number=chapter_number,
@@ -45,7 +51,10 @@ async def synthesize_chapter_context(
     
     if use_lfm:
         from src.service.ai.utils.extractors import context_extractor
-        return await context_extractor.extract(prompt)
+        result = await context_extractor.extract(prompt)
+        elapsed = round(time.perf_counter() - t0, 2)
+        log.info("ai.context_synthesis.complete", chapter_number=chapter_number, elapsed_s=elapsed, path="lfm")
+        return result
 
     result = await synthesis_agent.ainvoke({
         "messages": [{
@@ -53,5 +62,7 @@ async def synthesize_chapter_context(
             "content": prompt
         }]
     })
+    elapsed = round(time.perf_counter() - t0, 2)
+    log.info("ai.context_synthesis.complete", chapter_number=chapter_number, elapsed_s=elapsed, path="agent")
     
     return result["structured_response"]

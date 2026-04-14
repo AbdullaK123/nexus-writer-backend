@@ -1,5 +1,7 @@
 import asyncio
+import time
 from typing import List
+
 from src.service.exceptions import InternalError
 from langchain.messages import HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -178,19 +180,33 @@ class PlotTrackerService:
 
         for result in results:
             if isinstance(result, Exception):
-                log.warning(f"Error generating plot rhythm report: {str(result)}")
+                log.warning("analysis.plot_rhythm_report.data_failed", story_id=story_id, error=str(result))
                 raise InternalError("An error occurred while generating your report. Please try again later.")
 
         dormant_threads, event_density, setup_payoff_map = results
 
-        response = await self._model.ainvoke([
-            SystemMessage(content=PLOT_RHYTHM_REPORT_SYSTEM_PROMPT),
-            HumanMessage(content=self._build_rhythm_report_prompt(
-                dormant_threads, #type: ignore
-                event_density, #type: ignore
-                setup_payoff_map, #type: ignore
-            ))
-        ])
+        log.info("analysis.plot_rhythm_report.start", story_id=story_id)
+        t0 = time.perf_counter()
+        try:
+            response = await self._model.ainvoke([
+                SystemMessage(content=PLOT_RHYTHM_REPORT_SYSTEM_PROMPT),
+                HumanMessage(content=self._build_rhythm_report_prompt(
+                    dormant_threads, #type: ignore
+                    event_density, #type: ignore
+                    setup_payoff_map, #type: ignore
+                ))
+            ])
+        except Exception:
+            log.opt(exception=True).error(
+                "analysis.plot_rhythm_report.error", story_id=story_id,
+                elapsed_s=round(time.perf_counter() - t0, 2),
+            )
+            raise
+        elapsed = round(time.perf_counter() - t0, 2)
+        log.info(
+            "analysis.plot_rhythm_report.done", story_id=story_id,
+            elapsed_s=elapsed, tokens=getattr(response, 'usage_metadata', None),
+        )
 
         return PlotRhythmReportResponse(
             story_id=story_id,

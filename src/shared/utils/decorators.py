@@ -27,7 +27,7 @@ def log_errors(func):
             try:
                 return await func(*args, **kwargs)
             except Exception:
-                log.exception(f"{func.__name__} failed")
+                log.exception("shared.func_failed", func=func.__name__)
                 raise
 
         return async_wrapper
@@ -39,7 +39,7 @@ def log_errors(func):
             try:
                 return func(*args, **kwargs)
             except Exception:
-                log.exception(f"{func.__name__} failed")
+                log.exception("shared.func_failed", func=func.__name__)
                 raise
 
         return sync_wrapper

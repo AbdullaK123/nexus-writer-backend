@@ -1,4 +1,6 @@
 import asyncio
+import time
+
 from src.service.exceptions import InternalError
 from langchain.messages import HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -154,19 +156,33 @@ class CharacterTrackerService:
 
         for result in results:
             if isinstance(result, Exception):
-                log.warning(f"Error generating cast management report: {str(result)}")
+                log.warning("analysis.cast_management_report.data_failed", story_id=story_id, error=str(result))
                 raise InternalError("An error occurred while generating your report. Please try again later.")
 
         presence, introductions, density = results
 
-        response = await self._model.ainvoke([
-            SystemMessage(content=CAST_MANAGEMENT_REPORT_SYSTEM_PROMPT),
-            HumanMessage(content=self._build_cast_management_prompt(
-                presence, #type: ignore
-                introductions, #type: ignore
-                density, #type: ignore
-            ))
-        ])
+        log.info("analysis.cast_management_report.start", story_id=story_id)
+        t0 = time.perf_counter()
+        try:
+            response = await self._model.ainvoke([
+                SystemMessage(content=CAST_MANAGEMENT_REPORT_SYSTEM_PROMPT),
+                HumanMessage(content=self._build_cast_management_prompt(
+                    presence, #type: ignore
+                    introductions, #type: ignore
+                    density, #type: ignore
+                ))
+            ])
+        except Exception:
+            log.opt(exception=True).error(
+                "analysis.cast_management_report.error", story_id=story_id,
+                elapsed_s=round(time.perf_counter() - t0, 2),
+            )
+            raise
+        elapsed = round(time.perf_counter() - t0, 2)
+        log.info(
+            "analysis.cast_management_report.done", story_id=story_id,
+            elapsed_s=elapsed, tokens=getattr(response, 'usage_metadata', None),
+        )
 
         return CastManagementReportResponse(
             story_id=story_id,

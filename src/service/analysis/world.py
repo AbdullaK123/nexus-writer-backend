@@ -1,5 +1,7 @@
 import asyncio
+import time
 from typing import Any, List, Optional
+
 from src.service.exceptions import InternalError
 from langchain.messages import HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -158,18 +160,32 @@ FACT DENSITY BY CHAPTER:
 
         for result in results:
             if isinstance(result, Exception):
-                log.warning(f"Error generating consistency report: {str(result)}")
+                log.warning("analysis.consistency_report.data_failed", story_id=story_id, error=str(result))
                 raise InternalError("An error occurred while generating your report. Please try again later.")
 
         contradictions, fact_density = results
 
-        response = await self._model.ainvoke([
-            SystemMessage(content=WORLD_CONSISTENCY_REPORT_SYSTEM_PROMPT),
-            HumanMessage(content=self._build_consistency_prompt(
-                contradictions,  # type: ignore
-                fact_density,  # type: ignore
-            )),
-        ])
+        log.info("analysis.consistency_report.start", story_id=story_id)
+        t0 = time.perf_counter()
+        try:
+            response = await self._model.ainvoke([
+                SystemMessage(content=WORLD_CONSISTENCY_REPORT_SYSTEM_PROMPT),
+                HumanMessage(content=self._build_consistency_prompt(
+                    contradictions,  # type: ignore
+                    fact_density,  # type: ignore
+                )),
+            ])
+        except Exception:
+            log.opt(exception=True).error(
+                "analysis.consistency_report.error", story_id=story_id,
+                elapsed_s=round(time.perf_counter() - t0, 2),
+            )
+            raise
+        elapsed = round(time.perf_counter() - t0, 2)
+        log.info(
+            "analysis.consistency_report.done", story_id=story_id,
+            elapsed_s=elapsed, tokens=getattr(response, 'usage_metadata', None),
+        )
 
         return WorldConsistencyReport(
             story_id=story_id,

@@ -2,6 +2,9 @@ from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from src.infrastructure.config.settings import config
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 
 
 def create_chat_model(model_string: str) -> BaseChatModel:
@@ -21,6 +24,8 @@ def create_chat_model(model_string: str) -> BaseChatModel:
         timeout=config.ai.sdk_timeout,
         max_retries=config.ai.sdk_retries,
     )
+
+    log.info("ai.model_factory.create", provider=provider, model=model_name)
 
     if provider == "google":
         from langchain_google_genai import ChatGoogleGenerativeAI

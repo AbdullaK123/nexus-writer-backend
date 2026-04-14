@@ -22,8 +22,8 @@ log = get_layer_logger(LAYER_APP)
 
 async def main():
     """Start the Prefect worker serving all flows."""
-    log.info("Starting Prefect worker...")
-    log.info("Registering flows: extract_single_chapter, line_edits")
+    log.info("worker.starting")
+    log.info("worker.registering_flows", flows=["extract_single_chapter", "line_edits"])
     
     # Serve all flows - this makes them available for execution
     # The worker will poll for flow runs and execute them

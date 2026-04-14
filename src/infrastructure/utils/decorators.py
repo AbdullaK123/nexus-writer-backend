@@ -14,7 +14,7 @@ def handle_db_errors(func):
         except DatabaseError:
             raise
         except Exception as e:
-            log.error(f"DB error in {func.__qualname__}: {e}")
+            log.error("infra.db_error", func=func.__qualname__, error=str(e))
             raise DatabaseError(str(e), original=e)
 
     return wrapper
@@ -28,7 +28,7 @@ def handle_redis_errors(func):
         except RedisError:
             raise
         except Exception as e:
-            log.error(f"Redis error in {func.__qualname__}: {e}")
+            log.error("infra.redis_error", func=func.__qualname__, error=str(e))
             raise RedisError(str(e), original=e)
 
     return wrapper

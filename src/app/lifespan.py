@@ -14,7 +14,7 @@ async def lifespan(app: FastAPI):
 
     setup_logging()
 
-    log.info("Initializing DI container resources...")
+    log.info("Lifecycle starting: initialising DI container resources")
     await container.init_resources()  # type: ignore[misc]
 
     session_cleaner = AsyncBackgroundWorker()
@@ -24,16 +24,16 @@ async def lifespan(app: FastAPI):
         cron_expr="0 * * * *"
     )
 
-    log.info("Starting session cleanup background worker...")
+    log.info("Lifecycle starting: session cleanup worker scheduled (cron='0 * * * *')")
     await session_cleaner.start()
 
     yield
 
-    log.info("Removing all jobs...")
+    log.info("Lifecycle shutdown: removing scheduled jobs")
     session_cleaner.remove_all_jobs()
 
-    log.info("Shutting down session cleanup background worker")
+    log.info("Lifecycle shutdown: stopping session cleanup worker")
     await session_cleaner.stop()
 
-    log.info("Shutting down DI container resources...")
+    log.info("Lifecycle shutdown: releasing DI container resources")
     await container.shutdown_resources()  # type: ignore[misc]

@@ -70,18 +70,23 @@ async def _wait_for_predecessor_extractions(
 
         if not blocking:
             if elapsed > 0:
-                log.info(f"Chapter {chapter_number}: predecessors complete after {elapsed}s wait")
+                log.info("line_edits.predecessors_complete", chapter_number=chapter_number, waited_seconds=elapsed)
             return
 
         log.info(
-            f"Chapter {chapter_number}: waiting for {len(blocking)} predecessor(s) "
-            f"({elapsed}s / {max_wait}s)"
+            "line_edits.waiting_for_predecessors",
+            chapter_number=chapter_number,
+            blocking_count=len(blocking),
+            elapsed_seconds=elapsed,
+            max_wait_seconds=max_wait,
         )
         await asyncio.sleep(poll_interval)
         elapsed += poll_interval
 
     log.warning(
-        f"Chapter {chapter_number}: predecessors still running after {max_wait}s, proceeding anyway"
+        "line_edits.predecessors_timeout",
+        chapter_number=chapter_number,
+        max_wait_seconds=max_wait,
     )
 
 
@@ -98,14 +103,17 @@ async def generate_line_edits_task(
     chapter_number: int,
     chapter_title: Optional[str] = None,
     use_lfm: bool = False,
+    story_id: str = "",
 ) -> ChapterEdit:
     """Generate line edits for chapter"""
+    log.debug("task.line_edits.start", chapter_number=chapter_number, story_id=story_id)
     return await generate_line_edits(
         story_context, 
         chapter_content, 
         chapter_number, 
         chapter_title,
         use_lfm=use_lfm,
+        story_id=story_id,
     )
 
 
@@ -144,11 +152,11 @@ async def save_line_edits_task(
             },
             upsert=True
         )
-        log.info(f"✅ Saved {len(line_edits.edits)} edits to MongoDB")
+        log.info("task.line_edits_saved_mongo", chapter_id=chapter_id, edit_count=len(line_edits.edits))
     finally:
         await Tortoise.close_connections()
-        
-    log.info(f"✅ Line edits saved for chapter {chapter_id}")
+
+    log.info("task.line_edits_checkpoint_saved", chapter_id=chapter_id, chapter_number=chapter_number)
 
 
 @flow(
@@ -177,7 +185,7 @@ async def line_edits_flow(
         story_path_array
      )
     
-    log.info(f"Starting line edits for Chapter {chapter_number}")
+    log.info("line_edits.started", chapter_number=chapter_number, chapter_id=chapter_id)
     
     # Generate line edits
     edits = await generate_line_edits_task(
@@ -186,6 +194,7 @@ async def line_edits_flow(
         chapter_number=chapter_number,
         chapter_title=chapter_title,
         use_lfm=use_lfm,
+        story_id=story_id,
     )
     
     # Save to database
@@ -196,8 +205,10 @@ async def line_edits_flow(
     )
     
     log.success(
-        f"✅ Line edits complete for Chapter {chapter_number}: "
-        f"{len(edits.edits)} edits generated"
+        "line_edits.complete",
+        chapter_number=chapter_number,
+        chapter_id=chapter_id,
+        edit_count=len(edits.edits),
     )
     
     return {

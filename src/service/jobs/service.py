@@ -65,6 +65,7 @@ class JobService:
             try:
                 flow_run = await client.read_flow_run(UUID(job_id))
             except Exception:
+                log.opt(exception=True).warning("job.status_lookup_failed", job_id=job_id)
                 return JobStatusResponse(
                     job_id=job_id,
                     status=JobStatus.PENDING,
@@ -102,7 +103,7 @@ class JobService:
                                 count = result["edits_count"]
                                 response.message = f"Generated {count} line edit{'s' if count != 1 else ''}!"
                     except Exception:
-                        pass
+                        log.opt(exception=True).warning("job.result_retrieval_failed", job_id=job_id)
 
             elif state_type == StateType.FAILED:
                 response.message = "Task failed"
@@ -124,7 +125,7 @@ class JobService:
         async with await self._get_prefect_client() as client:
 
             if chapter_id is None and story_id is None:
-                log.info("No filters passed to decide which jobs to cancel. Aborting...")
+                log.info("job.cancel_skipped: no filters provided")
                 return {
                     "jobs_cancelled": 0
                 }
@@ -154,9 +155,9 @@ class JobService:
                         state=Cancelled(message=f"Flow cancelled by user for chapter {chapter_id} and story {story_id}")
                     )
                     cancelled += 1
-                    log.info(f"Cancelled job {flow_run.id} for chapter {chapter_id}")
+                    log.info("job.cancelled", flow_run_id=str(flow_run.id), chapter_id=chapter_id, story_id=story_id)
                 except Exception as e:
-                    log.info(f"Failed to cancel flow run {flow_run.id}: {e}")
+                    log.warning("job.cancel_failed", flow_run_id=str(flow_run.id), error=str(e))
 
             return {
                 "chapter_id": chapter_id,
@@ -202,8 +203,10 @@ class JobService:
 
         if cancel_result.get("jobs_cancelled", 0) > 0:
             log.info(
-                f"Cancelled {cancel_result['jobs_cancelled']} "
-                f"{cancel_result['job_type']} job(s) for chapter {chapter_id}"
+                "job.cancelled_existing",
+                jobs_cancelled=cancel_result['jobs_cancelled'],
+                job_type=cancel_result['job_type'],
+                chapter_id=chapter_id,
             )
 
         # Check MongoDB for line edit status
@@ -223,7 +226,7 @@ class JobService:
         
         # Log if we're regenerating due to stale edits
         if is_stale:
-            log.info(f"Regenerating line edits for chapter {chapter_id} (marked as stale due to content change)")
+            log.info("job.line_edits_stale", chapter_id=chapter_id)
 
         story = await Story.get_or_none(id=chapter.story_id)  # type: ignore[attr-defined]
         if not story:
@@ -256,8 +259,11 @@ class JobService:
         flow_run_id = str(flow_run.id)
 
         log.info(
-            f"Queued line edit job for Chapter {chapter_number} "
-            f"'{chapter.title}' (flow_run_id: {flow_run_id})"
+            "job.line_edit_queued",
+            chapter_number=chapter_number,
+            chapter_title=chapter.title,
+            chapter_id=chapter_id,
+            flow_run_id=flow_run_id,
         )
 
         return JobQueuedResponse(
@@ -285,8 +291,10 @@ class JobService:
 
         if cancel_result.get("jobs_cancelled", 0) > 0:
             log.info(
-                f"Cancelled {cancel_result['jobs_cancelled']} "
-                f"{cancel_result['job_type']} job(s) for story {story_id}"
+                "job.cancelled_existing",
+                jobs_cancelled=cancel_result['jobs_cancelled'],
+                job_type=cancel_result['job_type'],
+                story_id=story_id,
             )
 
         flow_run = cast(FlowRun, await run_deployment(
@@ -301,7 +309,7 @@ class JobService:
         ))
         flow_run_id = str(flow_run.id)
 
-        log.info(f"Queued reextraction for Chapters: {chapter_ids}")
+        log.info("job.reextraction_queued", chapter_ids=chapter_ids, story_id=story_id, flow_run_id=flow_run_id)
 
         return JobQueuedResponse(
             job_id=flow_run_id,
@@ -327,8 +335,10 @@ class JobService:
 
         if cancel_result.get("jobs_cancelled", 0) > 0:
             log.info(
-                f"Cancelled {cancel_result['jobs_cancelled']} "
-                f"{cancel_result['job_type']} job(s) for chapter {chapter_id}"
+                "job.cancelled_existing",
+                jobs_cancelled=cancel_result['jobs_cancelled'],
+                job_type=cancel_result['job_type'],
+                chapter_id=chapter_id,
             )
             
         story = await Story.get_or_none(id=chapter.story_id)  # type: ignore[attr-defined]
@@ -358,8 +368,11 @@ class JobService:
         flow_run_id = str(flow_run.id)
 
         log.info(
-            f"Queued extraction for Chapter {chapter_number} "
-            f"'{chapter.title}' (flow_run_id: {flow_run_id})"
+            "job.extraction_queued",
+            chapter_number=chapter_number,
+            chapter_title=chapter.title,
+            chapter_id=chapter_id,
+            flow_run_id=flow_run_id,
         )
 
         return JobQueuedResponse(

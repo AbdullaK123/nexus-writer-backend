@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 from src.service.exceptions import InternalError
 from langchain.messages import HumanMessage, SystemMessage
@@ -114,25 +115,39 @@ class PlotService:
 
         for result in results:
             if isinstance(result, Exception):
-                log.warning(f"Error generating structural report: {str(result)}")
+                log.warning("analysis.structural_report.data_failed", story_id=story_id, error=str(result))
                 raise InternalError("An error occurred while generating your report. Please try again later.")
 
         # Unpack only after checking for exceptions
         threads, questions, setups, contrivances = results
 
-        response = await self._model.ainvoke([
-            SystemMessage(content=PLOT_STRUCTURAL_REPORT_PROMPT),
-            HumanMessage(content=self._build_structural_report_prompt(
-                threads, #type: ignore
-                questions, #type: ignore
-                setups, #type: ignore
-                contrivances #type: ignore
-            )) 
-        ])
+        log.info("analysis.structural_report.start", story_id=story_id)
+        t0 = time.perf_counter()
+        try:
+            response = await self._model.ainvoke([
+                SystemMessage(content=PLOT_STRUCTURAL_REPORT_PROMPT),
+                HumanMessage(content=self._build_structural_report_prompt(
+                    threads, #type: ignore
+                    questions, #type: ignore
+                    setups, #type: ignore
+                    contrivances #type: ignore
+                )) 
+            ])
+        except Exception:
+            log.opt(exception=True).error(
+                "analysis.structural_report.error", story_id=story_id,
+                elapsed_s=round(time.perf_counter() - t0, 2),
+            )
+            raise
+        elapsed = round(time.perf_counter() - t0, 2)
+        log.info(
+            "analysis.structural_report.done", story_id=story_id,
+            elapsed_s=elapsed, tokens=getattr(response, 'usage_metadata', None),
+        )
 
         return PlotStructuralReportResponse(
             story_id=story_id, 
-            report=extract_text(response)
+            report=extract_text(response.content)
         )
         
     
