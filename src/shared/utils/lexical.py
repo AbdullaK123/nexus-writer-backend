@@ -1,7 +1,9 @@
 import json
 from json import JSONDecodeError
 from typing import List
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SHARED
+
+log = get_layer_logger(LAYER_SHARED)
 
 
 def get_word_count(lexical_json_string: str) -> int:
@@ -12,7 +14,7 @@ def get_word_count(lexical_json_string: str) -> int:
     try:
         lexical_json = json.loads(lexical_json_string)
     except JSONDecodeError as e:
-        logger.error(f"Failed to parse lexical json string: \n {e}")
+        log.error(f"Failed to parse lexical json string: \n {e}")
         return 0
 
     def get_text(node: dict) -> str:
@@ -33,7 +35,7 @@ def get_preview_content(lexical_json_string: str) -> str:
     try:
         lexical_json = json.loads(lexical_json_string)
     except JSONDecodeError as e:
-        logger.error(f"Failed to parse lexical json string: \n {e}")
+        log.error(f"Failed to parse lexical json string: \n {e}")
         return ""
 
     def get_text(node: dict) -> str:

@@ -27,7 +27,7 @@ router = APIRouter()
 async def get_characters(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    character_service: CharacterService = Depends(Provide[ApplicationContainer.character_service])
+    character_service: CharacterService = Provide[ApplicationContainer.character_service]
 ) -> CharacterResponse:
     return await character_service.get_all_characters(
         story_id=story_id,
@@ -41,7 +41,7 @@ async def get_character_arc(
     story_id: str,
     character_name: str,
     current_user: User = Depends(get_current_user),
-    character_service: CharacterService = Depends(Provide[ApplicationContainer.character_service])
+    character_service: CharacterService = Provide[ApplicationContainer.character_service]
 ) -> CharacterArcResponse:
     return await character_service.get_character_arc(
         character_name=character_name,
@@ -57,7 +57,7 @@ async def get_character_knowledge(
     character_name: str,
     chapter_number: int = Query(..., ge=1, description="Cumulative knowledge up to this chapter"),
     current_user: User = Depends(get_current_user),
-    character_service: CharacterService = Depends(Provide[ApplicationContainer.character_service])
+    character_service: CharacterService = Provide[ApplicationContainer.character_service]
 ) -> CharacterKnowledgeResponse:
     return await character_service.get_knowledge_at_chapter(
         character_name=character_name,
@@ -73,7 +73,7 @@ async def get_character_inconsistencies(
     story_id: str,
     character_name: str,
     current_user: User = Depends(get_current_user),
-    character_service: CharacterService = Depends(Provide[ApplicationContainer.character_service])
+    character_service: CharacterService = Provide[ApplicationContainer.character_service]
 ) -> CharacterInconsistencyResponse:
     return await character_service.get_inconsistency_report(
         story_id=story_id,
@@ -87,7 +87,7 @@ async def get_character_inconsistencies(
 async def get_character_presence_map(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    service: CharacterTrackerService = Depends(Provide[ApplicationContainer.character_tracker_service]),
+    service: CharacterTrackerService = Provide[ApplicationContainer.character_tracker_service],
 ) -> CharacterAppearancesResponse:
     return await service.get_character_presence_map(
         story_id=story_id,
@@ -100,7 +100,7 @@ async def get_character_presence_map(
 async def get_character_introduction_rate(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    service: CharacterTrackerService = Depends(Provide[ApplicationContainer.character_tracker_service]),
+    service: CharacterTrackerService = Provide[ApplicationContainer.character_tracker_service],
 ) -> CharacterIntroductionResponse:
     return await service.get_character_introduction_rate(
         story_id=story_id,
@@ -113,7 +113,7 @@ async def get_character_introduction_rate(
 async def get_cast_density(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    service: CharacterTrackerService = Depends(Provide[ApplicationContainer.character_tracker_service]),
+    service: CharacterTrackerService = Provide[ApplicationContainer.character_tracker_service],
 ) -> CharacterDensityResponse:
     return await service.get_cast_density(
         story_id=story_id,
@@ -126,7 +126,7 @@ async def get_cast_density(
 async def get_cast_management_report(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    service: CharacterTrackerService = Depends(Provide[ApplicationContainer.character_tracker_service]),
+    service: CharacterTrackerService = Provide[ApplicationContainer.character_tracker_service],
 ) -> CastManagementReportResponse:
     return await service.get_cast_management_report(
         story_id=story_id,
@@ -140,7 +140,7 @@ async def get_goal_evolution(
     story_id: str,
     character_name: str,
     current_user: User = Depends(get_current_user),
-    service: CharacterTrackerService = Depends(Provide[ApplicationContainer.character_tracker_service]),
+    service: CharacterTrackerService = Provide[ApplicationContainer.character_tracker_service],
 ) -> CharacterGoalsResponse:
     return await service.get_goal_evolution(
         story_id=story_id,
@@ -156,7 +156,7 @@ async def get_knowledge_asymmetry(
     character_name: str,
     chapter_number: int = Query(..., ge=1, description="Cumulative knowledge up to this chapter"),
     current_user: User = Depends(get_current_user),
-    service: CharacterTrackerService = Depends(Provide[ApplicationContainer.character_tracker_service]),
+    service: CharacterTrackerService = Provide[ApplicationContainer.character_tracker_service],
 ) -> CharacterKnowledgeMapResponse:
     return await service.get_knowledge_asymmetry(
         story_id=story_id,

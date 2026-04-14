@@ -1,4 +1,4 @@
-from fastapi import Request, Cookie, Depends
+from fastapi import Request, Cookie
 from dependency_injector.wiring import inject, Provide
 from src.service.auth.service import AuthService
 from src.data.models import User
@@ -10,7 +10,7 @@ from typing import Optional, Union
 async def get_current_user(
     request: Request,
     session_id: Union[bytes, str] = Cookie(),
-    auth_service: AuthService = Depends(Provide["auth_service"])
+    auth_service: AuthService = Provide["auth_service"]
 ) -> Optional[User]:
     user = await auth_service.validate_session(session_id)
     # make user id available for logging middleware

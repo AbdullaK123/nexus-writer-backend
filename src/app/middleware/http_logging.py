@@ -2,7 +2,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import Message
-from loguru import logger
 import time
 import uuid
 from typing import Callable
@@ -10,7 +9,8 @@ from src.shared.utils.logging_context import (
     set_correlation_id,
     set_user_id,
     clear_context,
-    context_logger,
+    get_layer_logger,
+    LAYER_APP,
 )
 
 
@@ -63,7 +63,7 @@ class HTTPLoggingMiddleware(BaseHTTPMiddleware):
         set_user_id(getattr(request.state, "user_id", None))
 
         # Pre log (minimal)
-        context_logger(http=True).info(
+        get_layer_logger(LAYER_APP, http=True).info(
             "HTTP {method} {path} started",
             method=method,
             path=path,
@@ -76,7 +76,7 @@ class HTTPLoggingMiddleware(BaseHTTPMiddleware):
             status = response.status_code
         except Exception:
             duration_ms = (time.perf_counter() - start) * 1000
-            context_logger(http=True).exception(
+            get_layer_logger(LAYER_APP, http=True).exception(
                 "HTTP {method} {path} failed in {duration_ms:.2f} ms",
                 method=method,
                 path=path,
@@ -119,7 +119,7 @@ class HTTPLoggingMiddleware(BaseHTTPMiddleware):
         if path in SENSITIVE_PATHS:
             extra["note"] = "sensitive_path"
 
-        context_logger(**extra).info(
+        get_layer_logger(LAYER_APP, **extra).info(
             "{method} {path} -> {status} in {duration_ms} ms",
             method=method,
             path=path,

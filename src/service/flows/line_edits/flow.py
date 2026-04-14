@@ -5,7 +5,9 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from prefect import flow, get_client, task
 from tortoise import Tortoise
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 from src.service.ai.edits import generate_line_edits
 from src.data.models.ai.edits import ChapterEdit, ChapterEdits
 from src.infrastructure.db.postgres import TORTOISE_ORM
@@ -68,17 +70,17 @@ async def _wait_for_predecessor_extractions(
 
         if not blocking:
             if elapsed > 0:
-                logger.info(f"Chapter {chapter_number}: predecessors complete after {elapsed}s wait")
+                log.info(f"Chapter {chapter_number}: predecessors complete after {elapsed}s wait")
             return
 
-        logger.info(
+        log.info(
             f"Chapter {chapter_number}: waiting for {len(blocking)} predecessor(s) "
             f"({elapsed}s / {max_wait}s)"
         )
         await asyncio.sleep(poll_interval)
         elapsed += poll_interval
 
-    logger.warning(
+    log.warning(
         f"Chapter {chapter_number}: predecessors still running after {max_wait}s, proceeding anyway"
     )
 
@@ -142,11 +144,11 @@ async def save_line_edits_task(
             },
             upsert=True
         )
-        logger.info(f"✅ Saved {len(line_edits.edits)} edits to MongoDB")
+        log.info(f"✅ Saved {len(line_edits.edits)} edits to MongoDB")
     finally:
         await Tortoise.close_connections()
         
-    logger.info(f"✅ Line edits saved for chapter {chapter_id}")
+    log.info(f"✅ Line edits saved for chapter {chapter_id}")
 
 
 @flow(
@@ -175,7 +177,7 @@ async def line_edits_flow(
         story_path_array
      )
     
-    logger.info(f"Starting line edits for Chapter {chapter_number}")
+    log.info(f"Starting line edits for Chapter {chapter_number}")
     
     # Generate line edits
     edits = await generate_line_edits_task(
@@ -193,7 +195,7 @@ async def line_edits_flow(
         line_edits=edits,
     )
     
-    logger.success(
+    log.success(
         f"✅ Line edits complete for Chapter {chapter_number}: "
         f"{len(edits.edits)} edits generated"
     )

@@ -19,7 +19,7 @@ router = APIRouter()
 async def get_contradictions(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    world_service: WorldConsistencyService = Depends(Provide[ApplicationContainer.world_service]),
+    world_service: WorldConsistencyService = Provide[ApplicationContainer.world_service],
 ) -> ContradictionResponse:
     return await world_service.get_contradictions(
         story_id=story_id,
@@ -32,7 +32,7 @@ async def get_contradictions(
 async def get_entity_registry(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    world_service: WorldConsistencyService = Depends(Provide[ApplicationContainer.world_service]),
+    world_service: WorldConsistencyService = Provide[ApplicationContainer.world_service],
     entities: Optional[List[str]] = Query(default=None),
 ) -> List[EntityFactResponse]:
     return await world_service.get_entity_registry(
@@ -48,7 +48,7 @@ async def get_entity_timeline(
     story_id: str,
     entity: str,
     current_user: User = Depends(get_current_user),
-    world_service: WorldConsistencyService = Depends(Provide[ApplicationContainer.world_service]),
+    world_service: WorldConsistencyService = Provide[ApplicationContainer.world_service],
 ) -> EntityTimelineResponse:
     return await world_service.get_entity_timeline(
         story_id=story_id,
@@ -62,7 +62,7 @@ async def get_entity_timeline(
 async def get_fact_density(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    world_service: WorldConsistencyService = Depends(Provide[ApplicationContainer.world_service]),
+    world_service: WorldConsistencyService = Provide[ApplicationContainer.world_service],
 ) -> StoryFactCountsResponse:
     return await world_service.get_fact_density(
         story_id=story_id,
@@ -75,7 +75,7 @@ async def get_fact_density(
 async def get_world_consistency_report(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    world_service: WorldConsistencyService = Depends(Provide[ApplicationContainer.world_service]),
+    world_service: WorldConsistencyService = Provide[ApplicationContainer.world_service],
 ) -> WorldConsistencyReport:
     return await world_service.get_consistency_report(
         story_id=story_id,

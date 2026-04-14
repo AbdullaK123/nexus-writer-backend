@@ -8,7 +8,9 @@ from src.data.schemas.world import *
 from src.service.ai.utils.ai import extract_text
 from src.infrastructure.utils.retry import retry_llm
 from src.data.repositories.mongo.world_extraction import WorldExtractionRepo
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 
 
 class WorldConsistencyService:
@@ -156,7 +158,7 @@ FACT DENSITY BY CHAPTER:
 
         for result in results:
             if isinstance(result, Exception):
-                logger.warning(f"Error generating consistency report: {str(result)}")
+                log.warning(f"Error generating consistency report: {str(result)}")
                 raise InternalError("An error occurred while generating your report. Please try again later.")
 
         contradictions, fact_density = results

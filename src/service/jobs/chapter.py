@@ -2,7 +2,9 @@
 
 from src.data.models import Story, Chapter
 from datetime import datetime, timezone
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 
 # Pure data manipulation functions - no transaction handling
 
@@ -82,18 +84,18 @@ async def handle_chapter_creation(story_id: str, chapter_id: str):
     await append_chapter_to_path_end(story_id, chapter_id)
     await sync_all_chapter_pointers(story_id)
     await update_story_timestamp(story_id)
-    logger.info(f"✅ Chapter {chapter_id} prepared for creation in story {story_id}")
+    log.info(f"✅ Chapter {chapter_id} prepared for creation in story {story_id}")
 
 async def handle_chapter_deletion(story_id: str, chapter_id: str):
     """Complete chapter deletion workflow"""
     await remove_chapter_from_path(story_id, chapter_id)
     await sync_all_chapter_pointers(story_id)
     await update_story_timestamp(story_id)
-    logger.info(f"🗑️ Chapter {chapter_id} prepared for deletion from story {story_id}")
+    log.info(f"🗑️ Chapter {chapter_id} prepared for deletion from story {story_id}")
 
 async def handle_chapter_reordering(story_id: str, from_pos: int, to_pos: int):
     """Complete chapter reordering workflow"""
     await reorder_chapter_path(story_id, from_pos, to_pos)
     await sync_all_chapter_pointers(story_id)
     await update_story_timestamp(story_id)
-    logger.info(f"🔄 Chapters prepared for reordering in story {story_id}: {from_pos} → {to_pos}")
+    log.info(f"🔄 Chapters prepared for reordering in story {story_id}: {from_pos} → {to_pos}")

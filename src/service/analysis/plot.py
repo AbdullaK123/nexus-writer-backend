@@ -5,7 +5,9 @@ from langchain.messages import HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 from src.data.models.ai.plot import ContrivanceRisk, Payoff, PlotThread, Setup, StoryQuestion
 from src.data.schemas.plot import DeusExMachinaResponse, PlotStructuralReportResponse, PlotThreadsResponse, SetupResponse, StoryQuestionsResponse
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 from src.service.ai.prompts.plot import PLOT_STRUCTURAL_REPORT_PROMPT
 from src.service.ai.utils.ai import extract_text
 from src.infrastructure.utils.retry import retry_llm
@@ -112,7 +114,7 @@ class PlotService:
 
         for result in results:
             if isinstance(result, Exception):
-                logger.warning(f"Error generating structural report: {str(result)}")
+                log.warning(f"Error generating structural report: {str(result)}")
                 raise InternalError("An error occurred while generating your report. Please try again later.")
 
         # Unpack only after checking for exceptions

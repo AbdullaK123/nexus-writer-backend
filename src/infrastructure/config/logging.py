@@ -1,97 +1,174 @@
 from loguru import logger
+import logging
 import sys
 
-from src.shared.utils.logging_context import get_correlation_id, get_user_id
+
+# ── Layer identifiers ────────────────────────────────────────────────────────
+LAYER_APP = "app"
+LAYER_SERVICE = "service"
+LAYER_DATA = "data"
+LAYER_INFRA = "infra"
+LAYER_SHARED = "shared"
+
+ALL_LAYERS = {LAYER_APP, LAYER_SERVICE, LAYER_DATA, LAYER_INFRA, LAYER_SHARED}
+
+
+# ── Stdlib → Loguru intercept handler ────────────────────────────────────────
+class _InterceptHandler(logging.Handler):
+    """Route stdlib logging records into loguru with the correct layer tag."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        # Determine layer from the stdlib logger name
+        name = record.name
+        if name.startswith("infrastructure"):
+            layer = LAYER_INFRA
+        elif name.startswith("data"):
+            layer = LAYER_DATA
+        elif name.startswith("service"):
+            layer = LAYER_SERVICE
+        else:
+            layer = LAYER_SHARED
+
+        level: str | int
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        frame, depth = logging.currentframe(), 2
+        while frame and frame.f_code.co_filename == logging.__file__:
+            frame = frame.f_back
+            depth += 1
+
+        logger.bind(layer=layer).opt(depth=depth, exception=record.exc_info).log(
+            level, record.getMessage()
+        )
+
+
+def _layer_filter(layer: str):
+    """Return a loguru filter that passes only records tagged with *layer*."""
+    return lambda record: record["extra"].get("layer") == layer
+
+
+# ── Console format per layer (each layer gets its own color) ─────────────────
+_CONSOLE_FORMATS = {
+    LAYER_APP: (
+        "<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | "
+        "<blue><bold>[APP]</bold></blue> <blue>{name}</blue>:<blue>{function}</blue>:<blue>{line}</blue> "
+        "- <level>{message}</level>"
+    ),
+    LAYER_SERVICE: (
+        "<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | "
+        "<magenta><bold>[SVC]</bold></magenta> <magenta>{name}</magenta>:<magenta>{function}</magenta>:<magenta>{line}</magenta> "
+        "- <level>{message}</level>"
+    ),
+    LAYER_DATA: (
+        "<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | "
+        "<yellow><bold>[DAT]</bold></yellow> <yellow>{name}</yellow>:<yellow>{function}</yellow>:<yellow>{line}</yellow> "
+        "- <level>{message}</level>"
+    ),
+    LAYER_INFRA: (
+        "<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | "
+        "<cyan><bold>[INF]</bold></cyan> <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> "
+        "- <level>{message}</level>"
+    ),
+    LAYER_SHARED: (
+        "<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | "
+        "<white><bold>[SHR]</bold></white> <white>{name}</white>:<white>{function}</white>:<white>{line}</white> "
+        "- <level>{message}</level>"
+    ),
+}
+
+# Flat file format (no ANSI — used for all layer log files)
+_FILE_FMT = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}"
+
+
+# ── Layer → file settings ────────────────────────────────────────────────────
+_LAYER_FILE_CFG = {
+    LAYER_APP: {
+        "path": "logs/app.log",
+        "level": "INFO",
+        "rotation": "25 MB",
+        "retention": "30 days",
+    },
+    LAYER_SERVICE: {
+        "path": "logs/service.log",
+        "level": "DEBUG",
+        "rotation": "30 MB",
+        "retention": "30 days",
+    },
+    LAYER_DATA: {
+        "path": "logs/data.log",
+        "level": "DEBUG",
+        "rotation": "20 MB",
+        "retention": "14 days",
+    },
+    LAYER_INFRA: {
+        "path": "logs/infra.log",
+        "level": "DEBUG",
+        "rotation": "20 MB",
+        "retention": "14 days",
+    },
+    LAYER_SHARED: {
+        "path": "logs/shared.log",
+        "level": "DEBUG",
+        "rotation": "10 MB",
+        "retention": "14 days",
+    },
+}
 
 
 def setup_logging():
-    """Configure Loguru for comprehensive application logging"""
+    """Configure Loguru with per-layer console colors, log files, and cross-cutting files."""
 
-    # Remove default handler
     logger.remove()
 
-    # Console logging with beautiful colors and emojis
+    # ── Per-layer: colored console + dedicated log file ──────────────────
+    for layer in ALL_LAYERS:
+        # Console handler (colored, per-layer format)
+        logger.add(
+            sys.stdout,
+            format=_CONSOLE_FORMATS[layer],
+            level="INFO",
+            colorize=True,
+            enqueue=True,
+            filter=_layer_filter(layer),
+        )
+
+        # Dedicated file handler
+        cfg = _LAYER_FILE_CFG[layer]
+        logger.add(
+            cfg["path"],
+            format=_FILE_FMT,
+            level=cfg["level"],
+            rotation=cfg["rotation"],
+            retention=cfg["retention"],
+            compression="zip",
+            serialize=True,
+            enqueue=True,
+            filter=_layer_filter(layer),
+        )
+
+    # ── Fallback console for un-tagged log lines ─────────────────────────
     logger.add(
         sys.stdout,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        format=(
+            "<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | "
+            "<dim>{name}</dim>:<dim>{function}</dim>:<dim>{line}</dim> "
+            "- <level>{message}</level>"
+        ),
         level="INFO",
         colorize=True,
-        enqueue=True,  # Thread-safe
-    )
-
-    # Comprehensive background job logging with JSON structure
-    logger.add(
-        "logs/prefect_tasks.log",
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
-        level="DEBUG",
-        rotation="25 MB",
-        retention="30 days",
-        compression="zip",
-        serialize=True,
         enqueue=True,
-        filter=lambda record: record["extra"].get("job_type") == "background_task",
+        filter=lambda r: r["extra"].get("layer") not in ALL_LAYERS,
     )
 
-    # Retry attempts and error recovery logging
-    logger.add(
-        "logs/retry_attempts.log",
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
-        level="WARNING",
-        rotation="10 MB",
-        retention="15 days",
-        compression="zip",
-        serialize=True,
-        enqueue=True,
-        filter=lambda record: any(
-            keyword in record["message"].lower()
-            for keyword in ["retry", "failed", "attempt"]
-        ),
-    )
+    # ── Cross-cutting log files (layer-agnostic) ─────────────────────────
 
-    # Performance monitoring logs
-    logger.add(
-        "logs/performance.log",
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
-        level="WARNING",
-        rotation="15 MB",
-        retention="7 days",
-        compression="zip",
-        serialize=True,
-        enqueue=True,
-        filter=lambda record: record["extra"].get("performance_issue")
-        or record["extra"].get("performance_failure"),
-    )
-
-    # Database operation logs
-    logger.add(
-        "logs/database.log",
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
-        level="DEBUG",
-        rotation="20 MB",
-        retention="14 days",
-        compression="zip",
-        serialize=True,
-        enqueue=True,
-        filter=lambda record: record["extra"].get("db_operation"),
-    )
-
-    # HTTP request/response logs
-    logger.add(
-        "logs/http.log",
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {message}",
-        level="INFO",
-        rotation="50 MB",
-        retention="30 days",
-        compression="zip",
-        serialize=True,
-        enqueue=True,
-        filter=lambda record: record["extra"].get("http") is True,
-    )
-
-    # Critical errors only
+    # All errors regardless of layer
     logger.add(
         "logs/errors.log",
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
+        format=_FILE_FMT,
         level="ERROR",
         rotation="10 MB",
         retention="60 days",
@@ -100,4 +177,7 @@ def setup_logging():
         enqueue=True,
     )
 
-    logger.success("🎯 Enhanced Loguru logging system initialized with structured output")
+    logger.bind(layer=LAYER_INFRA).success("Logging system initialised — per-layer handlers active")
+
+    # ── Route stdlib loggers (tenacity, etc.) through loguru ─────────────
+    logging.basicConfig(handlers=[_InterceptHandler()], level=logging.DEBUG, force=True)

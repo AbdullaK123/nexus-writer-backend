@@ -6,8 +6,10 @@ from src.shared.utils.decorators import log_errors
 from dependency_injector.wiring import inject, Provide
 from src.app.di.containers import ApplicationContainer
 from src.infrastructure.config import settings
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_APP
 import asyncio
+
+log = get_layer_logger(LAYER_APP)
 
 
 sio = AsyncServer(
@@ -25,7 +27,7 @@ def handle_session_start(
     session_start_data: dict,
     session_cache: SessionCacheService = Provide[ApplicationContainer.session_cache_service],
 ):
-    logger.info(
+    log.info(
         "Writing session start event received", 
         sid=sid, 
         extra={"event_type": "session_start"}
@@ -34,7 +36,7 @@ def handle_session_start(
     # Validate incoming data
     event = WritingSessionEvent(**session_start_data)
     
-    logger.debug(
+    log.debug(
         "Session data validated successfully", 
         session_id=event.sessionId,
         user_id=event.userId,
@@ -46,7 +48,7 @@ def handle_session_start(
     
     session_cache.save(sid, event.model_dump())
     
-    logger.success(
+    log.success(
         "Writing session started and stored", 
         session_id=event.sessionId,
         user_id=event.userId,
@@ -62,7 +64,7 @@ def handle_session_end(
     session_end_data: dict,
     session_cache: SessionCacheService = Provide[ApplicationContainer.session_cache_service],
 ):
-    logger.info(
+    log.info(
         "Writing session end event received", 
         sid=sid,
         extra={"event_type": "session_end"}
@@ -71,7 +73,7 @@ def handle_session_end(
     # Validate end data
     end_event = WritingSessionEvent(**session_end_data)
     
-    logger.debug(
+    log.debug(
         "End event data validated", 
         session_id=end_event.sessionId,
         final_word_count=end_event.wordCount,
@@ -81,7 +83,7 @@ def handle_session_end(
     start_data = session_cache.get(sid)
     
     if not start_data:
-        logger.warning(
+        log.warning(
             "No session start data found", 
             sid=sid,
             session_id=end_event.sessionId,
@@ -96,7 +98,7 @@ def handle_session_end(
     duration_seconds = (end_event.timestamp - start_event.timestamp).total_seconds()
     duration_minutes = duration_seconds / 60
     
-    logger.debug(
+    log.debug(
         "Session metrics calculated", 
         session_id=end_event.sessionId,
         words_written=words_written,
@@ -117,7 +119,7 @@ def handle_session_end(
         words_written=words_written
     )
     
-    logger.info(
+    log.info(
         "Saving writing session to DuckDB", 
         session_id=session.id,
         user_id=session.user_id,
@@ -136,7 +138,7 @@ def handle_session_end(
 @log_errors
 def handle_task_completion(task, session_id: str, sid: str):
     if task.exception() is None:
-        logger.success(
+        log.success(
             "Writing session successfully saved to DuckDB", 
             session_id=session_id,
             sid=sid,
@@ -144,7 +146,7 @@ def handle_task_completion(task, session_id: str, sid: str):
         )
     else:
         exception = task.exception()
-        logger.error(
+        log.error(
             "Failed to save session to DuckDB",
             session_id=session_id,
             error_type=type(exception).__name__,
@@ -166,7 +168,7 @@ async def save_to_duckdb_async(
 @sio.on('connect', namespace='/analytics')
 @log_errors
 def on_connect(sid, environ, auth=None):
-    logger.info(
+    log.info(
         "Client connected to analytics namespace", 
         sid=sid,
         user_agent=environ.get('HTTP_USER_AGENT', 'unknown'),
@@ -183,7 +185,7 @@ def on_disconnect(
     reason,
     session_cache: SessionCacheService = Provide[ApplicationContainer.session_cache_service],
 ):
-    logger.info(
+    log.info(
         "Client disconnected from analytics namespace", 
         sid=sid,
         reason=reason,
@@ -191,7 +193,7 @@ def on_disconnect(
     )
     session_data = session_cache.get(sid)
     if session_data:
-        logger.warning(
+        log.warning(
             "Client disconnected with incomplete session - cleaning up", 
             sid=sid,
             reason=reason,

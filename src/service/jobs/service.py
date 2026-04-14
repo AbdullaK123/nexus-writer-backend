@@ -16,7 +16,9 @@ from prefect.client.schemas.filters import FlowRunFilter, FlowRunFilterTags, Flo
 from prefect.client.orchestration import PrefectClient
 from prefect.states import Cancelled
 from prefect.deployments import run_deployment
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 
 from src.data.models import Story, Chapter
 from src.data.schemas.jobs import (
@@ -122,7 +124,7 @@ class JobService:
         async with await self._get_prefect_client() as client:
 
             if chapter_id is None and story_id is None:
-                logger.info("No filters passed to decide which jobs to cancel. Aborting...")
+                log.info("No filters passed to decide which jobs to cancel. Aborting...")
                 return {
                     "jobs_cancelled": 0
                 }
@@ -152,9 +154,9 @@ class JobService:
                         state=Cancelled(message=f"Flow cancelled by user for chapter {chapter_id} and story {story_id}")
                     )
                     cancelled += 1
-                    logger.info(f"Cancelled job {flow_run.id} for chapter {chapter_id}")
+                    log.info(f"Cancelled job {flow_run.id} for chapter {chapter_id}")
                 except Exception as e:
-                    logger.info(f"Failed to cancel flow run {flow_run.id}: {e}")
+                    log.info(f"Failed to cancel flow run {flow_run.id}: {e}")
 
             return {
                 "chapter_id": chapter_id,
@@ -199,7 +201,7 @@ class JobService:
         cancel_result = await self.cancel_all_jobs(chapter_id=chapter_id, job_type="line-edit")
 
         if cancel_result.get("jobs_cancelled", 0) > 0:
-            logger.info(
+            log.info(
                 f"Cancelled {cancel_result['jobs_cancelled']} "
                 f"{cancel_result['job_type']} job(s) for chapter {chapter_id}"
             )
@@ -221,7 +223,7 @@ class JobService:
         
         # Log if we're regenerating due to stale edits
         if is_stale:
-            logger.info(f"Regenerating line edits for chapter {chapter_id} (marked as stale due to content change)")
+            log.info(f"Regenerating line edits for chapter {chapter_id} (marked as stale due to content change)")
 
         story = await Story.get_or_none(id=chapter.story_id)  # type: ignore[attr-defined]
         if not story:
@@ -253,7 +255,7 @@ class JobService:
         
         flow_run_id = str(flow_run.id)
 
-        logger.info(
+        log.info(
             f"Queued line edit job for Chapter {chapter_number} "
             f"'{chapter.title}' (flow_run_id: {flow_run_id})"
         )
@@ -282,7 +284,7 @@ class JobService:
         cancel_result = await self.cancel_all_jobs(story_id=story_id, job_type="reextraction")
 
         if cancel_result.get("jobs_cancelled", 0) > 0:
-            logger.info(
+            log.info(
                 f"Cancelled {cancel_result['jobs_cancelled']} "
                 f"{cancel_result['job_type']} job(s) for story {story_id}"
             )
@@ -299,7 +301,7 @@ class JobService:
         ))
         flow_run_id = str(flow_run.id)
 
-        logger.info(f"Queued reextraction for Chapters: {chapter_ids}")
+        log.info(f"Queued reextraction for Chapters: {chapter_ids}")
 
         return JobQueuedResponse(
             job_id=flow_run_id,
@@ -324,7 +326,7 @@ class JobService:
         cancel_result = await self.cancel_all_jobs(chapter_id=chapter_id, job_type="extraction")
 
         if cancel_result.get("jobs_cancelled", 0) > 0:
-            logger.info(
+            log.info(
                 f"Cancelled {cancel_result['jobs_cancelled']} "
                 f"{cancel_result['job_type']} job(s) for chapter {chapter_id}"
             )
@@ -355,7 +357,7 @@ class JobService:
         
         flow_run_id = str(flow_run.id)
 
-        logger.info(
+        log.info(
             f"Queued extraction for Chapter {chapter_number} "
             f"'{chapter.title}' (flow_run_id: {flow_run_id})"
         )

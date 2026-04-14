@@ -29,7 +29,7 @@ router = APIRouter()
 async def get_unresolved_plot_threads(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    plot_service: PlotService = Depends(Provide[ApplicationContainer.plot_service])
+    plot_service: PlotService = Provide[ApplicationContainer.plot_service]
 ) -> PlotThreadsResponse:
     return await plot_service.get_all_unresolved_plot_threads(
         user_id=current_user.id,
@@ -42,7 +42,7 @@ async def get_unresolved_plot_threads(
 async def get_unanswered_questions(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    plot_service: PlotService = Depends(Provide[ApplicationContainer.plot_service])
+    plot_service: PlotService = Provide[ApplicationContainer.plot_service]
 ) -> StoryQuestionsResponse:
     return await plot_service.get_all_unanswered_story_questions(
         user_id=current_user.id,
@@ -55,7 +55,7 @@ async def get_unanswered_questions(
 async def get_setups_with_no_payoff(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    plot_service: PlotService = Depends(Provide[ApplicationContainer.plot_service])
+    plot_service: PlotService = Provide[ApplicationContainer.plot_service]
 ) -> SetupResponse:
     return await plot_service.get_all_setups_with_no_payoffs(
         user_id=current_user.id,
@@ -67,7 +67,7 @@ async def get_setups_with_no_payoff(
 async def get_deus_ex_machinas(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    plot_service: PlotService = Depends(Provide[ApplicationContainer.plot_service])
+    plot_service: PlotService = Provide[ApplicationContainer.plot_service]
 ) -> DeusExMachinaResponse:
     return await plot_service.get_all_deus_ex_machinas(
         user_id=current_user.id,
@@ -79,7 +79,7 @@ async def get_deus_ex_machinas(
 async def get_plot_report(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    plot_service: PlotService = Depends(Provide[ApplicationContainer.plot_service])
+    plot_service: PlotService = Provide[ApplicationContainer.plot_service]
 ) -> PlotStructuralReportResponse:
     return await plot_service.get_structural_report(
         story_id=story_id,
@@ -93,7 +93,7 @@ async def get_thread_timeline(
     story_id: str,
     thread_name: str = Query(...),
     current_user: User = Depends(get_current_user),
-    service: PlotTrackerService = Depends(Provide[ApplicationContainer.plot_tracker_service]),
+    service: PlotTrackerService = Provide[ApplicationContainer.plot_tracker_service],
 ) -> ThreadTimelineResponse:
     return await service.get_thread_timeline(
         story_id=story_id,
@@ -108,7 +108,7 @@ async def get_dormant_threads(
     story_id: str,
     min_gap: int = Query(3, ge=1),
     current_user: User = Depends(get_current_user),
-    service: PlotTrackerService = Depends(Provide[ApplicationContainer.plot_tracker_service]),
+    service: PlotTrackerService = Provide[ApplicationContainer.plot_tracker_service],
 ) -> DormantThreadsResponse:
     return await service.get_dormant_threads(
         story_id=story_id,
@@ -122,7 +122,7 @@ async def get_dormant_threads(
 async def get_event_density(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    service: PlotTrackerService = Depends(Provide[ApplicationContainer.plot_tracker_service]),
+    service: PlotTrackerService = Provide[ApplicationContainer.plot_tracker_service],
 ) -> EventDensityResponse:
     return await service.get_event_density(
         story_id=story_id,
@@ -135,7 +135,7 @@ async def get_event_density(
 async def get_setup_payoff_map(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    service: PlotTrackerService = Depends(Provide[ApplicationContainer.plot_tracker_service]),
+    service: PlotTrackerService = Provide[ApplicationContainer.plot_tracker_service],
 ) -> List[SetupPayoffMap]:
     return await service.get_setup_payoff_map(
         story_id=story_id,
@@ -148,7 +148,7 @@ async def get_setup_payoff_map(
 async def get_plot_density(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    service: PlotTrackerService = Depends(Provide[ApplicationContainer.plot_tracker_service]),
+    service: PlotTrackerService = Provide[ApplicationContainer.plot_tracker_service],
 ) -> PlotDensityResponse:
     return await service.get_plot_density(
         story_id=story_id,
@@ -161,7 +161,7 @@ async def get_plot_density(
 async def get_plot_rhythm_report(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    service: PlotTrackerService = Depends(Provide[ApplicationContainer.plot_tracker_service]),
+    service: PlotTrackerService = Provide[ApplicationContainer.plot_tracker_service],
 ) -> PlotRhythmReportResponse:
     return await service.get_plot_rhythm_report(
         story_id=story_id,

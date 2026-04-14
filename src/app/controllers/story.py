@@ -30,7 +30,7 @@ story_controller.include_router(world_router, prefix="/{story_id}/world", tags=[
 @inject
 async def get_stories_with_targets(
     current_user: User = Depends(get_current_user),
-    story_service: StoryService = Depends(Provide[ApplicationContainer.story_service])
+    story_service: StoryService = Provide[ApplicationContainer.story_service]
 ) -> List[StoryListItemResponse]:
     return await story_service.get_all_story_list_items(current_user.id)
 
@@ -39,7 +39,7 @@ async def get_stories_with_targets(
 async def create_story(
     story_info: CreateStoryRequest,
     current_user: User = Depends(get_current_user),
-    story_service: StoryService = Depends(Provide[ApplicationContainer.story_service])
+    story_service: StoryService = Provide[ApplicationContainer.story_service]
 ) -> dict:
     return await story_service.create(current_user.id, story_info)
 
@@ -49,7 +49,7 @@ async def update_story(
     story_id: str,
     update_info: UpdateStoryRequest,
     current_user: User = Depends(get_current_user),
-    story_service: StoryService = Depends(Provide[ApplicationContainer.story_service])
+    story_service: StoryService = Provide[ApplicationContainer.story_service]
 ) -> dict:
     return await story_service.update(current_user.id, story_id, update_info)
 
@@ -58,7 +58,7 @@ async def update_story(
 async def delete_story(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    story_service: StoryService = Depends(Provide[ApplicationContainer.story_service])
+    story_service: StoryService = Provide[ApplicationContainer.story_service]
 ) -> dict:
     return await story_service.delete(current_user.id, story_id)
 
@@ -66,7 +66,7 @@ async def delete_story(
 @inject
 async def get_stories(
     current_user: User = Depends(get_current_user),
-    story_service: StoryService = Depends(Provide[ApplicationContainer.story_service])
+    story_service: StoryService = Provide[ApplicationContainer.story_service]
 ) -> StoryGridResponse:
     return await story_service.get_all_stories(current_user.id)
 
@@ -75,7 +75,7 @@ async def get_stories(
 async def get_story_details(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    story_service: StoryService = Depends(Provide[ApplicationContainer.story_service])
+    story_service: StoryService = Provide[ApplicationContainer.story_service]
 ) -> StoryDetailResponse:
     return await story_service.get_story_details(current_user.id, story_id)
 
@@ -86,7 +86,7 @@ async def create_chapter(
     chapter_info: CreateChapterRequest,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(Provide[ApplicationContainer.chapter_service])
+    chapter_service: ChapterService = Provide[ApplicationContainer.chapter_service]
 ) -> ChapterContentResponse:
     return await chapter_service.create(
         story_id,
@@ -102,7 +102,7 @@ async def reorder_chapters(
     reorder_info: ReorderChapterRequest,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(Provide[ApplicationContainer.chapter_service])
+    chapter_service: ChapterService = Provide[ApplicationContainer.chapter_service]
 ) -> dict:
     return await chapter_service.reorder_chapters(
         story_id,
@@ -116,7 +116,7 @@ async def reorder_chapters(
 async def get_story_chapters(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(Provide[ApplicationContainer.chapter_service])
+    chapter_service: ChapterService = Provide[ApplicationContainer.chapter_service]
 ) -> ChapterListResponse:
     return await chapter_service.get_story_chapters(story_id, current_user.id)
 
@@ -129,7 +129,7 @@ async def get_story_analytics(
     from_date: datetime = Query(default_factory=lambda: datetime.now(timezone.utc) - timedelta(days=30)),
     to_date: datetime = Query(default_factory=lambda: datetime.now(timezone.utc)),
     current_user: User = Depends(get_current_user),
-    analytics_service: AnalyticsService = Depends(Provide[ApplicationContainer.analytics_service])
+    analytics_service: AnalyticsService = Provide[ApplicationContainer.analytics_service]
 ) -> StoryAnalyticsResponse:
     return await analytics_service.get_story_analytics(
         story_id,

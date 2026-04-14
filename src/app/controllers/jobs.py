@@ -31,7 +31,7 @@ job_controller = APIRouter(
 @inject
 async def get_job_status(
     job_id: str,
-    job_service: JobService = Depends(Provide[ApplicationContainer.job_service])
+    job_service: JobService = Provide[ApplicationContainer.job_service]
 ) -> JobStatusResponse:
     """
     Get detailed status of a background job with progress tracking.
@@ -58,7 +58,7 @@ async def queue_line_edit_job(
         description="Force generation even if recently generated (within 24h)"
     ),
     current_user: User = Depends(get_current_user),
-    job_service: JobService = Depends(Provide[ApplicationContainer.job_service])
+    job_service: JobService = Provide[ApplicationContainer.job_service]
 ) -> JobQueuedResponse:
     """
     Queue line edit generation for a chapter.
@@ -83,7 +83,7 @@ async def queue_line_edit_job(
 async def queue_extraction(
     chapter_id: str,
     current_user: User = Depends(get_current_user),
-    job_service: JobService = Depends(Provide[ApplicationContainer.job_service])
+    job_service: JobService = Provide[ApplicationContainer.job_service]
 ) -> JobQueuedResponse:
     """
     Queue extraction for a single chapter.

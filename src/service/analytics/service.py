@@ -1,5 +1,7 @@
 from src.infrastructure.config import settings
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 from typing import Dict, List, Any, Optional
 from src.service.target.service import TargetService
 from src.data.schemas import TargetResponse

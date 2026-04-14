@@ -8,7 +8,9 @@ import asyncio
 from typing import Optional
 from prefect import task
 from prefect.states import Failed
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 from src.service.ai.character import extract_characters
 from src.service.ai.plot import extract_plot_information
 from src.service.ai.structure import extract_story_structure
@@ -44,7 +46,7 @@ async def extract_characters_task(
         story_context, chapter_content, chapter_number, chapter_title,
         use_lfm=use_lfm,
     )
-    logger.debug(f"Chapter {chapter_number}: Character extraction complete")
+    log.debug(f"Chapter {chapter_number}: Character extraction complete")
     return result
 
 
@@ -65,7 +67,7 @@ async def extract_plot_task(
         story_context, chapter_content, chapter_number, chapter_title,
         use_lfm=use_lfm,
     )
-    logger.debug(f"Chapter {chapter_number}: Plot extraction complete")
+    log.debug(f"Chapter {chapter_number}: Plot extraction complete")
     return result
 
 
@@ -86,7 +88,7 @@ async def extract_world_task(
         story_context, chapter_content, chapter_number, chapter_title,
         use_lfm=use_lfm,
     )
-    logger.debug(f"Chapter {chapter_number}: World extraction complete")
+    log.debug(f"Chapter {chapter_number}: World extraction complete")
     return result
 
 
@@ -107,7 +109,7 @@ async def extract_structure_task(
         story_context, chapter_content, chapter_number, chapter_title,
         use_lfm=use_lfm,
     )
-    logger.debug(f"Chapter {chapter_number}: Structure extraction complete")
+    log.debug(f"Chapter {chapter_number}: Structure extraction complete")
     return result
 
 
@@ -140,7 +142,7 @@ async def synthesize_context_task(
         char_model, plot_model, world_model, struct_model,
         use_lfm=use_lfm,
     )
-    logger.debug(f"Chapter {chapter_number}: Context synthesis complete")
+    log.debug(f"Chapter {chapter_number}: Context synthesis complete")
     return result
 
 
@@ -209,7 +211,7 @@ async def save_chapter_extraction_task(
             upsert=True
         )
         
-        logger.info(f"✅ Saved extractions to MongoDB for chapter {chapter_id}")
+        log.info(f"✅ Saved extractions to MongoDB for chapter {chapter_id}")
         
         # Save synthesized context to Postgres
         chapter.condensed_context = context_synthesis.condensed_text
@@ -228,4 +230,4 @@ async def save_chapter_extraction_task(
     finally:
         await Tortoise.close_connections()
         
-    logger.info(f"✅ Chapter {chapter_id} extraction saved (checkpoint)")
+    log.info(f"✅ Chapter {chapter_id} extraction saved (checkpoint)")

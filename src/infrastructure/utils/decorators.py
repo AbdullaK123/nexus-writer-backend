@@ -1,9 +1,9 @@
 import functools
-import logging
 
 from src.infrastructure.exceptions import DatabaseError, RedisError
+from src.shared.utils.logging_context import get_layer_logger, LAYER_INFRA
 
-logger = logging.getLogger(__name__)
+log = get_layer_logger(LAYER_INFRA)
 
 
 def handle_db_errors(func):
@@ -14,7 +14,7 @@ def handle_db_errors(func):
         except DatabaseError:
             raise
         except Exception as e:
-            logger.error(f"DB error in {func.__qualname__}: {e}")
+            log.error(f"DB error in {func.__qualname__}: {e}")
             raise DatabaseError(str(e), original=e)
 
     return wrapper
@@ -28,7 +28,7 @@ def handle_redis_errors(func):
         except RedisError:
             raise
         except Exception as e:
-            logger.error(f"Redis error in {func.__qualname__}: {e}")
+            log.error(f"Redis error in {func.__qualname__}: {e}")
             raise RedisError(str(e), original=e)
 
     return wrapper

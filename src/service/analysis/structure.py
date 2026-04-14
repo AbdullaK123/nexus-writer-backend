@@ -9,7 +9,9 @@ from src.data.schemas.structure import *
 from src.service.ai.utils.ai import extract_text
 from src.infrastructure.utils.retry import retry_llm
 from src.data.repositories.mongo.structure_extraction import StructureExtractionRepo
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 
 
 class StructureService:
@@ -272,7 +274,7 @@ EMOTIONAL BEAT EFFECTIVENESS:
 
         for result in results:
             if isinstance(result, Exception):
-                logger.warning(f"Error generating developmental report: {str(result)}")
+                log.warning(f"Error generating developmental report: {str(result)}")
                 raise InternalError("An error occurred while generating your report. Please try again later.")
 
         pacing, arc, weak, emotional = results

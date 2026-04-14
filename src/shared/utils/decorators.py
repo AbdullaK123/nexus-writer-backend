@@ -1,7 +1,9 @@
 from functools import wraps
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SHARED
 from typing import Callable, ParamSpec, TypeVar, overload, Awaitable
 import inspect
+
+log = get_layer_logger(LAYER_SHARED)
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -25,7 +27,7 @@ def log_errors(func):
             try:
                 return await func(*args, **kwargs)
             except Exception:
-                logger.exception(f"{func.__name__} failed")
+                log.exception(f"{func.__name__} failed")
                 raise
 
         return async_wrapper
@@ -37,7 +39,7 @@ def log_errors(func):
             try:
                 return func(*args, **kwargs)
             except Exception:
-                logger.exception(f"{func.__name__} failed")
+                log.exception(f"{func.__name__} failed")
                 raise
 
         return sync_wrapper

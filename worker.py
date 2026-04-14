@@ -6,7 +6,7 @@ It should be run in a dedicated container separate from the API server.
 """
 import asyncio
 from prefect import aserve
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_APP
 from src.infrastructure.config.logging import setup_logging
 from src.infrastructure.db.mongodb import MongoDB
 from src.service.flows.extraction import extract_single_chapter_flow, reextract_chapters_flow
@@ -17,11 +17,13 @@ from src.infrastructure.config import settings
 load_dotenv()
 setup_logging()
 
+log = get_layer_logger(LAYER_APP)
+
 
 async def main():
     """Start the Prefect worker serving all flows."""
-    logger.info("Starting Prefect worker...")
-    logger.info("Registering flows: extract_single_chapter, line_edits")
+    log.info("Starting Prefect worker...")
+    log.info("Registering flows: extract_single_chapter, line_edits")
     
     # Serve all flows - this makes them available for execution
     # The worker will poll for flow runs and execute them

@@ -1,7 +1,9 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore
 from apscheduler.triggers.cron import CronTrigger # type: ignore
 from apscheduler.job import Job  # type: ignore
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 from typing import Callable, Optional, Tuple
 
 

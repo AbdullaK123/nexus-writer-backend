@@ -17,7 +17,9 @@ from src.service.jobs.chapter import (
     handle_chapter_deletion,
     handle_chapter_reordering
 )
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 from src.data.models.ai.edits import ChapterEdit, ChapterEditResponse, LineEdit
 from pymongo.asynchronous.database import AsyncDatabase
 from tortoise.transactions import in_transaction
@@ -81,7 +83,7 @@ class ChapterService:
         except (NotFoundError, ValidationError, InternalError):
             raise
         except Exception as e:
-            logger.error(f"❌ Failed to create chapter: {e}")
+            log.error(f"❌ Failed to create chapter: {e}")
             raise InternalError("Something went wrong while creating your chapter. Please try again.")
 
     async def get_by_id(self, chapter_id: str, user_id: str) -> Optional[Chapter]:
@@ -106,14 +108,14 @@ class ChapterService:
         ).exists()
         
         if not chapter_exists:
-            logger.error(f"Chapter {chapter_id} not found for user {user_id}")
+            log.error(f"Chapter {chapter_id} not found for user {user_id}")
             raise NotFoundError("We couldn't find this chapter. It may have been deleted.")
         
         # Get edits from MongoDB
         chapter_edits = await self.mongodb.chapter_edits.find_one({"chapter_id": chapter_id})
         
         if not chapter_edits:
-            logger.info(f"Edits not generated yet for chapter {chapter_id}, returning empty edits")
+            log.info(f"Edits not generated yet for chapter {chapter_id}, returning empty edits")
             return ChapterEditResponse(
                 edits=[],
                 last_generated_at=None,
@@ -187,7 +189,7 @@ class ChapterService:
         cancel_result = await self.job_service.cancel_all_jobs(chapter_id=chapter_id)
 
         if cancel_result['jobs_cancelled'] > 0:
-            logger.info(f"Cancelled {cancel_result['jobs_cancelled']} pending or running jobs on chapter {chapter_id} of type {[cancel_result['job_type']]}")
+            log.info(f"Cancelled {cancel_result['jobs_cancelled']} pending or running jobs on chapter {chapter_id} of type {[cancel_result['job_type']]}")
         
         chapter = await Chapter.filter(
             user_id=user_id,
@@ -208,7 +210,7 @@ class ChapterService:
                 story_id,
                 subsequent_chapter_ids
             )
-            logger.info(f"Queued reextraction job after chapter {chapter_id} deletion with id {queued_result.job_id}")
+            log.info(f"Queued reextraction job after chapter {chapter_id} deletion with id {queued_result.job_id}")
         
         try:
             await chapter.delete()
@@ -227,7 +229,7 @@ class ChapterService:
             return {"message": "Chapter was successfully deleted"}
             
         except Exception as e:
-            logger.error(f"❌ Failed to delete chapter: {e}")
+            log.error(f"❌ Failed to delete chapter: {e}")
             raise InternalError("Something went wrong while deleting your chapter. Please try again.")
 
     # ========================================
@@ -337,10 +339,10 @@ class ChapterService:
         cancel_extraction_result = await self.job_service.cancel_all_jobs(story_id=story_id, job_type="extraction")
 
         if cancel_edit_result['jobs_cancelled'] > 0:
-            logger.info(f"Cancelled {cancel_edit_result['jobs_cancelled']} jobs of type 'line-edit' for story {story_id}")
+            log.info(f"Cancelled {cancel_edit_result['jobs_cancelled']} jobs of type 'line-edit' for story {story_id}")
 
         if cancel_extraction_result['jobs_cancelled'] > 0:
-            logger.info(f"Cancelled {cancel_extraction_result['jobs_cancelled']} jobs of type 'extraction' for story {story_id}")
+            log.info(f"Cancelled {cancel_extraction_result['jobs_cancelled']} jobs of type 'extraction' for story {story_id}")
         
         story = await self._get_story_with_user_check(story_id, user_id)
         if not story:
@@ -376,7 +378,7 @@ class ChapterService:
 
             return {"message": "Chapters reordered successfully"}
         except Exception as e:
-            logger.error(f"❌ Failed to reorder chapters: {e}")
+            log.error(f"❌ Failed to reorder chapters: {e}")
             raise InternalError("Something went wrong while reordering your chapters. Please try again.")
 
     # ========================================

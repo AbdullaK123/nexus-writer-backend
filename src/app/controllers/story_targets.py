@@ -17,7 +17,7 @@ async def create_target(
     story_id: str,
     payload: CreateTargetRequest,
     current_user: User = Depends(get_current_user),
-    target_service: TargetService = Depends(Provide[ApplicationContainer.target_service])
+    target_service: TargetService = Provide[ApplicationContainer.target_service]
 ) -> TargetResponse:
     return await target_service.create_target(
         story_id,
@@ -31,7 +31,7 @@ async def get_targets(
     story_id: str,
     frequency: Optional[FrequencyType] = Query(default=None),
     current_user: User = Depends(get_current_user),
-    target_service: TargetService = Depends(Provide[ApplicationContainer.target_service])
+    target_service: TargetService = Provide[ApplicationContainer.target_service]
 ):
     """
     Get targets for a story.
@@ -58,7 +58,7 @@ async def update_target(
     target_id: str,
     payload: UpdateTargetRequest,
     current_user: User = Depends(get_current_user),
-    target_service: TargetService = Depends(Provide[ApplicationContainer.target_service])
+    target_service: TargetService = Provide[ApplicationContainer.target_service]
 ) -> TargetResponse:
     return await target_service.update_target(
         story_id,
@@ -73,7 +73,7 @@ async def delete_target(
     story_id: str,
     target_id: str,
     current_user: User = Depends(get_current_user),
-    target_service: TargetService = Depends(Provide[ApplicationContainer.target_service])
+    target_service: TargetService = Provide[ApplicationContainer.target_service]
 ) -> dict:
     return await target_service.delete_target(
         story_id,

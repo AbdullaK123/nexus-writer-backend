@@ -1,5 +1,7 @@
 from prefect import flow
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 from src.service.flows.extraction.chapter_flow import extract_single_chapter_flow
 from typing import List
 from tortoise import Tortoise
@@ -23,22 +25,22 @@ async def reextract_chapters_flow(story_id: str, chapter_ids: List[str], use_lfm
         if not story or not story.path_array:
             raise ValueError(f"Story {story_id} not found or has no chapters")
         
-        logger.info(f"Re-extracting {len(chapter_ids)} chapters in sequence")
+        log.info(f"Re-extracting {len(chapter_ids)} chapters in sequence")
         
         # Process each chapter IN ORDER (chapter_ids is already ordered from path_array)
         for chapter_id in chapter_ids:
             # Get chapter
             chapter = await Chapter.get_or_none(id=chapter_id)
             if not chapter:
-                logger.warning(f"Chapter {chapter_id} not found, skipping")
+                log.warning(f"Chapter {chapter_id} not found, skipping")
                 continue
             
             chapter_number = Chapter.get_chapter_number(chapter.id, story.path_array)
             if chapter_number is None:
-                logger.warning(f"Could not determine chapter number for {chapter_id}, skipping")
+                log.warning(f"Could not determine chapter number for {chapter_id}, skipping")
                 continue
             
-            logger.info(f"Re-extracting Chapter {chapter_number} '{chapter.title}'")
+            log.info(f"Re-extracting Chapter {chapter_number} '{chapter.title}'")
             
             # Extract — predecessor wait + context building happen inside the flow
             await extract_single_chapter_flow(
@@ -52,8 +54,8 @@ async def reextract_chapters_flow(story_id: str, chapter_ids: List[str], use_lfm
                 use_lfm=use_lfm,
             )
             
-            logger.info(f"✅ Completed re-extraction for Chapter {chapter_number}")
+            log.info(f"✅ Completed re-extraction for Chapter {chapter_number}")
         
-        logger.success(f"✅ Re-extraction complete for {len(chapter_ids)} chapters")
+        log.success(f"✅ Re-extraction complete for {len(chapter_ids)} chapters")
     finally:
         await Tortoise.close_connections()

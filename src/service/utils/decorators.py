@@ -1,5 +1,4 @@
 import functools
-import logging
 from uuid import UUID
 
 from src.data.exceptions import NotFoundError as DataNotFound, DuplicateError
@@ -10,8 +9,9 @@ from src.service.exceptions import (
     ConflictError,
     AuthError,
 )
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 
-logger = logging.getLogger(__name__)
+log = get_layer_logger(LAYER_SERVICE)
 
 
 def handle_service_errors(func):
@@ -26,12 +26,12 @@ def handle_service_errors(func):
         except DuplicateError as e:
             raise ConflictError(f"{e.entity} with this {e.field} already exists")
         except DatabaseError as e:
-            logger.error(
+            log.error(
                 f"Infrastructure failure in {func.__qualname__}: {e.original}"
             )
             raise ServiceError("A database error occurred")
         except RedisError as e:
-            logger.error(f"Cache failure in {func.__qualname__}: {e.original}")
+            log.error(f"Cache failure in {func.__qualname__}: {e.original}")
             raise ServiceError("Cache unavailable")
 
     return wrapper

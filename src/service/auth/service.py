@@ -6,8 +6,9 @@ from src.infrastructure.auth.session import generate_session_id, encrypt_session
 from src.service.exceptions import AuthError, ForbiddenError, ConflictError
 from typing import Optional, Union
 from datetime import datetime, timedelta, timezone
-from loguru import logger
-from src.shared.utils.logging_context import context_logger, set_user_id
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE, set_user_id
+
+log = get_layer_logger(LAYER_SERVICE)
 
 
 class AuthService:
@@ -20,13 +21,13 @@ class AuthService:
         user = await self.get_user_by_email(credentials.email)
 
         if not user or not verify_password(credentials.password, user.password_hash):
-            context_logger(db_operation=True).warning(
+            log.warning(
                 "Authentication failed for email={email}",
                 email=credentials.email,
             )
             raise AuthError("Incorrect email or password. Please try again.")
         
-        context_logger(db_operation=True).info(
+        log.info(
             "Authentication succeeded for user_id={user_id}",
             user_id=(user.id if user else None),
         )
@@ -47,7 +48,7 @@ class AuthService:
             ip_address=connection_details.ip_address,
             user_agent=connection_details.user_agent
         )
-        context_logger(db_operation=True).info(
+        log.info(
             "Session created user_id={user_id} session_id={session_id}",
             user_id=user_id,
             session_id=session_id,
@@ -65,7 +66,7 @@ class AuthService:
 
         decrypted_cookie = decrypt_session_data(encrypted_cookie_data)
         if not decrypted_cookie or 'session_id' not in decrypted_cookie:
-            context_logger(db_operation=True).warning("Missing or malformed session cookie")
+            log.warning("Missing or malformed session cookie")
             raise ForbiddenError("Your session is invalid. Please log in again.")
         
         session = await Session.filter(
@@ -73,17 +74,17 @@ class AuthService:
         ).first()
 
         if not session:
-            context_logger(db_operation=True).warning("Session not found in DB")
+            log.warning("Session not found in DB")
             raise ForbiddenError("Your session has expired. Please log in again.")
 
         if session.expires_at < datetime.now(timezone.utc):
-            context_logger(db_operation=True).warning("Session expired user_id={user_id}", user_id=session.user_id)  # type: ignore[attr-defined]
+            log.warning("Session expired user_id={user_id}", user_id=session.user_id)  # type: ignore[attr-defined]
             raise ForbiddenError("Your session has expired. Please log in again.")
         
         user_id = session.user_id  # type: ignore[attr-defined]
 
         if not user_id:
-            context_logger(db_operation=True).warning("Session without user_id")
+            log.warning("Session without user_id")
             raise ForbiddenError("Your session is invalid. Please log in again.")
         
         user = await User.filter(id=user_id).first()
@@ -103,14 +104,14 @@ class AuthService:
 
             if session:
                 await session.delete()
-                context_logger(db_operation=True).info("Session deleted for user_id={user_id}", user_id=session.user_id)  # type: ignore[attr-defined]
+                log.info("Session deleted for user_id={user_id}", user_id=session.user_id)  # type: ignore[attr-defined]
             else:
-                context_logger(db_operation=True).warning("Logout requested but session not found")
+                log.warning("Logout requested but session not found")
     
     async def login_user(self, credentials: AuthCredentials, connection_details: ConnectionDetails) -> tuple[UserResponse, str]:
         user = await self.authenticate_user(credentials)
         encrypted_cookie = await self.create_session(user.id, connection_details=connection_details)
-        context_logger(db_operation=True).info(
+        log.info(
             "User logged in user_id={user_id}",
             user_id=user.id,
         )
@@ -127,7 +128,7 @@ class AuthService:
         user = await self.get_user_by_email(registration_data.email)
 
         if user:
-            context_logger(db_operation=True).warning(
+            log.warning(
                 "Registration attempted with duplicate email={email}",
                 email=registration_data.email,
             )
@@ -139,7 +140,7 @@ class AuthService:
             password_hash=hash_password(registration_data.password),
             profile_img=registration_data.profile_img
         )
-        context_logger(db_operation=True).info(
+        log.info(
             "User registered user_id={user_id}",
             user_id=user_to_create.id,
         )

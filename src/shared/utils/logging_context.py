@@ -2,6 +2,13 @@ from contextvars import ContextVar
 from typing import Optional
 from loguru import logger
 
+# Layer constants (mirrored from infrastructure.config.logging to avoid circular imports)
+LAYER_APP = "app"
+LAYER_SERVICE = "service"
+LAYER_DATA = "data"
+LAYER_INFRA = "infra"
+LAYER_SHARED = "shared"
+
 # Context variables to carry correlation and user info across the request lifecycle
 _correlation_id: ContextVar[Optional[str]] = ContextVar("correlation_id", default=None)
 _user_id: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
@@ -21,6 +28,15 @@ def set_user_id(value: Optional[str]) -> None:
 
 def get_user_id() -> Optional[str]:
     return _user_id.get()
+
+
+def get_layer_logger(layer: str, **extra):
+    """Return a logger pre-bound with *layer* plus correlation/user context."""
+    cid = get_correlation_id()
+    uid = get_user_id()
+    extra.pop("correlation_id", None)
+    extra.pop("user_id", None)
+    return logger.bind(layer=layer, correlation_id=cid, user_id=uid, **extra)
 
 
 def context_logger(**extra):

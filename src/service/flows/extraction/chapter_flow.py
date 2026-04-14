@@ -21,7 +21,9 @@ from prefect.client.schemas.filters import (
     FlowRunFilterStateType,
 )
 from prefect.client.schemas.objects import StateType
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 from src.infrastructure.config import settings, config
 from src.infrastructure.db.postgres import TORTOISE_ORM
 from src.infrastructure.db.mongodb import MongoDB
@@ -151,17 +153,17 @@ async def _wait_for_predecessor_extractions(
 
         if not blocking:
             if elapsed > 0:
-                logger.info(f"Chapter {chapter_number}: predecessors complete after {elapsed}s wait")
+                log.info(f"Chapter {chapter_number}: predecessors complete after {elapsed}s wait")
             return
 
-        logger.info(
+        log.info(
             f"Chapter {chapter_number}: waiting for {len(blocking)} predecessor(s) "
             f"({elapsed}s / {max_wait}s)"
         )
         await asyncio.sleep(poll_interval)
         elapsed += poll_interval
 
-    logger.warning(
+    log.warning(
         f"Chapter {chapter_number}: predecessors still running after {max_wait}s, proceeding anyway"
     )
 
@@ -224,7 +226,7 @@ async def extract_single_chapter_flow(
     # 2. Build accumulated context from predecessor results (after they're done)
     accumulated_context = await _build_accumulated_context(chapter_number, story_path_array)
 
-    logger.info(f"Starting extraction for Chapter {chapter_number} ({chapter_id})")
+    log.info(f"Starting extraction for Chapter {chapter_number} ({chapter_id})")
 
     failed_extractions: List[str] = []
 
@@ -240,40 +242,40 @@ async def extract_single_chapter_flow(
 
     # Unpack results — substitute fallbacks for any failures
     if isinstance(results[0], BaseException):
-        logger.error(f"Chapter {chapter_number}: Character extraction failed: {results[0]}")
+        log.error(f"Chapter {chapter_number}: Character extraction failed: {results[0]}")
         failed_extractions.append("characters")
         character_result = CharacterExtraction.empty()
     else:
         character_result = results[0]
 
     if isinstance(results[1], BaseException):
-        logger.error(f"Chapter {chapter_number}: Plot extraction failed: {results[1]}")
+        log.error(f"Chapter {chapter_number}: Plot extraction failed: {results[1]}")
         failed_extractions.append("plot")
         plot_result = PlotExtraction.empty()
     else:
         plot_result = results[1]
 
     if isinstance(results[2], BaseException):
-        logger.error(f"Chapter {chapter_number}: World extraction failed: {results[2]}")
+        log.error(f"Chapter {chapter_number}: World extraction failed: {results[2]}")
         failed_extractions.append("world")
         world_result = WorldExtraction.empty()
     else:
         world_result = results[2]
 
     if isinstance(results[3], BaseException):
-        logger.error(f"Chapter {chapter_number}: Structure extraction failed: {results[3]}")
+        log.error(f"Chapter {chapter_number}: Structure extraction failed: {results[3]}")
         failed_extractions.append("structure")
         structure_result = StructureExtraction.empty()
     else:
         structure_result = results[3]
     
     if failed_extractions:
-        logger.warning(
+        log.warning(
             f"Chapter {chapter_number}: {len(failed_extractions)}/4 extractions failed "
             f"({', '.join(failed_extractions)}). Using fallbacks."
         )
     else:
-        logger.info(f"Chapter {chapter_number}: All extractions complete, synthesizing...")
+        log.info(f"Chapter {chapter_number}: All extractions complete, synthesizing...")
     
     # Synthesize into condensed context — with fallback
     try:
@@ -289,7 +291,7 @@ async def extract_single_chapter_flow(
             use_lfm=use_lfm,
         )
     except Exception as e:
-        logger.error(f"Chapter {chapter_number}: Synthesis failed: {e}. Building fallback context.")
+        log.error(f"Chapter {chapter_number}: Synthesis failed: {e}. Building fallback context.")
         failed_extractions.append("synthesis")
         synthesis_result = _build_fallback_context(
             chapter_number=chapter_number,
@@ -315,12 +317,12 @@ async def extract_single_chapter_flow(
     
     is_partial = len(failed_extractions) > 0
     if is_partial:
-        logger.warning(
+        log.warning(
             f"⚠️ Chapter {chapter_number} extraction saved (partial — "
             f"failed: {', '.join(failed_extractions)})"
         )
     else:
-        logger.success(f"✅ Chapter {chapter_number} extraction complete and checkpointed")
+        log.success(f"✅ Chapter {chapter_number} extraction complete and checkpointed")
     
     return ChapterExtractionResult(
         chapter_id=chapter_id,

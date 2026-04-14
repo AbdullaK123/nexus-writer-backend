@@ -3,7 +3,9 @@ from typing import List
 from src.service.exceptions import InternalError
 from langchain.messages import HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+
+log = get_layer_logger(LAYER_SERVICE)
 from src.data.schemas.plot import *
 from src.service.ai.utils.ai import extract_text
 from src.infrastructure.utils.retry import retry_llm
@@ -176,7 +178,7 @@ class PlotTrackerService:
 
         for result in results:
             if isinstance(result, Exception):
-                logger.warning(f"Error generating plot rhythm report: {str(result)}")
+                log.warning(f"Error generating plot rhythm report: {str(result)}")
                 raise InternalError("An error occurred while generating your report. Please try again later.")
 
         dormant_threads, event_density, setup_payoff_map = results

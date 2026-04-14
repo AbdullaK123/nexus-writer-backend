@@ -5,7 +5,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 import duckdb
-from loguru import logger
+from src.shared.utils.logging_context import get_layer_logger, LAYER_DATA
+
+log = get_layer_logger(LAYER_DATA)
 
 from src.infrastructure.utils.retry import retry_network
 

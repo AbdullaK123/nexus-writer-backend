@@ -18,7 +18,7 @@ chapter_controller = APIRouter(prefix='/chapters')
 async def get_chapter_edits(
     chapter_id: str,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(Provide[ApplicationContainer.chapter_service])
+    chapter_service: ChapterService = Provide[ApplicationContainer.chapter_service]
 ) -> ChapterEditResponse:
     return await chapter_service.get_line_edits(
         current_user.id,
@@ -31,7 +31,7 @@ async def get_chapter_with_navigation(
     chapter_id: str,
     as_html: bool = True,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(Provide[ApplicationContainer.chapter_service])
+    chapter_service: ChapterService = Provide[ApplicationContainer.chapter_service]
 ) -> ChapterContentResponse:
     return await chapter_service.get_chapter_with_navigation(
         chapter_id, 
@@ -45,7 +45,7 @@ async def update_chapter(
     chapter_id: str,
     updated_info: UpdateChapterRequest,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(Provide[ApplicationContainer.chapter_service])
+    chapter_service: ChapterService = Provide[ApplicationContainer.chapter_service]
 ) -> ChapterContentResponse:
     return await chapter_service.update(
         chapter_id=chapter_id,
@@ -58,7 +58,7 @@ async def update_chapter(
 async def delete_chapter(
     chapter_id: str,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(Provide[ApplicationContainer.chapter_service])
+    chapter_service: ChapterService = Provide[ApplicationContainer.chapter_service]
 ) -> dict:
     return await chapter_service.delete(
         chapter_id=chapter_id,
