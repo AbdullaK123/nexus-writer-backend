@@ -30,14 +30,14 @@ app = FastAPI(
 app.add_middleware(HTTPLoggingMiddleware)
 
 # ── Request body size limit middleware ─────────────────────────────────
-MAX_BODY_SIZE = 10 * 1024 * 1024  # 10 MB
+from src.infrastructure.config import config as app_config
 
 @app.middleware("http")
 async def limit_request_body(request: Request, call_next):
     content_length = request.headers.get("content-length")
     if content_length:
         try:
-            if int(content_length) > MAX_BODY_SIZE:
+            if int(content_length) > app_config.http.max_body_size_bytes:
                 return JSONResponse(status_code=413, content={"detail": "Request body too large"})
         except ValueError:
             return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length header"})

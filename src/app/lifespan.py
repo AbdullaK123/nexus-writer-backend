@@ -19,12 +19,13 @@ async def lifespan(app: FastAPI):
 
     session_cleaner = AsyncBackgroundWorker()
 
+    from src.infrastructure.config import config as app_config
     session_cleaner.schedule_cron_job(
         cleanup_expired_sessions_batched,
-        cron_expr="0 * * * *"
+        cron_expr=app_config.jobs.session_cleanup_cron
     )
 
-    log.info("Lifecycle starting: session cleanup worker scheduled (cron='0 * * * *')")
+    log.info("Lifecycle starting: session cleanup worker scheduled", cron=app_config.jobs.session_cleanup_cron)
     await session_cleaner.start()
 
     yield

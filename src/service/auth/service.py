@@ -38,7 +38,7 @@ class AuthService:
 
         # create session id and expiry time
         session_id = generate_session_id()
-        expires_at = datetime.now(timezone.utc) + timedelta(days=1)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=config.auth.session_ttl_days)
 
         # create record in db
         await Session.create(

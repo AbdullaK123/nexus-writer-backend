@@ -218,7 +218,7 @@ class JobService:
         # Skip the check if edits are stale (content changed) or force flag is set
         if not force and not is_stale and last_generated_at:
             time_since = datetime.now(timezone.utc) - last_generated_at
-            if time_since < timedelta(hours=24):
+            if time_since < timedelta(hours=config.jobs.line_edits_cooldown_hours):
                 hours_ago = time_since.seconds // 3600
                 raise ValidationError(
                     message=f"Line edits were generated {hours_ago}h ago. Click 'Regenerate' to get fresh edits.",
@@ -241,7 +241,7 @@ class JobService:
 
         # Submit flow to Prefect deployment (runs on worker container)
         flow_run = cast(FlowRun, await run_deployment(
-            name="line-edits/line-edits-deployment",
+            name=config.prefect.line_edits_deployment,
             parameters={
                 "story_id": story.id,
                 "chapter_id": chapter.id,
@@ -275,7 +275,7 @@ class JobService:
             status=JobStatus.QUEUED,
             chapter_id=chapter.id,
             chapter_number=chapter_number,
-            estimated_duration_seconds=60,
+            estimated_duration_seconds=config.jobs.estimated_extraction_duration_seconds,
         )
 
     @retry_network
@@ -300,7 +300,7 @@ class JobService:
             )
 
         flow_run = cast(FlowRun, await run_deployment(
-            name="reextraction-flow/chapter-reextraction-deployment",
+            name=config.prefect.reextraction_deployment,
             parameters={
                 "story_id": story_id,
                 "chapter_ids": chapter_ids,
@@ -353,7 +353,7 @@ class JobService:
         # Submit flow to Prefect deployment (runs on worker container)
         # Predecessor waiting and context building happen inside the flow
         flow_run = cast(FlowRun, await run_deployment(
-            name="extract-single-chapter/chapter-extraction-deployment",
+            name=config.prefect.extraction_deployment,
             parameters={
                 "chapter_id": chapter.id,
                 "chapter_number": chapter_number,
@@ -387,7 +387,7 @@ class JobService:
             status=JobStatus.QUEUED,
             chapter_id=chapter.id,
             chapter_number=chapter_number,
-            estimated_duration_seconds=60,
+            estimated_duration_seconds=config.jobs.estimated_extraction_duration_seconds,
         )
 
 

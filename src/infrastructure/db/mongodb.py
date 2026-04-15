@@ -12,9 +12,9 @@ class MongoDB:
     db: Optional[AsyncDatabase] = None
 
     @classmethod
-    async def connect(cls, url: str):
+    async def connect(cls, url: str, database_name: str = "nexus_extractions"):
         cls.client = AsyncMongoClient(url)
-        cls.db = cls.client.get_database("nexus_extractions")
+        cls.db = cls.client.get_database(database_name)
 
         # Create indexes for all collections
         await cls._create_indexes()

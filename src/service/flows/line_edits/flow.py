@@ -17,7 +17,7 @@ from src.data.schemas.jobs import (
     LineEditsCompleteData,
 )
 from src.infrastructure.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAY, EXTRACTION_TASK_TIMEOUT
-from src.infrastructure.config import settings
+from src.infrastructure.config import settings, config
 from src.infrastructure.db.mongodb import MongoDB
 from src.service.flows.publisher import FlowPublisher, create_flow_pubsub
 from prefect import flow, get_client
@@ -35,8 +35,8 @@ async def _wait_for_predecessor_extractions(
     chapter_number: int,
     story_path_array: List[str],
     pub: FlowPublisher,
-    poll_interval: int = 5,
-    max_wait: int = 600,
+    poll_interval: int = config.prefect.predecessor_poll_interval,
+    max_wait: int = config.prefect.predecessor_max_wait,
 ) -> None:
     """Poll until all predecessor chapter extractions finish.
     

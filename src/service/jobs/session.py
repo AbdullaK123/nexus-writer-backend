@@ -7,9 +7,10 @@ log = get_layer_logger(LAYER_SERVICE)
 
 async def cleanup_expired_sessions_batched():
     """Remove expired sessions in batches for better performance"""
+    from src.infrastructure.config import config as app_config
     
     now = datetime.now(timezone.utc)
-    batch_size = 1000
+    batch_size = app_config.jobs.session_cleanup_batch_size
     total_deleted = 0
     
     while True:

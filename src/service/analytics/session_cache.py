@@ -22,7 +22,8 @@ class SessionCacheService:
                 serializable_data[key] = value.isoformat()
             else:
                 serializable_data[key] = value
-        await self.redis.setex(redis_key, 3600, json.dumps(serializable_data))
+        from src.infrastructure.config import config as app_config
+        await self.redis.setex(redis_key, app_config.analytics.session_cache_ttl_seconds, json.dumps(serializable_data))
         log.debug("cache.session_saved", redis_key=redis_key)
 
     @retry_redis

@@ -35,10 +35,11 @@ async def login_user(
         user_agent=request.headers.get('User-Agent'),
     )
     user_response, encrypted_cookie = await auth_service.login_user(credentials, connection_details)
+    from src.infrastructure.config import config as app_config
     response.set_cookie(
         key='session_id',
         value=encrypted_cookie,
-        max_age=86400,
+        max_age=app_config.auth.cookie_max_age_seconds,
         httponly=True,
         samesite='lax',
         secure=(settings.env == 'prod'),

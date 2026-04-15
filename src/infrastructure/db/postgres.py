@@ -1,4 +1,4 @@
-from src.infrastructure.config.settings import settings
+from src.infrastructure.config.settings import settings, config
 
 TORTOISE_ORM = {
     "connections": {
@@ -7,9 +7,9 @@ TORTOISE_ORM = {
             "credentials": {
                 "dsn": settings.database_url,
             },
-            "minsize": 5,
-            "maxsize": 20,
-            "max_inactive_connection_lifetime": 300,
+            "minsize": config.postgres.pool_min_size,
+            "maxsize": config.postgres.pool_max_size,
+            "max_inactive_connection_lifetime": config.postgres.max_inactive_connection_lifetime,
         },
     },
     "apps": {

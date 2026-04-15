@@ -1,5 +1,28 @@
 auth:
   password_pattern: '^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};:''"\\|,.<>/?]).{8,}$'
+  session_ttl_days: 1
+  cookie_max_age_seconds: 86400
+
+http:
+  max_body_size_bytes: 10485760  # 10 MB
+
+postgres:
+  pool_min_size: 5
+  pool_max_size: 20
+  max_inactive_connection_lifetime: 300
+
+redis:
+  socket_connect_timeout: 5
+  socket_timeout: 5
+
+jobs:
+  session_cleanup_batch_size: 1000
+  session_cleanup_cron: "0 * * * *"
+  line_edits_cooldown_hours: 24
+  estimated_extraction_duration_seconds: 60
+
+analytics:
+  session_cache_ttl_seconds: 3600
 
 prefect:
   task_retries: 1
@@ -7,6 +30,11 @@ prefect:
   extraction_task_timeout: 120
   chapter_flow_timeout: 180
   result_storage_ttl: 86400
+  extraction_deployment: extract-single-chapter/chapter-extraction-deployment
+  line_edits_deployment: line-edits/line-edits-deployment
+  reextraction_deployment: reextraction-flow/chapter-reextraction-deployment
+  predecessor_poll_interval: 5
+  predecessor_max_wait: 600
 
 ai:
   model: google/gemini-2.5-flash
@@ -18,3 +46,6 @@ ai:
 
 ollama:
   model: lfm2-1.2b-extract
+
+mongo:
+  database_name: nexus_extractions

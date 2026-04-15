@@ -116,8 +116,8 @@ async def _wait_for_predecessor_extractions(
     story_id: str,
     chapter_number: int,
     story_path_array: List[str],
-    poll_interval: int = 5,
-    max_wait: int = 600,
+    poll_interval: int = config.prefect.predecessor_poll_interval,
+    max_wait: int = config.prefect.predecessor_max_wait,
 ) -> None:
     """Poll until all predecessor chapter extractions finish.
     

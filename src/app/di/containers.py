@@ -31,7 +31,7 @@ from tortoise import Tortoise
 # ── Resource lifecycle functions ─────────────────────────────────────────
 
 async def _init_mongodb():
-    await MongoDB.connect(settings.mongodb_url)
+    await MongoDB.connect(settings.mongodb_url, config.mongo.database_name)
     yield MongoDB.db
     await MongoDB.close()
 
@@ -45,8 +45,8 @@ async def _init_tortoise():
 async def _init_redis_pool():
     pool = ConnectionPool.from_url(
         settings.redis_url,
-        socket_connect_timeout=5,
-        socket_timeout=5,
+        socket_connect_timeout=config.redis.socket_connect_timeout,
+        socket_timeout=config.redis.socket_timeout,
     )
     yield pool
     await pool.disconnect()

@@ -60,6 +60,34 @@ class Settings(BaseSettings):
 
 class AuthConfig(BaseModel, frozen=True):
     password_pattern: str = r'^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};:\x27"\\|,.<>/?]).{8,}$'
+    session_ttl_days: int = 1
+    cookie_max_age_seconds: int = 86400
+
+
+class HttpConfig(BaseModel, frozen=True):
+    max_body_size_bytes: int = 10 * 1024 * 1024
+
+
+class PostgresConfig(BaseModel, frozen=True):
+    pool_min_size: int = 5
+    pool_max_size: int = 20
+    max_inactive_connection_lifetime: int = 300
+
+
+class RedisConfig(BaseModel, frozen=True):
+    socket_connect_timeout: int = 5
+    socket_timeout: int = 5
+
+
+class JobsConfig(BaseModel, frozen=True):
+    session_cleanup_batch_size: int = 1000
+    session_cleanup_cron: str = "0 * * * *"
+    line_edits_cooldown_hours: int = 24
+    estimated_extraction_duration_seconds: int = 60
+
+
+class AnalyticsConfig(BaseModel, frozen=True):
+    session_cache_ttl_seconds: int = 3600
 
 
 class PrefectConfig(BaseModel, frozen=True):
@@ -68,6 +96,11 @@ class PrefectConfig(BaseModel, frozen=True):
     extraction_task_timeout: int = 120
     chapter_flow_timeout: int = 180
     result_storage_ttl: int = 86400
+    extraction_deployment: str = "extract-single-chapter/chapter-extraction-deployment"
+    line_edits_deployment: str = "line-edits/line-edits-deployment"
+    reextraction_deployment: str = "reextraction-flow/chapter-reextraction-deployment"
+    predecessor_poll_interval: int = 5
+    predecessor_max_wait: int = 600
 
 
 class AIConfig(BaseModel, frozen=True):
@@ -83,13 +116,23 @@ class OllamaConfig(BaseModel, frozen=True):
     model: str = "lfm2-1.2b-extract"
 
 
+class MongoConfig(BaseModel, frozen=True):
+    database_name: str = "nexus_extractions"
+
+
 class Config(BaseModel, frozen=True):
     """Application-wide static configuration. Loaded from config.yaml."""
 
     auth: AuthConfig = AuthConfig()
+    http: HttpConfig = HttpConfig()
+    postgres: PostgresConfig = PostgresConfig()
+    redis: RedisConfig = RedisConfig()
+    jobs: JobsConfig = JobsConfig()
+    analytics: AnalyticsConfig = AnalyticsConfig()
     prefect: PrefectConfig = PrefectConfig()
     ai: AIConfig = AIConfig()
     ollama: OllamaConfig = OllamaConfig()
+    mongo: MongoConfig = MongoConfig()
 
 
 # ── Loader ───────────────────────────────────────────────────────────────────
