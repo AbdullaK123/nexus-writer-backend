@@ -17,7 +17,7 @@ class ContextRepo:
                 "story_id": story_id,
                 "chapter_number": {"$lt": before_chapter_number},
             }
-        ).to_list(length=None)
+        ).sort("chapter_number", -1).to_list(length=50)
 
     # Write operations
 

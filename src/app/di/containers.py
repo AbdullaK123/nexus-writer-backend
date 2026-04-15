@@ -43,7 +43,11 @@ async def _init_tortoise():
 
 
 async def _init_redis_pool():
-    pool = ConnectionPool.from_url(settings.redis_url)
+    pool = ConnectionPool.from_url(
+        settings.redis_url,
+        socket_connect_timeout=5,
+        socket_timeout=5,
+    )
     yield pool
     await pool.disconnect()
 

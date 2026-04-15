@@ -15,7 +15,7 @@ from src.service.jobs.event_service import JobEventService
 from src.service.jobs.service import JobService
 from src.app.dependencies import get_current_user
 from src.data.models import User
-from src.data.schemas.jobs import JobStatusResponse, JobQueuedResponse
+from src.data.schemas.jobs import JobQueuedResponse
 
 
 job_controller = APIRouter(

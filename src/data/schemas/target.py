@@ -54,7 +54,7 @@ class UpdateTargetRequest(BaseModel):
 
 
 class CreateTargetRequest(BaseModel):
-    quota: int
+    quota: int = Field(ge=1, le=1_000_000)
     frequency: FrequencyType
     from_date: datetime
     to_date: datetime

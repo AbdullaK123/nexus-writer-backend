@@ -20,7 +20,11 @@ CHAPTER_FLOW_TIMEOUT = config.prefect.chapter_flow_timeout
 RESULT_STORAGE_TTL = config.prefect.result_storage_ttl
 
 
-async def get_prefect_client() -> PrefectClient:
-    """Get async Prefect client for job management"""
-    async with get_client() as client:
-        return client
+def get_prefect_client() -> PrefectClient:
+    """Get Prefect client for job management.
+    
+    Returns an unmanaged client — caller must use it as an async context manager:
+        async with get_prefect_client() as client:
+            ...
+    """
+    return get_client()

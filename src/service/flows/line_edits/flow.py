@@ -50,6 +50,7 @@ async def _wait_for_predecessor_extractions(
     if not predecessor_ids:
         return
 
+    await pub.task_started("predecessor_wait", message="Waiting for predecessor extractions")
     elapsed = 0
     while elapsed < max_wait:
         async with get_client() as client:
@@ -82,7 +83,6 @@ async def _wait_for_predecessor_extractions(
                 await pub.task_complete("predecessor_wait", message="No predecessors blocking")
             return
 
-        await pub.task_started("predecessor_wait", message=f"Waiting on {len(blocking)} predecessor(s)")
         log.info(
             "line_edits.waiting_for_predecessors",
             chapter_number=chapter_number,
@@ -188,68 +188,71 @@ async def line_edits_flow(
         job_type=JobType.LINE_EDIT,
         total_steps=3,
     )
-    await pub.flow_started(data=ChapterStartedData(chapter_id=chapter_id, chapter_number=chapter_number))
+    try:
+        await pub.flow_started(data=ChapterStartedData(chapter_id=chapter_id, chapter_number=chapter_number))
 
-    # Step 1: Wait for predecessor extractions
-    await _wait_for_predecessor_extractions(
-        story_id, 
-        chapter_number,
-        story_path_array,
-        pub=pub,
-    )
-    
-    log.info("line_edits.started", chapter_number=chapter_number, chapter_id=chapter_id)
-    
-    # Step 2: Generate line edits
-    await pub.task_started("generate_line_edits", message="Generating line edits")
-    try:
-        edits = await generate_line_edits_task(
-            story_context=story_context,
-            chapter_content=chapter_content,
-            chapter_number=chapter_number,
-            chapter_title=chapter_title,
-            use_lfm=use_lfm,
-            story_id=story_id,
+        # Step 1: Wait for predecessor extractions
+        await _wait_for_predecessor_extractions(
+            story_id, 
+            chapter_number,
+            story_path_array,
+            pub=pub,
         )
-        await pub.task_complete("generate_line_edits", data=EditsGeneratedData(edits_count=len(edits.edits)))
-    except Exception as e:
-        await pub.task_failed("generate_line_edits", message=str(e))
-        await pub.flow_failed(message=str(e))
-        raise
     
-    # Step 3: Save to database
-    await pub.task_started("save_line_edits", message="Saving edits")
-    try:
-        await save_line_edits_task(
+        log.info("line_edits.started", chapter_number=chapter_number, chapter_id=chapter_id)
+    
+        # Step 2: Generate line edits
+        await pub.task_started("generate_line_edits", message="Generating line edits")
+        try:
+            edits = await generate_line_edits_task(
+                story_context=story_context,
+                chapter_content=chapter_content,
+                chapter_number=chapter_number,
+                chapter_title=chapter_title,
+                use_lfm=use_lfm,
+                story_id=story_id,
+            )
+            await pub.task_complete("generate_line_edits", data=EditsGeneratedData(edits_count=len(edits.edits)))
+        except Exception as e:
+            await pub.task_failed("generate_line_edits", message=str(e))
+            await pub.flow_failed(message=str(e))
+            raise
+    
+        # Step 3: Save to database
+        await pub.task_started("save_line_edits", message="Saving edits")
+        try:
+            await save_line_edits_task(
+                chapter_id=chapter_id,
+                story_id=story_id,
+                user_id=user_id,
+                chapter_number=chapter_number,
+                line_edits=edits,
+            )
+            await pub.task_complete("save_line_edits")
+        except Exception as e:
+            await pub.task_failed("save_line_edits", message=str(e))
+            await pub.flow_failed(message=str(e))
+            raise
+    
+        log.success(
+            "line_edits.complete",
+            chapter_number=chapter_number,
             chapter_id=chapter_id,
-            story_id=story_id,
-            user_id=user_id,
-            chapter_number=chapter_number,
-            line_edits=edits,
+            edit_count=len(edits.edits),
         )
-        await pub.task_complete("save_line_edits")
-    except Exception as e:
-        await pub.task_failed("save_line_edits", message=str(e))
-        await pub.flow_failed(message=str(e))
-        raise
-    
-    log.success(
-        "line_edits.complete",
-        chapter_number=chapter_number,
-        chapter_id=chapter_id,
-        edit_count=len(edits.edits),
-    )
 
-    result = {
-        "chapter_id": chapter_id,
-        "chapter_number": chapter_number,
-        "success": True,
-        "edits_count": len(edits.edits),
-    }
-    await pub.flow_complete(data=LineEditsCompleteData(
-        chapter_id=chapter_id,
-        chapter_number=chapter_number,
-        edits_count=len(edits.edits),
-    ))
+        result = {
+            "chapter_id": chapter_id,
+            "chapter_number": chapter_number,
+            "success": True,
+            "edits_count": len(edits.edits),
+        }
+        await pub.flow_complete(data=LineEditsCompleteData(
+            chapter_id=chapter_id,
+            chapter_number=chapter_number,
+            edits_count=len(edits.edits),
+        ))
     
-    return result
+        return result
+    finally:
+        await pub.close()

@@ -80,6 +80,7 @@ class AuthService:
 
         if session.expires_at < datetime.now(timezone.utc):
             log.warning("session.validate_failed: expired", user_id=session.user_id)  # type: ignore[attr-defined]
+            await session.delete()
             raise ForbiddenError("Your session has expired. Please log in again.")
         
         user_id = session.user_id  # type: ignore[attr-defined]

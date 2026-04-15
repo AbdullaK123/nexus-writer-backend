@@ -2,7 +2,15 @@ from src.infrastructure.config.settings import settings
 
 TORTOISE_ORM = {
     "connections": {
-        "default": settings.database_url,
+        "default": {
+            "engine": "tortoise.backends.asyncpg",
+            "credentials": {
+                "dsn": settings.database_url,
+            },
+            "minsize": 5,
+            "maxsize": 20,
+            "max_inactive_connection_lifetime": 300,
+        },
     },
     "apps": {
         "models": {

@@ -3,6 +3,7 @@ from typing import Optional, List
 from src.data.models import Story, Chapter, StoryStatus, Target
 from src.service.target.service import TargetService
 from src.data.schemas.chapter import ChapterListItem
+from src.data.schemas.target import TargetResponse
 from src.service.exceptions import NotFoundError, ConflictError
 from src.data.schemas.story import (
     CreateStoryRequest,
@@ -15,7 +16,6 @@ from src.data.schemas.story import (
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 
 log = get_layer_logger(LAYER_SERVICE)
-from src.shared.utils.html import get_word_count
 from pymongo.asynchronous.database import AsyncDatabase
 
 class StoryService:
@@ -24,67 +24,6 @@ class StoryService:
         self.mongodb = mongodb
         self.target_service = target_service
         self.job_service = job_service
-
-    async def append_to_path_end(self, story_id: str, chapter_id: str):
-
-        story = await Story.get_or_none(id=story_id)
-
-        if not story:
-            raise ValueError(f"Story {story_id} not found")
-
-        log.debug("story.path_append", story_id=story_id, chapter_id=chapter_id, path_before=story.path_array)
-        
-        if story.path_array is None:
-            story.path_array = []
-
-        path = list(story.path_array)
-        path.append(chapter_id)
-        story.path_array = path
-
-        log.debug("story.path_append: saved", story_id=story_id, path_after=story.path_array)
-
-        await story.save(update_fields=['path_array'])
-
-    async def remove_from_path(self, story_id: str, chapter_id: str):
-
-        story = await Story.get_or_none(id=story_id)
-
-        if not story or story.path_array is None:
-            return 
-        
-        log.debug("story.path_remove", story_id=story_id, chapter_id=chapter_id, path_before=story.path_array)
-        
-        path = list(story.path_array)
-        path.remove(chapter_id)
-        story.path_array = path
-
-        log.debug("story.path_remove: saved", story_id=story_id, path_after=story.path_array)
-
-        await story.save(update_fields=['path_array'])
-
-    async def reorder_path(self, story_id: str, from_pos: int, to_pos: int):
-
-        story = await Story.get_or_none(id=story_id)
-
-        if not story or story.path_array is None:
-            raise ValueError(f"Story {story_id} does not have a path array")
-        
-        if from_pos < 0 or from_pos >= len(story.path_array):
-            raise ValueError(f"Invalid from_pos! Must be between 0 and {len(story.path_array) - 1}")
-        
-        if to_pos < 0 or to_pos >= len(story.path_array):
-            raise ValueError(f"Invalid to_pos! Must be between 0 and {len(story.path_array) - 1}")
-        
-        log.debug("story.path_reorder", story_id=story_id, from_pos=from_pos, to_pos=to_pos, path_before=story.path_array)
-
-        path = list(story.path_array)
-        chapter_id = path.pop(from_pos)
-        path.insert(to_pos, chapter_id)
-        story.path_array = path
-
-        log.debug("story.path_reorder: saved", story_id=story_id, path_after=story.path_array)
-
-        await story.save(update_fields=['path_array'])
 
     async def create(self, user_id: str, story_info: CreateStoryRequest) -> dict:
 
@@ -121,7 +60,7 @@ class StoryService:
                 "story.completed: queued extraction for final chapter",
                 story_id=story_id,
                 chapter_id=last_chapter_id,
-                job_id=queue_result['job_id'],
+                job_id=queue_result.job_id,
             )
             
         
@@ -155,7 +94,7 @@ class StoryService:
         await story.delete()
 
         # delete all extractions and edits related to the story in MongoDB
-        await asyncio.gather(
+        mongo_results = await asyncio.gather(
             self.mongodb.chapter_edits.delete_many({"story_id": story_id}),
             self.mongodb.character_extractions.delete_many({"story_id": story_id }),
             self.mongodb.plot_extractions.delete_many({"story_id": story_id}),
@@ -164,6 +103,9 @@ class StoryService:
             self.mongodb.chapter_contexts.delete_many({"story_id": story_id}),
             return_exceptions=True
         )
+        for result in mongo_results:
+            if isinstance(result, Exception):
+                log.warning("story.delete_mongo_cleanup_failed", story_id=story_id, error=str(result))
 
         return {
             "message": "Story successfully deleted"
@@ -268,7 +210,7 @@ class StoryService:
                 title=story.title,
                 status=story.status,
                 total_chapters=len(chapters.get(story.id, [])),
-                word_count=sum(get_word_count(chapter.content) for chapter in chapters.get(story.id, [])),  # type: ignore[misc]
+                word_count=sum(ch.word_count for ch in chapters.get(story.id, [])),
                 created_at=story.created_at,
                 updated_at=story.updated_at
             )
@@ -292,12 +234,27 @@ class StoryService:
         for chapter in all_chapters:
             chapters.setdefault(chapter.story_id, []).append(chapter)  # type: ignore[attr-defined]
 
+        # Get all targets for all stories in one query (avoid N+1)
+        all_targets = await Target.filter(story_id__in=story_ids, user_id=user_id)
+        targets_by_story: dict[str, list[TargetResponse]] = {}
+        for target in all_targets:
+            targets_by_story.setdefault(target.story_id, []).append(  # type: ignore[attr-defined]
+                TargetResponse(
+                    quota=target.quota,
+                    frequency=target.frequency,
+                    from_date=target.from_date,
+                    to_date=target.to_date,
+                    story_id=target.story_id,  # type: ignore[attr-defined]
+                    target_id=target.id,
+                )
+            )
+
         list_responses = [
             StoryListItemResponse(
                 id=story.id,
                 title=story.title,
-                word_count=sum(get_word_count(chapter.content) for chapter in chapters.get(story.id, [])),  # type: ignore[misc]
-                targets = (await self.target_service.get_all_targets_by_story_id(story.id, user_id))
+                word_count=sum(ch.word_count for ch in chapters.get(story.id, [])),
+                targets=targets_by_story.get(story.id, []),
             )
             for story in stories
         ]

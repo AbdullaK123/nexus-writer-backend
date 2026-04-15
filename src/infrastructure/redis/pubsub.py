@@ -1,7 +1,6 @@
-from typing import Callable, Dict, TypeVar, Generic, AsyncIterator, Type
+from typing import TypeVar, Generic, AsyncIterator, Type
 from pydantic import BaseModel
 from redis.asyncio import Redis
-from collections import defaultdict
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -16,10 +15,17 @@ class RedisPubSub(Generic[T]):
     async def subscribe(self, channel: str) -> AsyncIterator[T]:
         pubsub = self.client.pubsub()
         await pubsub.subscribe(channel)
-        async for message in pubsub.listen():
-            if message["type"] != "message":
-                continue
-            yield self.model.model_validate_json(message["data"])
+        try:
+            async for message in pubsub.listen():
+                if message["type"] != "message":
+                    continue
+                yield self.model.model_validate_json(message["data"])
+        finally:
+            await pubsub.unsubscribe(channel)
+            await pubsub.aclose()
+
+    async def close(self) -> None:
+        await self.client.aclose()
 
     def channel(self, *parts: str) -> str:
         return ":".join(parts)  

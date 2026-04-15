@@ -18,11 +18,11 @@ from src.service.jobs.chapter import (
     handle_chapter_reordering
 )
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+from src.data.utils.decorators import transaction
 
 log = get_layer_logger(LAYER_SERVICE)
 from src.data.models.ai.edits import ChapterEdit, ChapterEditResponse, LineEdit
 from pymongo.asynchronous.database import AsyncDatabase
-from tortoise.transactions import in_transaction
 from src.infrastructure.utils.retry import retry_mongo
 
 
@@ -40,6 +40,7 @@ class ChapterService:
     # CORE CRUD OPERATIONS - SIMPLE & CLEAN
     # ========================================
 
+    @transaction
     async def create(
         self, 
         story_id: str, 
@@ -58,7 +59,8 @@ class ChapterService:
                 story_id=story_id,
                 user_id=user_id,
                 title=data.title,
-                content=data.content
+                content=data.content,
+                word_count=get_word_count(data.content) if data.content else 0,
             )
             
             await handle_chapter_creation(story_id, chapter_to_create.id)
@@ -162,6 +164,8 @@ class ChapterService:
             )
         
         updated_data = data.model_dump(exclude_unset=True)
+        if 'content' in updated_data:
+            updated_data['word_count'] = get_word_count(updated_data['content'])
         for field, value in updated_data.items():
             setattr(chapter, field, value)
         await chapter.save(update_fields=list(updated_data.keys()))
@@ -179,6 +183,7 @@ class ChapterService:
             next_chapter_id=chapter.next_chapter_id  # type: ignore[attr-defined]
         )
 
+    @transaction
     async def delete(
         self, 
         chapter_id: str, 
@@ -207,9 +212,10 @@ class ChapterService:
 
         story = await Story.get_or_none(id=story_id)
 
-        if story and story.path_array and len(story.path_array) > 0:
+        if story and story.path_array and chapter_id in story.path_array:
             chapter_idx = story.path_array.index(chapter_id)
             subsequent_chapter_ids = story.path_array[(chapter_idx + 1):]
+
             queued_result = await self.job_service.queue_reextraction_job(
                 chapter_id,
                 story_id,
@@ -228,7 +234,7 @@ class ChapterService:
             await handle_chapter_deletion(story_id, chapter_id)
 
             # delete all chapter extractions and edits related to this chapter in MongoDB
-            await asyncio.gather(
+            mongo_results = await asyncio.gather(
                 self.mongodb.chapter_edits.delete_one({"chapter_id": chapter_id}),
                 self.mongodb.character_extractions.delete_one({"chapter_id": chapter_id}),
                 self.mongodb.plot_extractions.delete_one({"chapter_id": chapter_id}),
@@ -237,6 +243,9 @@ class ChapterService:
                 self.mongodb.chapter_contexts.delete_one({"chapter_id": chapter_id}),
                 return_exceptions=True  # Don't fail if these don't exist or there's an error
             )
+            for result in mongo_results:
+                if isinstance(result, Exception):
+                    log.warning("chapter.delete_mongo_cleanup_failed", chapter_id=chapter_id, error=str(result))
             return {"message": "Chapter was successfully deleted"}
             
         except Exception as e:
@@ -288,7 +297,7 @@ class ChapterService:
                 id=chapter.id,
                 title=chapter.title,
                 published=chapter.published,
-                word_count=get_word_count(chapter.content),
+                word_count=chapter.word_count,
                 updated_at=chapter.updated_at
             )
             for chapter in chronological_chapters
@@ -337,10 +346,11 @@ class ChapterService:
     # REORDERING OPERATIONS
     # ========================================
 
+    @transaction
     async def reorder_chapters(
-        self, 
-        story_id: str, 
-        user_id: str, 
+        self,
+        story_id: str,
+        user_id: str,
         data: ReorderChapterRequest,
         background_tasks: BackgroundTaskRunner
     ) -> dict:

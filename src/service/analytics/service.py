@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from datetime import timedelta
 from src.service.exceptions import NotFoundError, ValidationError
 from src.service.story.service import StoryService
-from src.data.repositories.analytics.analytics import AnalyticsRepo
+from src.data.repositories.analytics.analytics import AnalyticsRepo, TimeFilter
 from pymongo.asynchronous.database import AsyncDatabase
 
 
@@ -31,11 +31,11 @@ class AnalyticsService:
     ) -> Dict[str, Any]:
 
         if frequency == "Daily":
-            time_filter = "started::date = CURRENT_DATE"
+            time_filter = TimeFilter.DAILY
         elif frequency == "Weekly":
-            time_filter = "started::date >= CURRENT_DATE - INTERVAL '7 days'"
+            time_filter = TimeFilter.WEEKLY
         else:  # Monthly
-            time_filter = "started::date >= CURRENT_DATE - INTERVAL '30 days'"
+            time_filter = TimeFilter.MONTHLY
 
         return await self.repo.get_kpis(story_id, user_id, time_filter)
 

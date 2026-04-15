@@ -29,6 +29,20 @@ app = FastAPI(
 # HTTP logging middleware should wrap as wide as possible
 app.add_middleware(HTTPLoggingMiddleware)
 
+# ── Request body size limit middleware ─────────────────────────────────
+MAX_BODY_SIZE = 10 * 1024 * 1024  # 10 MB
+
+@app.middleware("http")
+async def limit_request_body(request: Request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > MAX_BODY_SIZE:
+                return JSONResponse(status_code=413, content={"detail": "Request body too large"})
+        except ValueError:
+            return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length header"})
+    return await call_next(request)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

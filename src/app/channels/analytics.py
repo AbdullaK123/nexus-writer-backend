@@ -1,6 +1,7 @@
-from socketio.async_server import AsyncServer #ignore: type
+from socketio.async_server import AsyncServer  # type: ignore[import-untyped]
 from src.service.analytics.service import AnalyticsService
 from src.service.analytics.session_cache import SessionCacheService
+from src.service.auth.service import AuthService
 from src.data.schemas.analytics import WritingSession, WritingSessionEvent
 from src.shared.utils.decorators import log_errors
 from dependency_injector.wiring import inject, Provide
@@ -35,6 +36,12 @@ async def handle_session_start(
     
     # Validate incoming data
     event = WritingSessionEvent(**session_start_data)
+
+    # Verify userId matches authenticated connection
+    sio_session = await sio.get_session(sid, namespace='/analytics')
+    if event.userId != sio_session.get('user_id'):
+        log.warning("analytics.session_start_rejected: userId mismatch", sid=sid, claimed=event.userId)
+        return
     
     log.debug(
         "Session data validated successfully", 
@@ -72,6 +79,12 @@ async def handle_session_end(
     
     # Validate end data
     end_event = WritingSessionEvent(**session_end_data)
+
+    # Verify userId matches authenticated connection
+    sio_session = await sio.get_session(sid, namespace='/analytics')
+    if end_event.userId != sio_session.get('user_id'):
+        log.warning("analytics.session_end_rejected: userId mismatch", sid=sid, claimed=end_event.userId)
+        return
     
     log.debug(
         "End event data validated", 
@@ -94,7 +107,7 @@ async def handle_session_end(
     start_event = WritingSessionEvent(**start_data)
     
     # Calculate session metrics
-    words_written = end_event.wordCount - start_event.wordCount
+    words_written = max(0, end_event.wordCount - start_event.wordCount)
     duration_seconds = (end_event.timestamp - start_event.timestamp).total_seconds()
     duration_minutes = duration_seconds / 60
     
@@ -167,13 +180,34 @@ async def save_to_duckdb_async(
 
 @sio.on('connect', namespace='/analytics')
 @log_errors
-async def on_connect(sid, environ, auth=None):
+@inject
+async def on_connect(
+    sid,
+    environ,
+    auth=None,
+    auth_service: AuthService = Provide[ApplicationContainer.auth_service],
+):
+    if not auth or not auth.get('session_id'):
+        log.warning("analytics.connect_rejected: no auth", sid=sid)
+        raise ConnectionRefusedError("Authentication required")
+
+    try:
+        user = await auth_service.validate_session(auth['session_id'])
+    except Exception:
+        log.warning("analytics.connect_rejected: invalid session", sid=sid)
+        raise ConnectionRefusedError("Invalid session")
+
+    if not user:
+        log.warning("analytics.connect_rejected: no user", sid=sid)
+        raise ConnectionRefusedError("Invalid session")
+
+    await sio.save_session(sid, {'user_id': str(user.id)}, namespace='/analytics')
     log.info(
         "Client connected to analytics namespace", 
         sid=sid,
+        user_id=str(user.id),
         user_agent=environ.get('HTTP_USER_AGENT', 'unknown'),
         origin=environ.get('HTTP_ORIGIN', 'unknown'),
-        auth=auth,
         extra={"connection_event": True}
     )
 

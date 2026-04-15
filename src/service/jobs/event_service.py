@@ -11,7 +11,10 @@ class JobEventService:
     async def stream_events(self, user_id: str, job_id: str) -> AsyncIterator[FlowEvent]:
         pubsub = RedisPubSub(self._redis_url, FlowEvent)
         channel = pubsub.channel("flow", user_id, job_id)
-        async for event in pubsub.subscribe(channel):
-            yield event
-            if event.event_type in (FlowEventType.FLOW_COMPLETE, FlowEventType.FLOW_FAILED):
-                break
+        try:
+            async for event in pubsub.subscribe(channel):
+                yield event
+                if event.event_type in (FlowEventType.FLOW_COMPLETE, FlowEventType.FLOW_FAILED):
+                    break
+        finally:
+            await pubsub.close()

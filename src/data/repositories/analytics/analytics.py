@@ -4,12 +4,20 @@ import uuid
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
+from enum import Enum
+
 import duckdb
 from src.shared.utils.logging_context import get_layer_logger, LAYER_DATA
 
 log = get_layer_logger(LAYER_DATA)
 
 from src.infrastructure.utils.retry import retry_network
+
+
+class TimeFilter(str, Enum):
+    DAILY = "started::date = CURRENT_DATE"
+    WEEKLY = "started::date >= CURRENT_DATE - INTERVAL '7 days'"
+    MONTHLY = "started::date >= CURRENT_DATE - INTERVAL '30 days'"
 
 
 class AnalyticsRepo:
@@ -35,7 +43,7 @@ class AnalyticsRepo:
         return await asyncio.to_thread(self._sql_sync, query, params)
 
     async def get_kpis(
-        self, story_id: str, user_id: str, time_filter: str
+        self, story_id: str, user_id: str, time_filter: TimeFilter
     ) -> Dict[str, Any]:
         result = (await self.sql(
             f"""
@@ -46,7 +54,7 @@ class AnalyticsRepo:
             FROM writing_sessions
             WHERE story_id = ?
             AND user_id = ?
-            AND {time_filter}
+            AND {time_filter.value}
             """,
             (story_id, user_id),
         ))[0]

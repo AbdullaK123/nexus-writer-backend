@@ -2,6 +2,15 @@ import functools
 import re
 
 from src.data.exceptions import DataError, DuplicateError, DataIntegrityError
+from tortoise.transactions import in_transaction
+
+
+def transaction(func):
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        async with in_transaction():
+            return await func(*args, **kwargs)
+    return wrapper
 
 
 def handle_data_errors(func):

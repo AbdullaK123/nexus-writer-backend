@@ -59,6 +59,10 @@ class FlowPublisher(Generic[D]):
     async def task_failed(self, task_name: str, message: str | None = None, data: D | None = None) -> None:
         await self._emit(FlowEventType.TASK_FAILED, task=task_name, message=message, data=data)
 
+    async def close(self) -> None:
+        """Close the underlying Redis connection."""
+        await self._pubsub.close()
+
     # ── internal ─────────────────────────────────────────────────────
 
     async def _emit(

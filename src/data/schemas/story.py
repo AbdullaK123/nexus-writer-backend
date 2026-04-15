@@ -1,15 +1,15 @@
-from src.data.models.enums import StoryStatus
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
+from src.data.models.enums import StoryStatus
 from src.data.schemas.chapter import ChapterListItem
 from src.data.schemas.target import TargetResponse
 
 class CreateStoryRequest(BaseModel):
-    title: str
+    title: str = Field(min_length=1, max_length=255)
 
 class UpdateStoryRequest(BaseModel):
-    title: Optional[str] = None
+    title: Optional[str] = Field(default=None, min_length=1, max_length=255)
     status: Optional[StoryStatus] = None
 
 class StoryCardResponse(BaseModel):

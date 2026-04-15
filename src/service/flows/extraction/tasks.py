@@ -181,7 +181,26 @@ async def save_chapter_extraction_task(
     if mongo_db is None:
         raise ValueError("MongoDB not connected")
     
+    # Save synthesized context to Postgres FIRST (cheaper to retry if Mongo fails)
+    chapter.condensed_context = context_synthesis.condensed_text
+    chapter.timeline_context = context_synthesis.timeline_context
+    chapter.emotional_arc = context_synthesis.emotional_arc
+    
+    # Update metadata
+    chapter.last_extracted_at = datetime.now(timezone.utc)
+    chapter.last_extracted_word_count = word_count
+    chapter.extraction_version = "2.0.0"
+    
+    await chapter.save(update_fields=[
+        'condensed_context', 'timeline_context', 'emotional_arc',
+        'last_extracted_at', 'last_extracted_word_count', 'extraction_version'
+    ])
+    
+    log.info("task.extraction_checkpoint_saved", chapter_id=chapter_id, chapter_number=chapter_number)
+
     # Save to MongoDB — model_dump() handles all field serialization
+    # Done after Postgres so that last_extracted_at is set even if Mongo fails.
+    # Mongo writes are idempotent (upsert), so retrying the task is safe.
     meta = {
         "chapter_id": chapter_id, 
         "story_id": chapter.story_id,  # type: ignore[attr-defined]
@@ -220,20 +239,3 @@ async def save_chapter_extraction_task(
     )
     
     log.info("task.extractions_saved_mongo", chapter_id=chapter_id)
-    
-    # Save synthesized context to Postgres
-    chapter.condensed_context = context_synthesis.condensed_text
-    chapter.timeline_context = context_synthesis.timeline_context
-    chapter.emotional_arc = context_synthesis.emotional_arc
-    
-    # Update metadata
-    chapter.last_extracted_at = datetime.now(timezone.utc)
-    chapter.last_extracted_word_count = word_count
-    chapter.extraction_version = "2.0.0"
-    
-    await chapter.save(update_fields=[
-        'condensed_context', 'timeline_context', 'emotional_arc',
-        'last_extracted_at', 'last_extracted_word_count', 'extraction_version'
-    ])
-        
-    log.info("task.extraction_checkpoint_saved", chapter_id=chapter_id, chapter_number=chapter_number)

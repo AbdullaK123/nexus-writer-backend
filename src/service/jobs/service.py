@@ -194,7 +194,7 @@ class JobService:
         force: bool = False,
     ) -> JobQueuedResponse:
         """Queue line edit generation for a chapter"""
-        chapter = await Chapter.get_or_none(id=chapter_id)
+        chapter = await Chapter.get_or_none(id=chapter_id, user_id=user_id)
         if not chapter:
             raise NotFoundError("We couldn't find this chapter. It may have been deleted.")
         
@@ -329,7 +329,7 @@ class JobService:
         chapter_id: str,
     ) -> JobQueuedResponse:
         """Queue extraction for a single chapter"""
-        chapter = await Chapter.get_or_none(id=chapter_id)
+        chapter = await Chapter.get_or_none(id=chapter_id, user_id=user_id)
         if not chapter:
             raise NotFoundError("We couldn't find this chapter. It may have been deleted.")
         

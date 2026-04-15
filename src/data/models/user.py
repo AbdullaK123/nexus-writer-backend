@@ -14,7 +14,7 @@ class User(Model, TimestampMixin):
     username = fields.CharField(max_length=255)
     email = fields.CharField(max_length=255, unique=True, index=True)
     password_hash = fields.CharField(max_length=255)
-    profile_img = fields.CharField(max_length=512, null=True, unique=True)
+    profile_img = fields.CharField(max_length=512, null=True)
 
     # Reverse relations
     sessions: fields.ReverseRelation["Session"]
