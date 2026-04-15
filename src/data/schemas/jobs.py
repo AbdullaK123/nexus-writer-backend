@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from uuid import uuid4
-from typing import Optional, Any, Dict, List
+from typing import Generic, Optional, Any, Dict, TypeVar
 from datetime import datetime, timezone
 from enum import Enum
 
@@ -10,6 +10,11 @@ def generate_uuid() -> str:
 def datetime_encoder(dt: datetime) -> str:
     return dt.isoformat()
 
+def get_now() -> datetime:
+    return datetime.now(timezone.utc).replace(microsecond=0)
+
+T = TypeVar("T", bound=BaseModel)
+
 class JobStatus(str, Enum):
     PENDING = "pending"
     QUEUED = "queued"
@@ -18,10 +23,76 @@ class JobStatus(str, Enum):
     FAILURE = "failure"
 
 
+class FlowEventType(str, Enum):
+    TASK_STARTED  = "task_started"
+    TASK_FAILED   = "task_failed"
+    TASK_COMPLETE = "task_complete"
+    FLOW_STARTED  = "flow_started"
+    FLOW_FAILED   = "flow_failed"
+    FLOW_COMPLETE = "flow_complete"
+
+
 class JobType(str, Enum):
-    EXTRACTION = "extraction"
+    EXTRACTION   = "extraction"
     REEXTRACTION = "reextraction"
-    LINE_EDIT = "line-edit"
+    LINE_EDIT    = "line-edit"
+
+
+# ── Flow event data payloads ─────────────────────────────────────────────
+
+class ChapterStartedData(BaseModel):
+    chapter_id: str
+    chapter_number: int
+
+class EditsGeneratedData(BaseModel):
+    edits_count: int
+
+class LineEditsCompleteData(BaseModel):
+    chapter_id: str
+    chapter_number: int
+    edits_count: int
+
+class ExtractionCompleteData(BaseModel):
+    chapter_id: str
+    chapter_number: int
+    is_partial: bool = False
+    failed_extractions: list[str] = Field(default_factory=list)
+
+class ExtractionCountData(BaseModel):
+    count: int
+
+class ReextractionProgressData(BaseModel):
+    chapter_id: str
+    chapter_number: int
+    is_partial: bool = False
+
+class ReextractionCompleteData(BaseModel):
+    chapters_processed: int
+
+
+# ── Per-flow payload unions ───────────────────────────────────────────
+
+LineEditsEventData = ChapterStartedData | EditsGeneratedData | LineEditsCompleteData
+
+ExtractionEventData = ChapterStartedData | ExtractionCompleteData | ExtractionCountData
+
+ReextractionEventData = ChapterStartedData | ReextractionProgressData | ReextractionCompleteData
+
+
+class FlowEvent(Generic[T], BaseModel):
+    job_run_id: str
+    user_id: str
+    story_id: str
+    event_type: FlowEventType
+    job_type: JobType
+    trace_id: Optional[str] = None
+    task: Optional[str] = None
+    data: Optional[T] = None
+    message: Optional[str] = None
+    step: Optional[int] = None
+    total_steps: Optional[int] = None
+    duration_ms: Optional[int] = None   # ← add back
+    timestamp: datetime = Field(default_factory=get_now)
 
 
 class JobQueuedResponse(BaseModel):

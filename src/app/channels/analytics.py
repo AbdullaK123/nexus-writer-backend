@@ -1,4 +1,4 @@
-from socketio.async_server import AsyncServer
+from socketio.async_server import AsyncServer #ignore: type
 from src.service.analytics.service import AnalyticsService
 from src.service.analytics.session_cache import SessionCacheService
 from src.data.schemas.analytics import WritingSession, WritingSessionEvent
@@ -22,7 +22,7 @@ sio = AsyncServer(
 @sio.on('session_start', namespace='/analytics')
 @log_errors
 @inject
-def handle_session_start(
+async def handle_session_start(
     sid: str,
     session_start_data: dict,
     session_cache: SessionCacheService = Provide[ApplicationContainer.session_cache_service],
@@ -46,7 +46,7 @@ def handle_session_start(
         sid=sid
     )
     
-    session_cache.save(sid, event.model_dump())
+    await session_cache.save(sid, event.model_dump())
     
     log.success(
         "Writing session started and stored", 
@@ -59,7 +59,7 @@ def handle_session_start(
 @sio.on('session_end', namespace='/analytics')
 @log_errors 
 @inject
-def handle_session_end(
+async def handle_session_end(
     sid: str,
     session_end_data: dict,
     session_cache: SessionCacheService = Provide[ApplicationContainer.session_cache_service],
@@ -80,7 +80,7 @@ def handle_session_end(
         sid=sid
     )
     
-    start_data = session_cache.get(sid)
+    start_data = await session_cache.get(sid)
     
     if not start_data:
         log.warning(
@@ -133,7 +133,7 @@ def handle_session_end(
     task = loop.create_task(save_to_duckdb_async(session, sid))
     task.add_done_callback(lambda t: handle_task_completion(t, session.id, sid))
     
-    session_cache.delete(sid)
+    await session_cache.delete(sid)
 
 @log_errors
 def handle_task_completion(task, session_id: str, sid: str):
@@ -167,7 +167,7 @@ async def save_to_duckdb_async(
 
 @sio.on('connect', namespace='/analytics')
 @log_errors
-def on_connect(sid, environ, auth=None):
+async def on_connect(sid, environ, auth=None):
     log.info(
         "Client connected to analytics namespace", 
         sid=sid,
@@ -180,7 +180,7 @@ def on_connect(sid, environ, auth=None):
 @sio.on('disconnect', namespace='/analytics')
 @log_errors
 @inject
-def on_disconnect(
+async def on_disconnect(
     sid,
     reason,
     session_cache: SessionCacheService = Provide[ApplicationContainer.session_cache_service],
@@ -191,7 +191,7 @@ def on_disconnect(
         reason=reason,
         extra={"connection_event": True}
     )
-    session_data = session_cache.get(sid)
+    session_data = await session_cache.get(sid)
     if session_data:
         log.warning(
             "Client disconnected with incomplete session - cleaning up", 
@@ -201,4 +201,4 @@ def on_disconnect(
             user_id=session_data.get('userId'),
             extra={"incomplete_session": True}
         )
-        session_cache.delete(sid)
+        await session_cache.delete(sid)

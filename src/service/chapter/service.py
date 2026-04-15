@@ -213,7 +213,8 @@ class ChapterService:
             queued_result = await self.job_service.queue_reextraction_job(
                 chapter_id,
                 story_id,
-                subsequent_chapter_ids
+                subsequent_chapter_ids,
+                user_id=user_id
             )
             log.info(
                 "chapter.delete: queued reextraction for successors",
@@ -393,7 +394,8 @@ class ChapterService:
                 self.job_service.queue_reextraction_job,
                 new_freshest_chapter_id,
                 story_id,
-                chapter_ids_to_reextract
+                chapter_ids_to_reextract,
+                user_id=user_id
             )
 
             return {"message": "Chapters reordered successfully"}

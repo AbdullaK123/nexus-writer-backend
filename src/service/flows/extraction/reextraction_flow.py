@@ -4,58 +4,78 @@ from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 log = get_layer_logger(LAYER_SERVICE)
 from src.service.flows.extraction.chapter_flow import extract_single_chapter_flow
 from typing import List
-from tortoise import Tortoise
-from src.infrastructure.db.postgres import TORTOISE_ORM
 from src.data.models import Chapter, Story
-from src.infrastructure.db.mongodb import MongoDB
-from src.infrastructure.config import settings, config
+from src.data.schemas.jobs import (
+    JobType,
+    ReextractionEventData,
+    ReextractionProgressData,
+    ReextractionCompleteData,
+)
+from src.infrastructure.config import settings
+from src.service.flows.publisher import FlowPublisher, create_flow_pubsub
 from src.shared.utils.html import html_to_plain_text
 
 
 @flow(name="reextraction-flow")
-async def reextract_chapters_flow(story_id: str, chapter_ids: List[str], use_lfm: bool = False):
+async def reextract_chapters_flow(story_id: str, chapter_ids: List[str], user_id: str = "", use_lfm: bool = False):
     """Re-extract chapters in sequence after deletion, each with proper accumulated context"""
 
-    await MongoDB.connect(settings.mongodb_url)
-    await Tortoise.init(config=TORTOISE_ORM)
+    pubsub = create_flow_pubsub(settings.redis_url, ReextractionEventData)  # type: ignore
+    pub = FlowPublisher[ReextractionEventData](
+        pubsub=pubsub,
+        user_id=user_id,
+        story_id=story_id,
+        job_type=JobType.REEXTRACTION,
+        total_steps=len(chapter_ids),
+    )
+    await pub.flow_started()
+
+    # Get story
+    story = await Story.get_or_none(id=story_id)
+    if not story or not story.path_array:
+        await pub.flow_failed(message=f"Story {story_id} not found or has no chapters")
+        raise ValueError(f"Story {story_id} not found or has no chapters")
     
-    try:
-        # Get story
-        story = await Story.get_or_none(id=story_id)
-        if not story or not story.path_array:
-            raise ValueError(f"Story {story_id} not found or has no chapters")
+    log.info("reextraction.started", story_id=story_id, chapter_count=len(chapter_ids))
+    
+    # Process each chapter IN ORDER (chapter_ids is already ordered from path_array)
+    for chapter_id in chapter_ids:
+        # Get chapter
+        chapter = await Chapter.get_or_none(id=chapter_id)
+        if not chapter:
+            log.warning("reextraction.chapter_not_found: skipping", chapter_id=chapter_id)
+            continue
         
-        log.info("reextraction.started", story_id=story_id, chapter_count=len(chapter_ids))
+        chapter_number = Chapter.get_chapter_number(chapter.id, story.path_array)
+        if chapter_number is None:
+            log.warning("reextraction.no_chapter_number: skipping", chapter_id=chapter_id)
+            continue
         
-        # Process each chapter IN ORDER (chapter_ids is already ordered from path_array)
-        for chapter_id in chapter_ids:
-            # Get chapter
-            chapter = await Chapter.get_or_none(id=chapter_id)
-            if not chapter:
-                log.warning("reextraction.chapter_not_found: skipping", chapter_id=chapter_id)
-                continue
-            
-            chapter_number = Chapter.get_chapter_number(chapter.id, story.path_array)
-            if chapter_number is None:
-                log.warning("reextraction.no_chapter_number: skipping", chapter_id=chapter_id)
-                continue
-            
-            log.info("reextraction.processing_chapter", chapter_number=chapter_number, chapter_id=chapter_id, title=chapter.title)
-            
-            # Extract — predecessor wait + context building happen inside the flow
-            await extract_single_chapter_flow(
+        log.info("reextraction.processing_chapter", chapter_number=chapter_number, chapter_id=chapter_id, title=chapter.title)
+        await pub.task_started(f"chapter_{chapter_number}", message=f"Extracting chapter {chapter_number}")
+        
+        # Extract — predecessor wait + context building happen inside the flow
+        result = await extract_single_chapter_flow(
+            chapter_id=chapter.id,
+            chapter_number=chapter_number,
+            chapter_title=chapter.title,
+            word_count=chapter.word_count,
+            story_id=story_id,
+            story_path_array=story.path_array,
+            content=html_to_plain_text(chapter.content),
+            user_id=user_id,
+            use_lfm=use_lfm,
+        )
+        
+        await pub.task_complete(
+            f"chapter_{chapter_number}",
+            data=ReextractionProgressData(
                 chapter_id=chapter.id,
                 chapter_number=chapter_number,
-                chapter_title=chapter.title,
-                word_count=chapter.word_count,
-                story_id=story_id,
-                story_path_array=story.path_array,
-                content=html_to_plain_text(chapter.content),
-                use_lfm=use_lfm,
-            )
-            
-            log.info("reextraction.chapter_complete", chapter_number=chapter_number)
-        
-        log.info("reextraction.complete", story_id=story_id, chapter_count=len(chapter_ids))
-    finally:
-        await Tortoise.close_connections()
+                is_partial=result.is_partial,
+            ),
+        )
+        log.info("reextraction.chapter_complete", chapter_number=chapter_number)
+    
+    log.info("reextraction.complete", story_id=story_id, chapter_count=len(chapter_ids))
+    await pub.flow_complete(data=ReextractionCompleteData(chapters_processed=len(chapter_ids)))

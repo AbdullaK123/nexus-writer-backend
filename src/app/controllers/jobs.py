@@ -5,13 +5,13 @@ Endpoints for:
 - Queuing extraction and line edit jobs
 - Polling job status
 """
-from datetime import datetime
-from typing import Optional, List
 from fastapi import APIRouter, Query, Depends
+from fastapi.sse import EventSourceResponse #type: ignore
 from dependency_injector.wiring import inject, Provide
 from src.app.di.containers import ApplicationContainer
-from pydantic import BaseModel
 
+
+from src.service.jobs.event_service import JobEventService
 from src.service.jobs.service import JobService
 from src.app.dependencies import get_current_user
 from src.data.models import User
@@ -27,25 +27,17 @@ job_controller = APIRouter(
 
 # === Job Status ===
 
-@job_controller.get("/{job_id}", response_model=JobStatusResponse)
+@job_controller.get("/{job_id}/events")
 @inject
 async def get_job_status(
     job_id: str,
-    job_service: JobService = Provide[ApplicationContainer.job_service]
-) -> JobStatusResponse:
-    """
-    Get detailed status of a background job with progress tracking.
-    
-    Poll this endpoint to track extraction progress in real-time.
-    
-    **Response includes:**
-    - Current status (queued, progress, success, failure)
-    - Progress details (current chapter, total chapters, percentage)
-    - Estimated time remaining
-    - Error information (if failed)
-    """
-    return await job_service.get_job_status(job_id)
-
+    user: User = Depends(get_current_user),
+    job_event_service: JobEventService = Provide[ApplicationContainer.job_event_service]
+) -> EventSourceResponse:
+    async def event_generator(): 
+        async for event in job_event_service.stream_events(user_id=user.id, job_id=job_id):
+            yield event.model_dump_json()
+    return EventSourceResponse(event_generator())
 
 # === Queue Jobs ===
 

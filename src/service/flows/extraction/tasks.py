@@ -23,8 +23,6 @@ from src.data.models.ai.world import WorldExtraction
 from src.data.models.ai.context import CondensedChapterContext
 from src.infrastructure.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAY, EXTRACTION_TASK_TIMEOUT
 from datetime import datetime, timezone
-from tortoise import Tortoise
-from src.infrastructure.db.postgres import TORTOISE_ORM
 from src.data.models import Chapter
 from src.infrastructure.db.mongodb import MongoDB
 
@@ -175,71 +173,67 @@ async def save_chapter_extraction_task(
 ) -> None:
     """Save extraction results to both MongoDB and Postgres."""
     
-    await Tortoise.init(config=TORTOISE_ORM)
-    try:
-        chapter = await Chapter.get_or_none(id=chapter_id)
-        if not chapter:
-            raise ValueError(f"Chapter {chapter_id} not found")
-        
-        mongo_db = MongoDB.db
-        if mongo_db is None:
-            raise ValueError("MongoDB not connected")
-        
-        # Save to MongoDB — model_dump() handles all field serialization
-        meta = {
-            "chapter_id": chapter_id, 
-            "story_id": chapter.story_id,  # type: ignore[attr-defined]
-            "user_id": chapter.user_id,  # type: ignore[attr-defined]
-            "chapter_number": chapter_number
-        }
+    chapter = await Chapter.get_or_none(id=chapter_id)
+    if not chapter:
+        raise ValueError(f"Chapter {chapter_id} not found")
+    
+    mongo_db = MongoDB.db
+    if mongo_db is None:
+        raise ValueError("MongoDB not connected")
+    
+    # Save to MongoDB — model_dump() handles all field serialization
+    meta = {
+        "chapter_id": chapter_id, 
+        "story_id": chapter.story_id,  # type: ignore[attr-defined]
+        "user_id": chapter.user_id,  # type: ignore[attr-defined]
+        "chapter_number": chapter_number
+    }
 
-        await mongo_db.character_extractions.replace_one(
-            {"chapter_id": chapter_id},
-            {**meta, **character_extraction.model_dump()},
-            upsert=True
-        )
+    await mongo_db.character_extractions.replace_one(
+        {"chapter_id": chapter_id},
+        {**meta, **character_extraction.model_dump()},
+        upsert=True
+    )
 
-        await mongo_db.plot_extractions.replace_one(
-            {"chapter_id": chapter_id},
-            {**meta, **plot_extraction.model_dump()},
-            upsert=True
-        )
+    await mongo_db.plot_extractions.replace_one(
+        {"chapter_id": chapter_id},
+        {**meta, **plot_extraction.model_dump()},
+        upsert=True
+    )
 
-        await mongo_db.world_extractions.replace_one(
-            {"chapter_id": chapter_id},
-            {**meta, **world_extraction.model_dump()},
-            upsert=True
-        )
+    await mongo_db.world_extractions.replace_one(
+        {"chapter_id": chapter_id},
+        {**meta, **world_extraction.model_dump()},
+        upsert=True
+    )
 
-        await mongo_db.structure_extractions.replace_one(
-            {"chapter_id": chapter_id},
-            {**meta, **structure_extraction.model_dump()},
-            upsert=True
-        )
+    await mongo_db.structure_extractions.replace_one(
+        {"chapter_id": chapter_id},
+        {**meta, **structure_extraction.model_dump()},
+        upsert=True
+    )
 
-        await mongo_db.chapter_contexts.replace_one(
-            {"chapter_id": chapter_id},
-            {**meta, **context_synthesis.model_dump()},
-            upsert=True
-        )
-        
-        log.info("task.extractions_saved_mongo", chapter_id=chapter_id)
-        
-        # Save synthesized context to Postgres
-        chapter.condensed_context = context_synthesis.condensed_text
-        chapter.timeline_context = context_synthesis.timeline_context
-        chapter.emotional_arc = context_synthesis.emotional_arc
-        
-        # Update metadata
-        chapter.last_extracted_at = datetime.now(timezone.utc)
-        chapter.last_extracted_word_count = word_count
-        chapter.extraction_version = "2.0.0"
-        
-        await chapter.save(update_fields=[
-            'condensed_context', 'timeline_context', 'emotional_arc',
-            'last_extracted_at', 'last_extracted_word_count', 'extraction_version'
-        ])
-    finally:
-        await Tortoise.close_connections()
+    await mongo_db.chapter_contexts.replace_one(
+        {"chapter_id": chapter_id},
+        {**meta, **context_synthesis.model_dump()},
+        upsert=True
+    )
+    
+    log.info("task.extractions_saved_mongo", chapter_id=chapter_id)
+    
+    # Save synthesized context to Postgres
+    chapter.condensed_context = context_synthesis.condensed_text
+    chapter.timeline_context = context_synthesis.timeline_context
+    chapter.emotional_arc = context_synthesis.emotional_arc
+    
+    # Update metadata
+    chapter.last_extracted_at = datetime.now(timezone.utc)
+    chapter.last_extracted_word_count = word_count
+    chapter.extraction_version = "2.0.0"
+    
+    await chapter.save(update_fields=[
+        'condensed_context', 'timeline_context', 'emotional_arc',
+        'last_extracted_at', 'last_extracted_word_count', 'extraction_version'
+    ])
         
     log.info("task.extraction_checkpoint_saved", chapter_id=chapter_id, chapter_number=chapter_number)

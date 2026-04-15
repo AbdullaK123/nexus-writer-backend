@@ -1,4 +1,4 @@
-from redis import Redis
+from redis.asyncio import Redis
 from src.infrastructure.utils.retry import retry_redis
 from src.data.schemas.analytics import WritingSessionEvent
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
@@ -14,7 +14,7 @@ class SessionCacheService:
         self.redis = redis_client
 
     @retry_redis
-    def save(self, sid: str, data: dict) -> None:
+    async def save(self, sid: str, data: dict) -> None:
         redis_key = f"analytics_session:{sid}"
         serializable_data = {}
         for key, value in data.items():
@@ -22,13 +22,13 @@ class SessionCacheService:
                 serializable_data[key] = value.isoformat()
             else:
                 serializable_data[key] = value
-        self.redis.setex(redis_key, 3600, json.dumps(serializable_data))
+        await self.redis.setex(redis_key, 3600, json.dumps(serializable_data))
         log.debug("cache.session_saved", redis_key=redis_key)
 
     @retry_redis
-    def get(self, sid: str) -> dict | None:
+    async def get(self, sid: str) -> dict | None:
         redis_key = f"analytics_session:{sid}"
-        data = self.redis.get(redis_key)
+        data = await self.redis.get(redis_key)
         if data:
             log.debug("cache.session_retrieved", redis_key=redis_key)
             parsed_data = json.loads(data)  # type: ignore[arg-type]
@@ -39,8 +39,8 @@ class SessionCacheService:
         return None
 
     @retry_redis
-    def delete(self, sid: str) -> None:
+    async def delete(self, sid: str) -> None:
         redis_key = f"analytics_session:{sid}"
-        deleted = self.redis.delete(redis_key)
+        deleted = await self.redis.delete(redis_key)
         if deleted:
             log.debug("cache.session_deleted", redis_key=redis_key)

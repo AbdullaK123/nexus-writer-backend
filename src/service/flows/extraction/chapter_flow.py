@@ -24,16 +24,20 @@ from prefect.client.schemas.objects import StateType
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 
 log = get_layer_logger(LAYER_SERVICE)
-from src.infrastructure.config import settings, config
-from src.infrastructure.db.postgres import TORTOISE_ORM
-from src.infrastructure.db.mongodb import MongoDB
+from src.infrastructure.config import settings
 from src.data.models import Chapter
-from tortoise import Tortoise
 from src.data.models.ai.character import CharacterExtraction
 from src.data.models.ai.plot import PlotExtraction
 from src.data.models.ai.world import WorldExtraction
 from src.data.models.ai.structure import StructureExtraction
 from src.data.models.ai.context import CondensedChapterContext
+from src.data.schemas.jobs import (
+    JobType,
+    ExtractionEventData,
+    ChapterStartedData,
+    ExtractionCompleteData,
+)
+from src.service.flows.publisher import FlowPublisher, create_flow_pubsub
 from src.service.flows.extraction.tasks import (
     extract_characters_task,
     extract_plot_task,
@@ -189,12 +193,8 @@ async def _build_accumulated_context(
     if not previous_chapter_ids:
         return ""
 
-    await Tortoise.init(config=TORTOISE_ORM)
-    try:
-        previous_chapters_list = await Chapter.filter(id__in=previous_chapter_ids)
-        previous_chapters = {ch.id: ch for ch in previous_chapters_list}
-    finally:
-        await Tortoise.close_connections()
+    previous_chapters_list = await Chapter.filter(id__in=previous_chapter_ids)
+    previous_chapters = {ch.id: ch for ch in previous_chapters_list}
 
     contexts = []
     for i, ch_id in enumerate(previous_chapter_ids):
@@ -219,6 +219,7 @@ async def extract_single_chapter_flow(
     story_id: str,
     story_path_array: List[str],
     content: str,
+    user_id: str = "",
     use_lfm: bool = False,
 ) -> ChapterExtractionResult:
     """Extract context from a single chapter with checkpointing.
@@ -226,14 +227,25 @@ async def extract_single_chapter_flow(
     Individual extraction failures are tolerated — fallback empty models
     are substituted so the flow always produces a usable result.
     """
+    pubsub = create_flow_pubsub(settings.redis_url, ExtractionEventData)  # type: ignore
+    pub = FlowPublisher[ExtractionEventData](
+        pubsub=pubsub,
+        user_id=user_id,
+        story_id=story_id,
+        job_type=JobType.EXTRACTION,
+        total_steps=5,
+    )
+    await pub.flow_started(data=ChapterStartedData(chapter_id=chapter_id, chapter_number=chapter_number))
     
-    await MongoDB.connect(settings.mongodb_url)
-
     # 1. Wait for predecessor chapters to finish extracting
+    await pub.task_started("predecessor_wait", message="Waiting for predecessor extractions")
     await _wait_for_predecessor_extractions(story_id, chapter_number, story_path_array)
+    await pub.task_complete("predecessor_wait")
 
     # 2. Build accumulated context from predecessor results (after they're done)
+    await pub.task_started("build_context", message="Building accumulated context")
     accumulated_context = await _build_accumulated_context(chapter_number, story_path_array)
+    await pub.task_complete("build_context")
 
     log.info("extraction.started", chapter_number=chapter_number, chapter_id=chapter_id)
 
@@ -241,6 +253,7 @@ async def extract_single_chapter_flow(
 
     # Run all 4 extractions concurrently — gather instead of TaskGroup
     # so that one failure doesn't cancel the others
+    await pub.task_started("run_extractions", message="Running AI extractions")
     results = await asyncio.gather(
         extract_characters_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm, story_id=story_id),
         extract_plot_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm, story_id=story_id),
@@ -285,10 +298,13 @@ async def extract_single_chapter_flow(
             failed_count=len(failed_extractions),
             failed=failed_extractions,
         )
+        await pub.task_complete("run_extractions", message=f"Partial: {', '.join(failed_extractions)} failed")
     else:
         log.info("extraction.all_complete: synthesizing", chapter_number=chapter_number)
+        await pub.task_complete("run_extractions")
     
     # Synthesize into condensed context — with fallback
+    await pub.task_started("synthesize", message="Synthesizing context")
     try:
         synthesis_result = await synthesize_context_task(
             chapter_id=chapter_id,
@@ -301,6 +317,7 @@ async def extract_single_chapter_flow(
             structure_extraction=structure_result.model_dump(),
             use_lfm=use_lfm,
         )
+        await pub.task_complete("synthesize")
     except Exception as e:
         log.error("extraction.synthesis_failed: building fallback context", chapter_number=chapter_number, error=str(e))
         failed_extractions.append("synthesis")
@@ -313,8 +330,10 @@ async def extract_single_chapter_flow(
             world_result=world_result,
         )
         synthesis_result.chapter_id = chapter_id
+        await pub.task_complete("synthesize", message="Used fallback context")
     
     # CHECKPOINT: Always save — even partial results are better than nothing
+    await pub.task_started("save", message="Saving extraction results")
     await save_chapter_extraction_task(
         chapter_id=chapter_id,
         chapter_number=chapter_number,
@@ -325,6 +344,7 @@ async def extract_single_chapter_flow(
         context_synthesis=synthesis_result,
         word_count=word_count,
     )
+    await pub.task_complete("save")
     
     is_partial = len(failed_extractions) > 0
     if is_partial:
@@ -337,6 +357,13 @@ async def extract_single_chapter_flow(
     else:
         log.info("extraction.saved", chapter_number=chapter_number, chapter_id=chapter_id)
     
+    await pub.flow_complete(data=ExtractionCompleteData(
+        chapter_id=chapter_id,
+        chapter_number=chapter_number,
+        is_partial=is_partial,
+        failed_extractions=failed_extractions,
+    ))
+
     return ChapterExtractionResult(
         chapter_id=chapter_id,
         chapter_number=chapter_number,

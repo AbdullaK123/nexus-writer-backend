@@ -1,5 +1,5 @@
 from dependency_injector import containers, providers
-from redis import Redis, ConnectionPool
+from redis.asyncio import Redis, ConnectionPool
 
 from src.infrastructure.config import settings, config
 from src.infrastructure.db.mongodb import MongoDB
@@ -15,7 +15,7 @@ from src.service.auth.service import AuthService
 from src.service.target.service import TargetService
 from src.service.chapter.service import ChapterService
 from src.service.story.service import StoryService
-from src.service.jobs.service import JobService
+from src.service.jobs import JobEventService, JobService
 from src.service.analytics.service import AnalyticsService
 from src.service.analytics.session_cache import SessionCacheService
 from src.service.analysis.character import CharacterService
@@ -42,10 +42,10 @@ async def _init_tortoise():
     await Tortoise.close_connections()
 
 
-def _init_redis_pool():
+async def _init_redis_pool():
     pool = ConnectionPool.from_url(settings.redis_url)
     yield pool
-    pool.disconnect()
+    await pool.disconnect()
 
 
 # ── Container ────────────────────────────────────────────────────────────
@@ -101,6 +101,8 @@ class ApplicationContainer(containers.DeclarativeContainer):
     target_service = providers.Singleton(TargetService)
 
     job_service = providers.Singleton(JobService, mongodb=mongodb)
+
+    job_event_service = providers.Singleton(JobEventService, redis_url=settings.redis_url)
 
     chapter_service = providers.Singleton(
         ChapterService, mongodb=mongodb, job_service=job_service,

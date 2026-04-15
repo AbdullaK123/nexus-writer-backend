@@ -1,5 +1,5 @@
 """Redis client access — use the DI container instead of calling these directly."""
-from redis import Redis
+from redis.asyncio import Redis
 
 
 def get_redis() -> Redis:

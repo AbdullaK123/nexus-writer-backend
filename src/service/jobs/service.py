@@ -250,6 +250,7 @@ class JobService:
                 "story_context": accumulated_context or "",
                 "story_path_array": story.path_array,
                 "chapter_content": chapter.content,
+                "user_id": user_id,
                 "use_lfm": settings.use_lfm,
             },
             timeout=0,
@@ -284,6 +285,7 @@ class JobService:
         deleted_chapter_id: str,
         story_id: str,
         chapter_ids: List[str],
+        user_id: str = "",
     ) -> JobQueuedResponse:
         """Queue a reextraction job after chapter deletion"""
 
@@ -302,6 +304,7 @@ class JobService:
             parameters={
                 "story_id": story_id,
                 "chapter_ids": chapter_ids,
+                "user_id": user_id,
                 "use_lfm": settings.use_lfm,
             },
             timeout=0,
@@ -359,6 +362,7 @@ class JobService:
                 "story_id": story.id,
                 "story_path_array": story.path_array,
                 "content": html_to_plain_text(chapter.content),
+                "user_id": user_id,
                 "use_lfm": settings.use_lfm,
             },
             timeout=0,
