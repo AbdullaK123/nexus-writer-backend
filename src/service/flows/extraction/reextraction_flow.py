@@ -1,8 +1,8 @@
-from prefect import flow
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 
 log = get_layer_logger(LAYER_SERVICE)
-from src.service.flows.extraction.chapter_flow import extract_single_chapter_flow
+from src.service.flows.extraction.chapter_flow import _run_extraction
+from src.infrastructure.redis.job_registry import JobRegistry, RegistryStatus
 from typing import List
 from src.data.models import Chapter, Story
 from src.data.schemas.jobs import (
@@ -12,21 +12,27 @@ from src.data.schemas.jobs import (
     ReextractionCompleteData,
 )
 from src.infrastructure.config import settings
-from src.service.flows.publisher import FlowPublisher, create_flow_pubsub
+from src.service.flows.publisher import FlowPublisher
 from src.shared.utils.html import html_to_plain_text
 
 
-@flow(name="reextraction-flow")
-async def reextract_chapters_flow(story_id: str, chapter_ids: List[str], user_id: str = "", use_lfm: bool = False):
-    """Re-extract chapters in sequence after deletion, each with proper accumulated context"""
+async def _run_reextraction(
+    registry: JobRegistry,
+    job_run_id: str,
+    *,
+    story_id: str,
+    chapter_ids: List[str],
+    user_id: str = "",
+):
+    """Core reextraction logic — re-extract chapters in sequence after deletion."""
 
-    pubsub = create_flow_pubsub(settings.redis_url, ReextractionEventData)  # type: ignore
     pub = FlowPublisher[ReextractionEventData](
-        pubsub=pubsub,
+        redis_url=settings.redis_url,
         user_id=user_id,
         story_id=story_id,
         job_type=JobType.REEXTRACTION,
         total_steps=len(chapter_ids),
+        job_run_id=job_run_id,
     )
     try:
         await pub.flow_started()
@@ -55,8 +61,10 @@ async def reextract_chapters_flow(story_id: str, chapter_ids: List[str], user_id
             log.info("reextraction.processing_chapter", chapter_number=chapter_number, chapter_id=chapter_id, title=chapter.title)
             await pub.task_started(f"chapter_{chapter_number}", message=f"Extracting chapter {chapter_number}")
             
-            # Extract — predecessor wait + context building happen inside the flow
-            result = await extract_single_chapter_flow(
+            # Extract — predecessor wait + context building happen inside _run_extraction
+            result = await _run_extraction(
+                registry,
+                f"{job_run_id}:sub:{chapter.id}",
                 chapter_id=chapter.id,
                 chapter_number=chapter_number,
                 chapter_title=chapter.title,
@@ -65,7 +73,6 @@ async def reextract_chapters_flow(story_id: str, chapter_ids: List[str], user_id
                 story_path_array=story.path_array,
                 content=html_to_plain_text(chapter.content),
                 user_id=user_id,
-                use_lfm=use_lfm,
             )
             
             await pub.task_complete(
@@ -82,3 +89,16 @@ async def reextract_chapters_flow(story_id: str, chapter_ids: List[str], user_id
         await pub.flow_complete(data=ReextractionCompleteData(chapters_processed=len(chapter_ids)))
     finally:
         await pub.close()
+
+
+async def reextract_chapters(ctx: dict, **kwargs):
+    """arq job entry point — wraps _run_reextraction with registry status tracking."""
+    registry: JobRegistry = ctx["registry"]
+    job_id: str = ctx["job_id"]
+    await registry.set_status(job_id, RegistryStatus.RUNNING)
+    try:
+        await _run_reextraction(registry, job_id, **kwargs)
+        await registry.set_status(job_id, RegistryStatus.COMPLETE)
+    except Exception:
+        await registry.set_status(job_id, RegistryStatus.FAILED)
+        raise

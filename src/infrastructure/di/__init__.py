@@ -1,5 +1,0 @@
-"""Deprecated — use src.app.di instead."""
-from src.app.di.containers import ApplicationContainer
-from src.app.di import container
-
-__all__ = ["container", "ApplicationContainer"]

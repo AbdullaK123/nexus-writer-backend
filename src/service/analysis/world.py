@@ -189,7 +189,7 @@ FACT DENSITY BY CHAPTER:
 
         return WorldConsistencyReport(
             story_id=story_id,
-            report=extract_text(response),
+            report=extract_text(response.content),
         )
 
 

@@ -1,9 +1,7 @@
 from fastapi import APIRouter, Depends, Query
-from dependency_injector.wiring import inject, Provide
-from src.app.di.containers import ApplicationContainer
 from typing import Optional
 from src.service.target.service import TargetService
-from src.app.dependencies import get_current_user
+from src.app.dependencies import get_current_user, get_target_service
 from src.data.models import User, FrequencyType
 from src.data.schemas.target import TargetResponse, CreateTargetRequest, UpdateTargetRequest, TargetListResponse
 
@@ -12,12 +10,11 @@ router = APIRouter()
 
 
 @router.post("/", response_model=TargetResponse)
-@inject
 async def create_target(
     story_id: str,
     payload: CreateTargetRequest,
     current_user: User = Depends(get_current_user),
-    target_service: TargetService = Provide[ApplicationContainer.target_service]
+    target_service: TargetService = Depends(get_target_service)
 ) -> TargetResponse:
     return await target_service.create_target(
         story_id,
@@ -26,12 +23,11 @@ async def create_target(
     )
 
 @router.get("/")
-@inject
 async def get_targets(
     story_id: str,
     frequency: Optional[FrequencyType] = Query(default=None),
     current_user: User = Depends(get_current_user),
-    target_service: TargetService = Provide[ApplicationContainer.target_service]
+    target_service: TargetService = Depends(get_target_service)
 ):
     """
     Get targets for a story.
@@ -52,13 +48,12 @@ async def get_targets(
         return TargetListResponse(targets=targets)
 
 @router.put("/{target_id}", response_model=TargetResponse)
-@inject
 async def update_target(
     story_id: str,
     target_id: str,
     payload: UpdateTargetRequest,
     current_user: User = Depends(get_current_user),
-    target_service: TargetService = Provide[ApplicationContainer.target_service]
+    target_service: TargetService = Depends(get_target_service)
 ) -> TargetResponse:
     return await target_service.update_target(
         story_id,
@@ -68,12 +63,11 @@ async def update_target(
     )
 
 @router.delete("/{target_id}")
-@inject
 async def delete_target(
     story_id: str,
     target_id: str,
     current_user: User = Depends(get_current_user),
-    target_service: TargetService = Provide[ApplicationContainer.target_service]
+    target_service: TargetService = Depends(get_target_service)
 ) -> dict:
     return await target_service.delete_target(
         story_id,

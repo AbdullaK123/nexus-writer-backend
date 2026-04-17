@@ -1,6 +1,4 @@
 from typing import Optional, List
-from langchain.agents import create_agent
-from langchain.agents.structured_output import ToolStrategy
 from langchain.messages import SystemMessage, HumanMessage, AIMessage
 from src.service.ai.prompts.structure import (
     ANALYZER_SYSTEM_PROMPT,
@@ -26,10 +24,16 @@ from src.data.models.ai.structure import (
 )
 from src.infrastructure.config.settings import config
 from src.service.ai.utils.model_factory import create_chat_model
+from src.service.ai.utils.extractors import (
+    scenes_extractor,
+    pacing_extractor,
+    themes_extractor,
+    emotional_beats_extractor,
+)
 from langgraph.graph import StateGraph, END
 from langgraph.types import RetryPolicy
 from pydantic import BaseModel
-import time
+from src.shared.utils.decorators import timed_event
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 
 log = get_layer_logger(LAYER_SERVICE)
@@ -42,36 +46,6 @@ heavy_retry = RetryPolicy(
 
 model = create_chat_model(config.ai.model)
 
-# ── Per-component parser agents ──────────────────────────────
-
-scenes_parser_agent = create_agent(
-    model=model,
-    tools=[],
-    system_prompt=SCENES_PARSER_SYSTEM_PROMPT,
-    response_format=ToolStrategy(ScenesExtraction),
-)
-
-pacing_parser_agent = create_agent(
-    model=model,
-    tools=[],
-    system_prompt=PACING_PARSER_SYSTEM_PROMPT,
-    response_format=ToolStrategy(PacingExtraction),
-)
-
-themes_parser_agent = create_agent(
-    model=model,
-    tools=[],
-    system_prompt=THEMES_PARSER_SYSTEM_PROMPT,
-    response_format=ToolStrategy(ThemesExtraction),
-)
-
-emotional_beats_parser_agent = create_agent(
-    model=model,
-    tools=[],
-    system_prompt=EMOTIONAL_BEATS_PARSER_SYSTEM_PROMPT,
-    response_format=ToolStrategy(EmotionalBeatsExtraction),
-)
-
 
 # ── State ────────────────────────────────────────────────────
 
@@ -81,7 +55,6 @@ class StructureExtractionState(BaseModel):
     current_chapter_content: str
     chapter_number: int
     chapter_title: Optional[str] = None
-    use_lfm: bool = False
     extraction_plan: Optional[str] = None
     analysis: Optional[str] = None
     scenes_result: Optional[ScenesExtraction] = None
@@ -95,27 +68,19 @@ class StructureExtractionState(BaseModel):
 
 
 async def structure_planner_node(state: StructureExtractionState) -> dict:
-    log.debug("graph.structure.planner.start", chapter_number=state.chapter_number)
-    t0 = time.perf_counter()
-    try:
+    async with timed_event(log, "graph.structure.planner", chapter_number=state.chapter_number) as t:
         plan_result: AIMessage = await model.ainvoke([
             SystemMessage(content=STRUCTURE_PLANNER_SYSTEM_PROMPT),
             HumanMessage(content=build_structure_planner_prompt(
                 state.story_context, state.current_chapter_content, state.chapter_number
             ))
         ])
-    except Exception:
-        log.opt(exception=True).error("graph.structure.planner.error", chapter_number=state.chapter_number, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    log.debug("graph.structure.planner.done", chapter_number=state.chapter_number, elapsed_s=elapsed, tokens=getattr(plan_result, 'usage_metadata', None))
+        t.set(tokens=getattr(plan_result, 'usage_metadata', None))
     return {"extraction_plan": plan_result.content}
 
 
 async def structure_analyzer_node(state: StructureExtractionState) -> dict:
-    log.debug("graph.structure.analyzer.start", chapter_number=state.chapter_number)
-    t0 = time.perf_counter()
-    try:
+    async with timed_event(log, "graph.structure.analyzer", chapter_number=state.chapter_number) as t:
         analysis_result: AIMessage = await model.ainvoke([
             SystemMessage(content=ANALYZER_SYSTEM_PROMPT),
             HumanMessage(content=build_structure_analysis_prompt(
@@ -125,109 +90,38 @@ async def structure_analyzer_node(state: StructureExtractionState) -> dict:
                 chapter_title=state.chapter_title,
             ))
         ])
-    except Exception:
-        log.opt(exception=True).error("graph.structure.analyzer.error", chapter_number=state.chapter_number, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    log.debug("graph.structure.analyzer.done", chapter_number=state.chapter_number, elapsed_s=elapsed, tokens=getattr(analysis_result, 'usage_metadata', None))
+        t.set(tokens=getattr(analysis_result, 'usage_metadata', None))
     return {"analysis": analysis_result.content}
 
 
 async def scenes_parser_node(state: StructureExtractionState) -> dict:
     prompt = build_scenes_parser_prompt(state.analysis or "")
-    log.debug("graph.structure.parse_scenes.start", chapter_number=state.chapter_number, use_lfm=state.use_lfm)
-    t0 = time.perf_counter()
-    try:
-        if state.use_lfm:
-            from src.service.ai.utils.extractors import scenes_extractor
-            result = await scenes_extractor.extract(prompt)
-        else:
-            resp = await scenes_parser_agent.ainvoke({
-                "messages": [
-                    SystemMessage(content=SCENES_PARSER_SYSTEM_PROMPT),
-                    HumanMessage(content=prompt)
-                ]
-            })
-            result = resp["structured_response"]
-    except Exception:
-        log.opt(exception=True).error("graph.structure.parse_scenes.error", chapter_number=state.chapter_number, use_lfm=state.use_lfm, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    log.debug("graph.structure.parse_scenes.done", chapter_number=state.chapter_number, elapsed_s=elapsed, scenes_found=len(result.scenes) if result.scenes else 0)
+    async with timed_event(log, "graph.structure.parse_scenes", chapter_number=state.chapter_number) as t:
+        result = await scenes_extractor.extract(prompt)
+        t.set(scenes_found=len(result.scenes) if result.scenes else 0)
     return {"scenes_result": result}
 
 
 async def pacing_parser_node(state: StructureExtractionState) -> dict:
     prompt = build_pacing_parser_prompt(state.analysis or "")
-    log.debug("graph.structure.parse_pacing.start", chapter_number=state.chapter_number, use_lfm=state.use_lfm)
-    t0 = time.perf_counter()
-    try:
-        if state.use_lfm:
-            from src.service.ai.utils.extractors import pacing_extractor
-            result = await pacing_extractor.extract(prompt)
-        else:
-            resp = await pacing_parser_agent.ainvoke({
-                "messages": [
-                    SystemMessage(content=PACING_PARSER_SYSTEM_PROMPT),
-                    HumanMessage(content=prompt)
-                ]
-            })
-            result = resp["structured_response"]
-    except Exception:
-        log.opt(exception=True).error("graph.structure.parse_pacing.error", chapter_number=state.chapter_number, use_lfm=state.use_lfm, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    log.debug("graph.structure.parse_pacing.done", chapter_number=state.chapter_number, elapsed_s=elapsed)
+    async with timed_event(log, "graph.structure.parse_pacing", chapter_number=state.chapter_number):
+        result = await pacing_extractor.extract(prompt)
     return {"pacing_result": result}
 
 
 async def themes_parser_node(state: StructureExtractionState) -> dict:
     prompt = build_themes_parser_prompt(state.analysis or "")
-    log.debug("graph.structure.parse_themes.start", chapter_number=state.chapter_number, use_lfm=state.use_lfm)
-    t0 = time.perf_counter()
-    try:
-        if state.use_lfm:
-            from src.service.ai.utils.extractors import themes_extractor
-            result = await themes_extractor.extract(prompt)
-        else:
-            resp = await themes_parser_agent.ainvoke({
-                "messages": [
-                    SystemMessage(content=THEMES_PARSER_SYSTEM_PROMPT),
-                    HumanMessage(content=prompt)
-                ]
-            })
-            result = resp["structured_response"]
-    except Exception:
-        log.opt(exception=True).error("graph.structure.parse_themes.error", chapter_number=state.chapter_number, use_lfm=state.use_lfm, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    themes_count = len(result.themes) if result.themes else 0
-    log.debug("graph.structure.parse_themes.done", chapter_number=state.chapter_number, elapsed_s=elapsed, themes_found=themes_count)
+    async with timed_event(log, "graph.structure.parse_themes", chapter_number=state.chapter_number) as t:
+        result = await themes_extractor.extract(prompt)
+        t.set(themes_found=len(result.themes) if result.themes else 0)
     return {"themes_result": result}
 
 
 async def emotional_beats_parser_node(state: StructureExtractionState) -> dict:
     prompt = build_emotional_beats_parser_prompt(state.analysis or "")
-    log.debug("graph.structure.parse_emotional_beats.start", chapter_number=state.chapter_number, use_lfm=state.use_lfm)
-    t0 = time.perf_counter()
-    try:
-        if state.use_lfm:
-            from src.service.ai.utils.extractors import emotional_beats_extractor
-            result = await emotional_beats_extractor.extract(prompt)
-        else:
-            resp = await emotional_beats_parser_agent.ainvoke({
-                "messages": [
-                    SystemMessage(content=EMOTIONAL_BEATS_PARSER_SYSTEM_PROMPT),
-                    HumanMessage(content=prompt)
-                ]
-            })
-            result = resp["structured_response"]
-    except Exception:
-        log.opt(exception=True).error("graph.structure.parse_emotional_beats.error", chapter_number=state.chapter_number, use_lfm=state.use_lfm, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    beats_count = len(result.emotional_beats) if result.emotional_beats else 0
-    log.debug("graph.structure.parse_emotional_beats.done", chapter_number=state.chapter_number, elapsed_s=elapsed, beats_found=beats_count)
+    async with timed_event(log, "graph.structure.parse_emotional_beats", chapter_number=state.chapter_number) as t:
+        result = await emotional_beats_extractor.extract(prompt)
+        t.set(beats_found=len(result.emotional_beats) if result.emotional_beats else 0)
     return {"emotional_beats_result": result}
 
 
@@ -276,20 +170,15 @@ async def extract_story_structure(
     current_chapter_content: str,
     chapter_number: int,
     chapter_title: Optional[str] = None,
-    use_lfm: bool = False,
     story_id: str = "",
 ) -> StructureExtraction:
     with log.contextualize(story_id=story_id):
-        log.info("graph.structure.invoke", chapter_number=chapter_number, use_lfm=use_lfm)
-        t0 = time.perf_counter()
-        state = StructureExtractionState(
-            story_context=story_context,
-            current_chapter_content=current_chapter_content,
-            chapter_number=chapter_number,
-            chapter_title=chapter_title,
-            use_lfm=use_lfm,
-        )
-        result = await structure_app.ainvoke(state)  # type: ignore
-        elapsed = round(time.perf_counter() - t0, 2)
-        log.info("graph.structure.complete", chapter_number=chapter_number, elapsed_s=elapsed)
+        async with timed_event(log, "graph.structure", level="INFO", chapter_number=chapter_number):
+            state = StructureExtractionState(
+                story_context=story_context,
+                current_chapter_content=current_chapter_content,
+                chapter_number=chapter_number,
+                chapter_title=chapter_title,
+            )
+            result = await structure_app.ainvoke(state)  # type: ignore
         return result["result"]

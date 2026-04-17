@@ -1,21 +1,20 @@
 """
-Job service for managing background tasks via Prefect.
+Job service for managing background tasks via arq + JobRegistry.
 
 Handles:
 - Queuing new extraction and line edit jobs
 - Polling job status
+- Cancelling active jobs
 """
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List, cast
-from uuid import UUID
+from typing import Optional, List
+from uuid import uuid4
+
+from arq.connections import ArqRedis
+from arq.jobs import Job
 
 from src.service.exceptions import NotFoundError, ValidationError
-from prefect import get_client
-from prefect.client.schemas.objects import StateType, FlowRun
-from prefect.client.schemas.filters import FlowRunFilter, FlowRunFilterTags, FlowRunFilterState, FlowRunFilterStateType
-from prefect.client.orchestration import PrefectClient
-from prefect.states import Cancelled
-from prefect.deployments import run_deployment
+from src.infrastructure.redis.job_registry import JobRegistry, RegistryStatus
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 
 log = get_layer_logger(LAYER_SERVICE)
@@ -34,86 +33,63 @@ from src.shared.utils.html import html_to_plain_text
 from src.infrastructure.config import settings, config
 
 
-# Map Prefect states to our JobStatus enum
-STATE_TYPE_MAP = {
-    StateType.SCHEDULED: JobStatus.QUEUED,
-    StateType.PENDING: JobStatus.QUEUED,
-    StateType.RUNNING: JobStatus.PROGRESS,
-    StateType.COMPLETED: JobStatus.SUCCESS,
-    StateType.FAILED: JobStatus.FAILURE,
-    StateType.CANCELLED: JobStatus.FAILURE,
-    StateType.CANCELLING: JobStatus.PROGRESS,
-    StateType.CRASHED: JobStatus.FAILURE,
-    StateType.PAUSED: JobStatus.QUEUED,
+# Map registry statuses to our JobStatus enum
+_STATUS_MAP = {
+    RegistryStatus.QUEUED: JobStatus.QUEUED,
+    RegistryStatus.RUNNING: JobStatus.PROGRESS,
+    RegistryStatus.COMPLETE: JobStatus.SUCCESS,
+    RegistryStatus.FAILED: JobStatus.FAILURE,
+    RegistryStatus.CANCELLED: JobStatus.FAILURE,
 }
 
 
 class JobService:
     """Service for job management operations"""
 
-    def __init__(self, mongodb: AsyncDatabase):
+    def __init__(self, mongodb: AsyncDatabase, arq_pool: ArqRedis, registry: JobRegistry):
         self.mongodb = mongodb
-
-    async def _get_prefect_client(self) -> PrefectClient:
-        """Get Prefect client"""
-        return get_client()
+        self._arq_pool = arq_pool
+        self._registry = registry
 
     @log_errors
     async def get_job_status(self, job_id: str) -> JobStatusResponse:
-        """Get detailed status of a job by flow run ID"""
-        async with await self._get_prefect_client() as client:
-            try:
-                flow_run = await client.read_flow_run(UUID(job_id))
-            except Exception:
-                log.opt(exception=True).warning("job.status_lookup_failed", job_id=job_id)
-                return JobStatusResponse(
-                    job_id=job_id,
-                    status=JobStatus.PENDING,
-                    message="Job not found or expired",
-                )
-
-            # Map Prefect state to our status
-            state_type = flow_run.state.type if flow_run.state else StateType.PENDING
-            job_status = STATE_TYPE_MAP.get(state_type, JobStatus.PENDING)
-
-            response = JobStatusResponse(
+        """Get detailed status of a job by ID"""
+        meta = await self._registry.get_meta(job_id)
+        if not meta:
+            return JobStatusResponse(
                 job_id=job_id,
-                status=job_status,
-                queued_at=flow_run.created,
-                started_at=flow_run.start_time,
-                completed_at=flow_run.end_time,
+                status=JobStatus.PENDING,
+                message="Job not found or expired",
             )
 
-            # Handle different states
-            if state_type == StateType.RUNNING:
-                response.message = "Processing..."
+        status_str = meta.get("status", "queued")
+        try:
+            reg_status = RegistryStatus(status_str)
+        except ValueError:
+            reg_status = RegistryStatus.QUEUED
+        job_status = _STATUS_MAP.get(reg_status, JobStatus.PENDING)
 
-            elif state_type == StateType.COMPLETED:
-                response.message = "Task complete!"
-                # Try to get result
-                if flow_run.state:
-                    try:
-                        result = await flow_run.state.result(raise_on_failure=False)  # type: ignore[misc]
-                        if isinstance(result, dict):
-                            response.result = result
-                            if result.get("chapters_extracted"):
-                                count = result["chapters_extracted"]
-                                response.message = f"Successfully extracted {count} chapter{'s' if count != 1 else ''}!"
-                            elif result.get("edits_count"):
-                                count = result["edits_count"]
-                                response.message = f"Generated {count} line edit{'s' if count != 1 else ''}!"
-                    except Exception:
-                        log.opt(exception=True).warning("job.result_retrieval_failed", job_id=job_id)
+        response = JobStatusResponse(
+            job_id=job_id,
+            status=job_status,
+            queued_at=datetime.fromisoformat(meta["created_at"]) if meta.get("created_at") else None,
+            started_at=datetime.fromisoformat(meta["started_at"]) if meta.get("started_at") else None,
+            completed_at=datetime.fromisoformat(meta["completed_at"]) if meta.get("completed_at") else None,
+        )
 
-            elif state_type == StateType.FAILED:
-                response.message = "Task failed"
-                if flow_run.state and flow_run.state.message:
-                    response.error = flow_run.state.message
+        if reg_status == RegistryStatus.RUNNING:
+            response.message = "Processing..."
+        elif reg_status == RegistryStatus.COMPLETE:
+            response.message = "Task complete!"
+        elif reg_status == RegistryStatus.FAILED:
+            response.message = "Task failed"
+            response.error = meta.get("error")
+        elif reg_status == RegistryStatus.QUEUED:
+            response.message = "Task queued, waiting to start"
+        elif reg_status == RegistryStatus.CANCELLED:
+            response.message = "Task cancelled"
 
-            elif state_type in [StateType.SCHEDULED, StateType.PENDING]:
-                response.message = "Task queued, waiting to start"
-
-            return response
+        return response
         
     @log_errors
     async def cancel_all_jobs(
@@ -122,48 +98,35 @@ class JobService:
         story_id: Optional[str] = None,
         job_type: Optional[str] = None
     ) -> dict:
-        async with await self._get_prefect_client() as client:
+        if chapter_id is None and story_id is None:
+            log.info("job.cancel_skipped: no filters provided")
+            return {"jobs_cancelled": 0}
 
-            if chapter_id is None and story_id is None:
-                log.info("job.cancel_skipped: no filters provided")
-                return {
-                    "jobs_cancelled": 0
-                }
+        tag_filter = [f"story:{story_id}"] if story_id else [f"chapter:{chapter_id}"]
+        if job_type:
+            tag_filter.append(job_type)
 
-            if story_id:
-                tag_filter = [f"story:{story_id}"]
-            else: 
-                tag_filter = [f"chapter:{chapter_id}"]
+        active_jobs = await self._registry.find_by_tags(
+            tag_filter,
+            statuses=[RegistryStatus.QUEUED, RegistryStatus.RUNNING],
+        )
 
-            if job_type:
-                tag_filter.append(job_type)
+        cancelled = 0
+        for job_id in active_jobs:
+            try:
+                job = Job(job_id, self._arq_pool)
+                await job.abort()
+                await self._registry.set_status(job_id, RegistryStatus.CANCELLED)
+                cancelled += 1
+                log.info("job.cancelled", job_id=job_id, chapter_id=chapter_id, story_id=story_id)
+            except Exception as e:
+                log.warning("job.cancel_failed", job_id=job_id, error=str(e))
 
-            flow_runs = await client.read_flow_runs(
-                flow_run_filter=FlowRunFilter(
-                    tags=FlowRunFilterTags(all_=tag_filter),
-                    state=FlowRunFilterState(
-                        type=FlowRunFilterStateType(any_=[StateType.RUNNING, StateType.PENDING, StateType.SCHEDULED])
-                    )
-                )
-            )
-
-            cancelled = 0
-            for flow_run in flow_runs:
-                try:
-                    await client.set_flow_run_state(
-                        flow_run_id=flow_run.id,
-                        state=Cancelled(message=f"Flow cancelled by user for chapter {chapter_id} and story {story_id}")
-                    )
-                    cancelled += 1
-                    log.info("job.cancelled", flow_run_id=str(flow_run.id), chapter_id=chapter_id, story_id=story_id)
-                except Exception as e:
-                    log.warning("job.cancel_failed", flow_run_id=str(flow_run.id), error=str(e))
-
-            return {
-                "chapter_id": chapter_id,
-                "jobs_cancelled": cancelled,
-                "job_type": job_type if job_type else "line-edit, extraction, and reextraction"
-            }
+        return {
+            "chapter_id": chapter_id,
+            "jobs_cancelled": cancelled,
+            "job_type": job_type if job_type else "line-edit, extraction, and reextraction"
+        }
         
     @retry_mongo
     @log_errors
@@ -239,36 +202,33 @@ class JobService:
             Chapter.get_chapter_number(chapter.id, story.path_array)
         )
 
-        # Submit flow to Prefect deployment (runs on worker container)
-        flow_run = cast(FlowRun, await run_deployment(
-            name=config.prefect.line_edits_deployment,
-            parameters={
-                "story_id": story.id,
-                "chapter_id": chapter.id,
-                "chapter_number": chapter_number,
-                "chapter_title": chapter.title,
-                "story_context": accumulated_context or "",
-                "story_path_array": story.path_array,
-                "chapter_content": chapter.content,
-                "user_id": user_id,
-                "use_lfm": settings.use_lfm,
-            },
-            timeout=0,
-            tags=[f"chapter:{chapter_id}", f"story:{story.id}", "line-edits"]
-        ))
-        
-        flow_run_id = str(flow_run.id)
+        # Submit to arq (runs on worker container)
+        job_id = str(uuid4())
+        tags = [f"chapter:{chapter_id}", f"story:{story.id}", "line-edits"]
+        await self._registry.register(job_id, tags)
+        await self._arq_pool.enqueue_job(
+            "line_edits_job",
+            _job_id=job_id,
+            story_id=story.id,
+            chapter_id=chapter.id,
+            chapter_number=chapter_number,
+            chapter_title=chapter.title,
+            story_context=accumulated_context or "",
+            story_path_array=story.path_array,
+            chapter_content=chapter.content,
+            user_id=user_id,
+        )
 
         log.info(
             "job.line_edit_queued",
             chapter_number=chapter_number,
             chapter_title=chapter.title,
             chapter_id=chapter_id,
-            flow_run_id=flow_run_id,
+            job_id=job_id,
         )
 
         return JobQueuedResponse(
-            job_id=flow_run_id,
+            job_id=job_id,
             job_name=f"Line Edits - Chapter {chapter_number}: {chapter.title}",
             job_type=JobType.LINE_EDIT,
             started_at=datetime.now(timezone.utc),
@@ -299,23 +259,21 @@ class JobService:
                 story_id=story_id,
             )
 
-        flow_run = cast(FlowRun, await run_deployment(
-            name=config.prefect.reextraction_deployment,
-            parameters={
-                "story_id": story_id,
-                "chapter_ids": chapter_ids,
-                "user_id": user_id,
-                "use_lfm": settings.use_lfm,
-            },
-            timeout=0,
-            tags=[*[f"chapter:{chapter_id}" for chapter_id in chapter_ids], f"story:{story_id}", "reextraction"]
-        ))
-        flow_run_id = str(flow_run.id)
+        job_id = str(uuid4())
+        tags = [*[f"chapter:{cid}" for cid in chapter_ids], f"story:{story_id}", "reextraction"]
+        await self._registry.register(job_id, tags)
+        await self._arq_pool.enqueue_job(
+            "reextract_chapters",
+            _job_id=job_id,
+            story_id=story_id,
+            chapter_ids=chapter_ids,
+            user_id=user_id,
+        )
 
-        log.info("job.reextraction_queued", chapter_ids=chapter_ids, story_id=story_id, flow_run_id=flow_run_id)
+        log.info("job.reextraction_queued", chapter_ids=chapter_ids, story_id=story_id, job_id=job_id)
 
         return JobQueuedResponse(
-            job_id=flow_run_id,
+            job_id=job_id,
             job_name=f"Reextraction after chapter: {deleted_chapter_id} deletion",
             job_type=JobType.REEXTRACTION,
             started_at=datetime.now(timezone.utc)
@@ -350,37 +308,34 @@ class JobService:
 
         chapter_number = Chapter.get_chapter_number(chapter.id, story.path_array)
 
-        # Submit flow to Prefect deployment (runs on worker container)
-        # Predecessor waiting and context building happen inside the flow
-        flow_run = cast(FlowRun, await run_deployment(
-            name=config.prefect.extraction_deployment,
-            parameters={
-                "chapter_id": chapter.id,
-                "chapter_number": chapter_number,
-                "chapter_title": chapter.title,
-                "word_count": chapter.word_count,
-                "story_id": story.id,
-                "story_path_array": story.path_array,
-                "content": html_to_plain_text(chapter.content),
-                "user_id": user_id,
-                "use_lfm": settings.use_lfm,
-            },
-            timeout=0,
-            tags=[f"chapter:{chapter_id}", f"story:{story.id}", "extraction"]
-        ))
-        
-        flow_run_id = str(flow_run.id)
+        # Submit to arq (runs on worker container)
+        # Predecessor waiting and context building happen inside the job
+        job_id = str(uuid4())
+        tags = [f"chapter:{chapter_id}", f"story:{story.id}", "extraction"]
+        await self._registry.register(job_id, tags)
+        await self._arq_pool.enqueue_job(
+            "extract_single_chapter",
+            _job_id=job_id,
+            chapter_id=chapter.id,
+            chapter_number=chapter_number,
+            chapter_title=chapter.title,
+            word_count=chapter.word_count,
+            story_id=story.id,
+            story_path_array=story.path_array,
+            content=html_to_plain_text(chapter.content),
+            user_id=user_id,
+        )
 
         log.info(
             "job.extraction_queued",
             chapter_number=chapter_number,
             chapter_title=chapter.title,
             chapter_id=chapter_id,
-            flow_run_id=flow_run_id,
+            job_id=job_id,
         )
 
         return JobQueuedResponse(
-            job_id=flow_run_id,
+            job_id=job_id,
             job_name=f"Extraction - Chapter {chapter_number}: {chapter.title}",
             job_type=JobType.EXTRACTION,
             started_at=datetime.now(timezone.utc),

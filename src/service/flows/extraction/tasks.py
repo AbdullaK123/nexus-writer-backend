@@ -6,8 +6,7 @@ Each task:
 """
 import asyncio
 from typing import Optional
-from prefect import task
-from prefect.states import Failed
+
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 
 log = get_layer_logger(LAYER_SERVICE)
@@ -21,114 +20,80 @@ from src.data.models.ai.plot import PlotExtraction
 from src.data.models.ai.structure import StructureExtraction
 from src.data.models.ai.world import WorldExtraction
 from src.data.models.ai.context import CondensedChapterContext
-from src.infrastructure.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAY, EXTRACTION_TASK_TIMEOUT
+from src.infrastructure.config import config
 from datetime import datetime, timezone
 from src.data.models import Chapter
 from src.infrastructure.db.mongodb import MongoDB
 
 
-@task(
-    name="extract-characters",
-    retries=0,
-    timeout_seconds=EXTRACTION_TASK_TIMEOUT,
-)
 async def extract_characters_task(
     story_context: str,
     chapter_content: str,
     chapter_number: int,
     chapter_title: Optional[str] = None,
-    use_lfm: bool = False,
     story_id: str = "",
 ) -> CharacterExtraction:
     """Extract character information from chapter"""
     log.debug("task.character_extraction.start", chapter_number=chapter_number, story_id=story_id)
     result: CharacterExtraction = await extract_characters(
         story_context, chapter_content, chapter_number, chapter_title,
-        use_lfm=use_lfm,
         story_id=story_id,
     )
     log.debug("task.character_extraction_complete", chapter_number=chapter_number)
     return result
 
 
-@task(
-    name="extract-plot",
-    retries=0,
-    timeout_seconds=EXTRACTION_TASK_TIMEOUT,
-)
 async def extract_plot_task(
     story_context: str,
     chapter_content: str,
     chapter_number: int,
     chapter_title: Optional[str] = None,
-    use_lfm: bool = False,
     story_id: str = "",
 ) -> PlotExtraction:
     """Extract plot information from chapter"""
     log.debug("task.plot_extraction.start", chapter_number=chapter_number, story_id=story_id)
     result: PlotExtraction = await extract_plot_information(
         story_context, chapter_content, chapter_number, chapter_title,
-        use_lfm=use_lfm,
         story_id=story_id,
     )
     log.debug("task.plot_extraction_complete", chapter_number=chapter_number)
     return result
 
 
-@task(
-    name="extract-world",
-    retries=0,
-    timeout_seconds=EXTRACTION_TASK_TIMEOUT,
-)
 async def extract_world_task(
     story_context: str,
     chapter_content: str,
     chapter_number: int,
     chapter_title: Optional[str] = None,
-    use_lfm: bool = False,
     story_id: str = "",
 ) -> WorldExtraction:
     """Extract world/setting information from chapter"""
     log.debug("task.world_extraction.start", chapter_number=chapter_number, story_id=story_id)
     result: WorldExtraction = await extract_world_information(
         story_context, chapter_content, chapter_number, chapter_title,
-        use_lfm=use_lfm,
         story_id=story_id,
     )
     log.debug("task.world_extraction_complete", chapter_number=chapter_number)
     return result
 
 
-@task(
-    name="extract-structure",
-    retries=0,
-    timeout_seconds=EXTRACTION_TASK_TIMEOUT,
-)
 async def extract_structure_task(
     story_context: str,
     chapter_content: str,
     chapter_number: int,
     chapter_title: Optional[str] = None,
-    use_lfm: bool = False,
     story_id: str = "",
 ) -> StructureExtraction:
     """Extract narrative structure from chapter"""
     log.debug("task.structure_extraction.start", chapter_number=chapter_number, story_id=story_id)
     result: StructureExtraction = await extract_story_structure(
         story_context, chapter_content, chapter_number, chapter_title,
-        use_lfm=use_lfm,
         story_id=story_id,
     )
     log.debug("task.structure_extraction_complete", chapter_number=chapter_number)
     return result
 
 
-@task(
-    name="synthesize-context",
-    retries=DEFAULT_TASK_RETRIES,
-    retry_delay_seconds=DEFAULT_TASK_RETRY_DELAY,
-    timeout_seconds=EXTRACTION_TASK_TIMEOUT,
-)
 async def synthesize_context_task(
     chapter_id: str,
     chapter_number: int,
@@ -138,7 +103,6 @@ async def synthesize_context_task(
     plot_extraction: dict,
     world_extraction: dict,
     structure_extraction: dict,
-    use_lfm: bool = False,
 ) -> CondensedChapterContext:
     """Synthesize all extractions into condensed context"""
     # Convert dicts back to models for synthesis
@@ -150,17 +114,11 @@ async def synthesize_context_task(
     result: CondensedChapterContext = await synthesize_chapter_context(
         chapter_id, chapter_number, chapter_title, word_count,
         char_model, plot_model, world_model, struct_model,
-        use_lfm=use_lfm,
     )
     log.debug("task.context_synthesis_complete", chapter_number=chapter_number)
     return result
 
 
-@task(
-    name="save-chapter-extraction",
-    retries=2,
-    retry_delay_seconds=[5, 10],
-)
 async def save_chapter_extraction_task(
     chapter_id: str,
     chapter_number: int,

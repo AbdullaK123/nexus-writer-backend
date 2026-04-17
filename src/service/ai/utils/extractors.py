@@ -1,17 +1,14 @@
 """
-LFM-based parser extractors — alternatives to LangChain agents for the parser
-nodes in each LangGraph pipeline.
+Structured parser extractors for the parser nodes in each LangGraph pipeline.
 
 Each extractor is a module-level singleton that converts analysis text into a
-structured Pydantic model using the Liquid Foundation Model (LFM) via Ollama.
+structured Pydantic model.
 
-These are used when `use_lfm=True` is set on a pipeline's state, swapping
-only the parser/formatter step while keeping Gemini for planning and analysis.
+OpenAI extractors use Strict Mode (constrained decoding) via the OpenAI API,
+making malformed output impossible by construction.
 """
 
-from toon import encode
-
-from src.service.ai.utils.lfm_extractor import LFMExtractor
+from src.service.ai.utils.openai_extractor import OpenAIExtractor
 from src.data.models.ai.character import CharacterExtraction
 from src.data.models.ai.plot import (
     EventsExtraction,
@@ -104,20 +101,20 @@ _EDITS_PROMPT = (
 
 # ── Extractor Singletons ─────────────────────────────────────
 
-character_extractor = LFMExtractor(model=CharacterExtraction, system_prompt=_CHARACTER_PROMPT)
+character_extractor = OpenAIExtractor(model=CharacterExtraction, system_prompt=_CHARACTER_PROMPT)
 
-events_extractor = LFMExtractor(model=EventsExtraction, system_prompt=_EVENTS_PROMPT)
-threads_extractor = LFMExtractor(model=ThreadsExtraction, system_prompt=_THREADS_PROMPT)
-setups_payoffs_extractor = LFMExtractor(model=SetupsPayoffsExtraction, system_prompt=_SETUPS_PAYOFFS_PROMPT)
-questions_contrivances_extractor = LFMExtractor(model=QuestionsContrivancesExtraction, system_prompt=_QUESTIONS_CONTRIVANCES_PROMPT)
+events_extractor = OpenAIExtractor(model=EventsExtraction, system_prompt=_EVENTS_PROMPT)
+threads_extractor = OpenAIExtractor(model=ThreadsExtraction, system_prompt=_THREADS_PROMPT)
+setups_payoffs_extractor = OpenAIExtractor(model=SetupsPayoffsExtraction, system_prompt=_SETUPS_PAYOFFS_PROMPT)
+questions_contrivances_extractor = OpenAIExtractor(model=QuestionsContrivancesExtraction, system_prompt=_QUESTIONS_CONTRIVANCES_PROMPT)
 
-world_extractor = LFMExtractor(model=WorldExtraction, system_prompt=_WORLD_PROMPT)
+world_extractor = OpenAIExtractor(model=WorldExtraction, system_prompt=_WORLD_PROMPT)
 
-scenes_extractor = LFMExtractor(model=ScenesExtraction, system_prompt=_SCENES_PROMPT)
-pacing_extractor = LFMExtractor(model=PacingExtraction, system_prompt=_PACING_PROMPT)
-themes_extractor = LFMExtractor(model=ThemesExtraction, system_prompt=_THEMES_PROMPT)
-emotional_beats_extractor = LFMExtractor(model=EmotionalBeatsExtraction, system_prompt=_EMOTIONAL_BEATS_PROMPT)
+scenes_extractor = OpenAIExtractor(model=ScenesExtraction, system_prompt=_SCENES_PROMPT)
+pacing_extractor = OpenAIExtractor(model=PacingExtraction, system_prompt=_PACING_PROMPT)
+themes_extractor = OpenAIExtractor(model=ThemesExtraction, system_prompt=_THEMES_PROMPT)
+emotional_beats_extractor = OpenAIExtractor(model=EmotionalBeatsExtraction, system_prompt=_EMOTIONAL_BEATS_PROMPT)
 
-context_extractor = LFMExtractor(model=CondensedChapterContext, system_prompt=_CONTEXT_PROMPT)
+context_extractor = OpenAIExtractor(model=CondensedChapterContext, system_prompt=_CONTEXT_PROMPT)
 
-edits_extractor = LFMExtractor(model=ChapterEdit, system_prompt=_EDITS_PROMPT)
+edits_extractor = OpenAIExtractor(model=ChapterEdit, system_prompt=_EDITS_PROMPT)

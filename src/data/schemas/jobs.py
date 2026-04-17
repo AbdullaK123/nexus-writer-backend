@@ -79,7 +79,7 @@ ExtractionEventData = ChapterStartedData | ExtractionCompleteData | ExtractionCo
 ReextractionEventData = ChapterStartedData | ReextractionProgressData | ReextractionCompleteData
 
 
-class FlowEvent(Generic[T], BaseModel):
+class FlowEvent(BaseModel, Generic[T]):
     job_run_id: str
     user_id: str
     story_id: str

@@ -1,9 +1,9 @@
 """
-Line edits flow for generating prose improvements.
+Line edits job for generating prose improvements.
 """
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
-from prefect import flow, get_client, task
+
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 
 log = get_layer_logger(LAYER_SERVICE)
@@ -16,32 +16,24 @@ from src.data.schemas.jobs import (
     EditsGeneratedData,
     LineEditsCompleteData,
 )
-from src.infrastructure.config.prefect import DEFAULT_TASK_RETRIES, DEFAULT_TASK_RETRY_DELAY, EXTRACTION_TASK_TIMEOUT
 from src.infrastructure.config import settings, config
 from src.infrastructure.db.mongodb import MongoDB
-from src.service.flows.publisher import FlowPublisher, create_flow_pubsub
-from prefect import flow, get_client
-from prefect.client.schemas.filters import (
-    FlowRunFilter,
-    FlowRunFilterTags,
-    FlowRunFilterState,
-    FlowRunFilterStateType,
-)
-from prefect.client.schemas.objects import StateType
+from src.infrastructure.redis.job_registry import JobRegistry, RegistryStatus
+from src.service.flows.publisher import FlowPublisher
 import asyncio
 
 async def _wait_for_predecessor_extractions(
+    registry: JobRegistry,
     story_id: str,
     chapter_number: int,
     story_path_array: List[str],
     pub: FlowPublisher,
-    poll_interval: int = config.prefect.predecessor_poll_interval,
-    max_wait: int = config.prefect.predecessor_max_wait,
+    poll_interval: int = config.worker.predecessor_poll_interval,
+    max_wait: int = config.worker.predecessor_max_wait,
 ) -> None:
     """Poll until all predecessor chapter extractions finish.
-    
-    This runs INSIDE the flow (not in the API server), so all sibling
-    flow runs are already registered in Prefect and visible.
+
+    Uses JobRegistry tag-based filtering instead of Prefect API.
     """
     if chapter_number <= 1:
         return
@@ -53,23 +45,15 @@ async def _wait_for_predecessor_extractions(
     await pub.task_started("predecessor_wait", message="Waiting for predecessor extractions")
     elapsed = 0
     while elapsed < max_wait:
-        async with get_client() as client:
-            flow_runs = await client.read_flow_runs(
-                flow_run_filter=FlowRunFilter(
-                    tags=FlowRunFilterTags(all_=["extraction", f"story:{story_id}"]),
-                    state=FlowRunFilterState(
-                        type=FlowRunFilterStateType(any_=[
-                            StateType.RUNNING,
-                            StateType.PENDING,
-                            StateType.SCHEDULED,
-                        ])
-                    )
-                )
-            )
+        active_jobs = await registry.find_by_tags(
+            ["extraction", f"story:{story_id}"],
+            statuses=[RegistryStatus.QUEUED, RegistryStatus.RUNNING],
+        )
 
         blocking: List[str] = []
-        for fr in flow_runs:
-            for tag in fr.tags:
+        for job_id in active_jobs:
+            tags = await registry.get_tags(job_id)
+            for tag in tags:
                 if tag.startswith("chapter:"):
                     ch_id = tag.split(":", 1)[1]
                     if ch_id in predecessor_ids:
@@ -102,18 +86,11 @@ async def _wait_for_predecessor_extractions(
 
 
 
-@task(
-    name="generate-line-edits",
-    retries=DEFAULT_TASK_RETRIES,
-    retry_delay_seconds=DEFAULT_TASK_RETRY_DELAY,
-    timeout_seconds=EXTRACTION_TASK_TIMEOUT,
-)
 async def generate_line_edits_task(
     story_context: str,
     chapter_content: str,
     chapter_number: int,
     chapter_title: Optional[str] = None,
-    use_lfm: bool = False,
     story_id: str = "",
 ) -> ChapterEdit:
     """Generate line edits for chapter"""
@@ -123,16 +100,10 @@ async def generate_line_edits_task(
         chapter_content, 
         chapter_number, 
         chapter_title,
-        use_lfm=use_lfm,
         story_id=story_id,
     )
 
 
-@task(
-    name="save-line-edits",
-    retries=2,
-    retry_delay_seconds=[5, 10],
-)
 async def save_line_edits_task(
     chapter_id: str,
     story_id: str,
@@ -161,14 +132,10 @@ async def save_line_edits_task(
     log.info("task.line_edits_saved", chapter_id=chapter_id, edit_count=len(line_edits.edits))
 
 
-@flow(
-    name="line-edits",
-    retries=1,
-    retry_delay_seconds=15,
-    timeout_seconds=EXTRACTION_TASK_TIMEOUT,
-    persist_result=True,
-)
-async def line_edits_flow(
+async def _run_line_edits(
+    registry: JobRegistry,
+    job_run_id: str,
+    *,
     story_id: str,
     chapter_id: str,
     chapter_number: int,
@@ -177,22 +144,22 @@ async def line_edits_flow(
     story_path_array: List[str],
     chapter_content: str,
     user_id: str = "",
-    use_lfm: bool = False,
 ) -> Dict[str, Any]:
-    """Generate line edits for a chapter."""
-    pubsub = create_flow_pubsub(settings.redis_url, LineEditsEventData) #type: ignore
+    """Core line edits logic."""
     pub = FlowPublisher[LineEditsEventData](
-        pubsub=pubsub,
+        redis_url=settings.redis_url,
         user_id=user_id,
         story_id=story_id,
         job_type=JobType.LINE_EDIT,
         total_steps=3,
+        job_run_id=job_run_id,
     )
     try:
         await pub.flow_started(data=ChapterStartedData(chapter_id=chapter_id, chapter_number=chapter_number))
 
         # Step 1: Wait for predecessor extractions
         await _wait_for_predecessor_extractions(
+            registry,
             story_id, 
             chapter_number,
             story_path_array,
@@ -209,7 +176,6 @@ async def line_edits_flow(
                 chapter_content=chapter_content,
                 chapter_number=chapter_number,
                 chapter_title=chapter_title,
-                use_lfm=use_lfm,
                 story_id=story_id,
             )
             await pub.task_complete("generate_line_edits", data=EditsGeneratedData(edits_count=len(edits.edits)))
@@ -256,3 +222,17 @@ async def line_edits_flow(
         return result
     finally:
         await pub.close()
+
+
+async def line_edits_job(ctx: dict, **kwargs) -> Dict[str, Any]:
+    """arq job entry point — wraps _run_line_edits with registry status tracking."""
+    registry: JobRegistry = ctx["registry"]
+    job_id: str = ctx["job_id"]
+    await registry.set_status(job_id, RegistryStatus.RUNNING)
+    try:
+        result = await _run_line_edits(registry, job_id, **kwargs)
+        await registry.set_status(job_id, RegistryStatus.COMPLETE)
+        return result
+    except Exception:
+        await registry.set_status(job_id, RegistryStatus.FAILED)
+        raise

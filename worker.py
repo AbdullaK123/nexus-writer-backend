@@ -1,16 +1,23 @@
 """
-Prefect worker entry point for running flows in a separate container.
+arq worker entry point for running background jobs in a separate container.
 
-This worker processes flow runs from the Prefect server/cloud.
+This worker processes jobs enqueued via the arq Redis queue.
 It should be run in a dedicated container separate from the API server.
 """
-import asyncio
-from prefect import aserve
-from src.shared.utils.logging_context import get_layer_logger, LAYER_APP
+from arq import func
+from arq.connections import RedisSettings
+from tortoise import Tortoise
+
+from src.infrastructure.config import settings, config
 from src.infrastructure.config.logging import setup_logging
-from src.service.flows.containers import FlowContainer
-from src.service.flows.extraction import extract_single_chapter_flow, reextract_chapters_flow
-from src.service.flows.line_edits import line_edits_flow
+from src.infrastructure.db.mongodb import MongoDB
+from src.infrastructure.db.postgres import TORTOISE_ORM
+from src.infrastructure.redis.job_registry import JobRegistry
+from src.shared.utils.logging_context import get_layer_logger, LAYER_APP
+from src.service.flows.extraction.chapter_flow import extract_single_chapter
+from src.service.flows.extraction.reextraction_flow import reextract_chapters
+from src.service.flows.line_edits.flow import line_edits_job
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,38 +25,31 @@ setup_logging()
 
 log = get_layer_logger(LAYER_APP)
 
-flow_container = FlowContainer()
 
-
-async def main():
-    """Start the Prefect worker serving all flows."""
+async def startup(ctx: dict) -> None:
+    """Initialise Tortoise, MongoDB, and JobRegistry before processing jobs."""
     log.info("worker.starting")
-
-    await flow_container.init_resources()  # type: ignore[misc]
+    await Tortoise.init(config=TORTOISE_ORM)
+    await MongoDB.connect(settings.mongodb_url, config.mongo.database_name)
+    ctx["registry"] = JobRegistry(ctx["redis"])
     log.info("worker.infra_ready")
 
-    log.info("worker.registering_flows", flows=["extract_single_chapter", "line_edits"])
-    
-    # Serve all flows - this makes them available for execution
-    # The worker will poll for flow runs and execute them
-    try:
-        await aserve(
-            await extract_single_chapter_flow.to_deployment(
-                name="chapter-extraction-deployment", 
-                tags=["extraction", "chapter"],
-            ),
-            await line_edits_flow.to_deployment(
-                name="line-edits-deployment",
-                tags=["line-edits"],
-            ),
-            await reextract_chapters_flow.to_deployment(
-                name="chapter-reextraction-deployment",
-                tags=["reextraction", "extraction", "chapters"]
-            )
-        )
-    finally:
-        await flow_container.shutdown_resources()  # type: ignore[misc]
+
+async def shutdown(ctx: dict) -> None:
+    """Tear down infrastructure on worker shutdown."""
+    log.info("worker.shutting_down")
+    await MongoDB.close()
+    await Tortoise.close_connections()
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+class WorkerSettings:
+    redis_settings = RedisSettings.from_dsn(settings.redis_broker_url)
+    on_startup = startup
+    on_shutdown = shutdown
+    functions = [
+        func(extract_single_chapter, name="extract_single_chapter", timeout=config.worker.chapter_flow_timeout),
+        func(line_edits_job, name="line_edits_job", timeout=config.worker.extraction_task_timeout),
+        func(reextract_chapters, name="reextract_chapters", timeout=config.worker.chapter_flow_timeout * 10),
+    ]
+    max_jobs = config.worker.max_jobs
+    allow_abort_jobs = True

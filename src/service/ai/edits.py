@@ -1,6 +1,4 @@
 from typing import Annotated, Dict, List, Optional
-from langchain.agents import create_agent
-from langchain.agents.structured_output import ToolStrategy
 from langchain.messages import SystemMessage, HumanMessage, AIMessage
 from src.service.ai.prompts.edits import (
     PARSER_SYSTEM_PROMPT, 
@@ -15,12 +13,13 @@ from src.service.ai.prompts.edits import (
 from src.data.models.ai.edits import ChapterEdit, LineEdit
 from src.infrastructure.config.settings import config
 from src.service.ai.utils.model_factory import create_chat_model
+from src.service.ai.utils.extractors import edits_extractor
 from langgraph.graph import StateGraph, END
 from langgraph.types import RetryPolicy
 from pydantic import BaseModel
 from src.shared.utils.html import html_to_paragraphs
 from src.service.ai.utils.ai import extract_text
-import time
+from src.shared.utils.decorators import timed_event
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 
 log = get_layer_logger(LAYER_SERVICE)
@@ -36,19 +35,11 @@ heavy_retry = RetryPolicy(
 
 model = create_chat_model(config.ai.lite_model)
 
-parser_agent = create_agent(
-    model=model,
-    tools=[],
-    system_prompt=PARSER_SYSTEM_PROMPT,
-    response_format=ToolStrategy(ChapterEdit),
-)
-
 class EditorState(BaseModel):
     story_context: str
     current_chapter_content: str
     chapter_number: int
     chapter_title: Optional[str] = None
-    use_lfm: bool = False
     editor_plan: Optional[str] = None
     current_edits: Optional[str] = None
     paragraphs: Optional[List[str]] = None
@@ -56,18 +47,12 @@ class EditorState(BaseModel):
 
 
 async def generate_edit_plan_node(state: EditorState) -> dict:
-    log.debug("graph.edits.plan.start", chapter_number=state.chapter_number)
-    t0 = time.perf_counter()
-    try:
+    async with timed_event(log, "graph.edits.plan", chapter_number=state.chapter_number) as t:
         editor_plan_result: AIMessage = await model.ainvoke([
             SystemMessage(content=CRITIC_SYSTEM_PROMPT),
             HumanMessage(content=build_critic_user_prompt(state.story_context, state.current_chapter_content))
         ])
-    except Exception:
-        log.opt(exception=True).error("graph.edits.plan.error", chapter_number=state.chapter_number, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    log.debug("graph.edits.plan.done", chapter_number=state.chapter_number, elapsed_s=elapsed, tokens=getattr(editor_plan_result, 'usage_metadata', None))
+        t.set(tokens=getattr(editor_plan_result, 'usage_metadata', None))
     return {
         "editor_plan": extract_text(editor_plan_result.content),
         "paragraphs": html_to_paragraphs(state.current_chapter_content)
@@ -75,10 +60,7 @@ async def generate_edit_plan_node(state: EditorState) -> dict:
 
 
 async def generate_line_edits_node(state: EditorState) -> dict:
-    log.debug("graph.edits.generate.start", chapter_number=state.chapter_number)
-    t0 = time.perf_counter()
-    
-    try:
+    async with timed_event(log, "graph.edits.generate", chapter_number=state.chapter_number) as t:
         current_edits_result: AIMessage = await model.ainvoke([
             SystemMessage(content=GENERATE_SYSTEM_PROMPT),
             HumanMessage(
@@ -90,21 +72,13 @@ async def generate_line_edits_node(state: EditorState) -> dict:
                 )
             )
         ])
-    except Exception:
-        log.opt(exception=True).error("graph.edits.generate.error", chapter_number=state.chapter_number, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    log.debug("graph.edits.generate.done", chapter_number=state.chapter_number, elapsed_s=elapsed, tokens=getattr(current_edits_result, 'usage_metadata', None))
-
+        t.set(tokens=getattr(current_edits_result, 'usage_metadata', None))
     return {
         "current_edits": extract_text(current_edits_result.content)
     }
 
 async def review_line_edits_node(state: EditorState) -> dict:
-    log.debug("graph.edits.review.start", chapter_number=state.chapter_number)
-    t0 = time.perf_counter()
-    
-    try:
+    async with timed_event(log, "graph.edits.review", chapter_number=state.chapter_number) as t:
         revised_edits_result = await model.ainvoke([
             SystemMessage(content=REVIEW_SYSTEM_PROMPT),
             HumanMessage(
@@ -117,12 +91,7 @@ async def review_line_edits_node(state: EditorState) -> dict:
                 )
             )
         ])
-    except Exception:
-        log.opt(exception=True).error("graph.edits.review.error", chapter_number=state.chapter_number, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    log.debug("graph.edits.review.done", chapter_number=state.chapter_number, elapsed_s=elapsed, tokens=getattr(revised_edits_result, 'usage_metadata', None))
-
+        t.set(tokens=getattr(revised_edits_result, 'usage_metadata', None))
     return {
         "current_edits": extract_text(revised_edits_result.content)
     }
@@ -132,28 +101,9 @@ async def generate_edit_model_node(state: EditorState) -> dict:
         state.current_edits if state.current_edits else "",
         state.paragraphs if state.paragraphs else []
     )
-    log.debug("graph.edits.parse.start", chapter_number=state.chapter_number, use_lfm=state.use_lfm)
-    t0 = time.perf_counter()
-    try:
-        if state.use_lfm:
-            from src.service.ai.utils.extractors import edits_extractor
-            structured = await edits_extractor.extract(prompt)
-        else:
-            result = await parser_agent.ainvoke(
-                {
-                    "messages": [
-                        SystemMessage(content=PARSER_SYSTEM_PROMPT),
-                        HumanMessage(content=prompt)
-                    ]
-                }
-            )
-            structured = result["structured_response"]
-    except Exception:
-        log.opt(exception=True).error("graph.edits.parse.error", chapter_number=state.chapter_number, use_lfm=state.use_lfm, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    edit_count = len(structured.edits) if structured.edits else 0
-    log.debug("graph.edits.parse.done", chapter_number=state.chapter_number, elapsed_s=elapsed, edits_parsed=edit_count)
+    async with timed_event(log, "graph.edits.parse", chapter_number=state.chapter_number) as t:
+        structured = await edits_extractor.extract(prompt)
+        t.set(edits_parsed=len(structured.edits) if structured.edits else 0)
     return {
         "edits": structured.edits
     }
@@ -177,23 +127,18 @@ async def generate_line_edits(
     current_chapter_content: str,
     chapter_number: int,
     chapter_title: Optional[str] = None,
-    use_lfm: bool = False,
     story_id: str = "",
 ) -> ChapterEdit:
     with log.contextualize(story_id=story_id):
-        log.info("graph.edits.invoke", chapter_number=chapter_number, use_lfm=use_lfm)
-        t0 = time.perf_counter()
-        state = EditorState(
-            story_context=story_context,
-            current_chapter_content=current_chapter_content,
-            chapter_number=chapter_number,
-            chapter_title=chapter_title,
-            use_lfm=use_lfm,
-        )
-        result = await app.ainvoke(state) # type: ignore
-        edits = result["edits"]
-        elapsed = round(time.perf_counter() - t0, 2)
-        edit_count = len(edits) if edits else 0
-        log.info("graph.edits.complete", chapter_number=chapter_number, elapsed_s=elapsed, edits_generated=edit_count)
+        async with timed_event(log, "graph.edits", level="INFO", chapter_number=chapter_number) as t:
+            state = EditorState(
+                story_context=story_context,
+                current_chapter_content=current_chapter_content,
+                chapter_number=chapter_number,
+                chapter_title=chapter_title,
+            )
+            result = await app.ainvoke(state) # type: ignore
+            edits = result["edits"]
+            t.set(edits_generated=len(edits) if edits else 0)
         return ChapterEdit(edits=edits)
     

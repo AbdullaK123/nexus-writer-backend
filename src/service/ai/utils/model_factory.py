@@ -10,7 +10,7 @@ log = get_layer_logger(LAYER_SERVICE)
 def create_chat_model(model_string: str) -> BaseChatModel:
     """Create a LangChain chat model from a 'provider/model-name' string.
 
-    Supported providers: google, openai, anthropic, ollama.
+    Supported providers: google, openai, anthropic.
     """
     provider, _, model_name = model_string.partition("/")
     if not model_name:
@@ -29,7 +29,12 @@ def create_chat_model(model_string: str) -> BaseChatModel:
 
     if provider == "google":
         from langchain_google_genai import ChatGoogleGenerativeAI
-        return ChatGoogleGenerativeAI(model=model_name, **shared)
+        from src.infrastructure.config.settings import settings
+        return ChatGoogleGenerativeAI(
+            model=model_name,
+            google_api_key=settings.gemini_api_key,
+            **shared,
+        )
 
     if provider == "openai":
         from langchain_openai import ChatOpenAI
@@ -39,8 +44,4 @@ def create_chat_model(model_string: str) -> BaseChatModel:
         from langchain_anthropic import ChatAnthropic
         return ChatAnthropic(model_name=model_name, **shared)
 
-    if provider == "ollama":
-        from langchain_ollama import ChatOllama
-        return ChatOllama(model=model_name, **shared)
-
-    raise ValueError(f"Unknown provider '{provider}'. Supported: google, openai, anthropic, ollama")
+    raise ValueError(f"Unknown provider '{provider}'. Supported: google, openai, anthropic")

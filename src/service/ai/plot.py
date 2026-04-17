@@ -1,6 +1,4 @@
 from typing import Optional, List
-from langchain.agents import create_agent
-from langchain.agents.structured_output import ToolStrategy
 from langchain.messages import SystemMessage, HumanMessage, AIMessage
 from src.service.ai.prompts.plot import (
     ANALYZER_SYSTEM_PROMPT,
@@ -26,10 +24,16 @@ from src.data.models.ai.plot import (
 )
 from src.infrastructure.config.settings import config
 from src.service.ai.utils.model_factory import create_chat_model
+from src.service.ai.utils.extractors import (
+    events_extractor,
+    threads_extractor,
+    setups_payoffs_extractor,
+    questions_contrivances_extractor,
+)
 from langgraph.graph import StateGraph, END
 from langgraph.types import RetryPolicy
 from pydantic import BaseModel
-import time
+from src.shared.utils.decorators import timed_event
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 
 log = get_layer_logger(LAYER_SERVICE)
@@ -42,36 +46,6 @@ heavy_retry = RetryPolicy(
 
 model = create_chat_model(config.ai.model)
 
-# ── Per-component parser agents ──────────────────────────────
-
-events_parser_agent = create_agent(
-    model=model,
-    tools=[],
-    system_prompt=EVENTS_PARSER_SYSTEM_PROMPT,
-    response_format=ToolStrategy(EventsExtraction),
-)
-
-threads_parser_agent = create_agent(
-    model=model,
-    tools=[],
-    system_prompt=THREADS_PARSER_SYSTEM_PROMPT,
-    response_format=ToolStrategy(ThreadsExtraction),
-)
-
-setups_payoffs_parser_agent = create_agent(
-    model=model,
-    tools=[],
-    system_prompt=SETUPS_PAYOFFS_PARSER_SYSTEM_PROMPT,
-    response_format=ToolStrategy(SetupsPayoffsExtraction),
-)
-
-questions_contrivances_parser_agent = create_agent(
-    model=model,
-    tools=[],
-    system_prompt=QUESTIONS_CONTRIVANCES_PARSER_SYSTEM_PROMPT,
-    response_format=ToolStrategy(QuestionsContrivancesExtraction),
-)
-
 
 # ── State ────────────────────────────────────────────────────
 
@@ -81,7 +55,6 @@ class PlotExtractionState(BaseModel):
     current_chapter_content: str
     chapter_number: int
     chapter_title: Optional[str] = None
-    use_lfm: bool = False
     extraction_plan: Optional[str] = None
     analysis: Optional[str] = None
     events_result: Optional[EventsExtraction] = None
@@ -95,27 +68,19 @@ class PlotExtractionState(BaseModel):
 
 
 async def plot_planner_node(state: PlotExtractionState) -> dict:
-    log.debug("graph.plot.planner.start", chapter_number=state.chapter_number)
-    t0 = time.perf_counter()
-    try:
+    async with timed_event(log, "graph.plot.planner", chapter_number=state.chapter_number) as t:
         plan_result: AIMessage = await model.ainvoke([
             SystemMessage(content=PLOT_PLANNER_SYSTEM_PROMPT),
             HumanMessage(content=build_plot_planner_prompt(
                 state.story_context, state.current_chapter_content, state.chapter_number
             ))
         ])
-    except Exception:
-        log.opt(exception=True).error("graph.plot.planner.error", chapter_number=state.chapter_number, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    log.debug("graph.plot.planner.done", chapter_number=state.chapter_number, elapsed_s=elapsed, tokens=getattr(plan_result, 'usage_metadata', None))
+        t.set(tokens=getattr(plan_result, 'usage_metadata', None))
     return {"extraction_plan": plan_result.content}
 
 
 async def plot_analyzer_node(state: PlotExtractionState) -> dict:
-    log.debug("graph.plot.analyzer.start", chapter_number=state.chapter_number)
-    t0 = time.perf_counter()
-    try:
+    async with timed_event(log, "graph.plot.analyzer", chapter_number=state.chapter_number) as t:
         analysis_result: AIMessage = await model.ainvoke([
             SystemMessage(content=ANALYZER_SYSTEM_PROMPT),
             HumanMessage(content=build_plot_analysis_prompt(
@@ -125,111 +90,45 @@ async def plot_analyzer_node(state: PlotExtractionState) -> dict:
                 chapter_title=state.chapter_title,
             ))
         ])
-    except Exception:
-        log.opt(exception=True).error("graph.plot.analyzer.error", chapter_number=state.chapter_number, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    log.debug("graph.plot.analyzer.done", chapter_number=state.chapter_number, elapsed_s=elapsed, tokens=getattr(analysis_result, 'usage_metadata', None))
+        t.set(tokens=getattr(analysis_result, 'usage_metadata', None))
     return {"analysis": analysis_result.content}
 
 
 async def events_parser_node(state: PlotExtractionState) -> dict:
     prompt = build_events_parser_prompt(state.analysis or "")
-    log.debug("graph.plot.parse_events.start", chapter_number=state.chapter_number, use_lfm=state.use_lfm)
-    t0 = time.perf_counter()
-    try:
-        if state.use_lfm:
-            from src.service.ai.utils.extractors import events_extractor
-            result = await events_extractor.extract(prompt)
-        else:
-            resp = await events_parser_agent.ainvoke({
-                "messages": [
-                    SystemMessage(content=EVENTS_PARSER_SYSTEM_PROMPT),
-                    HumanMessage(content=prompt)
-                ]
-            })
-            result = resp["structured_response"]
-    except Exception:
-        log.opt(exception=True).error("graph.plot.parse_events.error", chapter_number=state.chapter_number, use_lfm=state.use_lfm, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    log.debug("graph.plot.parse_events.done", chapter_number=state.chapter_number, elapsed_s=elapsed, events_found=len(result.events) if result.events else 0)
+    async with timed_event(log, "graph.plot.parse_events", chapter_number=state.chapter_number) as t:
+        result = await events_extractor.extract(prompt)
+        t.set(events_found=len(result.events) if result.events else 0)
     return {"events_result": result}
 
 
 async def threads_parser_node(state: PlotExtractionState) -> dict:
     prompt = build_threads_parser_prompt(state.analysis or "")
-    log.debug("graph.plot.parse_threads.start", chapter_number=state.chapter_number, use_lfm=state.use_lfm)
-    t0 = time.perf_counter()
-    try:
-        if state.use_lfm:
-            from src.service.ai.utils.extractors import threads_extractor
-            result = await threads_extractor.extract(prompt)
-        else:
-            resp = await threads_parser_agent.ainvoke({
-                "messages": [
-                    SystemMessage(content=THREADS_PARSER_SYSTEM_PROMPT),
-                    HumanMessage(content=prompt)
-                ]
-            })
-            result = resp["structured_response"]
-    except Exception:
-        log.opt(exception=True).error("graph.plot.parse_threads.error", chapter_number=state.chapter_number, use_lfm=state.use_lfm, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    log.debug("graph.plot.parse_threads.done", chapter_number=state.chapter_number, elapsed_s=elapsed, threads_found=len(result.threads) if result.threads else 0)
+    async with timed_event(log, "graph.plot.parse_threads", chapter_number=state.chapter_number) as t:
+        result = await threads_extractor.extract(prompt)
+        t.set(threads_found=len(result.threads) if result.threads else 0)
     return {"threads_result": result}
 
 
 async def setups_payoffs_parser_node(state: PlotExtractionState) -> dict:
     prompt = build_setups_payoffs_parser_prompt(state.analysis or "")
-    log.debug("graph.plot.parse_setups_payoffs.start", chapter_number=state.chapter_number, use_lfm=state.use_lfm)
-    t0 = time.perf_counter()
-    try:
-        if state.use_lfm:
-            from src.service.ai.utils.extractors import setups_payoffs_extractor
-            result = await setups_payoffs_extractor.extract(prompt)
-        else:
-            resp = await setups_payoffs_parser_agent.ainvoke({
-                "messages": [
-                    SystemMessage(content=SETUPS_PAYOFFS_PARSER_SYSTEM_PROMPT),
-                    HumanMessage(content=prompt)
-                ]
-            })
-            result = resp["structured_response"]
-    except Exception:
-        log.opt(exception=True).error("graph.plot.parse_setups_payoffs.error", chapter_number=state.chapter_number, use_lfm=state.use_lfm, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    setups_count = len(result.setups) if result.setups else 0
-    payoffs_count = len(result.payoffs) if result.payoffs else 0
-    log.debug("graph.plot.parse_setups_payoffs.done", chapter_number=state.chapter_number, elapsed_s=elapsed, setups_found=setups_count, payoffs_found=payoffs_count)
+    async with timed_event(log, "graph.plot.parse_setups_payoffs", chapter_number=state.chapter_number) as t:
+        result = await setups_payoffs_extractor.extract(prompt)
+        t.set(
+            setups_found=len(result.setups) if result.setups else 0,
+            payoffs_found=len(result.payoffs) if result.payoffs else 0,
+        )
     return {"setups_payoffs_result": result}
 
 
 async def questions_contrivances_parser_node(state: PlotExtractionState) -> dict:
     prompt = build_questions_contrivances_parser_prompt(state.analysis or "")
-    log.debug("graph.plot.parse_questions_contrivances.start", chapter_number=state.chapter_number, use_lfm=state.use_lfm)
-    t0 = time.perf_counter()
-    try:
-        if state.use_lfm:
-            from src.service.ai.utils.extractors import questions_contrivances_extractor
-            result = await questions_contrivances_extractor.extract(prompt)
-        else:
-            resp = await questions_contrivances_parser_agent.ainvoke({
-                "messages": [
-                    SystemMessage(content=QUESTIONS_CONTRIVANCES_PARSER_SYSTEM_PROMPT),
-                    HumanMessage(content=prompt)
-                ]
-            })
-            result = resp["structured_response"]
-    except Exception:
-        log.opt(exception=True).error("graph.plot.parse_questions_contrivances.error", chapter_number=state.chapter_number, use_lfm=state.use_lfm, elapsed_s=round(time.perf_counter() - t0, 2))
-        raise
-    elapsed = round(time.perf_counter() - t0, 2)
-    questions_count = len(result.story_questions) if result.story_questions else 0
-    contrivances_count = len(result.contrivance_risks) if result.contrivance_risks else 0
-    log.debug("graph.plot.parse_questions_contrivances.done", chapter_number=state.chapter_number, elapsed_s=elapsed, questions_found=questions_count, contrivances_found=contrivances_count)
+    async with timed_event(log, "graph.plot.parse_questions_contrivances", chapter_number=state.chapter_number) as t:
+        result = await questions_contrivances_extractor.extract(prompt)
+        t.set(
+            questions_found=len(result.questions) if result.questions else 0,
+            contrivances_found=len(result.contrivance_risks) if result.contrivance_risks else 0,
+        )
     return {"questions_contrivances_result": result}
 
 
@@ -278,20 +177,16 @@ async def extract_plot_information(
     current_chapter_content: str,
     chapter_number: int,
     chapter_title: Optional[str] = None,
-    use_lfm: bool = False,
     story_id: str = "",
 ) -> PlotExtraction:
     with log.contextualize(story_id=story_id):
-        log.info("graph.plot.invoke", chapter_number=chapter_number, use_lfm=use_lfm)
-        t0 = time.perf_counter()
-        state = PlotExtractionState(
-            story_context=story_context,
-            current_chapter_content=current_chapter_content,
-            chapter_number=chapter_number,
-            chapter_title=chapter_title,
-            use_lfm=use_lfm,
-        )
-        result = await plot_app.ainvoke(state)  # type: ignore
-        elapsed = round(time.perf_counter() - t0, 2)
-        log.info("graph.plot.complete", chapter_number=chapter_number, elapsed_s=elapsed)
+        async with timed_event(log, "graph.plot", level="INFO", chapter_number=chapter_number):
+            state = PlotExtractionState(
+                story_context=story_context,
+                current_chapter_content=current_chapter_content,
+                chapter_number=chapter_number,
+                chapter_title=chapter_title,
+            )
+            result = await plot_app.ainvoke(state)  # type: ignore
+        return result["result"]
         return result["result"]

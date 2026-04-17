@@ -183,7 +183,7 @@ class StructureService:
                 chapter_ids=row["chapter_ids"],
                 theme=row["_id"],
                 count=row["count"],
-                perc=round(100*row["count"] / total, 2)
+                perc=round(row["count"] / total, 4)
             )
             for row in rows
         ]
@@ -307,7 +307,7 @@ EMOTIONAL BEAT EFFECTIVENESS:
 
         return DevelopmentalReportResponse(
             story_id=story_id,
-            report=extract_text(response),
+            report=extract_text(response.content),
         )
 
 

@@ -1,11 +1,7 @@
 from socketio.async_server import AsyncServer  # type: ignore[import-untyped]
-from src.service.analytics.service import AnalyticsService
-from src.service.analytics.session_cache import SessionCacheService
-from src.service.auth.service import AuthService
 from src.data.schemas.analytics import WritingSession, WritingSessionEvent
 from src.shared.utils.decorators import log_errors
-from dependency_injector.wiring import inject, Provide
-from src.app.di.containers import ApplicationContainer
+from src.app.dependencies.services import _socket_io_get_session_cache_service, _socket_io_get_analytics_service, get_auth_service
 from src.infrastructure.config import settings
 from src.shared.utils.logging_context import get_layer_logger, LAYER_APP
 import asyncio
@@ -22,12 +18,11 @@ sio = AsyncServer(
 
 @sio.on('session_start', namespace='/analytics')
 @log_errors
-@inject
 async def handle_session_start(
     sid: str,
     session_start_data: dict,
-    session_cache: SessionCacheService = Provide[ApplicationContainer.session_cache_service],
 ):
+    session_cache = _socket_io_get_session_cache_service()
     log.info(
         "Writing session start event received", 
         sid=sid, 
@@ -65,12 +60,11 @@ async def handle_session_start(
 
 @sio.on('session_end', namespace='/analytics')
 @log_errors 
-@inject
 async def handle_session_end(
     sid: str,
     session_end_data: dict,
-    session_cache: SessionCacheService = Provide[ApplicationContainer.session_cache_service],
 ):
+    session_cache = _socket_io_get_session_cache_service()
     log.info(
         "Writing session end event received", 
         sid=sid,
@@ -169,24 +163,22 @@ def handle_task_completion(task, session_id: str, sid: str):
         )
 
 @log_errors
-@inject
 async def save_to_duckdb_async(
     session: WritingSession,
     sid: str,
-    analytics: AnalyticsService = Provide[ApplicationContainer.analytics_service],
 ):
+    analytics = _socket_io_get_analytics_service()
     saved_session = await analytics.write_session(session)
     return saved_session
 
 @sio.on('connect', namespace='/analytics')
 @log_errors
-@inject
 async def on_connect(
     sid,
     environ,
     auth=None,
-    auth_service: AuthService = Provide[ApplicationContainer.auth_service],
 ):
+    auth_service = get_auth_service()
     if not auth or not auth.get('session_id'):
         log.warning("analytics.connect_rejected: no auth", sid=sid)
         raise ConnectionRefusedError("Authentication required")
@@ -213,12 +205,11 @@ async def on_connect(
 
 @sio.on('disconnect', namespace='/analytics')
 @log_errors
-@inject
 async def on_disconnect(
     sid,
     reason,
-    session_cache: SessionCacheService = Provide[ApplicationContainer.session_cache_service],
 ):
+    session_cache = _socket_io_get_session_cache_service()
     log.info(
         "Client disconnected from analytics namespace", 
         sid=sid,

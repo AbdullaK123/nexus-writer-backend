@@ -1,8 +1,8 @@
 """
-Tier 2: Single chapter extraction sub-flow with checkpointing.
+Tier 2: Single chapter extraction with checkpointing.
 
-This flow:
-- Waits for predecessor chapters to finish extracting (ordering guard)
+This module:
+- Waits for predecessor chapters to finish extracting (ordering guard via JobRegistry)
 - Builds accumulated context from predecessor results
 - Runs all 4 AI extractions concurrently
 - Tolerates individual extraction failures (uses fallback empty models)
@@ -13,18 +13,12 @@ This flow:
 import asyncio
 from dataclasses import dataclass, field
 from typing import Optional, List
-from prefect import flow, get_client
-from prefect.client.schemas.filters import (
-    FlowRunFilter,
-    FlowRunFilterTags,
-    FlowRunFilterState,
-    FlowRunFilterStateType,
-)
-from prefect.client.schemas.objects import StateType
+
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 
 log = get_layer_logger(LAYER_SERVICE)
-from src.infrastructure.config import settings
+from src.infrastructure.config import settings, config
+from src.infrastructure.redis.job_registry import JobRegistry, RegistryStatus
 from src.data.models import Chapter
 from src.data.models.ai.character import CharacterExtraction
 from src.data.models.ai.plot import PlotExtraction
@@ -37,7 +31,7 @@ from src.data.schemas.jobs import (
     ChapterStartedData,
     ExtractionCompleteData,
 )
-from src.service.flows.publisher import FlowPublisher, create_flow_pubsub
+from src.service.flows.publisher import FlowPublisher
 from src.service.flows.extraction.tasks import (
     extract_characters_task,
     extract_plot_task,
@@ -46,7 +40,6 @@ from src.service.flows.extraction.tasks import (
     synthesize_context_task,
     save_chapter_extraction_task,
 )
-from src.infrastructure.config.prefect import CHAPTER_FLOW_TIMEOUT
 
 
 @dataclass
@@ -113,16 +106,16 @@ def _build_fallback_context(
 
 
 async def _wait_for_predecessor_extractions(
+    registry: JobRegistry,
     story_id: str,
     chapter_number: int,
     story_path_array: List[str],
-    poll_interval: int = config.prefect.predecessor_poll_interval,
-    max_wait: int = config.prefect.predecessor_max_wait,
+    poll_interval: int = config.worker.predecessor_poll_interval,
+    max_wait: int = config.worker.predecessor_max_wait,
 ) -> None:
     """Poll until all predecessor chapter extractions finish.
-    
-    This runs INSIDE the flow (not in the API server), so all sibling
-    flow runs are already registered in Prefect and visible.
+
+    Uses JobRegistry tag-based filtering instead of Prefect API.
     """
     if chapter_number <= 1:
         return
@@ -133,23 +126,15 @@ async def _wait_for_predecessor_extractions(
 
     elapsed = 0
     while elapsed < max_wait:
-        async with get_client() as client:
-            flow_runs = await client.read_flow_runs(
-                flow_run_filter=FlowRunFilter(
-                    tags=FlowRunFilterTags(all_=["extraction", f"story:{story_id}"]),
-                    state=FlowRunFilterState(
-                        type=FlowRunFilterStateType(any_=[
-                            StateType.RUNNING,
-                            StateType.PENDING,
-                            StateType.SCHEDULED,
-                        ])
-                    )
-                )
-            )
+        active_jobs = await registry.find_by_tags(
+            ["extraction", f"story:{story_id}"],
+            statuses=[RegistryStatus.QUEUED, RegistryStatus.RUNNING],
+        )
 
         blocking: List[str] = []
-        for fr in flow_runs:
-            for tag in fr.tags:
+        for job_id in active_jobs:
+            tags = await registry.get_tags(job_id)
+            for tag in tags:
                 if tag.startswith("chapter:"):
                     ch_id = tag.split(":", 1)[1]
                     if ch_id in predecessor_ids:
@@ -205,13 +190,10 @@ async def _build_accumulated_context(
     return "\n\n".join(contexts)
 
 
-@flow(
-    name="extract-single-chapter",
-    retries=0,
-    timeout_seconds=CHAPTER_FLOW_TIMEOUT,
-    persist_result=True,
-)
-async def extract_single_chapter_flow(
+async def _run_extraction(
+    registry: JobRegistry,
+    job_run_id: str,
+    *,
     chapter_id: str,
     chapter_number: int,
     chapter_title: Optional[str],
@@ -220,27 +202,22 @@ async def extract_single_chapter_flow(
     story_path_array: List[str],
     content: str,
     user_id: str = "",
-    use_lfm: bool = False,
 ) -> ChapterExtractionResult:
-    """Extract context from a single chapter with checkpointing.
-    
-    Individual extraction failures are tolerated — fallback empty models
-    are substituted so the flow always produces a usable result.
-    """
-    pubsub = create_flow_pubsub(settings.redis_url, ExtractionEventData)  # type: ignore
+    """Core extraction logic, callable from both the arq job and reextraction."""
     pub = FlowPublisher[ExtractionEventData](
-        pubsub=pubsub,
+        redis_url=settings.redis_url,
         user_id=user_id,
         story_id=story_id,
         job_type=JobType.EXTRACTION,
         total_steps=5,
+        job_run_id=job_run_id,
     )
     try:
         await pub.flow_started(data=ChapterStartedData(chapter_id=chapter_id, chapter_number=chapter_number))
     
         # 1. Wait for predecessor chapters to finish extracting
         await pub.task_started("predecessor_wait", message="Waiting for predecessor extractions")
-        await _wait_for_predecessor_extractions(story_id, chapter_number, story_path_array)
+        await _wait_for_predecessor_extractions(registry, story_id, chapter_number, story_path_array)
         await pub.task_complete("predecessor_wait")
 
         # 2. Build accumulated context from predecessor results (after they're done)
@@ -256,10 +233,10 @@ async def extract_single_chapter_flow(
         # so that one failure doesn't cancel the others
         await pub.task_started("run_extractions", message="Running AI extractions")
         results = await asyncio.gather(
-            extract_characters_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm, story_id=story_id),
-            extract_plot_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm, story_id=story_id),
-            extract_world_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm, story_id=story_id),
-            extract_structure_task(accumulated_context, content, chapter_number, chapter_title, use_lfm=use_lfm, story_id=story_id),
+            extract_characters_task(accumulated_context, content, chapter_number, chapter_title, story_id=story_id),
+            extract_plot_task(accumulated_context, content, chapter_number, chapter_title, story_id=story_id),
+            extract_world_task(accumulated_context, content, chapter_number, chapter_title, story_id=story_id),
+            extract_structure_task(accumulated_context, content, chapter_number, chapter_title, story_id=story_id),
             return_exceptions=True,
         )
 
@@ -316,7 +293,6 @@ async def extract_single_chapter_flow(
                 plot_extraction=plot_result.model_dump(),
                 world_extraction=world_result.model_dump(),
                 structure_extraction=structure_result.model_dump(),
-                use_lfm=use_lfm,
             )
             await pub.task_complete("synthesize")
         except Exception as e:
@@ -378,3 +354,17 @@ async def extract_single_chapter_flow(
         )
     finally:
         await pub.close()
+
+
+async def extract_single_chapter(ctx: dict, **kwargs) -> ChapterExtractionResult:
+    """arq job entry point — wraps _run_extraction with registry status tracking."""
+    registry: JobRegistry = ctx["registry"]
+    job_id: str = ctx["job_id"]
+    await registry.set_status(job_id, RegistryStatus.RUNNING)
+    try:
+        result = await _run_extraction(registry, job_id, **kwargs)
+        await registry.set_status(job_id, RegistryStatus.COMPLETE)
+        return result
+    except Exception:
+        await registry.set_status(job_id, RegistryStatus.FAILED)
+        raise

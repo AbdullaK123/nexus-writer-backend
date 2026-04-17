@@ -42,13 +42,6 @@ class Settings(BaseSettings):
     env: str = "dev"
     debug: bool = False
 
-    # Service URLs (vary per deployment)
-    prefect_api_url: str | None = None
-    ollama_base_url: str = "http://localhost:11434/v1"
-
-    # Feature flags
-    use_lfm: bool = False
-
     # CORS
     cors_origins: list[str] = ["http://localhost:3000"]
     cors_allow_credentials: bool = True
@@ -90,30 +83,27 @@ class AnalyticsConfig(BaseModel, frozen=True):
     session_cache_ttl_seconds: int = 3600
 
 
-class PrefectConfig(BaseModel, frozen=True):
+class WorkerConfig(BaseModel, frozen=True):
     task_retries: int = 1
     task_retry_delay: int = 10
     extraction_task_timeout: int = 120
     chapter_flow_timeout: int = 180
-    result_storage_ttl: int = 86400
-    extraction_deployment: str = "extract-single-chapter/chapter-extraction-deployment"
-    line_edits_deployment: str = "line-edits/line-edits-deployment"
-    reextraction_deployment: str = "reextraction-flow/chapter-reextraction-deployment"
+    max_jobs: int = 5
     predecessor_poll_interval: int = 5
     predecessor_max_wait: int = 600
 
 
 class AIConfig(BaseModel, frozen=True):
-    model: str = "google/gemini-2.5-flash"
-    lite_model: str = "google/gemini-2.5-flash-lite"
+    model: str = "openai/gpt-5.4-mini-2026-03-17"
+    lite_model: str = "openai/gpt-5.4-mini-2026-03-17"
     temperature: float = 0.7
     max_tokens: int = 4096
     sdk_timeout: int = 90
     sdk_retries: int = 2
 
 
-class OllamaConfig(BaseModel, frozen=True):
-    model: str = "lfm2-1.2b-extract"
+class OpenAIConfig(BaseModel, frozen=True):
+    model: str = "gpt-5.4-mini-2026-03-17"
 
 
 class MongoConfig(BaseModel, frozen=True):
@@ -129,9 +119,9 @@ class Config(BaseModel, frozen=True):
     redis: RedisConfig = RedisConfig()
     jobs: JobsConfig = JobsConfig()
     analytics: AnalyticsConfig = AnalyticsConfig()
-    prefect: PrefectConfig = PrefectConfig()
+    worker: WorkerConfig = WorkerConfig()
     ai: AIConfig = AIConfig()
-    ollama: OllamaConfig = OllamaConfig()
+    openai: OpenAIConfig = OpenAIConfig()
     mongo: MongoConfig = MongoConfig()
 
 

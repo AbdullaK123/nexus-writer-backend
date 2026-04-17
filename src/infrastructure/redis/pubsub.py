@@ -1,6 +1,7 @@
 from typing import TypeVar, Generic, AsyncIterator, Type
 from pydantic import BaseModel
 from redis.asyncio import Redis
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -21,8 +22,11 @@ class RedisPubSub(Generic[T]):
                     continue
                 yield self.model.model_validate_json(message["data"])
         finally:
-            await pubsub.unsubscribe(channel)
-            await pubsub.aclose()
+            try:
+                await pubsub.unsubscribe(channel)
+                await pubsub.aclose()
+            except (RedisConnectionError, ConnectionResetError, OSError):
+                pass
 
     async def close(self) -> None:
         await self.client.aclose()

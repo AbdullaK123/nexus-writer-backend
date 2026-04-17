@@ -138,7 +138,7 @@ class CharacterService:
 
         return CharacterInconsistencyResponse(
             character_name=character_name,
-            report=extract_text(response)
+            report=extract_text(response.content)
         )
     
 

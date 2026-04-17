@@ -1,19 +1,21 @@
-"""Flow event publisher — thin wrapper around RedisPubSub for Prefect flows."""
+"""Job event publisher — pushes events to a Redis LIST for polling."""
 from __future__ import annotations
 
 import time
 from typing import Any, Generic, Optional, TypeVar
 
 from pydantic import BaseModel
-from prefect import runtime
+from redis.asyncio import Redis
 
 from src.data.schemas.jobs import FlowEvent, FlowEventType, JobType
-from src.infrastructure.redis.pubsub import RedisPubSub
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 
 log = get_layer_logger(LAYER_SERVICE)
 
 D = TypeVar("D", bound=BaseModel)
+
+# Events expire after 5 minutes so stale lists don't accumulate
+_EVENT_LIST_TTL = 300
 
 
 class FlowPublisher(Generic[D]):
@@ -25,15 +27,16 @@ class FlowPublisher(Generic[D]):
         story_id: str,
         job_type: JobType,
         total_steps: int,
-        pubsub: RedisPubSub[FlowEvent[D]],
+        redis_url: str,
+        job_run_id: str = "unknown",
     ) -> None:
         self._user_id = user_id
         self._story_id = story_id
         self._job_type = job_type
         self._total_steps = total_steps
-        self._job_run_id = str(runtime.flow_run.id or "unknown")
-        self._pubsub = pubsub
-        self._channel = self._pubsub.channel("flow", user_id, self._job_run_id)
+        self._job_run_id = job_run_id
+        self._redis = Redis.from_url(redis_url)
+        self._key = f"flow:{user_id}"
         self._step = 0
         self._t0: float | None = None
 
@@ -61,7 +64,7 @@ class FlowPublisher(Generic[D]):
 
     async def close(self) -> None:
         """Close the underlying Redis connection."""
-        await self._pubsub.close()
+        await self._redis.aclose()
 
     # ── internal ─────────────────────────────────────────────────────
 
@@ -93,11 +96,7 @@ class FlowPublisher(Generic[D]):
         )
 
         try:
-            await self._pubsub.publish(self._channel, event)
+            await self._redis.rpush(self._key, event.model_dump_json())
+            await self._redis.expire(self._key, _EVENT_LIST_TTL)
         except Exception:
             log.warning("flow_publisher.publish_failed", event_type=event_type.value, task=task)
-
-
-def create_flow_pubsub(redis_url: str, model: type[D]) -> RedisPubSub[FlowEvent[D]]:
-    """Factory for a typed flow event pubsub client."""
-    return RedisPubSub(redis_url, FlowEvent[model]) #type: ignore

@@ -3,17 +3,15 @@ Jobs controller for background task management.
 
 Endpoints for:
 - Queuing extraction and line edit jobs
-- Polling job status
+- Polling job events
 """
 from fastapi import APIRouter, Query, Depends
-from fastapi.sse import EventSourceResponse #type: ignore
-from dependency_injector.wiring import inject, Provide
-from src.app.di.containers import ApplicationContainer
+from fastapi.responses import JSONResponse
 
 
 from src.service.jobs.event_service import JobEventService
 from src.service.jobs.service import JobService
-from src.app.dependencies import get_current_user
+from src.app.dependencies import get_current_user, get_job_event_service, get_job_service
 from src.data.models import User
 from src.data.schemas.jobs import JobQueuedResponse
 
@@ -25,24 +23,20 @@ job_controller = APIRouter(
 )
 
 
-# === Job Status ===
+# === Job Events ===
 
-@job_controller.get("/{job_id}/events")
-@inject
-async def get_job_status(
-    job_id: str,
+@job_controller.get("/events/")
+async def poll_job_events(
     user: User = Depends(get_current_user),
-    job_event_service: JobEventService = Provide[ApplicationContainer.job_event_service]
-) -> EventSourceResponse:
-    async def event_generator(): 
-        async for event in job_event_service.stream_events(user_id=user.id, job_id=job_id):
-            yield event.model_dump_json()
-    return EventSourceResponse(event_generator())
+    job_event_service: JobEventService = Depends(get_job_event_service)
+) -> JSONResponse:
+    """Drain all pending events for the current user and return them as a JSON array."""
+    events = await job_event_service.drain(user_id=user.id)
+    return JSONResponse(content=[e.model_dump(mode="json") for e in events])
 
 # === Queue Jobs ===
 
 @job_controller.post("/line-edits/{chapter_id}", response_model=JobQueuedResponse)
-@inject
 async def queue_line_edit_job(
     chapter_id: str,
     force: bool = Query(
@@ -50,7 +44,7 @@ async def queue_line_edit_job(
         description="Force generation even if recently generated (within 24h)"
     ),
     current_user: User = Depends(get_current_user),
-    job_service: JobService = Provide[ApplicationContainer.job_service]
+    job_service: JobService = Depends(get_job_service)
 ) -> JobQueuedResponse:
     """
     Queue line edit generation for a chapter.
@@ -71,11 +65,10 @@ async def queue_line_edit_job(
 
 
 @job_controller.post("/extraction/{chapter_id}", response_model=JobQueuedResponse)
-@inject
 async def queue_extraction(
     chapter_id: str,
     current_user: User = Depends(get_current_user),
-    job_service: JobService = Provide[ApplicationContainer.job_service]
+    job_service: JobService = Depends(get_job_service)
 ) -> JobQueuedResponse:
     """
     Queue extraction for a single chapter.

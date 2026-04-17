@@ -4,7 +4,8 @@ from src.infrastructure.config.logging import setup_logging
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from src.shared.utils.logging_context import get_layer_logger, LAYER_APP
-from src.app.di import container
+from src.infrastructure.config import config as app_config
+from src.app.dependencies.services import init_infrastructure, shutdown_infrastructure
 
 log = get_layer_logger(LAYER_APP)
 
@@ -14,12 +15,12 @@ async def lifespan(app: FastAPI):
 
     setup_logging()
 
-    log.info("Lifecycle starting: initialising DI container resources")
-    await container.init_resources()  # type: ignore[misc]
+    log.info("Lifecycle starting: initialising infrastructure")
+    await init_infrastructure()
 
     session_cleaner = AsyncBackgroundWorker()
 
-    from src.infrastructure.config import config as app_config
+   
     session_cleaner.schedule_cron_job(
         cleanup_expired_sessions_batched,
         cron_expr=app_config.jobs.session_cleanup_cron
@@ -36,5 +37,5 @@ async def lifespan(app: FastAPI):
     log.info("Lifecycle shutdown: stopping session cleanup worker")
     await session_cleaner.stop()
 
-    log.info("Lifecycle shutdown: releasing DI container resources")
-    await container.shutdown_resources()  # type: ignore[misc]
+    log.info("Lifecycle shutdown: releasing infrastructure")
+    await shutdown_infrastructure()
