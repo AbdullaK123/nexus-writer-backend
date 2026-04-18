@@ -1,41 +1,42 @@
-from src.service.workers import AsyncBackgroundWorker
-from src.service.jobs.session import cleanup_expired_sessions_batched
-from src.infrastructure.config.logging import setup_logging
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+import asyncio
+from aiocron import crontab
+from src.app.dependencies.services import init_infrastructure, shutdown_infrastructure, get_ai_provider
+from src.service.ai.summarization import regenerate_stale_summaries
+from src.infrastructure.config.settings import config
 from src.shared.utils.logging_context import get_layer_logger, LAYER_APP
-from src.infrastructure.config import config as app_config
-from src.app.dependencies.services import init_infrastructure, shutdown_infrastructure
 
 log = get_layer_logger(LAYER_APP)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
-    setup_logging()
-
     log.info("Lifecycle starting: initialising infrastructure")
     await init_infrastructure()
 
-    session_cleaner = AsyncBackgroundWorker()
+    provider = get_ai_provider()
 
-   
-    session_cleaner.schedule_cron_job(
-        cleanup_expired_sessions_batched,
-        cron_expr=app_config.jobs.session_cleanup_cron
+    
+    async def _run_regeneration():
+        try:
+            await regenerate_stale_summaries(provider)
+        except Exception:
+            log.exception("cron.regenerate_stale_summaries.failed")
+
+    # to catch stale summaries during downtime
+    asyncio.create_task(_run_regeneration())
+
+    log.info("Summary Regenerator initialized...")
+    cron = crontab(
+        config.ai.regeneration_cron_expression,
+        _run_regeneration
     )
 
-    log.info("Lifecycle starting: session cleanup worker scheduled", cron=app_config.jobs.session_cleanup_cron)
-    await session_cleaner.start()
-
     yield
-
-    log.info("Lifecycle shutdown: removing scheduled jobs")
-    session_cleaner.remove_all_jobs()
-
-    log.info("Lifecycle shutdown: stopping session cleanup worker")
-    await session_cleaner.stop()
+    
+    log.info("Shutting down Summary Regenerator... ")
+    cron.stop()
 
     log.info("Lifecycle shutdown: releasing infrastructure")
     await shutdown_infrastructure()

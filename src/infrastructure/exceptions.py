@@ -1,3 +1,5 @@
+
+
 class InfrastructureError(Exception):
     pass
 
@@ -7,14 +9,12 @@ class DatabaseError(InfrastructureError):
         self.original = original
         super().__init__(message)
 
-
-class RedisError(InfrastructureError):
+class LLMConfigError(InfrastructureError):
     def __init__(self, message: str, original: Exception | None = None):
         self.original = original
         super().__init__(message)
 
-
-class ExternalServiceError(InfrastructureError):
+class LLMServiceError(InfrastructureError):
     def __init__(self, message: str, original: Exception | None = None):
         self.original = original
         super().__init__(message)

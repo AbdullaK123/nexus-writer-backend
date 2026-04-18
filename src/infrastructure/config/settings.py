@@ -2,7 +2,7 @@ from pathlib import Path
 from functools import lru_cache
 from typing import Any
 
-import yaml
+import yaml # type: ignore[import-untyped]
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -22,25 +22,16 @@ class Settings(BaseSettings):
 
     # Connection strings
     database_url: str
-    database_sync_url: str
-    migration_url: str
-    mongodb_url: str
-    motherduck_url: str
-    redis_url: str
-    redis_broker_url: str
 
     # Crypto keys
     app_secret_key: str
-    cookie_signing_key: str
-    cookie_encryption_key: str
-
-    # External API keys
-    openai_api_key: str
-    gemini_api_key: str
 
     # Environment
     env: str = "dev"
     debug: bool = False
+
+    # open ai api key
+    openai_api_key: str 
 
     # CORS
     cors_origins: list[str] = ["http://localhost:3000"]
@@ -66,63 +57,30 @@ class PostgresConfig(BaseModel, frozen=True):
     pool_max_size: int = 20
     max_inactive_connection_lifetime: int = 300
 
-
-class RedisConfig(BaseModel, frozen=True):
-    socket_connect_timeout: int = 5
-    socket_timeout: int = 5
-
-
-class JobsConfig(BaseModel, frozen=True):
-    session_cleanup_batch_size: int = 1000
-    session_cleanup_cron: str = "0 * * * *"
-    line_edits_cooldown_hours: int = 24
-    estimated_extraction_duration_seconds: int = 60
+class TokenConfig(BaseModel, frozen=True):
+    character: int = 600
+    plot: int = 600
+    world: int = 500
+    style: int = 200
 
 
-class AnalyticsConfig(BaseModel, frozen=True):
-    session_cache_ttl_seconds: int = 3600
-
-
-class WorkerConfig(BaseModel, frozen=True):
-    task_retries: int = 1
-    task_retry_delay: int = 10
-    extraction_task_timeout: int = 120
-    chapter_flow_timeout: int = 180
-    max_jobs: int = 5
-    predecessor_poll_interval: int = 5
-    predecessor_max_wait: int = 600
-
-
-class AIConfig(BaseModel, frozen=True):
-    model: str = "openai/gpt-5.4-mini-2026-03-17"
-    lite_model: str = "openai/gpt-5.4-mini-2026-03-17"
-    temperature: float = 0.7
-    max_tokens: int = 4096
-    sdk_timeout: int = 90
-    sdk_retries: int = 2
-
-
-class OpenAIConfig(BaseModel, frozen=True):
-    model: str = "gpt-5.4-mini-2026-03-17"
-
-
-class MongoConfig(BaseModel, frozen=True):
-    database_name: str = "nexus_extractions"
+class AiConfig(BaseModel, frozen=True):
+    max_tokens: TokenConfig = TokenConfig()
+    temperature: float = 0.0
+    default_model: str = "gpt-5.4-nano-2026-03-17"
+    max_retries: int =  3
+    timeout: float = 30.0
+    max_concurrent_requests: int = 16
+    regeneration_batch_size: int = 20
+    regeneration_cron_expression: str = "0 * * * *"
 
 
 class Config(BaseModel, frozen=True):
     """Application-wide static configuration. Loaded from config.yaml."""
-
     auth: AuthConfig = AuthConfig()
     http: HttpConfig = HttpConfig()
     postgres: PostgresConfig = PostgresConfig()
-    redis: RedisConfig = RedisConfig()
-    jobs: JobsConfig = JobsConfig()
-    analytics: AnalyticsConfig = AnalyticsConfig()
-    worker: WorkerConfig = WorkerConfig()
-    ai: AIConfig = AIConfig()
-    openai: OpenAIConfig = OpenAIConfig()
-    mongo: MongoConfig = MongoConfig()
+    ai: AiConfig = AiConfig()
 
 
 # ── Loader ───────────────────────────────────────────────────────────────────
@@ -137,7 +95,7 @@ def _load_yaml_config() -> dict[str, Any]:
 
 @lru_cache
 def _load() -> tuple[Settings, Config]:
-    s = Settings()
+    s = Settings() #type: ignore
     yaml_data = _load_yaml_config()
     c = Config(**yaml_data)
     return s, c

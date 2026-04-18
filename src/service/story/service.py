@@ -1,4 +1,3 @@
-import asyncio
 from typing import Optional, List
 from src.data.models import Story, Chapter, StoryStatus, Target
 from src.service.target.service import TargetService
@@ -16,14 +15,12 @@ from src.data.schemas.story import (
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 
 log = get_layer_logger(LAYER_SERVICE)
-from pymongo.asynchronous.database import AsyncDatabase
+
 
 class StoryService:
 
-    def __init__(self, mongodb: AsyncDatabase, target_service: TargetService, job_service):
-        self.mongodb = mongodb
+    def __init__(self, target_service: TargetService):
         self.target_service = target_service
-        self.job_service = job_service
 
     async def create(self, user_id: str, story_info: CreateStoryRequest) -> dict:
 
@@ -50,20 +47,6 @@ class StoryService:
         if not story:
             raise NotFoundError("We couldn't find this story. It may have been deleted.")
         
-        if story.path_array and len(story.path_array) > 0 and update_info.status == StoryStatus.COMPLETE:
-            last_chapter_id = story.path_array[-1]
-            queue_result = await self.job_service.queue_extraction_job(
-                user_id=user_id,
-                chapter_id=last_chapter_id,
-            )
-            log.info(
-                "story.completed: queued extraction for final chapter",
-                story_id=story_id,
-                chapter_id=last_chapter_id,
-                job_id=queue_result.job_id,
-            )
-            
-        
         update_data = update_info.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(story, field, value)
@@ -76,15 +59,6 @@ class StoryService:
 
 
     async def delete(self, user_id: str, story_id: str) -> dict:
-
-        cancel_result = await self.job_service.cancel_all_jobs(story_id=story_id)
-
-        if cancel_result['jobs_cancelled'] > 0:
-            log.info(
-                "story.delete: cancelled pending jobs",
-                story_id=story_id,
-                jobs_cancelled=cancel_result['jobs_cancelled'],
-            )
         
         story = await self.get_by_id(user_id, story_id)
 
@@ -92,20 +66,6 @@ class StoryService:
             raise NotFoundError("We couldn't find this story. It may have been deleted.")
         
         await story.delete()
-
-        # delete all extractions and edits related to the story in MongoDB
-        mongo_results = await asyncio.gather(
-            self.mongodb.chapter_edits.delete_many({"story_id": story_id}),
-            self.mongodb.character_extractions.delete_many({"story_id": story_id }),
-            self.mongodb.plot_extractions.delete_many({"story_id": story_id}),
-            self.mongodb.world_extractions.delete_many({"story_id": story_id}),
-            self.mongodb.structure_extractions.delete_many({"story_id": story_id}),
-            self.mongodb.chapter_contexts.delete_many({"story_id": story_id}),
-            return_exceptions=True
-        )
-        for result in mongo_results:
-            if isinstance(result, Exception):
-                log.warning("story.delete_mongo_cleanup_failed", story_id=story_id, error=str(result))
 
         return {
             "message": "Story successfully deleted"

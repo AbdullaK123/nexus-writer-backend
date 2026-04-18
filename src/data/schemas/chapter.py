@@ -41,6 +41,3 @@ class ChapterListResponse(BaseModel):
     story_status: StoryStatus
     story_last_updated: datetime
     chapters: List[ChapterListItem]
-
-class ChapterEditRequest(BaseModel):
-    content: str

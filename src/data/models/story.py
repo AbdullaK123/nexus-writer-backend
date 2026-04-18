@@ -1,3 +1,4 @@
+# mypy: disable-error-code="var-annotated"
 from tortoise import fields
 from tortoise.models import Model
 from tortoise.contrib.postgres.fields import ArrayField
@@ -8,7 +9,7 @@ from src.data.models.user import TimestampMixin
 
 class Story(Model, TimestampMixin):
     id = fields.CharField(max_length=36, pk=True, default=generate_uuid)
-    user: fields.ForeignKeyRelation["User"] = fields.ForeignKeyField(
+    user = fields.ForeignKeyField(
         "models.User", related_name="stories", on_delete=fields.CASCADE, index=True
     )
     title = fields.CharField(max_length=255, index=True)
@@ -19,7 +20,8 @@ class Story(Model, TimestampMixin):
     # Reverse relations
     chapters: fields.ReverseRelation["Chapter"]
     target: fields.ReverseRelation["Target"]
+    summaries: fields.ReverseRelation["Summary"]
 
     class Meta:
         table = "story"
-        unique_together = (("user_id", "title"),)
+        unique_together = (("user_id", "story_id", "title"),)

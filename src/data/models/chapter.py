@@ -1,3 +1,4 @@
+# mypy: disable-error-code="var-annotated"
 from tortoise import fields
 from tortoise.models import Model
 from typing import Optional, List
@@ -9,11 +10,17 @@ from src.data.models.user import TimestampMixin
 class Chapter(Model, TimestampMixin):
     # Primary fields
     id = fields.CharField(max_length=36, pk=True, default=generate_uuid)
-    story: fields.ForeignKeyRelation["Story"] = fields.ForeignKeyField(
-        "models.Story", related_name="chapters", on_delete=fields.CASCADE, index=True
+    story = fields.ForeignKeyField(
+        "models.Story", 
+        related_name="chapters", 
+        on_delete=fields.CASCADE, 
+        index=True
     )
-    user: fields.ForeignKeyRelation["User"] = fields.ForeignKeyField(
-        "models.User", related_name="chapters", on_delete=fields.CASCADE, index=True
+    user = fields.ForeignKeyField(
+        "models.User", 
+        related_name="chapters", 
+        on_delete=fields.CASCADE, 
+        index=True
     )
     title = fields.CharField(max_length=255)
     content = fields.TextField()
@@ -21,34 +28,28 @@ class Chapter(Model, TimestampMixin):
 
     # Word count tracking
     word_count = fields.IntField(default=0)
-    last_extracted_word_count = fields.IntField(null=True)
-
-    # Condensed context (rolling context extraction result)
-    condensed_context = fields.TextField(null=True)
-    timeline_context = fields.TextField(null=True)
-    emotional_arc = fields.TextField(null=True)
-
-    # Extraction metadata
-    last_extracted_at = fields.DatetimeField(null=True)
-    extraction_version = fields.CharField(max_length=50, null=True)
 
     # Linked list for chapter ordering (self-referencing)
-    next_chapter: fields.ForeignKeyRelation["Chapter"] = fields.ForeignKeyField(
+    next_chapter = fields.ForeignKeyField(
         "models.Chapter",
         related_name="prev_of",
         null=True,
         on_delete=fields.SET_NULL,
     )
-    prev_chapter: fields.ForeignKeyRelation["Chapter"] = fields.ForeignKeyField(
+    prev_chapter = fields.ForeignKeyField(
         "models.Chapter",
         related_name="next_of",
         null=True,
         on_delete=fields.SET_NULL,
     )
 
+    # reverse relation for summaries
+    summaries: fields.ReverseRelation["Summary"]
+
     class Meta:
         table = "chapter"
         unique_together = (("user_id", "story_id", "title"),)
+        
 
     @staticmethod
     def get_chapter_number(chapter_id: str, path_array: Optional[List[str]]) -> int:
@@ -62,8 +63,3 @@ class Chapter(Model, TimestampMixin):
                 f"Chapter {chapter_id} not found in path_array. "
                 f"Expected one of: {path_array}"
             ) from e
-
-    @property
-    def has_extractions(self) -> bool:
-        """Check if extraction is complete (condensed context exists)"""
-        return bool(self.condensed_context)

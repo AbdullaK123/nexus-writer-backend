@@ -11,38 +11,16 @@ postgres:
   pool_max_size: 20
   max_inactive_connection_lifetime: 300
 
-redis:
-  socket_connect_timeout: 5
-  socket_timeout: 5
-
-jobs:
-  session_cleanup_batch_size: 1000
-  session_cleanup_cron: "0 * * * *"
-  line_edits_cooldown_hours: 24
-  estimated_extraction_duration_seconds: 60
-
-analytics:
-  session_cache_ttl_seconds: 3600
-
-worker:
-  task_retries: 1
-  task_retry_delay: 10
-  extraction_task_timeout: 600
-  chapter_flow_timeout: 600     # 10 minutes — 4 parallel Gemini extractions
-  max_jobs: 5
-  predecessor_poll_interval: 5
-  predecessor_max_wait: 600
-
 ai:
-  model: google/gemini-2.5-flash
-  lite_model: google/gemini-2.5-flash-lite
-  temperature: 0.7
-  max_tokens: 4096
-  sdk_timeout: 90
-  sdk_retries: 2
-
-openai:
-  model: gpt-4.1-nano
-
-mongo:
-  database_name: nexus_extractions
+  max_tokens:
+    character: 600
+    plot: 600
+    world: 500
+    style: 200
+  temperature: 0.0
+  default_model: gpt-5.4-nano-2026-03-17
+  max_retries: 3
+  timeout: 30.0
+  max_concurrent_requests: 16
+  regeneration_batch_size: 20
+  regeneration_cron_expression: 0 * * * *

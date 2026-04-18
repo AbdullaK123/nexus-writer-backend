@@ -1,6 +1,6 @@
 services:
   postgres-nexus:
-    image: postgres:17.1-alpine
+    image: postgres:18.1-alpine
     ports:
       - 5432:5432
     environment:
@@ -18,64 +18,6 @@ services:
     networks:
       - nexus-network
 
-  mongo-nexus:
-    image: mongo:8.0
-    ports:
-      - 27017:27017
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: nexus_mongo
-      MONGO_INITDB_ROOT_PASSWORD: mongo_password
-      MONGO_INITDB_DATABASE: nexus_extractions
-    volumes:
-      - mongo_nexus_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - nexus-network
-
-  redis-nexus:
-    image: redis:latest
-    ports:
-      - 6379:6379
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    volumes:
-      - redis_data:/data
-    networks:
-      - nexus-network
-    command: redis-server --appendonly yes
-
-  # arq Worker - Executes background jobs
-  nexus-worker:
-    build: .
-    command: >
-      sh -c "uv run arq worker.WorkerSettings"
-    env_file: .env
-    environment:
-      DATABASE_URL: asyncpg://nexus_user:password@postgres-nexus:5432/nexus_writer
-      REDIS_URL: redis://redis-nexus:6379/0
-      REDIS_BROKER_URL: redis://redis-nexus:6379/1
-      MONGODB_URL: mongodb://nexus_mongo:mongo_password@mongo-nexus:27017/nexus_extractions?authSource=admin
-    depends_on:
-      postgres-nexus:
-        condition: service_healthy
-      redis-nexus:
-        condition: service_healthy
-      mongo-nexus:
-        condition: service_healthy
-    networks:
-      - nexus-network
-    restart: unless-stopped
-
-  # Main API server
   nexus-writer:
     build: .
     ports:
@@ -85,15 +27,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: asyncpg://nexus_user:password@postgres-nexus:5432/nexus_writer
-      REDIS_URL: redis://redis-nexus:6379/0
-      REDIS_BROKER_URL: redis://redis-nexus:6379/1
-      MONGODB_URL: mongodb://nexus_mongo:mongo_password@mongo-nexus:27017/nexus_extractions?authSource=admin
     depends_on:
       postgres-nexus:
-        condition: service_healthy
-      redis-nexus:
-        condition: service_healthy
-      mongo-nexus:
         condition: service_healthy
     networks:
       - nexus-network
@@ -104,5 +39,3 @@ networks:
 
 volumes:
   postgres_nexus_data:
-  redis_data:
-  mongo_nexus_data:

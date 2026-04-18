@@ -4,21 +4,9 @@ from src.app.dependencies.services import (
     shutdown_infrastructure,
     get_auth_service,
     get_target_service,
-    get_job_service,
-    get_job_event_service,
     get_chapter_service,
     get_story_service,
-    get_analytics_service,
-    get_session_cache_service,
-    get_character_service,
-    get_plot_service,
-    get_structure_service,
-    get_world_service,
-    get_character_tracker_service,
-    get_plot_tracker_service,
-    get_redis_client,
-    get_arq_pool,
-    get_job_registry,
+    get_ai_provider
 )
 
 __all__ = [
@@ -27,17 +15,7 @@ __all__ = [
     "shutdown_infrastructure",
     "get_auth_service",
     "get_target_service",
-    "get_job_service",
-    "get_job_event_service",
     "get_chapter_service",
     "get_story_service",
-    "get_analytics_service",
-    "get_session_cache_service",
-    "get_character_service",
-    "get_plot_service",
-    "get_structure_service",
-    "get_world_service",
-    "get_character_tracker_service",
-    "get_plot_tracker_service",
-    "get_redis_client",
+    "get_ai_provider"
 ]

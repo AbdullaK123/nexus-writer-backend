@@ -1,10 +1,10 @@
-from src.infrastructure.config import settings, config
+from src.infrastructure.config import config
 from src.data.models import User, Session
 from src.data.schemas.auth import RegistrationData, UserResponse, AuthCredentials, ConnectionDetails
 from src.infrastructure.auth.password import hash_password, verify_password
-from src.infrastructure.auth.session import generate_session_id, encrypt_session_data, decrypt_session_data
+from src.infrastructure.auth.session import generate_session_id
 from src.service.exceptions import AuthError, ForbiddenError, ConflictError
-from typing import Optional, Union
+from typing import Optional
 from datetime import datetime, timedelta, timezone
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE, set_user_id
 
@@ -54,24 +54,17 @@ class AuthService:
             session_id=session_id,
             expires_at=str(expires_at),
         )
-        
-        # encypt and set the cookie
-        encypted_cookie = encrypt_session_data({'session_id': session_id})
 
-        return encypted_cookie
+        return session_id
     
-    async def validate_session(self, encrypted_cookie_data: Union[bytes, str]) -> Optional[User]:
+    async def validate_session(self, session_id: str) -> Optional[User]:
 
-        if isinstance(encrypted_cookie_data, bytes):
-            encrypted_cookie_data = encrypted_cookie_data.decode('utf-8')
-
-        decrypted_cookie = decrypt_session_data(encrypted_cookie_data)
-        if not decrypted_cookie or 'session_id' not in decrypted_cookie:
-            log.warning("session.validate_failed: missing or malformed cookie")
+        if not session_id:
+            log.warning("session.validate_failed: missing session_id")
             raise ForbiddenError("Your session is invalid. Please log in again.")
         
         session = await Session.filter(
-            session_id=decrypted_cookie.get('session_id')
+            session_id=session_id
         ).first()
 
         if not session:
@@ -95,24 +88,23 @@ class AuthService:
 
         return user
     
-    async def logout_user(self, encrypted_cookie_data: Union[bytes, str]) -> None:
-        decrypted_cookie = decrypt_session_data(encrypted_cookie_data)
+    async def logout_user(self, session_id: str) -> None:
+        if not session_id:
+            return
 
-        if decrypted_cookie and 'session_id' in decrypted_cookie:
+        session = await Session.filter(
+            session_id=session_id
+        ).first()
 
-            session = await Session.filter(
-                session_id=decrypted_cookie.get('session_id')
-            ).first()
-
-            if session:
-                await session.delete()
-                log.info("session.deleted", user_id=session.user_id)  # type: ignore[attr-defined]
-            else:
-                log.warning("session.logout_failed: session not found")
+        if session:
+            await session.delete()
+            log.info("session.deleted", user_id=session.user_id)  # type: ignore[attr-defined]
+        else:
+            log.warning("session.logout_failed: session not found")
     
     async def login_user(self, credentials: AuthCredentials, connection_details: ConnectionDetails) -> tuple[UserResponse, str]:
         user = await self.authenticate_user(credentials)
-        encrypted_cookie = await self.create_session(user.id, connection_details=connection_details)
+        session_id = await self.create_session(user.id, connection_details=connection_details)
         log.info(
             "auth.user_logged_in",
             user_id=str(user.id),
@@ -122,7 +114,7 @@ class AuthService:
             username=user.username,
             email=user.email,
             profile_img=user.profile_img
-        ), encrypted_cookie
+        ), session_id
 
 
     async def register_user(self, registration_data: RegistrationData) -> UserResponse:

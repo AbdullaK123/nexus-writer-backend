@@ -4,11 +4,7 @@ from fastapi.responses import JSONResponse
 from src.app.controllers.auth import user_controller
 from src.app.controllers.chapter import chapter_controller
 from src.app.controllers.story import story_controller
-from src.app.controllers.jobs import job_controller
-from src.app.channels.analytics import sio
-from socketio.asgi import ASGIApp  # type: ignore
 from src.app.lifespan import lifespan
-from src.app.middleware.http_logging import HTTPLoggingMiddleware
 from src.shared.utils.logging_context import get_correlation_id, context_logger
 from src.service.exceptions import ServiceError
 from src.data.exceptions import DataError, NotFoundError as DataNotFound, DuplicateError, DataIntegrityError
@@ -25,9 +21,6 @@ app = FastAPI(
     version="1.0",
     lifespan=lifespan
 )
-
-# HTTP logging middleware should wrap as wide as possible
-app.add_middleware(HTTPLoggingMiddleware)
 
 # ── Request body size limit middleware ─────────────────────────────────
 from src.infrastructure.config import config as app_config
@@ -109,15 +102,12 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 app.include_router(user_controller)
 app.include_router(chapter_controller)
 app.include_router(story_controller)
-app.include_router(job_controller)
 
 @app.get('/health')
 async def get_health() -> dict:
     return {
         'message': 'Everything is healthy!'
     }
-
-socket_app = ASGIApp(sio, other_asgi_app=app)
 
 if __name__ == "__main__":
     import uvicorn
