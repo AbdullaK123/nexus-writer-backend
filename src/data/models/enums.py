@@ -17,8 +17,22 @@ class FrequencyType(StrEnum):
     WEEKLY = "Weekly"
     MONTHLY = "Monthly"
 
-class SummaryType(StrEnum):
+class ExtractionType(StrEnum):
+    PLOT_THREAD = "plot_thread"
     CHARACTER = "character"
-    PLOT = "plot"
-    WORLD = "world"
-    STYLE = "style"
+    WORLD_BIBLE = "world_bible"
+    VOICE = "voice"
+
+class JobType(StrEnum):
+    PLOT_THREAD = "plot_thread"
+    CHARACTER = "character"
+    WORLD_BIBLE = "world_bible"
+    VOICE = "voice"
+
+
+class JobStatus(StrEnum):
+    QUEUED = "queued"
+    STARTED = "started"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"

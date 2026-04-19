@@ -8,7 +8,7 @@ def _build_database_url() -> str:
         "maxsize": config.postgres.pool_max_size,
         "max_inactive_connection_lifetime": config.postgres.max_inactive_connection_lifetime,
     })
-    parsed = urlparse(settings.database_url)
+    parsed = urlparse(str(settings.database_url))
     existing_query = f"{parsed.query}&{pool_params}" if parsed.query else pool_params
     return urlunparse(parsed._replace(query=existing_query))
 

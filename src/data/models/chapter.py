@@ -2,10 +2,12 @@
 from tortoise import fields
 from tortoise.models import Model
 from typing import Optional, List
-
 from src.data.models.enums import generate_uuid
 from src.data.models.user import TimestampMixin
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from src.data.models import Summary
 
 class Chapter(Model, TimestampMixin):
     # Primary fields

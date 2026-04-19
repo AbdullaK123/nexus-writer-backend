@@ -1,31 +1,17 @@
-from typing import List, Optional
-
-from src.infrastructure.ai import AIProvider, prompts
-from src.infrastructure.config import config
-from src.data.models import Summary, Chapter, SummaryType
+from typing import List
+from src.infrastructure.ai.tokens import MAX_TOKENS_MAP
+from src.infrastructure.ai.prompts import PROMPT_MAP
+from src.infrastructure.ai.enums import SummaryType
+from src.infrastructure.ai import AIProvider
+from src.data.models import Summary, Chapter
 from src.shared.utils.html import html_to_plain_text
 from src.service.exceptions import NotFoundError
-from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE, set_user_id
+from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 import asyncio
 from tortoise import Tortoise
 
 
 log = get_layer_logger(LAYER_SERVICE)
-
-PROMPT_MAP = {
-    SummaryType.CHARACTER: prompts.CHARACTER_SUMMARY_PROMPT,
-    SummaryType.PLOT: prompts.PLOT_SUMMARY_PROMPT,
-    SummaryType.STYLE: prompts.STYLE_SUMMARY_PROMPT,
-    SummaryType.WORLD: prompts.WORLD_SUMMARY_PROMPT
-}
-
-MAX_TOKENS_MAP = {
-    SummaryType.CHARACTER: config.ai.max_tokens.character,
-    SummaryType.PLOT: config.ai.max_tokens.plot,
-    SummaryType.STYLE: config.ai.max_tokens.style,
-    SummaryType.WORLD: config.ai.max_tokens.world
-}
-
 
 async def _fetch_chapter_content(chapter_id: str) -> Chapter:
     chapter = await (
@@ -93,37 +79,6 @@ async def generate_all_summaries(provider: AIProvider, chapter_id: str) -> None:
                 type=type,
                 error=str(result)
             )
-
-
-async def regenerate_stale_summaries(
-    provider: AIProvider, 
-    batch_size: int = config.ai.regeneration_batch_size
-) -> None:
-
-    stale_chapter_ids = await (
-        Summary
-            .filter(is_stale=True)
-            .distinct()
-            .limit(batch_size)
-            .values_list("chapter_id", flat=True)
-    )
-
-    if not stale_chapter_ids:
-        return
-
-    results = await asyncio.gather(
-        *(generate_all_summaries(provider, cid) for cid in stale_chapter_ids), #type: ignore
-        return_exceptions=True
-    )
-
-    for chapter_id, result in zip(stale_chapter_ids, results):
-        if isinstance(result, Exception):
-            log.warning(
-                "ai.regenerate_stale_summaries.regeneration_failed",
-                chapter_id=chapter_id,
-                error=str(result)
-            )
-
 
 async def mark_summaries_stale(story_id: str, starting_chapter_id: str) -> None:
 

@@ -1,4 +1,5 @@
 from openai import AsyncOpenAI
+from pydantic import BaseModel
 from src.infrastructure.config import config, settings
 from src.infrastructure.utils.decorators import handle_openai_errors
 import asyncio
@@ -36,6 +37,29 @@ class OpenAIProvider:
         if content is None:
             raise ValueError("Open AI Provider returned empty content")
         return content
+
+    @handle_openai_errors
+    async def _extract[T: BaseModel](
+        self,
+        system_prompt: str,
+        text: str,
+        max_tokens: int,
+        schema: type[T]
+    ) -> T:
+        response = await self._client.chat.completions.parse(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": text}
+            ],
+            response_format=schema,
+            max_completion_tokens=max_tokens,
+            temperature=self.temperature
+        )
+        content = response.choices[0].message.parsed
+        if content is None:
+            raise ValueError("Open AI Provider returned empty extraction")
+        return content
     
     async def generate(self, system_prompt: str, text: str, max_tokens: int) -> str:
         async with self._sem:
@@ -43,4 +67,19 @@ class OpenAIProvider:
                 system_prompt,
                 text,
                 max_tokens
+            )
+        
+    async def extract[T: BaseModel](
+        self,
+        system_prompt: str,
+        text: str,
+        max_tokens: int,
+        schema: type[T]
+    ) -> T:
+        async with self._sem:
+            return await self._extract(
+                system_prompt,
+                text,
+                max_tokens,
+                schema
             )

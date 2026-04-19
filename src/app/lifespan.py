@@ -2,10 +2,10 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import asyncio
 from aiocron import crontab
-from src.app.dependencies.services import init_infrastructure, shutdown_infrastructure, get_ai_provider
-from src.service.ai.summarization import regenerate_stale_summaries
+from src.app.dependencies.services import init_infrastructure, shutdown_infrastructure
 from src.infrastructure.config.settings import config
 from src.shared.utils.logging_context import get_layer_logger, LAYER_APP
+from src.app.jobs import cleanup_expired_sessions, regenerate_summaries, run_all_jobs, stop_all_jobs, start_all_jobs
 
 log = get_layer_logger(LAYER_APP)
 
@@ -15,28 +15,14 @@ async def lifespan(app: FastAPI):
     log.info("Lifecycle starting: initialising infrastructure")
     await init_infrastructure()
 
-    provider = get_ai_provider()
-
-    
-    async def _run_regeneration():
-        try:
-            await regenerate_stale_summaries(provider)
-        except Exception:
-            log.exception("cron.regenerate_stale_summaries.failed")
-
     # to catch stale summaries during downtime
-    asyncio.create_task(_run_regeneration())
+    asyncio.create_task(run_all_jobs())
 
-    log.info("Summary Regenerator initialized...")
-    cron = crontab(
-        config.ai.regeneration_cron_expression,
-        _run_regeneration
-    )
+    start_all_jobs()
 
     yield
     
-    log.info("Shutting down Summary Regenerator... ")
-    cron.stop()
+    stop_all_jobs()
 
     log.info("Lifecycle shutdown: releasing infrastructure")
     await shutdown_infrastructure()

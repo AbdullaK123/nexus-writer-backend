@@ -1,9 +1,9 @@
 from pathlib import Path
 from functools import lru_cache
-from typing import Any
+from typing import Any, Literal
 
 import yaml # type: ignore[import-untyped]
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,12 +22,11 @@ class Settings(BaseSettings):
 
     # Connection strings
     database_url: str
-
     # Crypto keys
-    app_secret_key: str
+    app_secret_key: str = Field(min_length=32)
 
     # Environment
-    env: str = "dev"
+    env: Literal["dev", "staging", "prod"] = "dev"
     debug: bool = False
 
     # open ai api key
@@ -38,6 +37,21 @@ class Settings(BaseSettings):
     cors_allow_credentials: bool = True
     cors_allow_methods: list[str] = ["*"]
     cors_allow_headers: list[str] = ["*"]
+
+
+    @model_validator(mode="after")
+    def validate_cors(self):
+        if self.cors_allow_credentials and "*" in self.cors_origins:
+            raise ValueError(
+                "cors_allow_credentials=True is incompatible with wildcard origins"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def no_debug_in_prod(self):
+        if self.env == "prod" and self.debug:
+            raise ValueError("debug mode must be off in prod")
+        return self
 
 
 # ── Static application config (config.yaml) ─────────────────────────────────
@@ -57,22 +71,36 @@ class PostgresConfig(BaseModel, frozen=True):
     pool_max_size: int = 20
     max_inactive_connection_lifetime: int = 300
 
-class TokenConfig(BaseModel, frozen=True):
+class SummaryTokenConfig(BaseModel, frozen=True):
     character: int = 600
     plot: int = 600
     world: int = 500
     style: int = 200
 
+class ExtractionTokenConfig(BaseModel, frozen=True):
+    character: int = 18000
+    plot_threads: int = 8000
+    world_bible: int = 40000
+    voice: int = 4000
+
+
+class TokenConfig(BaseModel, frozen=True):
+    summary: SummaryTokenConfig = SummaryTokenConfig()
+    extraction: ExtractionTokenConfig = ExtractionTokenConfig()
 
 class AiConfig(BaseModel, frozen=True):
     max_tokens: TokenConfig = TokenConfig()
     temperature: float = 0.0
     default_model: str = "gpt-5.4-nano-2026-03-17"
     max_retries: int =  3
-    timeout: float = 30.0
+    timeout: float = 300.0
     max_concurrent_requests: int = 16
     regeneration_batch_size: int = 20
     regeneration_cron_expression: str = "0 * * * *"
+
+class JobConfig(BaseModel, frozen=True):
+    session_cleanup_batch_size: int = 1000
+    session_cleanup_cron_expression: str = "0 */6 * * *"
 
 
 class Config(BaseModel, frozen=True):
@@ -81,6 +109,7 @@ class Config(BaseModel, frozen=True):
     http: HttpConfig = HttpConfig()
     postgres: PostgresConfig = PostgresConfig()
     ai: AiConfig = AiConfig()
+    jobs: JobConfig = JobConfig()
 
 
 # ── Loader ───────────────────────────────────────────────────────────────────

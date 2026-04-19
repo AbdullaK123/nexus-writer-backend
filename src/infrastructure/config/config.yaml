@@ -11,16 +11,26 @@ postgres:
   pool_max_size: 20
   max_inactive_connection_lifetime: 300
 
+jobs:
+  session_cleanup_batch_size: 1000
+  session_cleanup_cron_expression: 0 */6 * * *
+
 ai:
   max_tokens:
-    character: 600
-    plot: 600
-    world: 500
-    style: 200
+    summary:
+      character: 600
+      plot: 600
+      world: 500
+      style: 200
+    extraction:
+      character: 18000
+      plot_threads: 8000
+      world_bible: 40000
+      voice: 4000
   temperature: 0.0
   default_model: gpt-5.4-nano-2026-03-17
   max_retries: 3
-  timeout: 30.0
+  timeout: 300.0
   max_concurrent_requests: 16
   regeneration_batch_size: 20
   regeneration_cron_expression: 0 * * * *
