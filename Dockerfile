@@ -32,6 +32,7 @@ RUN useradd --system --create-home --shell /usr/sbin/nologin appuser
 RUN mkdir -p /app/logs && chown appuser:appuser /app/logs
 COPY --chown=appuser:appuser . .
 
+RUN mkdir -p /app/migrations/models && chown -R appuser:appuser /app/migrations
 USER appuser
 
 CMD ["uv", "run", "main.py"]

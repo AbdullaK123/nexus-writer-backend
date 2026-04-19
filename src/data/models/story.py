@@ -33,4 +33,4 @@ class Story(Model, TimestampMixin):
 
     class Meta:
         table = "story"
-        unique_together = (("user_id", "story_id", "title"),)
+        unique_together = (("user_id", "title"),)
