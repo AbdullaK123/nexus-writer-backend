@@ -33,7 +33,9 @@ def handle_service_errors(func):
             )
             raise ServiceError("A database error occurred")
         except RedisError as e:
-            log.error("service.cache_failure", func=func.__qualname__, error=str(e.original))
+            log.error(
+                "service.cache_failure", func=func.__qualname__, error=str(e.original)
+            )
             raise ServiceError("Cache unavailable")
 
     return wrapper

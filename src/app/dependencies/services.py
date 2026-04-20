@@ -3,6 +3,7 @@ from tortoise import Tortoise
 
 from src.infrastructure.db.postgres import TORTOISE_ORM
 from src.shared.utils.decorators import singleton
+from src.shared.utils.logging_context import get_layer_logger, LAYER_APP
 
 from src.service.auth.service import AuthService
 from src.service.target.service import TargetService
@@ -11,21 +12,29 @@ from src.service.story.service import StoryService
 from src.infrastructure.ai import AIProvider, OpenAIProvider
 from src.infrastructure.config import config
 
+log = get_layer_logger(LAYER_APP)
+
 
 # ── Infrastructure lifecycle ─────────────────────────────────────────
 
+
 async def init_infrastructure() -> None:
     await Tortoise.init(config=TORTOISE_ORM)
+    await Tortoise.generate_schemas()
+    log.info("infra.db.connected")
 
 
 async def shutdown_infrastructure() -> None:
     await Tortoise.close_connections()
+    log.info("infra.db.disconnected")
 
 
 # ── Service dependencies ────────────────────────────────────────────
 
+
 def get_auth_service() -> AuthService:
     return singleton(AuthService)()
+
 
 def get_ai_provider(model: str = config.ai.default_model) -> AIProvider:
     # later we'll have support for more than just open ai

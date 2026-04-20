@@ -34,3 +34,4 @@ ai:
   max_concurrent_requests: 16
   regeneration_batch_size: 20
   regeneration_cron_expression: 0 * * * *
+  extraction_cron_expression: "*/10 * * * * *"

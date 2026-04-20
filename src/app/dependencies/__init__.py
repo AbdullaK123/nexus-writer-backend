@@ -6,7 +6,7 @@ from src.app.dependencies.services import (
     get_target_service,
     get_chapter_service,
     get_story_service,
-    get_ai_provider
+    get_ai_provider,
 )
 
 __all__ = [
@@ -17,5 +17,5 @@ __all__ = [
     "get_target_service",
     "get_chapter_service",
     "get_story_service",
-    "get_ai_provider"
+    "get_ai_provider",
 ]

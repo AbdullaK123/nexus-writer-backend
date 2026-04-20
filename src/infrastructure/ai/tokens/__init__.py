@@ -11,5 +11,5 @@ MAX_TOKENS_MAP = {
     ExtractionType.PLOT_THREAD: config.ai.max_tokens.extraction.plot_threads,
     ExtractionType.CHARACTER: config.ai.max_tokens.extraction.character,
     ExtractionType.WORLD_BIBLE: config.ai.max_tokens.extraction.world_bible,
-    ExtractionType.VOICE: config.ai.max_tokens.extraction.voice
+    ExtractionType.VOICE: config.ai.max_tokens.extraction.voice,
 }

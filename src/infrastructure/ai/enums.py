@@ -7,6 +7,7 @@ class SummaryType(StrEnum):
     WORLD = "world"
     STYLE = "style"
 
+
 class ExtractionType(StrEnum):
     PLOT_THREAD = "plot_thread"
     CHARACTER = "character"

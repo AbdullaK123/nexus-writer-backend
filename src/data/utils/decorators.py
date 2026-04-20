@@ -10,6 +10,7 @@ def transaction(func):
     async def wrapper(*args, **kwargs):
         async with in_transaction():
             return await func(*args, **kwargs)
+
     return wrapper
 
 

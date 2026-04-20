@@ -14,7 +14,6 @@ class OptionTag(str, Enum):
 
 
 class OptionMixin:
-
     def is_some(self) -> bool:
         return self.tag == OptionTag.SOME
 

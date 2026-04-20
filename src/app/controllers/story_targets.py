@@ -3,7 +3,12 @@ from typing import Optional
 from src.service.target.service import TargetService
 from src.app.dependencies import get_current_user, get_target_service
 from src.data.models import User, FrequencyType
-from src.data.schemas.target import TargetResponse, CreateTargetRequest, UpdateTargetRequest, TargetListResponse
+from src.data.schemas.target import (
+    TargetResponse,
+    CreateTargetRequest,
+    UpdateTargetRequest,
+    TargetListResponse,
+)
 
 
 router = APIRouter()
@@ -14,20 +19,17 @@ async def create_target(
     story_id: str,
     payload: CreateTargetRequest,
     current_user: User = Depends(get_current_user),
-    target_service: TargetService = Depends(get_target_service)
+    target_service: TargetService = Depends(get_target_service),
 ) -> TargetResponse:
-    return await target_service.create_target(
-        story_id,
-        current_user.id,
-        payload
-    )
+    return await target_service.create_target(story_id, current_user.id, payload)
+
 
 @router.get("/")
 async def get_targets(
     story_id: str,
     frequency: Optional[FrequencyType] = Query(default=None),
     current_user: User = Depends(get_current_user),
-    target_service: TargetService = Depends(get_target_service)
+    target_service: TargetService = Depends(get_target_service),
 ):
     """
     Get targets for a story.
@@ -36,16 +38,14 @@ async def get_targets(
     """
     if frequency:
         return await target_service.get_target_by_story_id_and_frequency(
-            story_id,
-            current_user.id,
-            frequency
+            story_id, current_user.id, frequency
         )
     else:
         targets = await target_service.get_all_targets_by_story_id(
-            story_id,
-            current_user.id
+            story_id, current_user.id
         )
         return TargetListResponse(targets=targets)
+
 
 @router.put("/{target_id}", response_model=TargetResponse)
 async def update_target(
@@ -53,24 +53,18 @@ async def update_target(
     target_id: str,
     payload: UpdateTargetRequest,
     current_user: User = Depends(get_current_user),
-    target_service: TargetService = Depends(get_target_service)
+    target_service: TargetService = Depends(get_target_service),
 ) -> TargetResponse:
     return await target_service.update_target(
-        story_id,
-        target_id,
-        current_user.id,
-        payload
+        story_id, target_id, current_user.id, payload
     )
+
 
 @router.delete("/{target_id}")
 async def delete_target(
     story_id: str,
     target_id: str,
     current_user: User = Depends(get_current_user),
-    target_service: TargetService = Depends(get_target_service)
+    target_service: TargetService = Depends(get_target_service),
 ) -> dict:
-    return await target_service.delete_target(
-        story_id,
-        current_user.id,
-        target_id
-    )
+    return await target_service.delete_target(story_id, current_user.id, target_id)

@@ -1,7 +1,17 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from tortoise import fields
 from tortoise.models import Model
 
 from src.data.models.enums import generate_uuid
+
+if TYPE_CHECKING:
+    from src.data.models.chapter import Chapter
+    from src.data.models.session import Session
+    from src.data.models.story import Story
+    from src.data.models.target import Target
 
 
 class TimestampMixin:

@@ -5,25 +5,33 @@ from src.app.controllers.auth import user_controller
 from src.app.controllers.chapter import chapter_controller
 from src.app.controllers.story import story_controller
 from src.app.lifespan import lifespan
-from src.shared.utils.logging_context import get_correlation_id, context_logger
+from src.shared.utils.logging_context import get_correlation_id, get_layer_logger, LAYER_APP
 from src.service.exceptions import ServiceError
-from src.data.exceptions import DataError, NotFoundError as DataNotFound, DuplicateError, DataIntegrityError
+from src.data.exceptions import (
+    DataError,
+    NotFoundError as DataNotFound,
+    DuplicateError,
+    DataIntegrityError,
+)
 from src.infrastructure.exceptions import InfrastructureError
 from src.infrastructure.config import settings
 from dotenv import load_dotenv
 
 load_dotenv()
 
+log = get_layer_logger(LAYER_APP)
+
 
 app = FastAPI(
     title="Nexus Writer API",
     description="The backend API for Nexus Writer",
     version="1.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # ── Request body size limit middleware ─────────────────────────────────
 from src.infrastructure.config import config as app_config
+
 
 @app.middleware("http")
 async def limit_request_body(request: Request, call_next):
@@ -31,10 +39,15 @@ async def limit_request_body(request: Request, call_next):
     if content_length:
         try:
             if int(content_length) > app_config.http.max_body_size_bytes:
-                return JSONResponse(status_code=413, content={"detail": "Request body too large"})
+                return JSONResponse(
+                    status_code=413, content={"detail": "Request body too large"}
+                )
         except ValueError:
-            return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length header"})
+            return JSONResponse(
+                status_code=400, content={"detail": "Invalid Content-Length header"}
+            )
     return await call_next(request)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,13 +59,16 @@ app.add_middleware(
 
 # ── Layer exception handlers ──────────────────────────────────────────
 
+
 @app.exception_handler(ServiceError)
 async def service_error_handler(request: Request, exc: ServiceError):
     cid = get_correlation_id()
     detail = {"code": exc.code, "message": exc.message, "correlation_id": cid}
     if hasattr(exc, "fields") and exc.fields:
         detail["fields"] = exc.fields
-    context_logger().warning("Service error: {code} — {message}", code=exc.code, message=exc.message)
+    log.warning(
+        "Service error: {code} — {message}", code=exc.code, message=exc.message
+    )
     return JSONResponse(status_code=exc.status_code, content={"detail": detail})
 
 
@@ -62,53 +78,85 @@ async def data_error_handler(request: Request, exc: DataError):
     if isinstance(exc, DataNotFound):
         return JSONResponse(
             status_code=404,
-            content={"detail": {"code": "NOT_FOUND", "message": str(exc), "correlation_id": cid}},
+            content={
+                "detail": {
+                    "code": "NOT_FOUND",
+                    "message": str(exc),
+                    "correlation_id": cid,
+                }
+            },
         )
     if isinstance(exc, DuplicateError):
         return JSONResponse(
             status_code=409,
-            content={"detail": {"code": "CONFLICT", "message": str(exc), "correlation_id": cid}},
+            content={
+                "detail": {
+                    "code": "CONFLICT",
+                    "message": str(exc),
+                    "correlation_id": cid,
+                }
+            },
         )
     if isinstance(exc, DataIntegrityError):
         return JSONResponse(
             status_code=422,
-            content={"detail": {"code": "DATA_INTEGRITY", "message": str(exc), "correlation_id": cid}},
+            content={
+                "detail": {
+                    "code": "DATA_INTEGRITY",
+                    "message": str(exc),
+                    "correlation_id": cid,
+                }
+            },
         )
-    context_logger().error("Unhandled data error: {exc}", exc=exc)
+    log.error("Unhandled data error: {exc}", exc=exc)
     return JSONResponse(
         status_code=500,
-        content={"detail": {"code": "DATA_ERROR", "message": "A data error occurred", "correlation_id": cid}},
+        content={
+            "detail": {
+                "code": "DATA_ERROR",
+                "message": "A data error occurred",
+                "correlation_id": cid,
+            }
+        },
     )
 
 
 @app.exception_handler(InfrastructureError)
 async def infrastructure_error_handler(request: Request, exc: InfrastructureError):
     cid = get_correlation_id()
-    context_logger().error("Infrastructure error: {exc}", exc=exc)
+    log.error("Infrastructure error: {exc}", exc=exc)
     return JSONResponse(
         status_code=503,
-        content={"detail": {"code": "SERVICE_UNAVAILABLE", "message": "A dependent service is temporarily unavailable", "correlation_id": cid}},
+        content={
+            "detail": {
+                "code": "SERVICE_UNAVAILABLE",
+                "message": "A dependent service is temporarily unavailable",
+                "correlation_id": cid,
+            }
+        },
     )
 
 
 # Global exception handler to ensure bullet-proof logging with correlation id
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    context_logger().exception("Unhandled exception while processing request")
+    log.exception("Unhandled exception while processing request")
     cid = get_correlation_id()
     payload = {"detail": "Internal Server Error", "correlation_id": cid}
     return JSONResponse(status_code=500, content=payload)
+
 
 app.include_router(user_controller)
 app.include_router(chapter_controller)
 app.include_router(story_controller)
 
-@app.get('/health')
+
+@app.get("/health")
 async def get_health() -> dict:
-    return {
-        'message': 'Everything is healthy!'
-    }
+    return {"message": "Everything is healthy!"}
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=8000)
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

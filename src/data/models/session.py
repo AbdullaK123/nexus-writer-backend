@@ -8,10 +8,7 @@ from src.data.models.user import TimestampMixin
 class Session(Model, TimestampMixin):
     session_id = fields.CharField(max_length=255, pk=True, index=True)
     user = fields.ForeignKeyField(
-        "models.User", 
-        related_name="sessions", 
-        on_delete=fields.CASCADE, 
-        index=True
+        "models.User", related_name="sessions", on_delete=fields.CASCADE, index=True
     )
     expires_at = fields.DatetimeField()
     ip_address = fields.CharField(max_length=45, null=True)

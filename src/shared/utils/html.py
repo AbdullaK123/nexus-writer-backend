@@ -40,14 +40,34 @@ def get_preview_content(html: str) -> str:
 
     # Add newlines after block elements before getting text
     block_elements = [
-        "p", "div", "br",
-        "h1", "h2", "h3", "h4", "h5", "h6",
-        "blockquote", "pre",
-        "ul", "ol", "li",
-        "table", "tr", "td", "th",
-        "article", "section", "header", "footer", "nav", "aside",
+        "p",
+        "div",
+        "br",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "blockquote",
+        "pre",
+        "ul",
+        "ol",
+        "li",
+        "table",
+        "tr",
+        "td",
+        "th",
+        "article",
+        "section",
+        "header",
+        "footer",
+        "nav",
+        "aside",
         "hr",
-        "address", "figure", "figcaption",
+        "address",
+        "figure",
+        "figcaption",
     ]
 
     for element in soup.find_all(block_elements):
@@ -64,7 +84,7 @@ def get_preview_content(html: str) -> str:
     # First line stays normal, rest get indented
     result = [lines[0]]
     for line in lines[1:]:
-        result.append("\u00A0\u00A0\u00A0\u00A0" + line)
+        result.append("\u00a0\u00a0\u00a0\u00a0" + line)
 
     return "\n\n".join(result)
 

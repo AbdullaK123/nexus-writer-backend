@@ -35,10 +35,11 @@ class TargetResponse(BaseModel):
 class TargetListResponse(BaseModel):
     targets: List[TargetResponse]
 
+
 class UpdateTargetRequest(BaseModel):
     quota: Optional[int] = None
-    frequency: Optional[FrequencyType] = None 
-    from_date: Optional[datetime] = None 
+    frequency: Optional[FrequencyType] = None
+    from_date: Optional[datetime] = None
     to_date: Optional[datetime] = None
 
     @model_validator(mode="after")

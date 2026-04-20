@@ -15,7 +15,6 @@ class ResultTag(str, Enum):
 
 
 class ResultMixin:
-
     def map(self, func: Callable[[Any], Any]) -> Result[Any, Any]:
         return ok(func(self.value)) if self.is_ok() else self
 

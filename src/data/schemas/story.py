@@ -5,12 +5,15 @@ from src.data.models.enums import StoryStatus
 from src.data.schemas.chapter import ChapterListItem
 from src.data.schemas.target import TargetResponse
 
+
 class CreateStoryRequest(BaseModel):
     title: str = Field(min_length=1, max_length=255)
+
 
 class UpdateStoryRequest(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=255)
     status: Optional[StoryStatus] = None
+
 
 class StoryCardResponse(BaseModel):
     id: str
@@ -22,14 +25,17 @@ class StoryCardResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
 class StoryListItemResponse(BaseModel):
     id: str
     title: str
     word_count: int
     targets: List[TargetResponse]
 
+
 class StoryDetailResponse(StoryCardResponse):
-    chapters: List['ChapterListItem']
+    chapters: List["ChapterListItem"]
+
 
 class StoryGridResponse(BaseModel):
-    stories: List['StoryCardResponse']
+    stories: List["StoryCardResponse"]

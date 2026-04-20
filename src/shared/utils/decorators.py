@@ -101,6 +101,9 @@ async def timed_event(logger, event: str, *, level: str = "DEBUG", **log_kwargs)
         raise
     ctx.elapsed_s = round(time.perf_counter() - t0, 2)
     logger.log(
-        level, f"{event}.done", elapsed_s=ctx.elapsed_s,
-        **log_kwargs, **ctx._done_kwargs
+        level,
+        f"{event}.done",
+        elapsed_s=ctx.elapsed_s,
+        **log_kwargs,
+        **ctx._done_kwargs,
     )

@@ -1,4 +1,10 @@
-from src.data.models.enums import StoryStatus, FrequencyType, generate_uuid, JobStatus, JobType
+from src.data.models.enums import (
+    StoryStatus,
+    FrequencyType,
+    generate_uuid,
+    JobStatus,
+    JobType,
+)
 from src.data.models.user import User, TimestampMixin
 from src.data.models.session import Session
 from src.data.models.story import Story
@@ -24,5 +30,5 @@ __all__ = [
     "Job",
     "Extraction",
     "JobType",
-    "JobStatus"
+    "JobStatus",
 ]

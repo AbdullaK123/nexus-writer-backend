@@ -1,7 +1,3 @@
-
-
-
-
 _SHARED_IMPORTANCE_RULE = """
 Include only facts that matter for understanding later chapters, character arcs, the world's canon, or the book as a whole. Apply this test to every candidate fact: "If a reader skipped this chapter, would missing this fact hurt their understanding of what comes after?" If no, omit it.
 

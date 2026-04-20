@@ -1,44 +1,53 @@
 from src.infrastructure.config import config
 from src.data.models import User, Session
-from src.data.schemas.auth import RegistrationData, UserResponse, AuthCredentials, ConnectionDetails
+from src.data.schemas.auth import (
+    RegistrationData,
+    UserResponse,
+    AuthCredentials,
+    ConnectionDetails,
+)
 from src.infrastructure.auth.password import hash_password, verify_password
 from src.infrastructure.auth.session import generate_session_id
 from src.service.exceptions import AuthError, ForbiddenError, ConflictError
 from typing import Optional
 from datetime import datetime, timedelta, timezone
-from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE, set_user_id
+from src.shared.utils.logging_context import (
+    get_layer_logger,
+    LAYER_SERVICE,
+    set_user_id,
+)
 
 log = get_layer_logger(LAYER_SERVICE)
 
 
 class AuthService:
-
-    async def get_user_by_email(self, email: str) -> Optional[User]:  
+    async def get_user_by_email(self, email: str) -> Optional[User]:
         return await User.filter(email=email).first()
-    
 
     async def authenticate_user(self, credentials: AuthCredentials) -> User:
         user = await self.get_user_by_email(credentials.email)
 
         if not user or not verify_password(credentials.password, user.password_hash):
             log.warning(
-                "auth.login_failed: invalid credentials",
+                "auth.login_failed.invalid_credentials",
                 email=credentials.email,
             )
             raise AuthError("Incorrect email or password. Please try again.")
-        
+
         log.info(
             "auth.login_succeeded",
             user_id=str(user.id),
         )
         return user
-    
 
-    async def create_session(self, user_id: str, connection_details: ConnectionDetails) -> str:
-
+    async def create_session(
+        self, user_id: str, connection_details: ConnectionDetails
+    ) -> str:
         # create session id and expiry time
         session_id = generate_session_id()
-        expires_at = datetime.now(timezone.utc) + timedelta(days=config.auth.session_ttl_days)
+        expires_at = datetime.now(timezone.utc) + timedelta(
+            days=config.auth.session_ttl_days
+        )
 
         # create record in db
         await Session.create(
@@ -46,7 +55,7 @@ class AuthService:
             user_id=user_id,
             expires_at=expires_at,
             ip_address=connection_details.ip_address,
-            user_agent=connection_details.user_agent
+            user_agent=connection_details.user_agent,
         )
         log.info(
             "session.created",
@@ -56,55 +65,54 @@ class AuthService:
         )
 
         return session_id
-    
-    async def validate_session(self, session_id: str) -> Optional[User]:
 
+    async def validate_session(self, session_id: str) -> Optional[User]:
         if not session_id:
-            log.warning("session.validate_failed: missing session_id")
+            log.warning("session.validate_failed.missing_session_id")
             raise ForbiddenError("Your session is invalid. Please log in again.")
-        
-        session = await Session.filter(
-            session_id=session_id
-        ).first()
+
+        session = await Session.filter(session_id=session_id).first()
 
         if not session:
-            log.warning("session.validate_failed: session not found in DB")
+            log.warning("session.validate_failed.not_found")
             raise ForbiddenError("Your session has expired. Please log in again.")
 
         if session.expires_at < datetime.now(timezone.utc):
-            log.warning("session.validate_failed: expired", user_id=session.user_id)  # type: ignore[attr-defined]
+            log.warning("session.validate_failed.expired", user_id=session.user_id)  # type: ignore[attr-defined]
             await session.delete()
             raise ForbiddenError("Your session has expired. Please log in again.")
-        
+
         user_id = session.user_id  # type: ignore[attr-defined]
 
         if not user_id:
-            log.warning("session.validate_failed: session has no user_id")
+            log.warning("session.validate_failed.no_user_id")
             raise ForbiddenError("Your session is invalid. Please log in again.")
-        
+
         user = await User.filter(id=user_id).first()
         if user:
             set_user_id(user.id)
 
         return user
-    
+
     async def logout_user(self, session_id: str) -> None:
         if not session_id:
             return
 
-        session = await Session.filter(
-            session_id=session_id
-        ).first()
+        session = await Session.filter(session_id=session_id).first()
 
         if session:
             await session.delete()
             log.info("session.deleted", user_id=session.user_id)  # type: ignore[attr-defined]
         else:
-            log.warning("session.logout_failed: session not found")
-    
-    async def login_user(self, credentials: AuthCredentials, connection_details: ConnectionDetails) -> tuple[UserResponse, str]:
+            log.warning("session.logout_failed.not_found")
+
+    async def login_user(
+        self, credentials: AuthCredentials, connection_details: ConnectionDetails
+    ) -> tuple[UserResponse, str]:
         user = await self.authenticate_user(credentials)
-        session_id = await self.create_session(user.id, connection_details=connection_details)
+        session_id = await self.create_session(
+            user.id, connection_details=connection_details
+        )
         log.info(
             "auth.user_logged_in",
             user_id=str(user.id),
@@ -113,26 +121,26 @@ class AuthService:
             id=str(user.id),
             username=user.username,
             email=user.email,
-            profile_img=user.profile_img
+            profile_img=user.profile_img,
         ), session_id
 
-
     async def register_user(self, registration_data: RegistrationData) -> UserResponse:
-
         user = await self.get_user_by_email(registration_data.email)
 
         if user:
             log.warning(
-                "auth.register_failed: duplicate email",
+                "auth.register_failed.duplicate_email",
                 email=registration_data.email,
             )
-            raise ConflictError("An account with this email already exists. Try logging in instead.")
+            raise ConflictError(
+                "An account with this email already exists. Try logging in instead."
+            )
 
         user_to_create = await User.create(
             username=registration_data.username,
             email=registration_data.email,
             password_hash=hash_password(registration_data.password),
-            profile_img=registration_data.profile_img
+            profile_img=registration_data.profile_img,
         )
         log.info(
             "auth.user_registered",
@@ -143,5 +151,5 @@ class AuthService:
             id=str(user_to_create.id),
             username=registration_data.username,
             email=registration_data.email,
-            profile_img=registration_data.profile_img
+            profile_img=registration_data.profile_img,
         )

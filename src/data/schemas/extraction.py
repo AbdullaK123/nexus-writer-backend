@@ -4,6 +4,7 @@ from typing import List
 
 # =================== PLOT EXTRACTION SCHEMAS ===========================
 
+
 class ThreadStatus(str, Enum):
     OPEN = "open"
     RESOLVED = "resolved"
@@ -30,6 +31,7 @@ class PlotThread(BaseModel):
 class PlotThreadLedger(BaseModel):
     threads: List[PlotThread]
 
+
 # =================== CHARACTER EXTRACTION SCHEMAS ===========================
 
 
@@ -53,7 +55,7 @@ class Character(BaseModel):
     )
     aliases: List[str] = Field(
         default_factory=list,
-        description="Other names, titles, or epithets used for this character in the text. Best-effort — only include aliases that appear in the source summaries."
+        description="Other names, titles, or epithets used for this character in the text. Best-effort — only include aliases that appear in the source summaries.",
     )
     importance: CharacterImportance
     status: CharacterStatus
@@ -62,7 +64,7 @@ class Character(BaseModel):
     )
     key_relationships: List[str] = Field(
         default_factory=list,
-        description="Short phrases naming significant relationships. Example: 'Saedaris — ally turned reluctant partner'. Include only relationships that matter to the story."
+        description="Short phrases naming significant relationships. Example: 'Saedaris — ally turned reluctant partner'. Include only relationships that matter to the story.",
     )
     tags: List[str] = Field(
         description="2-5 short keywords (names, places, affiliations) the writer can use to locate this character's scenes in the manuscript."
@@ -72,6 +74,7 @@ class Character(BaseModel):
 class CharacterRoster(BaseModel):
     characters: List[Character]
 
+
 # =================== WORLD EXTRACTION SCHEMAS ===========================
 
 from pydantic import BaseModel, Field
@@ -79,9 +82,9 @@ from enum import Enum
 
 
 class EntityImportance(str, Enum):
-    CENTRAL = "central"      # Frequently referenced, core to the setting
+    CENTRAL = "central"  # Frequently referenced, core to the setting
     SUPPORTING = "supporting"  # Notable recurring element
-    MINOR = "minor"           # Mentioned but peripheral
+    MINOR = "minor"  # Mentioned but peripheral
 
 
 class Place(BaseModel):
@@ -156,6 +159,7 @@ class WorldBible(BaseModel):
 
 # ===================  STYLE EXTRACTION SCHEMAS ===========================
 
+
 class ChapterPacing(str, Enum):
     BREAKNECK = "breakneck"
     FAST = "fast"
@@ -176,5 +180,5 @@ class VoiceProfile(BaseModel):
     )
     signature_features: List[str] = Field(
         default_factory=list,
-        description="Distinctive stylistic features that recur across the book — heavy dialogue, minimal dialogue tags, sensory density, epistolary fragments, in-world documents quoted, etc. Only include features consistently present or deliberately recurring."
+        description="Distinctive stylistic features that recur across the book — heavy dialogue, minimal dialogue tags, sensory density, epistolary fragments, in-world documents quoted, etc. Only include features consistently present or deliberately recurring.",
     )

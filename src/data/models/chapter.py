@@ -9,20 +9,15 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from src.data.models import Summary
 
+
 class Chapter(Model, TimestampMixin):
     # Primary fields
     id = fields.CharField(max_length=36, pk=True, default=generate_uuid)
     story = fields.ForeignKeyField(
-        "models.Story", 
-        related_name="chapters", 
-        on_delete=fields.CASCADE, 
-        index=True
+        "models.Story", related_name="chapters", on_delete=fields.CASCADE, index=True
     )
     user = fields.ForeignKeyField(
-        "models.User", 
-        related_name="chapters", 
-        on_delete=fields.CASCADE, 
-        index=True
+        "models.User", related_name="chapters", on_delete=fields.CASCADE, index=True
     )
     title = fields.CharField(max_length=255)
     content = fields.TextField()
@@ -51,7 +46,6 @@ class Chapter(Model, TimestampMixin):
     class Meta:
         table = "chapter"
         unique_together = (("user_id", "story_id", "title"),)
-        
 
     @staticmethod
     def get_chapter_number(chapter_id: str, path_array: Optional[List[str]]) -> int:

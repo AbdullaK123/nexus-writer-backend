@@ -1,43 +1,198 @@
-.PHONY: start stop rebuild start-api stop-api rebuild-api start-db stop-db reset-db logs shell dbshell migrate upgrade
+.DEFAULT_GOAL := help
 
-start:
+# ──────────────────────────────────────────────
+# Colors
+# ──────────────────────────────────────────────
+CYAN   := \033[36m
+GREEN  := \033[32m
+YELLOW := \033[33m
+RED    := \033[31m
+BOLD   := \033[1m
+RESET  := \033[0m
+
+# ──────────────────────────────────────────────
+# Help
+# ──────────────────────────────────────────────
+.PHONY: help
+help: ## Show this help message
+	@printf "\n$(BOLD)$(CYAN)Nexus Writer Backend$(RESET)\n"
+	@printf "$(CYAN)════════════════════════════════════════$(RESET)\n\n"
+	@awk 'BEGIN {FS = ":.*##"} \
+		/^[a-zA-Z_-]+:.*##/ { printf "  $(GREEN)%-18s$(RESET) %s\n", $$1, $$2 } \
+		/^## ---/ { printf "\n$(BOLD)$(YELLOW)%s$(RESET)\n", substr($$0, 8) }' $(MAKEFILE_LIST)
+	@printf "\n"
+
+## --- Stack
+.PHONY: start stop rebuild restart status ps
+
+start: ## Start entire backend (build + follow logs)
 	./dev_scripts/start_backend.sh
 
-stop:
+stop: ## Stop entire backend (removes volumes)
 	./dev_scripts/stop_backend.sh
 
-rebuild:
+rebuild: ## Full rebuild of all containers
 	./dev_scripts/rebuild_backend.sh
 
-start-api:
+restart: ## Restart API container without rebuilding
+	docker compose restart nexus-writer && docker compose logs nexus-writer -f
+
+status: ## Show container status and health
+	@docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+
+ps: ## Show all running containers (compact)
+	@docker compose ps
+
+## --- API
+.PHONY: start-api stop-api rebuild-api health routes
+
+start-api: ## Start only the API container
 	./dev_scripts/start_api.sh
 
-stop-api:
-	./dev_scripts/stop_api.sh
+stop-api: ## Stop only the API container
+	docker compose down nexus-writer
 
-rebuild-api:
+rebuild-api: ## Rebuild and restart the API container
 	./dev_scripts/rebuild_api.sh
 
-start-db:
+health: ## Check API health endpoint
+	@curl -sf http://localhost:8000/health && printf "\n$(GREEN)✓ API is healthy$(RESET)\n" || printf "\n$(RED)✗ API is not responding$(RESET)\n"
+
+routes: ## List all registered API routes
+	@docker compose exec nexus-writer uv run python -c "\
+		from main import app; \
+		routes = sorted(set((r.path, ','.join(r.methods - {'HEAD','OPTIONS'})) for r in app.routes if hasattr(r, 'methods'))); \
+		[print(f'  {m:8s} {p}') for p, m in routes]"
+
+## --- Database
+.PHONY: start-db stop-db reset-db dbshell migrate upgrade migrate-history dump-db restore-db
+
+start-db: ## Start only PostgreSQL
 	./dev_scripts/start_db.sh
 
-stop-db:
+stop-db: ## Stop PostgreSQL (removes volume)
 	./dev_scripts/stop_db.sh
 
-reset-db:
+reset-db: ## Reset PostgreSQL (destroy + recreate)
 	./dev_scripts/reset_db.sh
 
-logs:
-	docker compose logs -f $(or $(s),nexus-writer)
-
-shell:
-	./dev_scripts/shell.sh
-
-dbshell:
+dbshell: ## Open psql shell in the database
 	./dev_scripts/dbshell.sh
 
-migrate:
+migrate: ## Create a new migration (usage: make migrate name=add_field)
 	./dev_scripts/migrate.sh $(name)
 
-upgrade:
+upgrade: ## Apply pending migrations
 	./dev_scripts/upgrade.sh
+
+migrate-history: ## Show applied migration history
+	@docker compose exec postgres-nexus psql -U nexus_user -d nexus_writer -c "SELECT * FROM aerich ORDER BY id;"
+
+dump-db: ## Dump database to backups/nexus_dump.sql
+	@mkdir -p backups
+	@docker compose exec postgres-nexus pg_dump -U nexus_user nexus_writer > backups/nexus_dump_$$(date +%Y%m%d_%H%M%S).sql
+	@printf "$(GREEN)✓ Database dumped to backups/$(RESET)\n"
+
+restore-db: ## Restore database from a dump (usage: make restore-db file=backups/dump.sql)
+	@test -f $(file) || (printf "$(RED)✗ Specify file: make restore-db file=backups/dump.sql$(RESET)\n" && exit 1)
+	@docker compose exec -T postgres-nexus psql -U nexus_user -d nexus_writer < $(file)
+	@printf "$(GREEN)✓ Database restored from $(file)$(RESET)\n"
+
+## --- Logs & Debug
+.PHONY: logs logs-err shell
+
+logs: ## Follow container logs (usage: make logs s=nexus-writer)
+	docker compose logs -f $(or $(s),nexus-writer)
+
+logs-err: ## Tail the application error log
+	@tail -f logs/errors.log 2>/dev/null || printf "$(YELLOW)No error log found yet$(RESET)\n"
+
+shell: ## Open a bash shell in the API container
+	./dev_scripts/shell.sh
+
+## --- Workers
+.PHONY: start-workers stop-workers restart-workers rebuild-workers logs-workers worker-status
+.PHONY: start-worker stop-worker restart-worker rebuild-worker
+
+start-workers: ## Start all worker containers
+	docker compose up -d extraction_worker session_worker summary_worker
+
+stop-workers: ## Stop all worker containers
+	docker compose stop extraction_worker session_worker summary_worker
+
+restart-workers: ## Restart all worker containers
+	docker compose restart extraction_worker session_worker summary_worker
+
+rebuild-workers: ## Rebuild and restart all worker containers
+	docker compose up -d --build extraction_worker session_worker summary_worker
+
+logs-workers: ## Follow logs for all workers (or one: make logs-workers s=extraction_worker)
+	docker compose logs -f $(or $(s),extraction_worker session_worker summary_worker)
+
+worker-status: ## Show health status of all workers
+	@docker compose ps extraction_worker session_worker summary_worker --format "table {{.Name}}\t{{.Status}}"
+
+start-worker: ## Start one worker (usage: make start-worker w=extraction_worker)
+	docker compose up -d $(w)
+
+stop-worker: ## Stop one worker (usage: make stop-worker w=extraction_worker)
+	docker compose stop $(w)
+
+restart-worker: ## Restart one worker (usage: make restart-worker w=extraction_worker)
+	docker compose restart $(w)
+
+rebuild-worker: ## Rebuild one worker (usage: make rebuild-worker w=extraction_worker)
+	docker compose up -d --build $(w)
+
+## --- Code Quality
+.PHONY: lint format typecheck
+
+lint: ## Run ruff linter
+	@uv run ruff check src/ main.py *_worker.py
+
+format: ## Auto-format code with ruff
+	@uv run ruff format src/ main.py *_worker.py
+	@uv run ruff check --fix src/ main.py *_worker.py
+
+typecheck: ## Run mypy type checking
+	@uv run mypy src/ main.py *_worker.py
+
+## --- Dependencies
+.PHONY: install install-dev outdated update-deps check-deps
+
+install: ## Install project dependencies
+	@uv sync
+
+install-dev: ## Install with dev dependencies (lint, typecheck)
+	@uv add --dev ruff mypy
+
+outdated: ## Show outdated packages
+	@uv pip list --outdated 2>/dev/null || uv run pip list --outdated
+
+update-deps: ## Update all dependencies to latest compatible versions
+	@uv lock --upgrade
+	@uv sync
+	@printf "$(GREEN)✓ Dependencies updated$(RESET)\n"
+
+check-deps: ## Check for dependency conflicts
+	@uv pip check && printf "$(GREEN)✓ No conflicts$(RESET)\n" || printf "$(RED)✗ Conflicts found$(RESET)\n"
+
+## --- Housekeeping
+.PHONY: clean fresh env-check
+
+clean: ## Remove __pycache__, .pyc, .pyo files
+	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@find . -type f -name "*.pyo" -delete 2>/dev/null || true
+	@printf "$(GREEN)✓ Cleaned$(RESET)\n"
+
+fresh: ## Nuclear option: reset DB + full rebuild
+	@printf "$(RED)⚠ This will destroy all data and rebuild everything.$(RESET)\n"
+	@printf "Press Ctrl+C to cancel, or wait 5 seconds...\n"
+	@sleep 5
+	docker compose down -v
+	docker compose up --build -d
+	docker compose logs nexus-writer -f
+
+env-check: ## Verify .env file exists and show keys (no values)
+	@test -f .env && (printf "$(GREEN)✓ .env found$(RESET)\n" && awk -F= '/^[^#]/ {printf "  %s\n", $$1}' .env) || printf "$(RED)✗ .env file not found$(RESET)\n"

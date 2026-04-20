@@ -8,10 +8,9 @@ from aiocron import crontab
 log = get_layer_logger(LAYER_APP)
 
 
-
-@crontab(config.ai.regeneration_cron_expression, start=False)    
+@crontab(config.ai.regeneration_cron_expression, start=False)
 async def regenerate_summaries():
-
+    
     provider = get_ai_provider()
 
     try:
@@ -35,7 +34,6 @@ async def run_all_jobs():
     await regenerate_stale_summaries(provider)
     log.info("Cleaning up expired sessions...")
     await cleanup_expired_sessions_batched(batch_size)
-
 
 
 def start_all_jobs():
