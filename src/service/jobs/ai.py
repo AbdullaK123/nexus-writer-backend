@@ -1,6 +1,7 @@
 from src.data.models.summary import Summary
 from src.infrastructure.config import config
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+from src.service.ai.summarization import generate_all_summaries
 from src.infrastructure.ai.providers.protocol import AIProvider
 import asyncio
 

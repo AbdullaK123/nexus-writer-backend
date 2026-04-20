@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, BackgroundTasks
-from src.infrastructure.ai.enums import ExtractionType
+from src.infrastructure.ai.enums import JobType
 from src.data.schemas.job import JobStatusResponse
 from src.infrastructure.ai.providers.protocol import AIProvider
 from src.service.jobs.service import queue_extraction_job
@@ -136,12 +136,12 @@ async def get_story_chapters(
 @story_controller.post("/{story_id}/extract/{extraction_type}")
 async def request_extraction(
     story_id: str,
-    extraction_type: ExtractionType,
+    extraction_type: JobType,
     current_user: User = Depends(get_current_user),
 ) -> JobStatusResponse:
     return await queue_extraction_job(
         story_id=story_id,
-        extraction_type=extraction_type,
+        job_type=extraction_type,
         message="Extraction queued",
         job_args={
             "story_id": story_id, 

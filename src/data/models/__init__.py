@@ -3,8 +3,8 @@ from src.data.models.enums import (
     FrequencyType,
     generate_uuid,
     JobStatus,
-    JobType,
 )
+from src.infrastructure.ai.enums import JobType
 from src.data.models.user import User, TimestampMixin
 from src.data.models.session import Session
 from src.data.models.story import Story

@@ -8,7 +8,7 @@ def generate_uuid():
 
 class StoryStatus(StrEnum):
     COMPLETE = "Complete"
-    ON_HAITUS = "On Hiatus"
+    ON_HIATUS = "On Hiatus"
     ONGOING = "Ongoing"
 
 
@@ -16,20 +16,6 @@ class FrequencyType(StrEnum):
     DAILY = "Daily"
     WEEKLY = "Weekly"
     MONTHLY = "Monthly"
-
-
-class ExtractionType(StrEnum):
-    PLOT_THREAD = "plot_thread"
-    CHARACTER = "character"
-    WORLD_BIBLE = "world_bible"
-    VOICE = "voice"
-
-
-class JobType(StrEnum):
-    PLOT_THREAD = "plot_thread"
-    CHARACTER = "character"
-    WORLD_BIBLE = "world_bible"
-    VOICE = "voice"
 
 
 class JobStatus(StrEnum):

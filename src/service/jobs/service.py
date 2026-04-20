@@ -1,12 +1,10 @@
-from typing import Optional, Callable, Coroutine, Any
-
+from typing import Optional, Callable, Any
 from tortoise import Tortoise
-from src.data.exceptions import NotFoundError
 from src.data.models import Job, Story
 from src.data.models.enums import JobStatus
+from src.infrastructure.ai.enums import JobType
 from src.data.schemas.job import JobStatusResponse
-from src.infrastructure.ai.enums import ExtractionType
-from src.service.exceptions import ServiceError
+from src.service.exceptions import ServiceError, NotFoundError
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 from datetime import datetime, timezone as tz
 from functools import wraps
@@ -27,7 +25,7 @@ async def get_job_status(job_id: str) -> JobStatusResponse:
 
 async def queue_extraction_job(
     story_id: str,
-    extraction_type: ExtractionType,
+    job_type: JobType,
     message: str = "",
     job_args: Optional[dict] = None
 ) -> JobStatusResponse:
@@ -39,9 +37,9 @@ async def queue_extraction_job(
 
     job = await Job.create(
         story_id=story_id,
-        extraction_type=extraction_type,
+        type=job_type,
         message=message,
-        args=job_args or {}
+        params=job_args or {}
     )
 
     return job.to_status_response()
@@ -125,7 +123,7 @@ def poll_job_registry(
                 return
             
             try:
-                result = await func(**job.args) # type: ignore
+                result = await func(**job.params) # type: ignore
                 await mark_job_completed(job.id, on_completed_message)
                 return result
             except Exception as e:

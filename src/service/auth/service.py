@@ -89,8 +89,11 @@ class AuthService:
             raise ForbiddenError("Your session is invalid. Please log in again.")
 
         user = await User.filter(id=user_id).first()
-        if user:
-            set_user_id(user.id)
+
+        if user is None:
+            raise ForbiddenError("User does not exist")
+        
+        set_user_id(user.id)
 
         return user
 

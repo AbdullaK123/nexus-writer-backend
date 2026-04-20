@@ -38,7 +38,7 @@ async def generate_all_summaries(provider: AIProvider, chapter_id: str) -> None:
     chapter = await fetch_chapter_content(chapter_id)
     log.info("summary.generate_all.start", chapter_id=chapter_id)
 
-    types = [
+    summary_types = [
         SummaryType.CHARACTER,
         SummaryType.PLOT,
         SummaryType.STYLE,
@@ -46,15 +46,15 @@ async def generate_all_summaries(provider: AIProvider, chapter_id: str) -> None:
     ]
 
     results = await asyncio.gather(
-        *(generate_summary_by_type(provider, t, chapter) for t in types),
+        *(generate_summary_by_type(provider, t, chapter) for t in summary_types),
         return_exceptions=True,
     )
 
-    for type, result in zip(types, results):
+    for summary_type, result in zip(summary_types, results):
         if isinstance(result, Exception):
             log.warning(
                 "ai.generate_summaries.summary_task_failed",
-                type=type,
+                type=summary_type,
                 error=str(result),
             )
 

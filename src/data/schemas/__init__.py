@@ -24,4 +24,5 @@ __all__ = [
     "ChapterListResponse",
     "UpdateTargetRequest",
     "TargetResponse",
+    "CreateTargetRequest"
 ]

@@ -1,7 +1,8 @@
 # mypy: disable-error-code="var-annotated"
 from tortoise import fields
 from tortoise.models import Model
-from src.data.models.enums import generate_uuid, JobType, JobStatus
+from src.data.models.enums import generate_uuid, JobStatus
+from src.infrastructure.ai.enums import JobType
 from src.data.schemas.job import JobStatusResponse
 
 

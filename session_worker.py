@@ -8,9 +8,16 @@ import asyncio
 import signal
 from pathlib import Path
 
-HEARTBEAT_FILE = Path("/tmp/worker_heartbeat")
+HEARTBEAT_FILE = Path("/tmp/session_worker_heartbeat")
+HEARTBEAT_INTERVAL_SECONDS = 30
 
 log = get_layer_logger(LAYER_APP)
+
+
+async def heartbeat_loop() -> None:
+    while True:
+        HEARTBEAT_FILE.touch()
+        await asyncio.sleep(HEARTBEAT_INTERVAL_SECONDS)
 
 @crontab(config.jobs.session_cleanup_cron_expression, start=False)
 async def cleanup_expired_sessions():
@@ -30,6 +37,7 @@ async def main():
 
     await Tortoise.init(config=TORTOISE_ORM)
     log.info("session_worker.started")
+    heartbeat_task = asyncio.create_task(heartbeat_loop())
 
     loop = asyncio.get_event_loop()
 
@@ -46,6 +54,7 @@ async def main():
     try:
         await asyncio.Event().wait()
     finally:
+        heartbeat_task.cancel()
         await Tortoise.close_connections()
         log.info("session_worker.stopped")
 

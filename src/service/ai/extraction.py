@@ -1,12 +1,8 @@
-from src.data.models.enums import ExtractionType
-from src.data.models.story import Story
 from src.infrastructure.ai.tokens import MAX_TOKENS_MAP
 from src.infrastructure.ai.prompts import PROMPT_MAP
-from src.infrastructure.ai.enums import SummaryType
+from src.infrastructure.ai.enums import SummaryType, JobType
 from src.infrastructure.ai import AIProvider
-from src.data.models import Summary, Chapter, Extraction
-from src.service.ai.utils import fetch_chapter_content, get_subsequent_chapter_ids
-from src.shared.utils.html import html_to_plain_text
+from src.data.models import Extraction
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 import src.service.ai.context as ctx
 from src.data.schemas.extraction import CharacterRoster, PlotThreadLedger, VoiceProfile, WorldBible
@@ -17,23 +13,23 @@ from typing import Any
 log = get_layer_logger(LAYER_SERVICE)
 
 SCHEMA_MAP = {
-    ExtractionType.CHARACTER: CharacterRoster,
-    ExtractionType.WORLD_BIBLE: WorldBible,
-    ExtractionType.VOICE: VoiceProfile,
-    ExtractionType.PLOT_THREAD: PlotThreadLedger
+    JobType.CHARACTER: CharacterRoster,
+    JobType.WORLD_BIBLE: WorldBible,
+    JobType.VOICE: VoiceProfile,
+    JobType.PLOT_THREAD: PlotThreadLedger
 }
 
 EXTRACTION_TO_SUMMARY_MAP = {
-    ExtractionType.CHARACTER: SummaryType.CHARACTER,
-    ExtractionType.WORLD_BIBLE: SummaryType.WORLD,
-    ExtractionType.VOICE: SummaryType.STYLE,
-    ExtractionType.PLOT_THREAD: SummaryType.PLOT
+    JobType.CHARACTER: SummaryType.CHARACTER,
+    JobType.WORLD_BIBLE: SummaryType.WORLD,
+    JobType.VOICE: SummaryType.STYLE,
+    JobType.PLOT_THREAD: SummaryType.PLOT
 }
 
 
 async def generate_extraction_by_type(
     provider: AIProvider, 
-    extraction_type: ExtractionType, 
+    extraction_type: JobType, 
     story_id: str 
 ) -> None:
     context = await ctx.get_context_by_type(
@@ -57,10 +53,10 @@ async def generate_extraction_by_type(
 async def generate_all_extractions(provider: AIProvider, story_id: str) -> None:
 
     extraction_types = [
-        ExtractionType.CHARACTER,
-        ExtractionType.WORLD_BIBLE,
-        ExtractionType.VOICE,
-        ExtractionType.PLOT_THREAD
+        JobType.CHARACTER,
+        JobType.WORLD_BIBLE,
+        JobType.VOICE,
+        JobType.PLOT_THREAD
     ]
 
     results = await asyncio.gather(

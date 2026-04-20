@@ -1,10 +1,9 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field
-from src.data.models.enums import JobStatus, JobType
+from pydantic import BaseModel
+from src.data.models.enums import JobStatus
+from src.infrastructure.ai.enums import JobType
 from datetime import datetime
-
-from src.data.models.job import Job
 
 
 class JobDatetimeMixin(BaseModel):
@@ -17,14 +16,3 @@ class JobStatusResponse(JobDatetimeMixin):
     job_status: JobStatus
     job_type: JobType
     message: str
-
-    @classmethod
-    def from_job(cls, job: Job) -> "JobStatusResponse":
-        return cls(
-            job_id=job.id,
-            job_status=job.status,
-            job_type=job.type,
-            message=job.message,
-            started_at=job.started_at,
-            completed_at=job.completed_at
-        )

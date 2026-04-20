@@ -8,7 +8,7 @@ class SummaryType(StrEnum):
     STYLE = "style"
 
 
-class ExtractionType(StrEnum):
+class JobType(StrEnum):
     PLOT_THREAD = "plot_thread"
     CHARACTER = "character"
     WORLD_BIBLE = "world_bible"

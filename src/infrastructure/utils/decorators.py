@@ -31,7 +31,7 @@ def handle_openai_errors(func):
         try:
             return await func(*args, **kwargs)
         except InfrastructureError as e:
-            log.error("infra.llm_eror", func=func.__qualname__, error=str(e))
+            log.error("infra.llm_error", func=func.__qualname__, error=str(e))
             raise  # already translated, pass through
         except (AuthenticationError, BadRequestError, NotFoundError) as e:
             log.error("infra.llm_config_error", func=func.__qualname__, error=str(e))

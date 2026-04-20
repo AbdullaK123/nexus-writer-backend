@@ -4,18 +4,26 @@ import signal
 from tortoise import Tortoise
 
 from src.app.dependencies.services import get_ai_provider
+from src.infrastructure.ai.enums import JobType
 from src.infrastructure.db.postgres import TORTOISE_ORM
 from src.service.jobs.service import poll_job_registry
-from src.service.ai.extraction import generate_all_extractions
+from src.service.ai.extraction import generate_extraction_by_type
 from src.infrastructure.config import config
 from src.shared.utils.logging_context import LAYER_APP, get_layer_logger
 from aiocron import Cron, crontab
 from pathlib import Path
 
-HEARTBEAT_FILE = Path("/tmp/worker_heartbeat")
+HEARTBEAT_FILE = Path("/tmp/extraction_worker_heartbeat")
+HEARTBEAT_INTERVAL_SECONDS = 30
 
 
 log = get_layer_logger(LAYER_APP)
+
+
+async def heartbeat_loop() -> None:
+    while True:
+        HEARTBEAT_FILE.touch()
+        await asyncio.sleep(HEARTBEAT_INTERVAL_SECONDS)
 
 
 @poll_job_registry(
@@ -24,9 +32,13 @@ log = get_layer_logger(LAYER_APP)
     on_completed_message="Extraction complete",
     on_failed_message="Extraction failed"
 )
-async def run_extractions(story_id: str, **kwargs) -> None:
+async def run_extractions(story_id: str, extraction_type: str, **kwargs) -> None:
     provider = get_ai_provider()
-    await generate_all_extractions(provider, story_id)
+    await generate_extraction_by_type(
+        provider=provider,
+        extraction_type=JobType(extraction_type),
+        story_id=story_id
+    )
 
 
 @crontab(config.ai.extraction_cron_expression, start=False)
@@ -47,6 +59,7 @@ async def main():
 
     await Tortoise.init(config=TORTOISE_ORM)
     log.info("extraction_worker.started")
+    heartbeat_task = asyncio.create_task(heartbeat_loop())
 
     loop = asyncio.get_event_loop()
 
@@ -63,6 +76,7 @@ async def main():
     try:
         await asyncio.Event().wait()
     finally:
+        heartbeat_task.cancel()
         await Tortoise.close_connections()
         log.info("extraction_worker.stopped")
 
