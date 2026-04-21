@@ -1,6 +1,6 @@
 from fastapi import Request, Cookie, Depends
 from src.data.models import User
-from src.shared.utils.logging_context import set_user_id
+from src.shared.utils.logging import set_user_id
 from src.service.auth.service import AuthService
 from src.app.dependencies.services import get_auth_service
 from typing import Optional

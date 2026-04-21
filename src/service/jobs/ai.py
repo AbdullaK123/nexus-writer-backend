@@ -1,11 +1,10 @@
 from src.data.models.summary import Summary
 from src.infrastructure.config import config
-from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 from src.service.ai.summarization import generate_all_summaries
 from src.infrastructure.ai.providers.protocol import AIProvider
 import asyncio
+from loguru import logger
 
-log = get_layer_logger(LAYER_SERVICE)
 
 
 async def regenerate_stale_summaries(
@@ -30,7 +29,7 @@ async def regenerate_stale_summaries(
 
     for chapter_id, result in zip(stale_chapter_ids, results):
         if isinstance(result, Exception):
-            log.warning(
+            logger.warning(
                 "ai.regenerate_stale_summaries.regeneration_failed",
                 chapter_id=chapter_id,
                 error=str(result),

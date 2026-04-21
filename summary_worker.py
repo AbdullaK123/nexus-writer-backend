@@ -3,16 +3,18 @@ from src.app.dependencies.services import get_ai_provider
 from src.infrastructure.db.postgres import TORTOISE_ORM
 from src.service.jobs.ai import regenerate_stale_summaries
 from src.infrastructure.config import config
-from src.shared.utils.logging_context import get_layer_logger, LAYER_APP
 from aiocron import Cron, crontab
 import asyncio
 import signal
 from pathlib import Path
+from loguru import logger
+from src.shared.utils.logging import configure_logger
+
+configure_logger()
 
 HEARTBEAT_FILE = Path("/tmp/summary_worker_heartbeat")
 HEARTBEAT_INTERVAL_SECONDS = 30
 
-log = get_layer_logger(LAYER_APP)
 
 
 async def heartbeat_loop() -> None:
@@ -28,7 +30,7 @@ async def regenerate_summaries():
     try:
         await regenerate_stale_summaries(provider)
     except Exception:
-        log.exception("cron.regenerate_stale_summaries.failed")
+        logger.exception("cron.regenerate_stale_summaries.failed")
     finally:
         HEARTBEAT_FILE.touch()
 
@@ -41,7 +43,7 @@ def shutdown(loop: asyncio.AbstractEventLoop, cron: Cron) -> None:
 async def main():
 
     await Tortoise.init(config=TORTOISE_ORM)
-    log.info("summary_worker.started")
+    logger.info("summary_worker.started")
     heartbeat_task = asyncio.create_task(heartbeat_loop())
 
     loop = asyncio.get_event_loop()
@@ -61,7 +63,7 @@ async def main():
     finally:
         heartbeat_task.cancel()
         await Tortoise.close_connections()
-        log.info("summary_worker.stopped")
+        logger.info("summary_worker.stopped")
 
 
 if __name__ == "__main__":

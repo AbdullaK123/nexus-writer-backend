@@ -2,10 +2,9 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel
 from src.infrastructure.config import config, settings
 from src.infrastructure.utils.decorators import handle_openai_errors
-from src.shared.utils.logging_context import get_layer_logger, LAYER_INFRA
 import asyncio
+from loguru import logger
 
-log = get_layer_logger(LAYER_INFRA)
 
 
 class OpenAIProvider:
@@ -26,7 +25,7 @@ class OpenAIProvider:
 
     @handle_openai_errors
     async def _generate(self, system_prompt: str, text: str, max_tokens: int) -> str:
-        log.info("openai.generate.start", model=self.model, max_tokens=max_tokens)
+        logger.info("openai.generate.start", model=self.model, max_tokens=max_tokens)
         response = await self._client.chat.completions.create(
             model=self.model,
             messages=[
@@ -40,7 +39,7 @@ class OpenAIProvider:
         if content is None:
             raise ValueError("Open AI Provider returned empty content")
         usage = response.usage
-        log.info(
+        logger.info(
             "openai.generate.done",
             model=self.model,
             prompt_tokens=usage.prompt_tokens if usage else None,
@@ -52,7 +51,7 @@ class OpenAIProvider:
     async def _extract[T: BaseModel](
         self, system_prompt: str, text: str, max_tokens: int, schema: type[T]
     ) -> T:
-        log.info("openai.extract.start", model=self.model, max_tokens=max_tokens, schema=schema.__name__)
+        logger.info("openai.extract.start", model=self.model, max_tokens=max_tokens, schema=schema.__name__)
         response = await self._client.chat.completions.parse(
             model=self.model,
             messages=[
@@ -67,7 +66,7 @@ class OpenAIProvider:
         if content is None:
             raise ValueError("Open AI Provider returned empty extraction")
         usage = response.usage
-        log.info(
+        logger.info(
             "openai.extract.done",
             model=self.model,
             schema=schema.__name__,

@@ -3,7 +3,6 @@ from tortoise import Tortoise
 
 from src.infrastructure.db.postgres import TORTOISE_ORM
 from src.shared.utils.decorators import singleton
-from src.shared.utils.logging_context import get_layer_logger, LAYER_APP
 
 from src.service.auth.service import AuthService
 from src.service.target.service import TargetService
@@ -11,8 +10,8 @@ from src.service.chapter.service import ChapterService
 from src.service.story.service import StoryService
 from src.infrastructure.ai import AIProvider, OpenAIProvider
 from src.infrastructure.config import config
+from loguru import logger
 
-log = get_layer_logger(LAYER_APP)
 
 
 # ── Infrastructure lifecycle ─────────────────────────────────────────
@@ -21,12 +20,12 @@ log = get_layer_logger(LAYER_APP)
 async def init_infrastructure() -> None:
     await Tortoise.init(config=TORTOISE_ORM)
     await Tortoise.generate_schemas()
-    log.info("infra.db.connected")
+    logger.info("infra.db.connected")
 
 
 async def shutdown_infrastructure() -> None:
     await Tortoise.close_connections()
-    log.info("infra.db.disconnected")
+    logger.info("infra.db.disconnected")
 
 
 # ── Service dependencies ────────────────────────────────────────────

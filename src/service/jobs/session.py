@@ -1,9 +1,8 @@
 from src.data.models import Session
 from datetime import datetime, timezone
-from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 from src.infrastructure.config import config
+from loguru import logger
 
-log = get_layer_logger(LAYER_SERVICE)
 
 
 async def cleanup_expired_sessions_batched(
@@ -34,4 +33,4 @@ async def cleanup_expired_sessions_batched(
             break
 
     if total_deleted > 0:
-        log.info("session.cleanup_complete", sessions_deleted=total_deleted)
+        logger.info("session.cleanup_complete", sessions_deleted=total_deleted)

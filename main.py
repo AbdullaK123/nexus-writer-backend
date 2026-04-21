@@ -5,7 +5,8 @@ from src.app.controllers.auth import user_controller
 from src.app.controllers.chapter import chapter_controller
 from src.app.controllers.story import story_controller
 from src.app.lifespan import lifespan
-from src.shared.utils.logging_context import get_correlation_id, get_layer_logger, LAYER_APP
+from src.shared.utils.correlation import get_correlation_id
+from src.shared.utils.logging import configure_logger
 from src.service.exceptions import ServiceError
 from src.data.exceptions import (
     DataError,
@@ -16,10 +17,10 @@ from src.data.exceptions import (
 from src.infrastructure.exceptions import InfrastructureError
 from src.infrastructure.config import settings
 from dotenv import load_dotenv
+from loguru import logger
 
 load_dotenv()
-
-log = get_layer_logger(LAYER_APP)
+configure_logger()
 
 
 app = FastAPI(
@@ -66,7 +67,7 @@ async def service_error_handler(request: Request, exc: ServiceError):
     detail = {"code": exc.code, "message": exc.message, "correlation_id": cid}
     if hasattr(exc, "fields") and exc.fields:
         detail["fields"] = exc.fields
-    log.warning(
+    logger.warning(
         "Service error: {code} — {message}", code=exc.code, message=exc.message
     )
     return JSONResponse(status_code=exc.status_code, content={"detail": detail})
@@ -108,7 +109,7 @@ async def data_error_handler(request: Request, exc: DataError):
                 }
             },
         )
-    log.error("Unhandled data error: {exc}", exc=exc)
+    logger.error("Unhandled data error: {exc}", exc=exc)
     return JSONResponse(
         status_code=500,
         content={
@@ -124,7 +125,7 @@ async def data_error_handler(request: Request, exc: DataError):
 @app.exception_handler(InfrastructureError)
 async def infrastructure_error_handler(request: Request, exc: InfrastructureError):
     cid = get_correlation_id()
-    log.error("Infrastructure error: {exc}", exc=exc)
+    logger.error("Infrastructure error: {exc}", exc=exc)
     return JSONResponse(
         status_code=503,
         content={
@@ -140,7 +141,7 @@ async def infrastructure_error_handler(request: Request, exc: InfrastructureErro
 # Global exception handler to ensure bullet-proof logging with correlation id
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    log.exception("Unhandled exception while processing request")
+    logger.exception("Unhandled exception while processing request")
     cid = get_correlation_id()
     payload = {"detail": "Internal Server Error", "correlation_id": cid}
     return JSONResponse(status_code=500, content=payload)

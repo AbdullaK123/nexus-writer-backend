@@ -9,15 +9,17 @@ from src.infrastructure.db.postgres import TORTOISE_ORM
 from src.service.jobs.service import poll_job_registry
 from src.service.ai.extraction import generate_extraction_by_type
 from src.infrastructure.config import config
-from src.shared.utils.logging_context import LAYER_APP, get_layer_logger
 from aiocron import Cron, crontab
 from pathlib import Path
+from loguru import logger
+from src.shared.utils.logging import configure_logger
+
+configure_logger()
 
 HEARTBEAT_FILE = Path("/tmp/extraction_worker_heartbeat")
 HEARTBEAT_INTERVAL_SECONDS = 30
 
 
-log = get_layer_logger(LAYER_APP)
 
 
 async def heartbeat_loop() -> None:
@@ -46,7 +48,7 @@ async def poll_for_extractions() -> None:
     try:
         await run_extractions()
     except Exception:
-        log.exception("cron.run_extractions.failed")
+        logger.exception("cron.run_extractions.failed")
     finally:
         HEARTBEAT_FILE.touch()
 
@@ -58,7 +60,7 @@ def shutdown(loop: asyncio.AbstractEventLoop, cron: Cron) -> None:
 async def main():
 
     await Tortoise.init(config=TORTOISE_ORM)
-    log.info("extraction_worker.started")
+    logger.info("extraction_worker.started")
     heartbeat_task = asyncio.create_task(heartbeat_loop())
 
     loop = asyncio.get_event_loop()
@@ -78,7 +80,7 @@ async def main():
     finally:
         heartbeat_task.cancel()
         await Tortoise.close_connections()
-        log.info("extraction_worker.stopped")
+        logger.info("extraction_worker.stopped")
 
 
 

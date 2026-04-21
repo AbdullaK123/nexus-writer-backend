@@ -12,9 +12,8 @@ from src.data.schemas.story import (
     StoryDetailResponse,
     StoryGridResponse,
 )
-from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+from loguru import logger
 
-log = get_layer_logger(LAYER_SERVICE)
 
 
 class StoryService:
@@ -25,13 +24,13 @@ class StoryService:
         story = await self.get_by_title(user_id, story_info.title)
 
         if story:
-            log.warning("story.create.conflict", user_id=user_id, title=story_info.title)
+            logger.warning("story.create.conflict", user_id=user_id, title=story_info.title)
             raise ConflictError(
                 "You already have a story with this title. Please choose a different one."
             )
 
         await Story.create(user_id=user_id, title=story_info.title, path_array=[])
-        log.info("story.create.done", user_id=user_id, title=story_info.title)
+        logger.info("story.create.done", user_id=user_id, title=story_info.title)
 
         return {"message": "Story successfully created"}
 
@@ -50,7 +49,7 @@ class StoryService:
             setattr(story, field, value)
 
         await story.save(update_fields=list(update_data.keys()))
-        log.info("story.update.done", user_id=user_id, story_id=story_id, fields=list(update_data.keys()))
+        logger.info("story.update.done", user_id=user_id, story_id=story_id, fields=list(update_data.keys()))
 
         return {"message": "Story successfully updated"}
 
@@ -63,7 +62,7 @@ class StoryService:
             )
 
         await story.delete()
-        log.info("story.delete.done", user_id=user_id, story_id=story_id)
+        logger.info("story.delete.done", user_id=user_id, story_id=story_id)
 
         return {"message": "Story successfully deleted"}
 

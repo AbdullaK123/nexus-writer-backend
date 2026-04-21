@@ -16,12 +16,11 @@ from src.service.exceptions import (
     ConflictError,
     AuthError,
 )
-from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
+from loguru import logger
 
-log = get_layer_logger(LAYER_SERVICE)
 
 def _log_retry(retry_state):
-    log.warning(
+    logger.warning(
         "service.retry",
         func=retry_state.fn.__qualname__,
         attempt=retry_state.attempt_number,
@@ -48,7 +47,7 @@ def handle_service_errors(func):
         except DuplicateError as e:
             raise ConflictError(f"{e.entity} with this {e.field} already exists")
         except DatabaseError as e:
-            log.error(
+            logger.error(
                 "service.infrastructure_failure",
                 func=func.__qualname__,
                 error=str(e.original),

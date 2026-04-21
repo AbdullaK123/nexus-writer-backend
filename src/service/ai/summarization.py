@@ -5,11 +5,10 @@ from src.infrastructure.ai import AIProvider
 from src.data.models import Summary, Chapter
 from src.service.ai.utils import fetch_chapter_content, get_subsequent_chapter_ids
 from src.shared.utils.html import html_to_plain_text
-from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 import asyncio
+from loguru import logger
 
 
-log = get_layer_logger(LAYER_SERVICE)
 
 
 async def generate_summary_by_type(
@@ -30,13 +29,13 @@ async def generate_summary_by_type(
         chapter_id=chapter.id,
         type=summary_type,
     )
-    log.info("summary.generate.done", chapter_id=chapter.id, type=summary_type)
+    logger.info("summary.generate.done", chapter_id=chapter.id, type=summary_type)
 
 
 async def generate_all_summaries(provider: AIProvider, chapter_id: str) -> None:
 
     chapter = await fetch_chapter_content(chapter_id)
-    log.info("summary.generate_all.start", chapter_id=chapter_id)
+    logger.info("summary.generate_all.start", chapter_id=chapter_id)
 
     summary_types = [
         SummaryType.CHARACTER,
@@ -52,7 +51,7 @@ async def generate_all_summaries(provider: AIProvider, chapter_id: str) -> None:
 
     for summary_type, result in zip(summary_types, results):
         if isinstance(result, Exception):
-            log.warning(
+            logger.warning(
                 "ai.generate_summaries.summary_task_failed",
                 type=summary_type,
                 error=str(result),
@@ -67,4 +66,4 @@ async def mark_summaries_stale(story_id: str, starting_chapter_id: str) -> None:
         return
 
     await Summary.filter(chapter_id__in=cids_now_stale).update(is_stale=True)
-    log.info("summary.mark_stale.done", story_id=story_id, stale_count=len(cids_now_stale))
+    logger.info("summary.mark_stale.done", story_id=story_id, stale_count=len(cids_now_stale))

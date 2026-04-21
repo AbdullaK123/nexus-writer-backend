@@ -6,11 +6,10 @@ from src.infrastructure.ai.enums import JobType
 from src.data.schemas.job import JobStatusResponse
 from src.service.exceptions import ServiceError, NotFoundError
 from src.service.utils.decorators import retry_on_operational_error, handle_service_errors
-from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 from datetime import datetime, timezone as tz
 from functools import wraps
+from loguru import logger
 
-log = get_layer_logger(LAYER_SERVICE)
 
 
 def get_now() -> datetime:
@@ -146,11 +145,11 @@ def poll_job_registry(
                 await mark_job_completed(job.id, on_completed_message)
                 return result
             except Exception as e:
-                log.error(f"{job_name}.failed", error=str(e))
+                logger.error(f"{job_name}.failed", error=str(e))
                 try:
                     await mark_job_failed(job.id, on_failed_message)
                 except Exception as fail_err:
-                    log.error(f"{job_name}.recovery_failed", job_id=job.id, error=str(fail_err))
+                    logger.error(f"{job_name}.recovery_failed", job_id=job.id, error=str(fail_err))
                     
         return wrapper
     

@@ -2,16 +2,18 @@ from tortoise import Tortoise
 from src.infrastructure.db.postgres import TORTOISE_ORM
 from src.service.jobs.session import cleanup_expired_sessions_batched
 from src.infrastructure.config import config
-from src.shared.utils.logging_context import get_layer_logger, LAYER_APP
 from aiocron import Cron, crontab
 import asyncio
 import signal
 from pathlib import Path
+from loguru import logger
+from src.shared.utils.logging import configure_logger
+
+configure_logger()
 
 HEARTBEAT_FILE = Path("/tmp/session_worker_heartbeat")
 HEARTBEAT_INTERVAL_SECONDS = 30
 
-log = get_layer_logger(LAYER_APP)
 
 
 async def heartbeat_loop() -> None:
@@ -24,7 +26,7 @@ async def cleanup_expired_sessions():
     try:
         await cleanup_expired_sessions_batched()
     except Exception:
-        log.exception("cron.cleanup_expired_sessions.failed")
+        logger.exception("cron.cleanup_expired_sessions.failed")
     finally:
         HEARTBEAT_FILE.touch()
 
@@ -36,7 +38,7 @@ def shutdown(loop: asyncio.AbstractEventLoop, cron: Cron) -> None:
 async def main():
 
     await Tortoise.init(config=TORTOISE_ORM)
-    log.info("session_worker.started")
+    logger.info("session_worker.started")
     heartbeat_task = asyncio.create_task(heartbeat_loop())
 
     loop = asyncio.get_event_loop()
@@ -56,7 +58,7 @@ async def main():
     finally:
         heartbeat_task.cancel()
         await Tortoise.close_connections()
-        log.info("session_worker.stopped")
+        logger.info("session_worker.stopped")
 
 
 

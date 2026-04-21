@@ -18,10 +18,9 @@ from src.service.chapter.utils import (
     handle_chapter_deletion,
     handle_chapter_reordering,
 )
-from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 from src.data.utils.decorators import transaction
+from loguru import logger
 
-log = get_layer_logger(LAYER_SERVICE)
 
 
 class ChapterService:
@@ -54,7 +53,7 @@ class ChapterService:
             )
 
             await handle_chapter_creation(story_id, chapter_to_create.id)
-            log.info("chapter.create.done", story_id=story_id, chapter_id=chapter_to_create.id, user_id=user_id)
+            logger.info("chapter.create.done", story_id=story_id, chapter_id=chapter_to_create.id, user_id=user_id)
 
             return chapter_to_create.id, await self.get_chapter_with_navigation(
                 chapter_to_create.id, user_id, as_html=True
@@ -63,7 +62,7 @@ class ChapterService:
         except (NotFoundError, ValidationError, InternalError):
             raise
         except Exception as e:
-            log.error(
+            logger.error(
                 "chapter.create_failed",
                 story_id=story_id,
                 user_id=user_id,
@@ -112,7 +111,7 @@ class ChapterService:
 
         await chapter.save(update_fields=list(updated_data.keys()))
 
-        log.info("chapter.update.done", chapter_id=chapter_id, user_id=user_id, fields=list(updated_data.keys()))
+        logger.info("chapter.update.done", chapter_id=chapter_id, user_id=user_id, fields=list(updated_data.keys()))
 
         content_or_title_change = "content" in updated_data or "title" in updated_data
 
@@ -147,7 +146,7 @@ class ChapterService:
         next_chapter_id = chapter.next_chapter_id  # type: ignore[attr-defined]
         await chapter.delete()
         await handle_chapter_deletion(story_id, chapter_id)
-        log.info("chapter.delete.done", chapter_id=chapter_id, user_id=user_id, story_id=story_id)
+        logger.info("chapter.delete.done", chapter_id=chapter_id, user_id=user_id, story_id=story_id)
         
         await mark_extractions_stale(story_id=story_id)
 
@@ -285,10 +284,10 @@ class ChapterService:
 
         try:
             await handle_chapter_reordering(story_id, data.from_pos, data.to_pos)
-            log.info("chapter.reorder.done", story_id=story_id, user_id=user_id, from_pos=data.from_pos, to_pos=data.to_pos)
+            logger.info("chapter.reorder.done", story_id=story_id, user_id=user_id, from_pos=data.from_pos, to_pos=data.to_pos)
             return {"message": "Chapters reordered successfully"}
         except Exception as e:
-            log.error(
+            logger.error(
                 "chapter.reorder_failed",
                 story_id=story_id,
                 user_id=user_id,

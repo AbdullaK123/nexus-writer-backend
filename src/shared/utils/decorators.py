@@ -1,11 +1,10 @@
 from functools import wraps
 from contextlib import asynccontextmanager
-from src.shared.utils.logging_context import get_layer_logger, LAYER_SHARED
 from typing import Callable, ParamSpec, TypeVar, overload, Awaitable
 import inspect
 import time
+from loguru import logger
 
-log = get_layer_logger(LAYER_SHARED)
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -29,7 +28,7 @@ def log_errors(func):
             try:
                 return await func(*args, **kwargs)
             except Exception:
-                log.exception("shared.func_failed", func=func.__name__)
+                logger.exception("shared.func_failed", func=func.__name__)
                 raise
 
         return async_wrapper
@@ -41,7 +40,7 @@ def log_errors(func):
             try:
                 return func(*args, **kwargs)
             except Exception:
-                log.exception("shared.func_failed", func=func.__name__)
+                logger.exception("shared.func_failed", func=func.__name__)
                 raise
 
         return sync_wrapper

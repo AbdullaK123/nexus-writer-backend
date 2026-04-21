@@ -11,13 +11,8 @@ from src.infrastructure.auth.session import generate_session_id
 from src.service.exceptions import AuthError, ForbiddenError, ConflictError
 from typing import Optional
 from datetime import datetime, timedelta, timezone
-from src.shared.utils.logging_context import (
-    get_layer_logger,
-    LAYER_SERVICE,
-    set_user_id,
-)
-
-log = get_layer_logger(LAYER_SERVICE)
+from src.shared.utils.logging import (set_user_id)
+from loguru import logger
 
 
 class AuthService:
@@ -28,13 +23,13 @@ class AuthService:
         user = await self.get_user_by_email(credentials.email)
 
         if not user or not verify_password(credentials.password, user.password_hash):
-            log.warning(
+            logger.warning(
                 "auth.login_failed.invalid_credentials",
                 email=credentials.email,
             )
             raise AuthError("Incorrect email or password. Please try again.")
 
-        log.info(
+        logger.info(
             "auth.login_succeeded",
             user_id=str(user.id),
         )
@@ -57,7 +52,7 @@ class AuthService:
             ip_address=connection_details.ip_address,
             user_agent=connection_details.user_agent,
         )
-        log.info(
+        logger.info(
             "session.created",
             user_id=user_id,
             session_id=session_id,
@@ -68,24 +63,24 @@ class AuthService:
 
     async def validate_session(self, session_id: str) -> Optional[User]:
         if not session_id:
-            log.warning("session.validate_failed.missing_session_id")
+            logger.warning("session.validate_failed.missing_session_id")
             raise ForbiddenError("Your session is invalid. Please log in again.")
 
         session = await Session.filter(session_id=session_id).first()
 
         if not session:
-            log.warning("session.validate_failed.not_found")
+            logger.warning("session.validate_failed.not_found")
             raise ForbiddenError("Your session has expired. Please log in again.")
 
         if session.expires_at < datetime.now(timezone.utc):
-            log.warning("session.validate_failed.expired", user_id=session.user_id)  # type: ignore[attr-defined]
+            logger.warning("session.validate_failed.expired", user_id=session.user_id)  # type: ignore[attr-defined]
             await session.delete()
             raise ForbiddenError("Your session has expired. Please log in again.")
 
         user_id = session.user_id  # type: ignore[attr-defined]
 
         if not user_id:
-            log.warning("session.validate_failed.no_user_id")
+            logger.warning("session.validate_failed.no_user_id")
             raise ForbiddenError("Your session is invalid. Please log in again.")
 
         user = await User.filter(id=user_id).first()
@@ -105,9 +100,9 @@ class AuthService:
 
         if session:
             await session.delete()
-            log.info("session.deleted", user_id=session.user_id)  # type: ignore[attr-defined]
+            logger.info("session.deleted", user_id=session.user_id)  # type: ignore[attr-defined]
         else:
-            log.warning("session.logout_failed.not_found")
+            logger.warning("session.logout_failed.not_found")
 
     async def login_user(
         self, credentials: AuthCredentials, connection_details: ConnectionDetails
@@ -116,7 +111,7 @@ class AuthService:
         session_id = await self.create_session(
             user.id, connection_details=connection_details
         )
-        log.info(
+        logger.info(
             "auth.user_logged_in",
             user_id=str(user.id),
         )
@@ -131,7 +126,7 @@ class AuthService:
         user = await self.get_user_by_email(registration_data.email)
 
         if user:
-            log.warning(
+            logger.warning(
                 "auth.register_failed.duplicate_email",
                 email=registration_data.email,
             )
@@ -145,7 +140,7 @@ class AuthService:
             password_hash=hash_password(registration_data.password),
             profile_img=registration_data.profile_img,
         )
-        log.info(
+        logger.info(
             "auth.user_registered",
             user_id=str(user_to_create.id),
         )
