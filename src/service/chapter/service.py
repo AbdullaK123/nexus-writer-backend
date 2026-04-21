@@ -1,5 +1,6 @@
 from typing import Optional, Tuple
 from src.data.models import Chapter, Story
+from src.infrastructure.config import config
 from src.data.schemas.chapter import (
     CreateChapterRequest,
     UpdateChapterRequest,
@@ -8,6 +9,8 @@ from src.data.schemas.chapter import (
     ChapterContentResponse,
     ChapterListResponse,
 )
+from src.service.ai.extraction import mark_extractions_stale
+from src.service.ai.summarization import mark_summaries_stale
 from src.service.exceptions import NotFoundError, ValidationError, InternalError
 from src.shared.utils.html import get_preview_content, get_word_count
 from src.service.chapter.utils import (
@@ -78,9 +81,10 @@ class ChapterService:
             .first()
         )
 
+    @transaction
     async def update(
         self, chapter_id: str, user_id: str, data: UpdateChapterRequest
-    ) -> Tuple[str, ChapterContentResponse]:
+    ) -> ChapterContentResponse:
         """Update chapter content, title, or published status"""
 
         chapter = (
@@ -98,14 +102,25 @@ class ChapterService:
         story_id = chapter.story_id  # type: ignore[attr-defined]
 
         updated_data = data.model_dump(exclude_unset=True)
+
         if "content" in updated_data:
+
             updated_data["word_count"] = get_word_count(updated_data["content"])
+                
         for field, value in updated_data.items():
             setattr(chapter, field, value)
+
         await chapter.save(update_fields=list(updated_data.keys()))
+
         log.info("chapter.update.done", chapter_id=chapter_id, user_id=user_id, fields=list(updated_data.keys()))
 
-        return story_id, ChapterContentResponse(
+        content_or_title_change = "content" in updated_data or "title" in updated_data
+
+        if content_or_title_change:
+            await mark_summaries_stale(story_id=story_id, starting_chapter_id=chapter_id)
+            await mark_extractions_stale(story_id=story_id)
+
+        return ChapterContentResponse(
             id=chapter.id,
             title=chapter.title,
             content=chapter.content,
@@ -119,7 +134,7 @@ class ChapterService:
         )
 
     @transaction
-    async def delete(self, chapter_id: str, user_id: str) -> Tuple[str, str, dict]:
+    async def delete(self, chapter_id: str, user_id: str) -> dict:
         """Delete chapter with pointer cleanup"""
 
         chapter = await Chapter.filter(user_id=user_id, id=chapter_id).first()
@@ -130,27 +145,16 @@ class ChapterService:
 
         story_id = chapter.story_id  # type: ignore[attr-defined]
         next_chapter_id = chapter.next_chapter_id  # type: ignore[attr-defined]
+        await chapter.delete()
+        await handle_chapter_deletion(story_id, chapter_id)
+        log.info("chapter.delete.done", chapter_id=chapter_id, user_id=user_id, story_id=story_id)
+        
+        await mark_extractions_stale(story_id=story_id)
 
-        try:
-            await chapter.delete()
-            await handle_chapter_deletion(story_id, chapter_id)
-            log.info("chapter.delete.done", chapter_id=chapter_id, user_id=user_id, story_id=story_id)
-            return (
-                story_id,
-                next_chapter_id,
-                {"message": "Chapter was successfully deleted"},
-            )
+        if next_chapter_id:
+            await mark_summaries_stale(story_id=story_id, starting_chapter_id=next_chapter_id)
 
-        except Exception as e:
-            log.error(
-                "chapter.delete_failed",
-                chapter_id=chapter_id,
-                user_id=user_id,
-                error=str(e),
-            )
-            raise InternalError(
-                "Something went wrong while deleting your chapter. Please try again."
-            )
+        return {"message": "Chapter was successfully deleted"}
 
     # ========================================
     # STORY CHAPTER OPERATIONS

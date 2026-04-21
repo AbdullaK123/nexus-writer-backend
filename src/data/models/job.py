@@ -1,6 +1,7 @@
 # mypy: disable-error-code="var-annotated"
 from tortoise import fields
 from tortoise.models import Model
+from tortoise.validators import MaxValueValidator, MinValueValidator
 from src.data.models.enums import generate_uuid, JobStatus
 from src.infrastructure.ai.enums import JobType
 from src.data.schemas.job import JobStatusResponse
@@ -14,11 +15,13 @@ class Job(Model):
     type = fields.CharEnumField(JobType, max_length=20)
     status = fields.CharEnumField(JobStatus, default=JobStatus.QUEUED, max_length=20)
     started_at = fields.DatetimeField(null=True)
-    queued_at = fields.DatetimeField(auto_now_add=True)
+    queued_at = fields.DatetimeField(null=True)
     completed_at = fields.DatetimeField(null=True)
     failed_at = fields.DatetimeField(null=True)
-    message = fields.CharField(max_length=255, default="")
+    message = fields.TextField(default="")
     params = fields.JSONField(default=dict)
+    num_retries = fields.IntField(default=0, validators=[MinValueValidator(0)])
+    max_retries = fields.IntField(default=3, validators=[MaxValueValidator(5)])
 
     class Meta:
         table = "job"

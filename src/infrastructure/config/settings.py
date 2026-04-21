@@ -107,7 +107,7 @@ class AiConfig(BaseModel, frozen=True):
 class JobConfig(BaseModel, frozen=True):
     session_cleanup_batch_size: int = 1000
     session_cleanup_cron_expression: str = "0 */6 * * *"
-
+    mark_stale_word_count_delta: int = 1000
 
 class Config(BaseModel, frozen=True):
     """Application-wide static configuration. Loaded from config.yaml."""

@@ -5,6 +5,7 @@ from src.data.models.enums import JobStatus
 from src.infrastructure.ai.enums import JobType
 from src.data.schemas.job import JobStatusResponse
 from src.service.exceptions import ServiceError, NotFoundError
+from src.service.utils.decorators import retry_on_operational_error, handle_service_errors
 from src.shared.utils.logging_context import get_layer_logger, LAYER_SERVICE
 from datetime import datetime, timezone as tz
 from functools import wraps
@@ -15,14 +16,16 @@ log = get_layer_logger(LAYER_SERVICE)
 def get_now() -> datetime:
     return datetime.now(tz.utc)
 
-
+@handle_service_errors
+@retry_on_operational_error
 async def get_job_status(job_id: str) -> JobStatusResponse:
     job = await Job.get_or_none(id=job_id)
     if job is None:
         raise NotFoundError("Job not found")
     return job.to_status_response()
 
-
+@handle_service_errors
+@retry_on_operational_error
 async def queue_extraction_job(
     story_id: str,
     job_type: JobType,
@@ -39,12 +42,14 @@ async def queue_extraction_job(
         story_id=story_id,
         type=job_type,
         message=message,
+        queued_at=get_now(),
         params=job_args or {}
     )
 
     return job.to_status_response()
 
 
+@handle_service_errors
 async def claim_next_job(on_started_message: str = "") -> Optional[Job]:
 
     conn = Tortoise.get_connection("default")
@@ -55,7 +60,7 @@ async def claim_next_job(on_started_message: str = "") -> Optional[Job]:
         WHERE id = (
             SELECT id
             FROM job
-            WHERE status = 'queued'
+            WHERE status = 'queued' AND queued_at <= NOW()
             ORDER BY queued_at
             LIMIT 1
             FOR UPDATE SKIP LOCKED
@@ -69,8 +74,9 @@ async def claim_next_job(on_started_message: str = "") -> Optional[Job]:
     return await Job.get(id=rows[0]["id"])
 
     
-
-async def mark_job_failed(job_id: str, message: str = "") -> Job:
+@handle_service_errors
+@retry_on_operational_error
+async def mark_job_failed(job_id: str, on_failed_message: str = "") -> Job:
 
     job = await Job.get_or_none(id=job_id)
 
@@ -80,14 +86,25 @@ async def mark_job_failed(job_id: str, message: str = "") -> Job:
     if job.status not in (JobStatus.RUNNING, JobStatus.QUEUED):
         raise ServiceError("Only queued or running jobs can be marked as failed")
     
-    job.status = JobStatus.FAILED
-    job.failed_at = get_now()
-    job.message = message
+    if job.num_retries < job.max_retries:
+        job.num_retries += 1
+        job.status = JobStatus.QUEUED
+        job.queued_at = get_now()
+        job.started_at = None
+        job.message = f"Retrying {job_id} ({job.num_retries} / {job.max_retries}) : {on_failed_message}"
+        update_fields = ["status", "started_at", "queued_at", "message", "num_retries"]
+    else:
+        job.status = JobStatus.FAILED
+        job.failed_at = get_now()
+        job.message = on_failed_message
+        update_fields = ["status", "failed_at", "message"]
 
-    await job.save(update_fields=["status", "failed_at", "message"])
+    await job.save(update_fields=update_fields)
 
     return job
 
+@handle_service_errors
+@retry_on_operational_error
 async def mark_job_completed(job_id: str, message: str = "") -> Job:
 
     job = await Job.get_or_none(id=job_id)
@@ -113,7 +130,9 @@ def poll_job_registry(
     on_failed_message: str = "",
     on_completed_message: str = ""
 ) -> Callable:
+    
     def decorator(func: Callable) -> Callable:
+
         @wraps(func)
         async def wrapper(*args, **kwargs) -> Any:
 
@@ -127,9 +146,12 @@ def poll_job_registry(
                 await mark_job_completed(job.id, on_completed_message)
                 return result
             except Exception as e:
-                await mark_job_failed(job.id, on_failed_message)
                 log.error(f"{job_name}.failed", error=str(e))
-        
+                try:
+                    await mark_job_failed(job.id, on_failed_message)
+                except Exception as fail_err:
+                    log.error(f"{job_name}.recovery_failed", job_id=job.id, error=str(fail_err))
+                    
         return wrapper
     
     return decorator
