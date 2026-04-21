@@ -15,8 +15,6 @@ configure_logger()
 HEARTBEAT_FILE = Path("/tmp/summary_worker_heartbeat")
 HEARTBEAT_INTERVAL_SECONDS = 30
 
-
-
 async def heartbeat_loop() -> None:
     while True:
         HEARTBEAT_FILE.touch()
