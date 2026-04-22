@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 # =================== PLOT EXTRACTION SCHEMAS ===========================
 
@@ -48,6 +48,15 @@ class CharacterStatus(str, Enum):
     DECEASED = "deceased"
     UNKNOWN = "unknown"
 
+class CharacterArcType(str, Enum):
+    GROWTH = "growth"             # becomes wiser/stronger/more whole (positive change)
+    FALL = "fall"                 # declines morally, mentally, or in fortune (tragic)
+    REDEMPTION = "redemption"     # rises from a low/corrupt starting point
+    CORRUPTION = "corruption"     # starts good, succumbs to darker influences
+    DISILLUSIONMENT = "disillusionment"  # loses naive belief, sees the world as it is
+    FLAT = "flat"                 # does not change; their constancy drives others' change
+    UNKNOWN = "unknown"           # arc not yet discernible
+
 
 class Character(BaseModel):
     name: str = Field(
@@ -68,6 +77,33 @@ class Character(BaseModel):
     )
     tags: List[str] = Field(
         description="2-5 short keywords (names, places, affiliations) the writer can use to locate this character's scenes in the manuscript."
+    )
+    arc: Optional[str] = Field(
+        default=None,
+        description=(
+            "The character's narrative trajectory across the story so far — how they "
+            "have changed, what they have learned, lost, or become. Describes "
+            "transformation and development rather than static traits. Should reference "
+            "the starting state, key turning points, and current state when known. "
+            "Leave null if the character has not undergone meaningful change or there "
+            "is insufficient material to assess one (e.g. minor characters, very early "
+            "in the story)."
+        ),
+    )
+    arc_type: Optional[CharacterArcType] = Field(
+        default=None,
+        description=(
+            "The shape of the character's developmental trajectory. Choose the single "
+            "best fit:\n"
+            "- growth: becomes wiser, stronger, or more whole over time\n"
+            "- fall: declines morally, mentally, or in circumstance (tragic arc)\n"
+            "- redemption: rises from a flawed or corrupt starting point\n"
+            "- corruption: starts good or innocent, succumbs to darker forces\n"
+            "- disillusionment: loses idealism or naive belief; sees the world as it is\n"
+            "- flat: does not meaningfully change; their constancy may drive others\n"
+            "- unknown: arc cannot yet be determined from the available material\n"
+            "Use 'unknown' rather than guessing for minor characters or early-story figures."
+        ),
     )
 
 

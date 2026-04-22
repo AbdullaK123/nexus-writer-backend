@@ -73,11 +73,11 @@ class AuthService:
             raise ForbiddenError("Your session has expired. Please log in again.")
 
         if session.expires_at < datetime.now(timezone.utc):
-            logger.warning("session.validate_failed.expired", user_id=session.user_id)  # type: ignore[attr-defined]
+            logger.warning("session.validate_failed.expired", user_id=session.user_id)
             await session.delete()
             raise ForbiddenError("Your session has expired. Please log in again.")
 
-        user_id = session.user_id  # type: ignore[attr-defined]
+        user_id = session.user_id
 
         if not user_id:
             logger.warning("session.validate_failed.no_user_id")
@@ -100,7 +100,7 @@ class AuthService:
 
         if session:
             await session.delete()
-            logger.info("session.deleted", user_id=session.user_id)  # type: ignore[attr-defined]
+            logger.info("session.deleted", user_id=session.user_id)
         else:
             logger.warning("session.logout_failed.not_found")
 

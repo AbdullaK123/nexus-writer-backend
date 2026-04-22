@@ -98,7 +98,7 @@ class ChapterService:
             )
 
         story_title = chapter.story.title
-        story_id = chapter.story_id  # type: ignore[attr-defined]
+        story_id = chapter.story_id
 
         updated_data = data.model_dump(exclude_unset=True)
 
@@ -124,12 +124,12 @@ class ChapterService:
             title=chapter.title,
             content=chapter.content,
             published=chapter.published,
-            story_id=chapter.story_id,  # type: ignore[attr-defined]
+            story_id=chapter.story_id,
             story_title=story_title,
             created_at=chapter.created_at,
             updated_at=chapter.updated_at,
-            previous_chapter_id=chapter.prev_chapter_id,  # type: ignore[attr-defined]
-            next_chapter_id=chapter.next_chapter_id,  # type: ignore[attr-defined]
+            previous_chapter_id=chapter.prev_chapter_id,
+            next_chapter_id=chapter.next_chapter_id,
         )
 
     @transaction
@@ -142,8 +142,8 @@ class ChapterService:
                 "We couldn't find this chapter. It may have been deleted."
             )
 
-        story_id = chapter.story_id  # type: ignore[attr-defined]
-        next_chapter_id = chapter.next_chapter_id  # type: ignore[attr-defined]
+        story_id = chapter.story_id
+        next_chapter_id = chapter.next_chapter_id
         await chapter.delete()
         await handle_chapter_deletion(story_id, chapter_id)
         logger.info("chapter.delete.done", chapter_id=chapter_id, user_id=user_id, story_id=story_id)
@@ -237,12 +237,12 @@ class ChapterService:
             if as_html
             else get_preview_content(chapter.content),
             published=chapter.published,
-            story_id=chapter.story_id,  # type: ignore[attr-defined]
+            story_id=chapter.story_id,
             story_title=story_title,
             created_at=chapter.created_at,
             updated_at=chapter.updated_at,
-            previous_chapter_id=chapter.prev_chapter_id,  # type: ignore[attr-defined]
-            next_chapter_id=chapter.next_chapter_id,  # type: ignore[attr-defined]
+            previous_chapter_id=chapter.prev_chapter_id,
+            next_chapter_id=chapter.next_chapter_id,
         )
 
     # ========================================

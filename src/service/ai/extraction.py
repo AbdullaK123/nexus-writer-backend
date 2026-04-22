@@ -43,7 +43,7 @@ async def generate_extraction_by_type(
     )
     await Extraction.update_or_create(
         defaults={"data": extraction.model_dump()},
-        story_id=story_id,  # type: ignore[attr-defined]
+        story_id=story_id,
         type=extraction_type,
     )
     logger.info("extraction.generate.done", story_id=story_id, type=extraction_type)

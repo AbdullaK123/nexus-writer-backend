@@ -14,7 +14,7 @@ async def get_current_user(
     user = await auth_service.validate_session(session_id)
     if user is not None:
         try:
-            request.state.user_id = user.id  # type: ignore[attr-defined]
+            request.state.user_id = user.id
         except Exception:
             pass
         try:

@@ -69,6 +69,10 @@ Include (when important):
 - Backstory revealed in this chapter
 - Physical or situational changes significant to the character's arc (injury, new possession that matters, aging)
 - First appearances of new named characters (always important by definition)
+- Arc-relevant change: explicit shifts in belief, loyalty, goal, self-conception, or moral position. Capture both the change and what triggered it.
+- Turning-point moments: scenes where the character makes a choice that commits them to a new path, or where an event forces a re-evaluation
+- Loss of illusions: moments where a character realizes something about the world or themselves that they didn't see before
+- First moral compromises and first refusals to compromise — both are arc-defining
 
 Exclude:
 - Incidental presence without meaningful action
@@ -78,6 +82,10 @@ Exclude:
 - Plot events that don't reveal character (those go in plot summary)
 - World-building details (those go in world summary)
 - Minor interactions that won't matter later
+- Arc-relevant change: explicit shifts in belief, loyalty, goal, self-conception, or moral position. Capture both the change and what triggered it.
+- Turning-point moments: scenes where the character makes a choice that commits them to a new path, or where an event forces a re-evaluation
+- Loss of illusions: moments where a character realizes something about the world or themselves that they didn't see before
+- First moral compromises and first refusals to compromise — both are arc-defining
 
 Output format:
 - Group by character. One subsection per named character who did something important.
@@ -90,7 +98,7 @@ Example:
 Morinth:
 - Revealed she had been tracking the Phoenix signal for six months
 - Stated distrust of Saedaris's motives
-- Agreed to travel to the outer system despite her suspicions
+- [ARC] Agreed to travel to the outer system despite her suspicions — first time she has acted against her own caution
 
 [NEW] Saedaris:
 - Introduced as a Turian ex-military pilot

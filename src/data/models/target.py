@@ -1,3 +1,4 @@
+# mypy: disable-error-code="var-annotated"
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -19,9 +20,11 @@ class Target(Model, TimestampMixin):
     story: fields.ForeignKeyRelation["Story"] = fields.ForeignKeyField(
         "models.Story", related_name="target", on_delete=fields.CASCADE, index=True
     )
+    story_id: str
     user: fields.ForeignKeyRelation["User"] = fields.ForeignKeyField(
         "models.User", related_name="targets", on_delete=fields.CASCADE, index=True
     )
+    user_id: str
     quota = fields.IntField(default=0)
     frequency = fields.CharEnumField(FrequencyType, default=FrequencyType.DAILY)
     from_date = fields.DatetimeField(default=lambda: datetime.now(timezone.utc))

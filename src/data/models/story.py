@@ -12,13 +12,15 @@ if TYPE_CHECKING:
     from src.data.models.extraction import Extraction
     from src.data.models.job import Job
     from src.data.models.target import Target
+    from src.data.models.user import User
 
 
 class Story(Model, TimestampMixin):
     id = fields.CharField(max_length=36, pk=True, default=generate_uuid)
-    user = fields.ForeignKeyField(
+    user: fields.ForeignKeyRelation["User"] = fields.ForeignKeyField(
         "models.User", related_name="stories", on_delete=fields.CASCADE, index=True
     )
+    user_id: str
     title = fields.CharField(max_length=255, index=True)
     story_context = fields.TextField(null=True)
     status = fields.CharEnumField(StoryStatus, default=StoryStatus.ONGOING)

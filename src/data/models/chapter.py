@@ -8,17 +8,21 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.data.models import Summary
+    from src.data.models.story import Story
+    from src.data.models.user import User
 
 
 class Chapter(Model, TimestampMixin):
     # Primary fields
     id = fields.CharField(max_length=36, pk=True, default=generate_uuid)
-    story = fields.ForeignKeyField(
+    story: fields.ForeignKeyRelation["Story"] = fields.ForeignKeyField(
         "models.Story", related_name="chapters", on_delete=fields.CASCADE, index=True
     )
-    user = fields.ForeignKeyField(
+    story_id: str
+    user: fields.ForeignKeyRelation["User"] = fields.ForeignKeyField(
         "models.User", related_name="chapters", on_delete=fields.CASCADE, index=True
     )
+    user_id: str
     title = fields.CharField(max_length=255)
     content = fields.TextField()
     published = fields.BooleanField(default=False)
@@ -27,18 +31,20 @@ class Chapter(Model, TimestampMixin):
     word_count = fields.IntField(default=0)
 
     # Linked list for chapter ordering (self-referencing)
-    next_chapter = fields.ForeignKeyField(
+    next_chapter: fields.ForeignKeyNullableRelation["Chapter"] = fields.ForeignKeyField(
         "models.Chapter",
         related_name="prev_of",
         null=True,
         on_delete=fields.SET_NULL,
     )
-    prev_chapter = fields.ForeignKeyField(
+    next_chapter_id: Optional[str]
+    prev_chapter: fields.ForeignKeyNullableRelation["Chapter"] = fields.ForeignKeyField(
         "models.Chapter",
         related_name="next_of",
         null=True,
         on_delete=fields.SET_NULL,
     )
+    prev_chapter_id: Optional[str]
 
     # reverse relation for summaries
     summaries: fields.ReverseRelation["Summary"]

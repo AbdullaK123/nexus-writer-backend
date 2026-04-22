@@ -73,10 +73,10 @@ async def sync_all_chapter_pointers(story_id: str):
     for i, chapter_id in enumerate(story.path_array):
         if chapter_id in chapters_lookup:
             chapter = chapters_lookup[chapter_id]
-            chapter.prev_chapter_id = story.path_array[i - 1] if i > 0 else None  # type: ignore[attr-defined]
+            chapter.prev_chapter_id = story.path_array[i - 1] if i > 0 else None
             chapter.next_chapter_id = (
                 story.path_array[i + 1] if i < len(story.path_array) - 1 else None
-            )  # type: ignore[attr-defined]
+            )
             to_update.append(chapter)
 
     if to_update:

@@ -1,5 +1,6 @@
 from .summarization import *
 from .extraction import *
+from .editor import *
 from src.infrastructure.ai.enums import SummaryType, JobType
 
 
@@ -12,4 +13,5 @@ PROMPT_MAP = {
     JobType.CHARACTER: CHARACTER_ROSTER_EXTRACTION_PROMPT,
     JobType.VOICE: VOICE_PROFILE_EXTRACTION_PROMPT,
     JobType.PLOT_THREAD: PLOT_THREADS_EXTRACTION_PROMPT,
+    "editor": EDITOR_SYSTEM_PROMPT
 }

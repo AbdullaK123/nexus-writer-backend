@@ -25,7 +25,7 @@ async def generate_summary_by_type(
 
     await Summary.update_or_create(
         defaults={"content": summary_text},
-        story_id=chapter.story_id,  # type: ignore[attr-defined]
+        story_id=chapter.story_id,
         chapter_id=chapter.id,
         type=summary_type,
     )

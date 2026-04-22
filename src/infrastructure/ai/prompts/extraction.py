@@ -47,6 +47,8 @@ For each character, capture:
 - Status classification
 - A 2-4 sentence description of who they are
 - Key relationships (short phrases, only relationships that matter)
+- Arc (their developmental trajectory, when discernible)
+- Arc type (the shape of that trajectory)
 - Tags for grep
 
 Importance classification:
@@ -71,6 +73,24 @@ Relationship guidelines:
 - Short phrases: "Saedaris — ally turned reluctant partner", "Nu'adu — mentor, presumed dead"
 - Only relationships that actually matter to the story
 - Verbatim names, consistent with the manuscript
+
+Arc guidelines:
+- The arc is the character's developmental journey across the story so far: how they have changed from their introduction to the present point, including key turning points. Capture transformation, not static traits — those belong in `description`.
+- 2-4 sentences. Reference the starting state, the pivot(s) that drove change, and the current state when known.
+- Set arc to null if the character has not undergone meaningful change yet, or if there is insufficient material to assess one (typical for MINOR characters and for any character introduced very recently).
+- Do NOT speculate about future arc beats. Describe only what has happened on the page.
+- Do NOT invent change to fill the slot. A character who is genuinely the same at the end as at the beginning has no arc, and that is a valid finding — capture it via arc_type FLAT, with arc set to null or to a brief sentence explaining what they remain.
+
+Arc type classification:
+- GROWTH: becomes wiser, stronger, or more whole over time
+- FALL: declines morally, mentally, or in circumstance (tragic arc)
+- REDEMPTION: rises from a flawed or corrupt starting point toward virtue or restoration
+- CORRUPTION: starts good or innocent, succumbs to darker influences
+- DISILLUSIONMENT: loses idealism or naive belief; comes to see the world as it is
+- FLAT: does not meaningfully change; their constancy may serve as a fixed point that drives others' change
+- UNKNOWN: arc cannot yet be determined from the available material
+
+Choose the single best fit. When two arcs apply (e.g. a fall followed by a redemption), pick the one that best describes the character's *current* trajectory at the latest chapter. Use UNKNOWN rather than guessing for MINOR characters or characters introduced very recently in the source.
 
 Omit walk-on characters who appeared but did nothing significant. The roster is for characters the writer needs to remember, not a census.
 

@@ -144,7 +144,7 @@ class StoryService:
         # Group chapters by story_id
         chapters: dict[str, list[Chapter]] = {}
         for chapter in all_chapters:
-            chapters.setdefault(chapter.story_id, []).append(chapter)  # type: ignore[attr-defined]
+            chapters.setdefault(chapter.story_id, []).append(chapter)
 
         story_cards = (
             [
@@ -180,19 +180,19 @@ class StoryService:
         # Group chapters by story_id
         chapters: dict[str, list[Chapter]] = {}
         for chapter in all_chapters:
-            chapters.setdefault(chapter.story_id, []).append(chapter)  # type: ignore[attr-defined]
+            chapters.setdefault(chapter.story_id, []).append(chapter)
 
         # Get all targets for all stories in one query (avoid N+1)
         all_targets = await Target.filter(story_id__in=story_ids, user_id=user_id)
         targets_by_story: dict[str, list[TargetResponse]] = {}
         for target in all_targets:
-            targets_by_story.setdefault(target.story_id, []).append(  # type: ignore[attr-defined]
+            targets_by_story.setdefault(target.story_id, []).append(
                 TargetResponse(
                     quota=target.quota,
                     frequency=target.frequency,
                     from_date=target.from_date,
                     to_date=target.to_date,
-                    story_id=target.story_id,  # type: ignore[attr-defined]
+                    story_id=target.story_id,
                     target_id=target.id,
                 )
             )
