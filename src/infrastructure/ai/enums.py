@@ -13,3 +13,4 @@ class JobType(StrEnum):
     CHARACTER = "character"
     WORLD_BIBLE = "world_bible"
     VOICE = "voice"
+    EDITOR = "editor"

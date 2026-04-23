@@ -28,6 +28,7 @@ ai:
       plot_threads: 8000
       world_bible: 40000
       voice: 4000
+    editor: 4000
   temperature: 0.0
   default_model: gpt-5.4-nano-2026-03-17
   max_retries: 3

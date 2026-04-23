@@ -12,4 +12,5 @@ MAX_TOKENS_MAP = {
     JobType.CHARACTER: config.ai.max_tokens.extraction.character,
     JobType.WORLD_BIBLE: config.ai.max_tokens.extraction.world_bible,
     JobType.VOICE: config.ai.max_tokens.extraction.voice,
+    JobType.EDITOR: config.ai.max_tokens.editor,
 }

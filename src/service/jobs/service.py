@@ -45,6 +45,8 @@ async def queue_extraction_job(
         params=job_args or {}
     )
 
+    logger.info("job.queued.done", job_id=job.id, story_id=story_id, job_type=job_type)
+
     return job.to_status_response()
 
 
@@ -92,13 +94,23 @@ async def mark_job_failed(job_id: str, on_failed_message: str = "") -> Job:
         job.started_at = None
         job.message = f"Retrying {job_id} ({job.num_retries} / {job.max_retries}) : {on_failed_message}"
         update_fields = ["status", "started_at", "queued_at", "message", "num_retries"]
+        log_event = "job.retry.done"
     else:
         job.status = JobStatus.FAILED
         job.failed_at = get_now()
         job.message = on_failed_message
         update_fields = ["status", "failed_at", "message"]
+        log_event = "job.mark_failed.done"
 
     await job.save(update_fields=update_fields)
+
+    logger.info(
+        log_event,
+        job_id=job.id,
+        job_type=job.type,
+        num_retries=job.num_retries,
+        max_retries=job.max_retries,
+    )
 
     return job
 
@@ -120,6 +132,8 @@ async def mark_job_completed(job_id: str, message: str = "") -> Job:
 
     await job.save(update_fields=["status", "completed_at", "message"])
 
+    logger.info("job.completed.done", job_id=job.id, job_type=job.type)
+
     return job
 
 
@@ -139,13 +153,15 @@ def poll_job_registry(
 
             if job is None:
                 return
-            
+
+            logger.info(f"{job_name}.start", job_id=job.id, job_type=job.type)
+
             try:
                 result = await func(**job.params) # type: ignore
                 await mark_job_completed(job.id, on_completed_message)
                 return result
             except Exception as e:
-                logger.error(f"{job_name}.failed", error=str(e))
+                logger.error(f"{job_name}.failed", job_id=job.id, error=str(e))
                 try:
                     await mark_job_failed(job.id, on_failed_message)
                 except Exception as fail_err:

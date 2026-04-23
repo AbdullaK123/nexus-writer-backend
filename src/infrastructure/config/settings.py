@@ -90,6 +90,7 @@ class ExtractionTokenConfig(BaseModel, frozen=True):
 class TokenConfig(BaseModel, frozen=True):
     summary: SummaryTokenConfig = SummaryTokenConfig()
     extraction: ExtractionTokenConfig = ExtractionTokenConfig()
+    editor: int = 4000
 
 
 class AiConfig(BaseModel, frozen=True):

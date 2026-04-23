@@ -47,3 +47,8 @@ class ChapterListResponse(BaseModel):
     story_status: StoryStatus
     story_last_updated: datetime
     chapters: List[ChapterListItem]
+
+
+class FeedbackResponse(BaseModel):
+    story_id: str 
+    feedback: Optional[str] = ""
