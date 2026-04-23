@@ -1,7 +1,5 @@
-from typing import List, Literal, Optional
-
+from typing import List, Optional
 from pydantic import BaseModel
-
 from src.data.schemas.extraction import Character, CharacterArcType, CharacterImportance, CharacterRoster, CharacterStatus
 
 
@@ -20,12 +18,7 @@ class CharacterListResponse(BaseModel):
     is_stale: Optional[bool] = False
 
 
-class ItemWithCount(BaseModel):
-    value: str
-    count: int
 
-class ItemListResponse(BaseModel):
-    items: List[ItemWithCount]
 
 
 

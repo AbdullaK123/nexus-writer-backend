@@ -1,8 +1,5 @@
-import json
 from typing import Optional
-
 from pydantic import ValidationError
-
 from src.data.models import Summary, Chapter, Story, Extraction
 from src.data.schemas.extraction import VoiceProfile
 from src.infrastructure.ai.enums import JobType, SummaryType

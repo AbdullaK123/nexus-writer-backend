@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import List, Optional
 
 # =================== PLOT EXTRACTION SCHEMAS ===========================
@@ -21,15 +21,31 @@ class PlotThread(BaseModel):
     description: str = Field(
         description="One-sentence description of the narrative promise or question, phrased from the reader's perspective."
     )
-    status: ThreadStatus
-    importance: ThreadImportance
+    status: ThreadStatus = Field(
+        description=(
+            "Current state of the thread in the manuscript so far:\n"
+            "- open: introduced and still unresolved; the reader is waiting on it\n"
+            "- resolved: paid off, answered, or concluded on the page\n"
+            "- dangling: introduced but seemingly forgotten or abandoned (a continuity flag for the writer)"
+        ),
+    )
+    importance: ThreadImportance = Field(
+        description=(
+            "How structurally important this thread is to the story:\n"
+            "- central: a main spine of the narrative\n"
+            "- supporting: a notable subplot that meaningfully shapes the story\n"
+            "- minor: a small or local thread (a single-scene mystery, brief tension, etc.)"
+        ),
+    )
     tags: List[str] = Field(
         description="2-5 short keywords (entity names preferred) the writer can use to locate this thread in the manuscript."
     )
 
 
 class PlotThreadLedger(BaseModel):
-    threads: List[PlotThread]
+    threads: List[PlotThread] = Field(
+        description="The complete set of plot threads tracked across the story so far."
+    )
 
 
 # =================== CHARACTER EXTRACTION SCHEMAS ===========================
@@ -66,8 +82,24 @@ class Character(BaseModel):
         default_factory=list,
         description="Other names, titles, or epithets used for this character in the text. Best-effort — only include aliases that appear in the source summaries.",
     )
-    importance: CharacterImportance
-    status: CharacterStatus
+    importance: CharacterImportance = Field(
+        description=(
+            "How central this character is to the story:\n"
+            "- protagonist: the lead viewpoint or driving figure (typically very few)\n"
+            "- major: significant POV, antagonist, or co-lead whose arc shapes the plot\n"
+            "- supporting: recurring character with meaningful presence but not driving the plot\n"
+            "- minor: appears briefly or in a limited role"
+        ),
+    )
+    status: CharacterStatus = Field(
+        description=(
+            "Where the character stands as of the latest summarized chapter:\n"
+            "- active: present in the narrative or expected to return\n"
+            "- departed: alive but written out of the current storyline\n"
+            "- deceased: confirmed dead on the page\n"
+            "- unknown: fate unclear or not yet established"
+        ),
+    )
     description: str = Field(
         description="2-4 sentence description capturing who this character is — role in the story, defining traits, what readers need to remember. Written from the reader's perspective, objective tone, present tense."
     )
@@ -108,54 +140,65 @@ class Character(BaseModel):
 
 
 class CharacterRoster(BaseModel):
-    characters: List[Character]
+    characters: List[Character] = Field(
+        description="The complete cast of characters established in the story so far."
+    )
 
 
 # =================== WORLD EXTRACTION SCHEMAS ===========================
 
-from pydantic import BaseModel, Field
-from enum import Enum
 
-
-class EntityImportance(str, Enum):
+class EntityImportance(StrEnum):
     CENTRAL = "central"  # Frequently referenced, core to the setting
     SUPPORTING = "supporting"  # Notable recurring element
     MINOR = "minor"  # Mentioned but peripheral
 
 
+_ENTITY_IMPORTANCE_DESC = (
+    "How prominent this element is in the world of the story:\n"
+    "- central: frequently referenced, core to the setting\n"
+    "- supporting: a notable recurring element\n"
+    "- minor: mentioned but peripheral"
+)
+
+
 class Place(BaseModel):
-    name: str
+    name: str = Field(
+        description="The place's name as used in the manuscript (verbatim)."
+    )
     description: str = Field(
         description="2-4 sentence description. What is this place, where is it, what's distinctive about it, and why does it matter in the story."
     )
-    importance: EntityImportance
+    importance: EntityImportance = Field(description=_ENTITY_IMPORTANCE_DESC)
     tags: List[str] = Field(
         description="2-5 keywords (affiliated factions, character names, nearby places) the writer can use to locate scenes set here."
     )
 
 
 class Faction(BaseModel):
-    name: str
-    nature: str = Field(
-        description="Short phrase naming what kind of entity this is — government, religious order, criminal network, corporation, military, etc."
+    name: str = Field(
+        description="The faction's name as used in the manuscript (verbatim) — guild, order, kingdom, corporation, cult, etc."
     )
     description: str = Field(
         description="2-4 sentence description. Who they are, what they want, how they operate, their status in the story."
     )
-    importance: EntityImportance
-    tags: List[str]
+    importance: EntityImportance = Field(description=_ENTITY_IMPORTANCE_DESC)
+    tags: List[str] = Field(
+        description="2-5 keywords (affiliated characters, rival factions, key locations) the writer can use to locate scenes involving this faction."
+    )
 
 
 class TechnologyOrSystem(BaseModel):
-    name: str
+    name: str = Field(
+        description="Short label for the technology, magic system, or other rule-based system as named in the text."
+    )
     description: str = Field(
-        description="2-4 sentence description. What this technology or system is and how it functions in the world."
+        description="2-4 sentence description. What this technology or system is, how it functions in the world, and any rules, costs, or limitations that govern its use (e.g. magic system constraints, energy sources, side effects, who can wield it)."
     )
-    rules: List[str] = Field(
-        description="The specific rules, constraints, and limits the narrative has established about how this works. Capture these verbatim or near-verbatim from the source. These are what the writer has committed to and must stay consistent with."
+    importance: EntityImportance = Field(description=_ENTITY_IMPORTANCE_DESC)
+    tags: List[str] = Field(
+        description="2-5 keywords (associated characters, factions, places, related systems) the writer can use to locate scenes where this is in play."
     )
-    importance: EntityImportance
-    tags: List[str]
 
 
 class CulturalFact(BaseModel):
@@ -165,7 +208,10 @@ class CulturalFact(BaseModel):
     description: str = Field(
         description="2-4 sentence description of the cultural fact as established in the text."
     )
-    tags: List[str]
+    importance: EntityImportance = Field(description=_ENTITY_IMPORTANCE_DESC)
+    tags: List[str] = Field(
+        description="2-5 keywords (associated factions, places, characters) the writer can use to locate scenes where this cultural element appears."
+    )
 
 
 class HistoricalEvent(BaseModel):
@@ -175,22 +221,52 @@ class HistoricalEvent(BaseModel):
     description: str = Field(
         description="2-4 sentence description of the event and its significance to the present-day narrative."
     )
-    tags: List[str]
+    importance: EntityImportance = Field(description=_ENTITY_IMPORTANCE_DESC)
+    tags: List[str] = Field(
+        description="2-5 keywords (involved factions, characters, places) the writer can use to trace references to this event."
+    )
 
 
 class OtherWorldFact(BaseModel):
-    name: str
-    description: str
-    tags: List[str]
+    name: str = Field(
+        description="Short label for a worldbuilding fact that does not fit the other categories (e.g. fauna, flora, cosmology, economy, calendar, climate)."
+    )
+    description: str = Field(
+        description="2-4 sentence description of the fact as established in the text and why it matters to the story."
+    )
+    importance: EntityImportance = Field(description=_ENTITY_IMPORTANCE_DESC)
+    tags: List[str] = Field(
+        description="2-5 keywords (associated places, factions, characters, systems) the writer can use to locate references to this fact."
+    )
 
+
+type Entity = Place | Faction | TechnologyOrSystem | HistoricalEvent | OtherWorldFact | CulturalFact
 
 class WorldBible(BaseModel):
-    places: List[Place] = Field(default_factory=list)
-    factions: List[Faction] = Field(default_factory=list)
-    technologies: List[TechnologyOrSystem] = Field(default_factory=list)
-    cultural_facts: List[CulturalFact] = Field(default_factory=list)
-    historical_events: List[HistoricalEvent] = Field(default_factory=list)
-    other: List[OtherWorldFact] = Field(default_factory=list)
+    places: List[Place] = Field(
+        default_factory=list,
+        description="Locations established in the story — cities, regions, buildings, landscapes, realms.",
+    )
+    factions: List[Faction] = Field(
+        default_factory=list,
+        description="Organized groups — kingdoms, guilds, orders, corporations, cults, political bodies.",
+    )
+    technologies: List[TechnologyOrSystem] = Field(
+        default_factory=list,
+        description="Technologies, magic systems, and other rule-based systems that govern how things work in the world.",
+    )
+    cultural_facts: List[CulturalFact] = Field(
+        default_factory=list,
+        description="Customs, practices, social structures, languages, and other cultural elements established in the text.",
+    )
+    historical_events: List[HistoricalEvent] = Field(
+        default_factory=list,
+        description="Past events referenced in the text whose echoes still shape the present-day narrative.",
+    )
+    other: List[OtherWorldFact] = Field(
+        default_factory=list,
+        description="Worldbuilding facts that don't fit the other buckets — fauna, flora, cosmology, economy, calendar, climate, etc.",
+    )
 
 
 # ===================  STYLE EXTRACTION SCHEMAS ===========================

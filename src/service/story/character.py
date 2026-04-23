@@ -1,6 +1,7 @@
 from typing import Literal
 from src.data.models.story import Story
-from src.data.schemas.character import  CharacterListResponse, CharacterQuery, ItemListResponse, ItemWithCount
+from src.data.schemas.character import  CharacterListResponse, CharacterQuery
+from src.shared.schemas import ItemListResponse, ItemWithCount
 from src.data.schemas.extraction import Character
 from src.infrastructure.ai.enums import JobType
 from src.service.exceptions import NotFoundError
