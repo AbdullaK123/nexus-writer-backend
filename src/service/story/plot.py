@@ -4,10 +4,13 @@ from src.data.schemas.extraction import PlotThread
 from src.data.schemas.plot import PlotQuery, PlotThreadListResponse
 from src.infrastructure.ai.enums import JobType
 from src.service.exceptions import NotFoundError
+from src.service.utils.decorators import handle_service_errors, retry_on_operational_error
 from tortoise import Tortoise
 from src.shared.schemas import ItemListResponse, ItemWithCount
 
 
+@handle_service_errors
+@retry_on_operational_error
 async def get_plot_threads(story_id: str, query: PlotQuery) -> PlotThreadListResponse:
 
     story_exists = await Story.filter(id=story_id).exists()
@@ -62,6 +65,8 @@ async def get_plot_threads(story_id: str, query: PlotQuery) -> PlotThreadListRes
     )
 
 
+@handle_service_errors
+@retry_on_operational_error
 async def get_plot_tags(story_id: str) -> ItemListResponse:
 
     story_exists = await Story.filter(id=story_id).exists()

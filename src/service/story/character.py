@@ -5,10 +5,13 @@ from src.shared.schemas import ItemListResponse, ItemWithCount
 from src.data.schemas.extraction import Character
 from src.infrastructure.ai.enums import JobType
 from src.service.exceptions import NotFoundError
+from src.service.utils.decorators import handle_service_errors, retry_on_operational_error
 import json
 from tortoise import Tortoise
 
 
+@handle_service_errors
+@retry_on_operational_error
 async def get_characters(story_id: str, query: CharacterQuery) -> CharacterListResponse:
 
     conn = Tortoise.get_connection("default")
@@ -75,6 +78,8 @@ async def get_characters(story_id: str, query: CharacterQuery) -> CharacterListR
     return CharacterListResponse(roster=characters, is_stale=is_stale, num_found=len(characters))
 
 
+@handle_service_errors
+@retry_on_operational_error
 async def _get_character_facet(story_id: str, field: Literal["tags", "aliases", "key_relationships"]) -> list[dict]:
     if not await Story.filter(id=story_id).exists():
         raise NotFoundError("Story not found")
@@ -98,6 +103,7 @@ async def _get_character_facet(story_id: str, field: Literal["tags", "aliases", 
     )
 
 
+@handle_service_errors
 async def get_all_character_tags(story_id: str) -> ItemListResponse:
 
     results = await _get_character_facet(story_id, "tags")
@@ -107,6 +113,7 @@ async def get_all_character_tags(story_id: str) -> ItemListResponse:
     )
 
 
+@handle_service_errors
 async def get_all_character_aliases(story_id: str) -> ItemListResponse:    
 
     results = await _get_character_facet(story_id, "aliases")
@@ -116,6 +123,7 @@ async def get_all_character_aliases(story_id: str) -> ItemListResponse:
     )
 
 
+@handle_service_errors
 async def get_all_character_key_relationships(story_id: str) -> ItemListResponse:    
 
     results = await _get_character_facet(story_id, "key_relationships")

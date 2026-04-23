@@ -25,6 +25,7 @@ from src.service.chapter.utils import (
     handle_chapter_reordering,
 )
 from src.data.utils.decorators import transaction
+from src.service.utils.decorators import handle_service_errors
 from loguru import logger
 
 
@@ -34,6 +35,7 @@ class ChapterService:
     # CORE CRUD OPERATIONS
     # ========================================
 
+    @handle_service_errors
     @transaction
     async def create(
         self,
@@ -86,6 +88,7 @@ class ChapterService:
             .first()
         )
 
+    @handle_service_errors
     @transaction
     async def update(
         self, chapter_id: str, user_id: str, data: UpdateChapterRequest
@@ -138,6 +141,7 @@ class ChapterService:
             next_chapter_id=chapter.next_chapter_id,
         )
 
+    @handle_service_errors
     @transaction
     async def delete(self, chapter_id: str, user_id: str) -> dict:
         """Delete chapter with pointer cleanup"""
@@ -165,6 +169,7 @@ class ChapterService:
     # STORY CHAPTER OPERATIONS
     # ========================================
 
+    @handle_service_errors
     async def get_story_chapters(
         self, story_id: str, user_id: str
     ) -> ChapterListResponse:
@@ -218,6 +223,7 @@ class ChapterService:
             chapters=list_items,
         )
 
+    @handle_service_errors
     async def get_chapter_with_navigation(
         self, chapter_id: str, user_id: str, as_html: bool = True
     ) -> ChapterContentResponse:
@@ -255,6 +261,7 @@ class ChapterService:
     # REORDERING OPERATIONS
     # ========================================
 
+    @handle_service_errors
     @transaction
     async def reorder_chapters(
         self,
@@ -314,6 +321,7 @@ class ChapterService:
         return await Story.filter(id=story_id, user_id=user_id).first()
     
 
+    @handle_service_errors
     async def get_editor_feedback(
         self,
         provider: AIProvider,

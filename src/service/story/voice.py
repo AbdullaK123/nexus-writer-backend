@@ -3,9 +3,12 @@ from src.data.schemas.voice import VoiceProfileResponse
 from src.data.models import Story, Extraction
 from src.infrastructure.ai.enums import JobType
 from src.service.exceptions import NotFoundError
+from src.service.utils.decorators import handle_service_errors, retry_on_operational_error
 
 
 
+@handle_service_errors
+@retry_on_operational_error
 async def get_voice_profile(story_id: str) -> VoiceProfileResponse:
 
     story_exists = await Story.filter(id=story_id).exists()

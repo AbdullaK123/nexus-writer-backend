@@ -4,6 +4,7 @@ from src.data.models import Summary, Chapter, Story, Extraction
 from src.data.schemas.extraction import VoiceProfile
 from src.infrastructure.ai.enums import JobType, SummaryType
 from src.service.exceptions import NotFoundError
+from src.service.utils.decorators import handle_service_errors
 from tortoise.query_utils import Prefetch
 from textwrap import dedent
 import asyncio
@@ -39,6 +40,7 @@ def _format_voice_profile(data: dict) -> Optional[str]:
 
 
 
+@handle_service_errors
 async def get_context_by_type(
     summary_type: SummaryType, 
     story_id: str,
@@ -87,6 +89,7 @@ async def get_context_by_type(
 
 
 
+@handle_service_errors
 async def get_story_context(story_id: str, chapter_id: Optional[str] = None) -> str:
     logger.info("context.get_story_context.start", story_id=story_id)
     
@@ -129,6 +132,7 @@ async def get_story_context(story_id: str, chapter_id: Optional[str] = None) -> 
     return "\n\n".join(chunks)
 
 
+@handle_service_errors
 async def get_editor_context(story_id: str, chapter_id: str) -> str:
 
     story = await (

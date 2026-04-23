@@ -6,6 +6,7 @@ from src.data.schemas.world import EntityListResponse, EntityQuery, EntityType
 from tortoise import Tortoise
 from src.infrastructure.ai.enums import JobType
 from src.service.exceptions import NotFoundError
+from src.service.utils.decorators import handle_service_errors, retry_on_operational_error
 from src.shared.schemas import ItemListResponse, ItemWithCount
 
 
@@ -18,6 +19,8 @@ ENTITY_MAP = {
     EntityType.CULTURAL_FACTS: CulturalFact
 }
 
+@handle_service_errors
+@retry_on_operational_error
 async def get_entities_by_type(
     story_id: str, 
     entity_type: EntityType,
@@ -88,6 +91,8 @@ async def get_entities_by_type(
     )
 
 
+@handle_service_errors
+@retry_on_operational_error
 async def get_tags_by_type(
     story_id: str,
     entity_type: EntityType
