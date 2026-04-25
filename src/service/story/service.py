@@ -4,6 +4,7 @@ from src.service.target.service import TargetService
 from src.data.schemas.chapter import ChapterListItem
 from src.data.schemas.target import TargetResponse
 from src.service.exceptions import NotFoundError, ConflictError
+from src.service.utils.decorators import handle_service_errors
 from src.data.schemas.story import (
     CreateStoryRequest,
     StoryListItemResponse,
@@ -20,6 +21,7 @@ class StoryService:
     def __init__(self, target_service: TargetService):
         self.target_service = target_service
 
+    @handle_service_errors
     async def create(self, user_id: str, story_info: CreateStoryRequest) -> dict:
         story = await self.get_by_title(user_id, story_info.title)
 
@@ -34,6 +36,7 @@ class StoryService:
 
         return {"message": "Story successfully created"}
 
+    @handle_service_errors
     async def update(
         self, user_id: str, story_id: str, update_info: UpdateStoryRequest
     ) -> dict:
@@ -53,6 +56,7 @@ class StoryService:
 
         return {"message": "Story successfully updated"}
 
+    @handle_service_errors
     async def delete(self, user_id: str, story_id: str) -> dict:
         story = await self.get_by_id(user_id, story_id)
 
@@ -66,6 +70,7 @@ class StoryService:
 
         return {"message": "Story successfully deleted"}
 
+    @handle_service_errors
     async def get_ordered_chapters(self, user_id: str, story_id: str) -> List[Chapter]:
         story = await self.get_by_id(user_id, story_id)
 
@@ -98,6 +103,7 @@ class StoryService:
     async def get_by_id(self, user_id: str, id: str) -> Optional[Story]:
         return await Story.filter(user_id=user_id, id=id).first()
 
+    @handle_service_errors
     async def get_story_details(
         self, user_id: str, story_id: str
     ) -> StoryDetailResponse:
@@ -134,6 +140,7 @@ class StoryService:
             chapters=chapter_items,
         )
 
+    @handle_service_errors
     async def get_all_stories(self, user_id: str) -> StoryGridResponse:
         stories = await Story.filter(user_id=user_id).order_by("-created_at")
 
@@ -168,6 +175,7 @@ class StoryService:
 
         return StoryGridResponse(stories=story_cards)
 
+    @handle_service_errors
     async def get_all_story_list_items(
         self, user_id: str
     ) -> List[StoryListItemResponse]:

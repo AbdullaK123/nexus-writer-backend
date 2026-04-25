@@ -1,22 +1,13 @@
 from typing import Optional, Tuple
 from src.data.models import Chapter, Story
-from src.infrastructure.ai.enums import JobType
-from src.infrastructure.ai.prompts.editor import EDITOR_SYSTEM_PROMPT
-from src.infrastructure.ai.providers.protocol import AIProvider
-from src.infrastructure.ai.tokens import MAX_TOKENS_MAP
-from src.infrastructure.config import config
 from src.data.schemas.chapter import (
     CreateChapterRequest,
-    FeedbackResponse,
     UpdateChapterRequest,
     ReorderChapterRequest,
     ChapterListItem,
     ChapterContentResponse,
     ChapterListResponse,
 )
-from src.service.ai.context import get_editor_context
-from src.service.ai.extraction import mark_extractions_stale
-from src.service.ai.summarization import mark_summaries_stale
 from src.service.exceptions import NotFoundError, ValidationError, InternalError
 from src.shared.utils.html import get_preview_content, get_word_count, html_to_plain_text
 from src.service.chapter.utils import (
@@ -25,6 +16,7 @@ from src.service.chapter.utils import (
     handle_chapter_reordering,
 )
 from src.data.utils.decorators import transaction
+from src.service.utils.decorators import handle_service_errors
 from loguru import logger
 
 
@@ -34,6 +26,7 @@ class ChapterService:
     # CORE CRUD OPERATIONS
     # ========================================
 
+    @handle_service_errors
     @transaction
     async def create(
         self,
@@ -86,6 +79,7 @@ class ChapterService:
             .first()
         )
 
+    @handle_service_errors
     @transaction
     async def update(
         self, chapter_id: str, user_id: str, data: UpdateChapterRequest
@@ -119,12 +113,6 @@ class ChapterService:
 
         logger.info("chapter.update.done", chapter_id=chapter_id, user_id=user_id, fields=list(updated_data.keys()))
 
-        content_or_title_change = "content" in updated_data or "title" in updated_data
-
-        if content_or_title_change:
-            await mark_summaries_stale(story_id=story_id, starting_chapter_id=chapter_id)
-            await mark_extractions_stale(story_id=story_id)
-
         return ChapterContentResponse(
             id=chapter.id,
             title=chapter.title,
@@ -138,6 +126,7 @@ class ChapterService:
             next_chapter_id=chapter.next_chapter_id,
         )
 
+    @handle_service_errors
     @transaction
     async def delete(self, chapter_id: str, user_id: str) -> dict:
         """Delete chapter with pointer cleanup"""
@@ -149,15 +138,9 @@ class ChapterService:
             )
 
         story_id = chapter.story_id
-        next_chapter_id = chapter.next_chapter_id
         await chapter.delete()
         await handle_chapter_deletion(story_id, chapter_id)
         logger.info("chapter.delete.done", chapter_id=chapter_id, user_id=user_id, story_id=story_id)
-        
-        await mark_extractions_stale(story_id=story_id)
-
-        if next_chapter_id:
-            await mark_summaries_stale(story_id=story_id, starting_chapter_id=next_chapter_id)
 
         return {"message": "Chapter was successfully deleted"}
 
@@ -165,6 +148,7 @@ class ChapterService:
     # STORY CHAPTER OPERATIONS
     # ========================================
 
+    @handle_service_errors
     async def get_story_chapters(
         self, story_id: str, user_id: str
     ) -> ChapterListResponse:
@@ -218,6 +202,7 @@ class ChapterService:
             chapters=list_items,
         )
 
+    @handle_service_errors
     async def get_chapter_with_navigation(
         self, chapter_id: str, user_id: str, as_html: bool = True
     ) -> ChapterContentResponse:
@@ -255,6 +240,7 @@ class ChapterService:
     # REORDERING OPERATIONS
     # ========================================
 
+    @handle_service_errors
     @transaction
     async def reorder_chapters(
         self,
@@ -312,46 +298,3 @@ class ChapterService:
     ) -> Optional[Story]:
         """Get story ensuring user ownership"""
         return await Story.filter(id=story_id, user_id=user_id).first()
-    
-
-    async def get_editor_feedback(
-        self,
-        provider: AIProvider,
-        chapter_id: str,
-        user_id: str
-    ) -> FeedbackResponse:
-        
-        chapter = await Chapter.filter(id=chapter_id, user_id=user_id).first()
-
-        if chapter is None:
-            raise NotFoundError("Chapter not found")
-        
-        editor_context = await get_editor_context(chapter.story_id, chapter_id)
-
-        try:
-            feedback = await provider.generate(
-                system_prompt=EDITOR_SYSTEM_PROMPT,
-                text=editor_context,
-                max_tokens=MAX_TOKENS_MAP[JobType.EDITOR]
-            )
-        except Exception as e:
-            logger.error(
-                "chapter.editor_feedback_failed",
-                chapter_id=chapter_id,
-                user_id=user_id,
-                story_id=chapter.story_id,
-                error=str(e),
-            )
-            raise InternalError("Failed to fetch feedback")
-
-        logger.info(
-            "chapter.editor_feedback.done",
-            chapter_id=chapter_id,
-            user_id=user_id,
-            story_id=chapter.story_id,
-        )
-
-        return FeedbackResponse(
-            story_id=chapter.story_id,
-            feedback=feedback
-        )

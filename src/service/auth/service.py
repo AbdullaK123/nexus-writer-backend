@@ -9,16 +9,18 @@ from src.data.schemas.auth import (
 from src.infrastructure.auth.password import hash_password, verify_password
 from src.infrastructure.auth.session import generate_session_id
 from src.service.exceptions import AuthError, ForbiddenError, ConflictError
+from src.service.utils.decorators import handle_service_errors
 from typing import Optional
 from datetime import datetime, timedelta, timezone
-from src.shared.utils.logging import (set_user_id)
 from loguru import logger
+from src.shared.utils.correlation import set_user_id
 
 
 class AuthService:
     async def get_user_by_email(self, email: str) -> Optional[User]:
         return await User.filter(email=email).first()
 
+    @handle_service_errors
     async def authenticate_user(self, credentials: AuthCredentials) -> User:
         user = await self.get_user_by_email(credentials.email)
 
@@ -35,6 +37,7 @@ class AuthService:
         )
         return user
 
+    @handle_service_errors
     async def create_session(
         self, user_id: str, connection_details: ConnectionDetails
     ) -> str:
@@ -61,6 +64,7 @@ class AuthService:
 
         return session_id
 
+    @handle_service_errors
     async def validate_session(self, session_id: str) -> Optional[User]:
         if not session_id:
             logger.warning("session.validate_failed.missing_session_id")
@@ -92,6 +96,7 @@ class AuthService:
 
         return user
 
+    @handle_service_errors
     async def logout_user(self, session_id: str) -> None:
         if not session_id:
             return
@@ -104,6 +109,7 @@ class AuthService:
         else:
             logger.warning("session.logout_failed.not_found")
 
+    @handle_service_errors
     async def login_user(
         self, credentials: AuthCredentials, connection_details: ConnectionDetails
     ) -> tuple[UserResponse, str]:
@@ -122,6 +128,7 @@ class AuthService:
             profile_img=user.profile_img,
         ), session_id
 
+    @handle_service_errors
     async def register_user(self, registration_data: RegistrationData) -> UserResponse:
         user = await self.get_user_by_email(registration_data.email)
 

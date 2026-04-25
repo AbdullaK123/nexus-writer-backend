@@ -55,50 +55,6 @@ CREATE TABLE IF NOT EXISTS "chapter" (
 );
 CREATE INDEX IF NOT EXISTS "idx_chapter_story_i_1cbecd" ON "chapter" ("story_id");
 CREATE INDEX IF NOT EXISTS "idx_chapter_user_id_819181" ON "chapter" ("user_id");
-CREATE TABLE IF NOT EXISTS "extraction" (
-    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "id" VARCHAR(36) NOT NULL PRIMARY KEY,
-    "type" VARCHAR(20) NOT NULL,
-    "is_stale" BOOL NOT NULL DEFAULT False,
-    "prompt_version" INT NOT NULL DEFAULT 1,
-    "data" JSONB NOT NULL,
-    "story_id" VARCHAR(36) NOT NULL REFERENCES "story" ("id") ON DELETE CASCADE,
-    CONSTRAINT "uid_extraction_story_i_f51459" UNIQUE ("story_id", "type")
-);
-CREATE INDEX IF NOT EXISTS "idx_extraction_story_i_53fabb" ON "extraction" ("story_id");
-COMMENT ON COLUMN "extraction"."type" IS 'PLOT_THREAD: plot_thread\nCHARACTER: character\nWORLD_BIBLE: world_bible\nVOICE: voice';
-CREATE TABLE IF NOT EXISTS "job" (
-    "id" VARCHAR(36) NOT NULL PRIMARY KEY,
-    "type" VARCHAR(20) NOT NULL,
-    "status" VARCHAR(20) NOT NULL DEFAULT 'queued',
-    "started_at" TIMESTAMPTZ,
-    "queued_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "completed_at" TIMESTAMPTZ,
-    "failed_at" TIMESTAMPTZ,
-    "message" VARCHAR(255) NOT NULL DEFAULT '',
-    "params" JSONB NOT NULL,
-    "story_id" VARCHAR(36) NOT NULL REFERENCES "story" ("id") ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS "idx_job_story_i_8fb530" ON "job" ("story_id");
-CREATE INDEX IF NOT EXISTS "idx_job_status_2b5fda" ON "job" ("status", "queued_at");
-COMMENT ON COLUMN "job"."type" IS 'PLOT_THREAD: plot_thread\nCHARACTER: character\nWORLD_BIBLE: world_bible\nVOICE: voice';
-COMMENT ON COLUMN "job"."status" IS 'QUEUED: queued\nSTARTED: started\nRUNNING: running\nCOMPLETED: completed\nFAILED: failed';
-CREATE TABLE IF NOT EXISTS "summary" (
-    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "id" VARCHAR(36) NOT NULL PRIMARY KEY,
-    "type" VARCHAR(20) NOT NULL,
-    "is_stale" BOOL NOT NULL DEFAULT False,
-    "prompt_version" INT NOT NULL DEFAULT 1,
-    "content" TEXT NOT NULL,
-    "chapter_id" VARCHAR(36) NOT NULL REFERENCES "chapter" ("id") ON DELETE CASCADE,
-    "story_id" VARCHAR(36) NOT NULL REFERENCES "story" ("id") ON DELETE CASCADE,
-    CONSTRAINT "uid_summary_story_i_829063" UNIQUE ("story_id", "chapter_id", "type")
-);
-CREATE INDEX IF NOT EXISTS "idx_summary_chapter_f3ddd0" ON "summary" ("chapter_id");
-CREATE INDEX IF NOT EXISTS "idx_summary_story_i_ae8e5f" ON "summary" ("story_id");
-COMMENT ON COLUMN "summary"."type" IS 'CHARACTER: character\nPLOT: plot\nWORLD: world\nSTYLE: style';
 CREATE TABLE IF NOT EXISTS "target" (
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,

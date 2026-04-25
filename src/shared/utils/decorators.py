@@ -46,21 +46,6 @@ def log_errors(func):
         return sync_wrapper
 
 
-def singleton(cls):
-    """
-    A singleton decorator. Returns a wrapper object.
-    A call on that object returns a single instance of the decorated class.
-    """
-    _instances = {}
-
-    def wrapper(*args, **kwargs):
-        if cls not in _instances:
-            _instances[cls] = cls(*args, **kwargs)
-        return _instances[cls]
-
-    return wrapper
-
-
 class _TimedContext:
     __slots__ = ("elapsed_s", "_done_kwargs")
 

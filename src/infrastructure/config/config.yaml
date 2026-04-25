@@ -19,18 +19,18 @@ jobs:
 ai:
   max_tokens:
     summary:
-      character: 600
-      plot: 600
-      world: 500
-      style: 200
+      character: 2000
+      plot: 2000
+      world: 1800
+      style: 800
     extraction:
       character: 18000
-      plot_threads: 8000
-      world_bible: 40000
+      events: 16000
+      world: 20000
       voice: 4000
     editor: 4000
   temperature: 0.0
-  default_model: gpt-5.4-nano-2026-03-17
+  default_model: gpt-5.4-2026-03-05
   max_retries: 3
   timeout: 300.0
   max_concurrent_requests: 16

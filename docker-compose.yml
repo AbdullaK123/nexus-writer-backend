@@ -41,28 +41,8 @@ services:
     networks:
       - nexus-network
 
-  extraction_worker:
-    build: 
-      dockerfile: Dockerfile.worker
-    command: ["uv", "run", "extraction_worker.py"]
-    env_file: .env
-    environment:
-      DATABASE_URL: asyncpg://nexus_user:password@postgres-nexus:5432/nexus_writer
-    depends_on:
-      postgres-nexus:
-        condition: service_healthy
-    networks:
-      - nexus-network
-    healthcheck:
-      test: ["CMD-SHELL", "find /tmp/extraction_worker_heartbeat -mmin -2 | grep -q ."]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 60s
-
   session_worker:
-    build: 
-      dockerfile: Dockerfile.worker
+    build: .
     command: ["uv", "run", "session_worker.py"]
     env_file: .env
     environment: 
@@ -74,25 +54,6 @@ services:
       - nexus-network
     healthcheck:
       test: ["CMD-SHELL", "find /tmp/session_worker_heartbeat -mmin -2 | grep -q ."]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 60s
-
-  summary_worker:
-    build: 
-      dockerfile: Dockerfile.worker
-    command: ["uv", "run", "summary_worker.py"]
-    env_file: .env
-    environment: 
-      DATABASE_URL: asyncpg://nexus_user:password@postgres-nexus:5432/nexus_writer
-    depends_on:
-      postgres-nexus:
-        condition: service_healthy
-    networks:
-      - nexus-network
-    healthcheck:
-      test: ["CMD-SHELL", "find /tmp/summary_worker_heartbeat -mmin -2 | grep -q ."]
       interval: 30s
       timeout: 5s
       retries: 3

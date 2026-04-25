@@ -8,9 +8,6 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.data.models.chapter import Chapter
-    from src.data.models.summary import Summary
-    from src.data.models.extraction import Extraction
-    from src.data.models.job import Job
     from src.data.models.target import Target
     from src.data.models.user import User
 
@@ -29,9 +26,6 @@ class Story(Model, TimestampMixin):
     # Reverse relations
     chapters: fields.ReverseRelation["Chapter"]
     target: fields.ReverseRelation["Target"]
-    summaries: fields.ReverseRelation["Summary"]
-    extractions: fields.ReverseRelation["Extraction"]
-    jobs: fields.ReverseRelation["Job"]
 
     class Meta:
         table = "story"

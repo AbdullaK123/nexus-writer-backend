@@ -112,50 +112,37 @@ shell: ## Open a bash shell in the API container
 
 ## --- Workers
 .PHONY: start-workers stop-workers restart-workers rebuild-workers logs-workers worker-status
-.PHONY: start-worker stop-worker restart-worker rebuild-worker
 
-start-workers: ## Start all worker containers
-	docker compose up -d extraction_worker session_worker summary_worker
+start-workers: ## Start the session worker container
+	docker compose up -d session_worker
 
-stop-workers: ## Stop all worker containers
-	docker compose stop extraction_worker session_worker summary_worker
+stop-workers: ## Stop the session worker container
+	docker compose stop session_worker
 
-restart-workers: ## Restart all worker containers
-	docker compose restart extraction_worker session_worker summary_worker
+restart-workers: ## Restart the session worker container
+	docker compose restart session_worker
 
-rebuild-workers: ## Rebuild and restart all worker containers
-	docker compose up -d --build extraction_worker session_worker summary_worker
+rebuild-workers: ## Rebuild and restart the session worker container
+	docker compose up -d --build session_worker
 
-logs-workers: ## Follow logs for all workers (or one: make logs-workers s=extraction_worker)
-	docker compose logs -f $(or $(s),extraction_worker session_worker summary_worker)
+logs-workers: ## Follow logs for the session worker
+	docker compose logs -f session_worker
 
-worker-status: ## Show health status of all workers
-	@docker compose ps extraction_worker session_worker summary_worker --format "table {{.Name}}\t{{.Status}}"
-
-start-worker: ## Start one worker (usage: make start-worker w=extraction_worker)
-	docker compose up -d $(w)
-
-stop-worker: ## Stop one worker (usage: make stop-worker w=extraction_worker)
-	docker compose stop $(w)
-
-restart-worker: ## Restart one worker (usage: make restart-worker w=extraction_worker)
-	docker compose restart $(w)
-
-rebuild-worker: ## Rebuild one worker (usage: make rebuild-worker w=extraction_worker)
-	docker compose up -d --build $(w)
+worker-status: ## Show health status of the session worker
+	@docker compose ps session_worker --format "table {{.Name}}\t{{.Status}}"
 
 ## --- Code Quality
 .PHONY: lint format typecheck
 
 lint: ## Run ruff linter
-	@uv run ruff check src/ main.py *_worker.py
+	@uv run ruff check src/ main.py session_worker.py
 
 format: ## Auto-format code with ruff
-	@uv run ruff format src/ main.py *_worker.py
-	@uv run ruff check --fix src/ main.py *_worker.py
+	@uv run ruff format src/ main.py session_worker.py
+	@uv run ruff check --fix src/ main.py session_worker.py
 
 typecheck: ## Run mypy type checking
-	@uv run mypy src/ main.py *_worker.py
+	@uv run mypy src/ main.py session_worker.py
 
 ## --- Dependencies
 .PHONY: install install-dev outdated update-deps check-deps

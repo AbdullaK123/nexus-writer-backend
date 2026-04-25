@@ -82,8 +82,8 @@ class SummaryTokenConfig(BaseModel, frozen=True):
 
 class ExtractionTokenConfig(BaseModel, frozen=True):
     character: int = 18000
-    plot_threads: int = 8000
-    world_bible: int = 40000
+    events: int = 16000
+    world: int = 20000
     voice: int = 4000
 
 
