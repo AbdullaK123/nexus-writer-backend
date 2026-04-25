@@ -1,4 +1,7 @@
 from typing import Optional, Tuple
+
+from loguru import logger
+
 from src.data.models import Chapter, Story
 from src.data.schemas.chapter import (
     CreateChapterRequest,
@@ -9,7 +12,7 @@ from src.data.schemas.chapter import (
     ChapterListResponse,
 )
 from src.service.exceptions import NotFoundError, ValidationError, InternalError
-from src.shared.utils.html import get_preview_content, get_word_count, html_to_plain_text
+from src.shared.utils.html import get_preview_content, get_word_count
 from src.service.chapter.utils import (
     handle_chapter_creation,
     handle_chapter_deletion,
@@ -17,284 +20,267 @@ from src.service.chapter.utils import (
 )
 from src.data.utils.decorators import transaction
 from src.service.utils.decorators import handle_service_errors
-from loguru import logger
 
 
+async def _get_story_with_user_check(
+    story_id: str, user_id: str
+) -> Optional[Story]:
+    return await Story.filter(id=story_id, user_id=user_id).first()
 
-class ChapterService:
-    # ========================================
-    # CORE CRUD OPERATIONS
-    # ========================================
 
-    @handle_service_errors
-    @transaction
-    async def create(
-        self,
-        story_id: str,
-        user_id: str,
-        data: CreateChapterRequest,
-    ) -> Tuple[str, ChapterContentResponse]:
-        """Create new chapter with immediate pointer setup"""
+async def get_by_id(chapter_id: str, user_id: str) -> Optional[Chapter]:
+    return (
+        await Chapter.filter(user_id=user_id, id=chapter_id)
+        .prefetch_related("story")
+        .first()
+    )
 
-        story = await Story.get_or_none(id=story_id)
-        if not story:
-            raise NotFoundError(
-                "We couldn't find this story. It may have been deleted."
-            )
 
-        try:
-            chapter_to_create = await Chapter.create(
-                story_id=story_id,
-                user_id=user_id,
-                title=data.title,
-                content=data.content,
-                word_count=get_word_count(data.content) if data.content else 0,
-            )
+@handle_service_errors
+async def get_chapter_with_navigation(
+    chapter_id: str, user_id: str, as_html: bool = True
+) -> ChapterContentResponse:
+    chapter = (
+        await Chapter.filter(id=chapter_id, user_id=user_id)
+        .prefetch_related("story")
+        .first()
+    )
 
-            await handle_chapter_creation(story_id, chapter_to_create.id)
-            logger.info("chapter.create.done", story_id=story_id, chapter_id=chapter_to_create.id, user_id=user_id)
-
-            return chapter_to_create.id, await self.get_chapter_with_navigation(
-                chapter_to_create.id, user_id, as_html=True
-            )
-
-        except (NotFoundError, ValidationError, InternalError):
-            raise
-        except Exception as e:
-            logger.error(
-                "chapter.create_failed",
-                story_id=story_id,
-                user_id=user_id,
-                error=str(e),
-            )
-            raise InternalError(
-                "Something went wrong while creating your chapter. Please try again."
-            )
-
-    async def get_by_id(self, chapter_id: str, user_id: str) -> Optional[Chapter]:
-        """Get single chapter by ID with user security and story prefetched"""
-        return (
-            await Chapter.filter(user_id=user_id, id=chapter_id)
-            .prefetch_related("story")
-            .first()
+    if not chapter:
+        raise NotFoundError(
+            "We couldn't find this chapter. It may have been deleted."
         )
 
-    @handle_service_errors
-    @transaction
-    async def update(
-        self, chapter_id: str, user_id: str, data: UpdateChapterRequest
-    ) -> ChapterContentResponse:
-        """Update chapter content, title, or published status"""
+    story_title = chapter.story.title
 
-        chapter = (
-            await Chapter.filter(id=chapter_id, user_id=user_id)
-            .prefetch_related("story")
-            .first()
+    return ChapterContentResponse(
+        id=chapter.id,
+        title=chapter.title,
+        content=chapter.content if as_html else get_preview_content(chapter.content),
+        published=chapter.published,
+        story_id=chapter.story_id,
+        story_title=story_title,
+        created_at=chapter.created_at,
+        updated_at=chapter.updated_at,
+        previous_chapter_id=chapter.prev_chapter_id,
+        next_chapter_id=chapter.next_chapter_id,
+    )
+
+
+@handle_service_errors
+@transaction
+async def create(
+    story_id: str,
+    user_id: str,
+    data: CreateChapterRequest,
+) -> Tuple[str, ChapterContentResponse]:
+    story = await Story.get_or_none(id=story_id)
+    if not story:
+        raise NotFoundError("We couldn't find this story. It may have been deleted.")
+
+    try:
+        chapter_to_create = await Chapter.create(
+            story_id=story_id,
+            user_id=user_id,
+            title=data.title,
+            content=data.content,
+            word_count=get_word_count(data.content) if data.content else 0,
         )
 
-        if not chapter:
-            raise NotFoundError(
-                "We couldn't find this chapter. It may have been deleted."
-            )
-
-        story_title = chapter.story.title
-        story_id = chapter.story_id
-
-        updated_data = data.model_dump(exclude_unset=True)
-
-        if "content" in updated_data:
-
-            updated_data["word_count"] = get_word_count(updated_data["content"])
-                
-        for field, value in updated_data.items():
-            setattr(chapter, field, value)
-
-        await chapter.save(update_fields=list(updated_data.keys()))
-
-        logger.info("chapter.update.done", chapter_id=chapter_id, user_id=user_id, fields=list(updated_data.keys()))
-
-        return ChapterContentResponse(
-            id=chapter.id,
-            title=chapter.title,
-            content=chapter.content,
-            published=chapter.published,
-            story_id=chapter.story_id,
-            story_title=story_title,
-            created_at=chapter.created_at,
-            updated_at=chapter.updated_at,
-            previous_chapter_id=chapter.prev_chapter_id,
-            next_chapter_id=chapter.next_chapter_id,
+        await handle_chapter_creation(story_id, chapter_to_create.id)
+        logger.info(
+            "chapter.create.done",
+            story_id=story_id,
+            chapter_id=chapter_to_create.id,
+            user_id=user_id,
         )
 
-    @handle_service_errors
-    @transaction
-    async def delete(self, chapter_id: str, user_id: str) -> dict:
-        """Delete chapter with pointer cleanup"""
+        return chapter_to_create.id, await get_chapter_with_navigation(
+            chapter_to_create.id, user_id, as_html=True
+        )
 
-        chapter = await Chapter.filter(user_id=user_id, id=chapter_id).first()
-        if not chapter:
-            raise NotFoundError(
-                "We couldn't find this chapter. It may have been deleted."
-            )
+    except (NotFoundError, ValidationError, InternalError):
+        raise
+    except Exception as e:
+        logger.error(
+            "chapter.create_failed",
+            story_id=story_id,
+            user_id=user_id,
+            error=str(e),
+        )
+        raise InternalError(
+            "Something went wrong while creating your chapter. Please try again."
+        )
 
-        story_id = chapter.story_id
-        await chapter.delete()
-        await handle_chapter_deletion(story_id, chapter_id)
-        logger.info("chapter.delete.done", chapter_id=chapter_id, user_id=user_id, story_id=story_id)
 
-        return {"message": "Chapter was successfully deleted"}
+@handle_service_errors
+@transaction
+async def update(
+    chapter_id: str, user_id: str, data: UpdateChapterRequest
+) -> ChapterContentResponse:
+    chapter = (
+        await Chapter.filter(id=chapter_id, user_id=user_id)
+        .prefetch_related("story")
+        .first()
+    )
 
-    # ========================================
-    # STORY CHAPTER OPERATIONS
-    # ========================================
+    if not chapter:
+        raise NotFoundError(
+            "We couldn't find this chapter. It may have been deleted."
+        )
 
-    @handle_service_errors
-    async def get_story_chapters(
-        self, story_id: str, user_id: str
-    ) -> ChapterListResponse:
-        """Get all chapters for a story in path_array order"""
+    story_title = chapter.story.title
 
-        story = await self._get_story_with_user_check(story_id, user_id)
-        if not story:
-            raise NotFoundError(
-                "We couldn't find this story. It may have been deleted."
-            )
+    updated_data = data.model_dump(exclude_unset=True)
 
-        story_path = story.path_array
-        story_title = story.title
-        story_status = story.status
-        story_last_updated = story.updated_at
+    if "content" in updated_data:
+        updated_data["word_count"] = get_word_count(updated_data["content"])
 
-        chapters = await Chapter.filter(story_id=story_id, user_id=user_id)
+    for field, value in updated_data.items():
+        setattr(chapter, field, value)
 
-        if not story_path or not chapters:
-            return ChapterListResponse(
-                story_id=story_id,
-                story_title=story_title,
-                story_status=story_status,
-                story_last_updated=story_last_updated,
-                chapters=[],
-            )
+    await chapter.save(update_fields=list(updated_data.keys()))
 
-        chapters_lookup = {chapter.id: chapter for chapter in chapters}
-        chronological_chapters = [
-            chapters_lookup[chapter_id]
-            for chapter_id in story_path
-            if chapter_id in chapters_lookup
-        ]
+    logger.info(
+        "chapter.update.done",
+        chapter_id=chapter_id,
+        user_id=user_id,
+        fields=list(updated_data.keys()),
+    )
 
-        list_items = [
-            ChapterListItem(
-                id=chapter.id,
-                title=chapter.title,
-                published=chapter.published,
-                word_count=chapter.word_count,
-                updated_at=chapter.updated_at,
-            )
-            for chapter in chronological_chapters
-        ]
+    return ChapterContentResponse(
+        id=chapter.id,
+        title=chapter.title,
+        content=chapter.content,
+        published=chapter.published,
+        story_id=chapter.story_id,
+        story_title=story_title,
+        created_at=chapter.created_at,
+        updated_at=chapter.updated_at,
+        previous_chapter_id=chapter.prev_chapter_id,
+        next_chapter_id=chapter.next_chapter_id,
+    )
 
+
+@handle_service_errors
+@transaction
+async def delete(chapter_id: str, user_id: str) -> dict:
+    chapter = await Chapter.filter(user_id=user_id, id=chapter_id).first()
+    if not chapter:
+        raise NotFoundError(
+            "We couldn't find this chapter. It may have been deleted."
+        )
+
+    story_id = chapter.story_id
+    await chapter.delete()
+    await handle_chapter_deletion(story_id, chapter_id)
+    logger.info(
+        "chapter.delete.done",
+        chapter_id=chapter_id,
+        user_id=user_id,
+        story_id=story_id,
+    )
+
+    return {"message": "Chapter was successfully deleted"}
+
+
+@handle_service_errors
+async def get_story_chapters(
+    story_id: str, user_id: str
+) -> ChapterListResponse:
+    story = await _get_story_with_user_check(story_id, user_id)
+    if not story:
+        raise NotFoundError("We couldn't find this story. It may have been deleted.")
+
+    story_path = story.path_array
+    story_title = story.title
+    story_status = story.status
+    story_last_updated = story.updated_at
+
+    chapters = await Chapter.filter(story_id=story_id, user_id=user_id)
+
+    if not story_path or not chapters:
         return ChapterListResponse(
             story_id=story_id,
             story_title=story_title,
             story_status=story_status,
             story_last_updated=story_last_updated,
-            chapters=list_items,
+            chapters=[],
         )
 
-    @handle_service_errors
-    async def get_chapter_with_navigation(
-        self, chapter_id: str, user_id: str, as_html: bool = True
-    ) -> ChapterContentResponse:
-        """Get chapter with prev/next navigation and story context"""
+    chapters_lookup = {chapter.id: chapter for chapter in chapters}
+    chronological_chapters = [
+        chapters_lookup[chapter_id]
+        for chapter_id in story_path
+        if chapter_id in chapters_lookup
+    ]
 
-        chapter = (
-            await Chapter.filter(id=chapter_id, user_id=user_id)
-            .prefetch_related("story")
-            .first()
-        )
-
-        if not chapter:
-            raise NotFoundError(
-                "We couldn't find this chapter. It may have been deleted."
-            )
-
-        story_title = chapter.story.title
-
-        return ChapterContentResponse(
+    list_items = [
+        ChapterListItem(
             id=chapter.id,
             title=chapter.title,
-            content=chapter.content
-            if as_html
-            else get_preview_content(chapter.content),
             published=chapter.published,
-            story_id=chapter.story_id,
-            story_title=story_title,
-            created_at=chapter.created_at,
+            word_count=chapter.word_count,
             updated_at=chapter.updated_at,
-            previous_chapter_id=chapter.prev_chapter_id,
-            next_chapter_id=chapter.next_chapter_id,
+        )
+        for chapter in chronological_chapters
+    ]
+
+    return ChapterListResponse(
+        story_id=story_id,
+        story_title=story_title,
+        story_status=story_status,
+        story_last_updated=story_last_updated,
+        chapters=list_items,
+    )
+
+
+@handle_service_errors
+@transaction
+async def reorder_chapters(
+    story_id: str,
+    user_id: str,
+    data: ReorderChapterRequest,
+) -> dict:
+    story = await _get_story_with_user_check(story_id, user_id)
+    if not story:
+        raise NotFoundError("We couldn't find this story. It may have been deleted.")
+
+    if not story.path_array:
+        raise ValidationError(message="This story has no chapters to reorder.")
+
+    max_pos = len(story.path_array) - 1
+
+    if data.from_pos < 0 or data.from_pos > max_pos:
+        raise ValidationError(
+            message=f"Invalid chapter position. Must be between 0 and {max_pos}."
         )
 
-    # ========================================
-    # REORDERING OPERATIONS
-    # ========================================
+    if data.to_pos < 0 or data.to_pos > max_pos:
+        raise ValidationError(
+            message=f"Invalid target position. Must be between 0 and {max_pos}."
+        )
 
-    @handle_service_errors
-    @transaction
-    async def reorder_chapters(
-        self,
-        story_id: str,
-        user_id: str,
-        data: ReorderChapterRequest,
-    ) -> dict:
-        """Reorder chapters with pointer updates"""
+    if data.from_pos == data.to_pos:
+        return {"message": "No reordering needed"}
 
-        story = await self._get_story_with_user_check(story_id, user_id)
-        if not story:
-            raise NotFoundError(
-                "We couldn't find this story. It may have been deleted."
-            )
-
-        if not story.path_array:
-            raise ValidationError(message="This story has no chapters to reorder.")
-
-        max_pos = len(story.path_array) - 1
-
-        if data.from_pos < 0 or data.from_pos > max_pos:
-            raise ValidationError(
-                message=f"Invalid chapter position. Must be between 0 and {max_pos}."
-            )
-
-        if data.to_pos < 0 or data.to_pos > max_pos:
-            raise ValidationError(
-                message=f"Invalid target position. Must be between 0 and {max_pos}."
-            )
-
-        if data.from_pos == data.to_pos:
-            return {"message": "No reordering needed"}
-
-        try:
-            await handle_chapter_reordering(story_id, data.from_pos, data.to_pos)
-            logger.info("chapter.reorder.done", story_id=story_id, user_id=user_id, from_pos=data.from_pos, to_pos=data.to_pos)
-            return {"message": "Chapters reordered successfully"}
-        except Exception as e:
-            logger.error(
-                "chapter.reorder_failed",
-                story_id=story_id,
-                user_id=user_id,
-                error=str(e),
-            )
-            raise InternalError(
-                "Something went wrong while reordering your chapters. Please try again."
-            )
-
-    # ========================================
-    # HELPER METHODS
-    # ========================================
-
-    async def _get_story_with_user_check(
-        self, story_id: str, user_id: str
-    ) -> Optional[Story]:
-        """Get story ensuring user ownership"""
-        return await Story.filter(id=story_id, user_id=user_id).first()
+    try:
+        await handle_chapter_reordering(story_id, data.from_pos, data.to_pos)
+        logger.info(
+            "chapter.reorder.done",
+            story_id=story_id,
+            user_id=user_id,
+            from_pos=data.from_pos,
+            to_pos=data.to_pos,
+        )
+        return {"message": "Chapters reordered successfully"}
+    except Exception as e:
+        logger.error(
+            "chapter.reorder_failed",
+            story_id=story_id,
+            user_id=user_id,
+            error=str(e),
+        )
+        raise InternalError(
+            "Something went wrong while reordering your chapters. Please try again."
+        )

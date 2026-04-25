@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from src.data.models.chapter import Chapter
     from src.data.models.session import Session
     from src.data.models.story import Story
-    from src.data.models.target import Target
 
 
 class TimestampMixin:
@@ -30,7 +29,6 @@ class User(Model, TimestampMixin):
     sessions: fields.ReverseRelation["Session"]
     stories: fields.ReverseRelation["Story"]
     chapters: fields.ReverseRelation["Chapter"]
-    targets: fields.ReverseRelation["Target"]
 
     class Meta:
         table = "user"

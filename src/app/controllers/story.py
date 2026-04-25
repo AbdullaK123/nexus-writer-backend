@@ -1,15 +1,9 @@
 from fastapi import APIRouter, Depends
-from src.service.story.service import StoryService
-from src.service.chapter.service import ChapterService
-from src.app.dependencies import (
-    get_current_user,
-    get_story_service,
-    get_chapter_service,
-)
+
+from src.app.dependencies import get_current_user
 from src.data.models import User
 from src.data.schemas.story import (
     CreateStoryRequest,
-    StoryListItemResponse,
     UpdateStoryRequest,
     StoryGridResponse,
     StoryDetailResponse,
@@ -20,30 +14,17 @@ from src.data.schemas.chapter import (
     ReorderChapterRequest,
     ChapterListResponse,
 )
-from src.app.controllers.story_targets import router as targets_router
-from typing import List
+from src.service.story import service as story_service
+from src.service.chapter import service as chapter_service
 
 
 story_controller = APIRouter(prefix="/stories")
-
-story_controller.include_router(
-    targets_router, prefix="/{story_id}/targets", tags=["targets"]
-)
-
-
-@story_controller.get("/targets", response_model=List[StoryListItemResponse])
-async def get_stories_with_targets(
-    current_user: User = Depends(get_current_user),
-    story_service: StoryService = Depends(get_story_service),
-) -> List[StoryListItemResponse]:
-    return await story_service.get_all_story_list_items(current_user.id)
 
 
 @story_controller.post("/", response_model=dict)
 async def create_story(
     story_info: CreateStoryRequest,
     current_user: User = Depends(get_current_user),
-    story_service: StoryService = Depends(get_story_service),
 ) -> dict:
     return await story_service.create(current_user.id, story_info)
 
@@ -53,7 +34,6 @@ async def update_story(
     story_id: str,
     update_info: UpdateStoryRequest,
     current_user: User = Depends(get_current_user),
-    story_service: StoryService = Depends(get_story_service),
 ) -> dict:
     return await story_service.update(current_user.id, story_id, update_info)
 
@@ -62,7 +42,6 @@ async def update_story(
 async def delete_story(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    story_service: StoryService = Depends(get_story_service),
 ) -> dict:
     return await story_service.delete(current_user.id, story_id)
 
@@ -70,7 +49,6 @@ async def delete_story(
 @story_controller.get("/", response_model=StoryGridResponse)
 async def get_stories(
     current_user: User = Depends(get_current_user),
-    story_service: StoryService = Depends(get_story_service),
 ) -> StoryGridResponse:
     return await story_service.get_all_stories(current_user.id)
 
@@ -79,7 +57,6 @@ async def get_stories(
 async def get_story_details(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    story_service: StoryService = Depends(get_story_service),
 ) -> StoryDetailResponse:
     return await story_service.get_story_details(current_user.id, story_id)
 
@@ -89,7 +66,6 @@ async def create_chapter(
     story_id: str,
     chapter_info: CreateChapterRequest,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> ChapterContentResponse:
     _, result = await chapter_service.create(
         story_id,
@@ -104,7 +80,6 @@ async def reorder_chapters(
     story_id: str,
     reorder_info: ReorderChapterRequest,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> dict:
     return await chapter_service.reorder_chapters(
         story_id,
@@ -117,6 +92,5 @@ async def reorder_chapters(
 async def get_story_chapters(
     story_id: str,
     current_user: User = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> ChapterListResponse:
     return await chapter_service.get_story_chapters(story_id, current_user.id)

@@ -10,9 +10,3 @@ class StoryStatus(StrEnum):
     COMPLETE = "Complete"
     ON_HIATUS = "On Hiatus"
     ONGOING = "Ongoing"
-
-
-class FrequencyType(StrEnum):
-    DAILY = "Daily"
-    WEEKLY = "Weekly"
-    MONTHLY = "Monthly"

@@ -1,17 +1,15 @@
-from fastapi import Request, Cookie, Depends
+from fastapi import Request, Cookie
 from src.data.models import User
-from src.shared.utils.logging import set_user_id
-from src.service.auth.service import AuthService
-from src.app.dependencies.services import get_auth_service
+from src.shared.utils.correlation import set_user_id
+from src.service.auth.service import validate_session
 from typing import Optional
 
 
 async def get_current_user(
     request: Request,
     session_id: str = Cookie(),
-    auth_service: AuthService = Depends(get_auth_service),
 ) -> Optional[User]:
-    user = await auth_service.validate_session(session_id)
+    user = await validate_session(session_id)
     if user is not None:
         try:
             request.state.user_id = user.id

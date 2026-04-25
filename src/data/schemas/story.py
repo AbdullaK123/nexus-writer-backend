@@ -3,7 +3,6 @@ from typing import List, Optional
 from datetime import datetime
 from src.data.models.enums import StoryStatus
 from src.data.schemas.chapter import ChapterListItem
-from src.data.schemas.target import TargetResponse
 
 
 class CreateStoryRequest(BaseModel):
@@ -24,13 +23,6 @@ class StoryCardResponse(BaseModel):
     word_count: int
     created_at: datetime
     updated_at: datetime
-
-
-class StoryListItemResponse(BaseModel):
-    id: str
-    title: str
-    word_count: int
-    targets: List[TargetResponse]
 
 
 class StoryDetailResponse(StoryCardResponse):
