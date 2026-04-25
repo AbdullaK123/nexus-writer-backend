@@ -117,12 +117,7 @@ async def login_user(
     user = await authenticate_user(credentials)
     session_id = await create_session(user.id, connection_details=connection_details)
     logger.info("auth.user_logged_in", user_id=str(user.id))
-    return UserResponse(
-        id=str(user.id),
-        username=user.username,
-        email=user.email,
-        profile_img=user.profile_img,
-    ), session_id
+    return UserResponse.model_validate(user), session_id
 
 
 @handle_service_errors
@@ -146,9 +141,4 @@ async def register_user(registration_data: RegistrationData) -> UserResponse:
     )
     logger.info("auth.user_registered", user_id=str(user_to_create.id))
 
-    return UserResponse(
-        id=str(user_to_create.id),
-        username=registration_data.username,
-        email=registration_data.email,
-        profile_img=registration_data.profile_img,
-    )
+    return UserResponse.model_validate(user_to_create)

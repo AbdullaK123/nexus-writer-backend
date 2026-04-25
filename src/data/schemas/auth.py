@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic import EmailStr
 from typing import Optional
 import re
@@ -28,6 +28,8 @@ class AuthCredentials(BaseModel):
 
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     username: str
     email: str

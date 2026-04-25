@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Tuple
 
 from loguru import logger
 
@@ -22,20 +22,6 @@ from src.data.utils.decorators import transaction
 from src.service.utils.decorators import handle_service_errors
 
 
-async def _get_story_with_user_check(
-    story_id: str, user_id: str
-) -> Optional[Story]:
-    return await Story.filter(id=story_id, user_id=user_id).first()
-
-
-async def get_by_id(chapter_id: str, user_id: str) -> Optional[Chapter]:
-    return (
-        await Chapter.filter(user_id=user_id, id=chapter_id)
-        .prefetch_related("story")
-        .first()
-    )
-
-
 @handle_service_errors
 async def get_chapter_with_navigation(
     chapter_id: str, user_id: str, as_html: bool = True
@@ -51,19 +37,9 @@ async def get_chapter_with_navigation(
             "We couldn't find this chapter. It may have been deleted."
         )
 
-    story_title = chapter.story.title
-
-    return ChapterContentResponse(
-        id=chapter.id,
-        title=chapter.title,
+    return ChapterContentResponse.from_chapter(
+        chapter,
         content=chapter.content if as_html else get_preview_content(chapter.content),
-        published=chapter.published,
-        story_id=chapter.story_id,
-        story_title=story_title,
-        created_at=chapter.created_at,
-        updated_at=chapter.updated_at,
-        previous_chapter_id=chapter.prev_chapter_id,
-        next_chapter_id=chapter.next_chapter_id,
     )
 
 
@@ -129,8 +105,6 @@ async def update(
             "We couldn't find this chapter. It may have been deleted."
         )
 
-    story_title = chapter.story.title
-
     updated_data = data.model_dump(exclude_unset=True)
 
     if "content" in updated_data:
@@ -148,18 +122,7 @@ async def update(
         fields=list(updated_data.keys()),
     )
 
-    return ChapterContentResponse(
-        id=chapter.id,
-        title=chapter.title,
-        content=chapter.content,
-        published=chapter.published,
-        story_id=chapter.story_id,
-        story_title=story_title,
-        created_at=chapter.created_at,
-        updated_at=chapter.updated_at,
-        previous_chapter_id=chapter.prev_chapter_id,
-        next_chapter_id=chapter.next_chapter_id,
-    )
+    return ChapterContentResponse.from_chapter(chapter)
 
 
 @handle_service_errors
@@ -188,51 +151,23 @@ async def delete(chapter_id: str, user_id: str) -> dict:
 async def get_story_chapters(
     story_id: str, user_id: str
 ) -> ChapterListResponse:
-    story = await _get_story_with_user_check(story_id, user_id)
+    story = await Story.filter(id=story_id, user_id=user_id).first()
     if not story:
         raise NotFoundError("We couldn't find this story. It may have been deleted.")
 
-    story_path = story.path_array
-    story_title = story.title
-    story_status = story.status
-    story_last_updated = story.updated_at
-
     chapters = await Chapter.filter(story_id=story_id, user_id=user_id)
 
-    if not story_path or not chapters:
-        return ChapterListResponse(
-            story_id=story_id,
-            story_title=story_title,
-            story_status=story_status,
-            story_last_updated=story_last_updated,
-            chapters=[],
-        )
+    if not story.path_array or not chapters:
+        return ChapterListResponse.from_story(story, [])
 
     chapters_lookup = {chapter.id: chapter for chapter in chapters}
-    chronological_chapters = [
-        chapters_lookup[chapter_id]
-        for chapter_id in story_path
+    list_items = [
+        ChapterListItem.model_validate(chapters_lookup[chapter_id])
+        for chapter_id in story.path_array
         if chapter_id in chapters_lookup
     ]
 
-    list_items = [
-        ChapterListItem(
-            id=chapter.id,
-            title=chapter.title,
-            published=chapter.published,
-            word_count=chapter.word_count,
-            updated_at=chapter.updated_at,
-        )
-        for chapter in chronological_chapters
-    ]
-
-    return ChapterListResponse(
-        story_id=story_id,
-        story_title=story_title,
-        story_status=story_status,
-        story_last_updated=story_last_updated,
-        chapters=list_items,
-    )
+    return ChapterListResponse.from_story(story, list_items)
 
 
 @handle_service_errors
@@ -242,7 +177,7 @@ async def reorder_chapters(
     user_id: str,
     data: ReorderChapterRequest,
 ) -> dict:
-    story = await _get_story_with_user_check(story_id, user_id)
+    story = await Story.filter(id=story_id, user_id=user_id).first()
     if not story:
         raise NotFoundError("We couldn't find this story. It may have been deleted.")
 

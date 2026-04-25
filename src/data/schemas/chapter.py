@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
 from src.data.models.enums import StoryStatus
@@ -21,6 +21,8 @@ class ReorderChapterRequest(BaseModel):
 
 
 class ChapterListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     title: str
     published: bool
@@ -29,6 +31,8 @@ class ChapterListItem(BaseModel):
 
 
 class ChapterContentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     title: str
     published: bool
@@ -40,6 +44,23 @@ class ChapterContentResponse(BaseModel):
     previous_chapter_id: Optional[str] = None
     next_chapter_id: Optional[str] = None
 
+    @classmethod
+    def from_chapter(
+        cls, chapter, *, content: Optional[str] = None
+    ) -> "ChapterContentResponse":
+        return cls(
+            id=chapter.id,
+            title=chapter.title,
+            published=chapter.published,
+            content=chapter.content if content is None else content,
+            story_id=chapter.story_id,
+            story_title=chapter.story.title,
+            created_at=chapter.created_at,
+            updated_at=chapter.updated_at,
+            previous_chapter_id=chapter.prev_chapter_id,
+            next_chapter_id=chapter.next_chapter_id,
+        )
+
 
 class ChapterListResponse(BaseModel):
     story_id: str
@@ -47,3 +68,15 @@ class ChapterListResponse(BaseModel):
     story_status: StoryStatus
     story_last_updated: datetime
     chapters: List[ChapterListItem]
+
+    @classmethod
+    def from_story(
+        cls, story, chapters: List[ChapterListItem]
+    ) -> "ChapterListResponse":
+        return cls(
+            story_id=story.id,
+            story_title=story.title,
+            story_status=story.status,
+            story_last_updated=story.updated_at,
+            chapters=chapters,
+        )

@@ -63,9 +63,4 @@ async def logout_user(
 async def get_active_user(
     request: Request, user: User = Depends(get_current_user)
 ) -> UserResponse:
-    return UserResponse(
-        id=user.id,
-        username=user.username,
-        email=user.email,
-        profile_img=user.profile_img,
-    )
+    return UserResponse.model_validate(user)

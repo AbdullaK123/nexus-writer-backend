@@ -1,7 +1,5 @@
-from typing import Optional, List
-
+from typing import List
 from loguru import logger
-
 from src.data.models import Story, Chapter
 from src.data.schemas.chapter import ChapterListItem
 from src.service.exceptions import NotFoundError, ConflictError
@@ -15,17 +13,10 @@ from src.data.schemas.story import (
 )
 
 
-async def get_by_title(user_id: str, title: str) -> Optional[Story]:
-    return await Story.filter(user_id=user_id, title=title).first()
-
-
-async def get_by_id(user_id: str, id: str) -> Optional[Story]:
-    return await Story.filter(user_id=user_id, id=id).first()
-
 
 @handle_service_errors
 async def create(user_id: str, story_info: CreateStoryRequest) -> dict:
-    story = await get_by_title(user_id, story_info.title)
+    story = await Story.filter(user_id=user_id, title=story_info.title).first()
 
     if story:
         logger.warning("story.create.conflict", user_id=user_id, title=story_info.title)
@@ -43,7 +34,7 @@ async def create(user_id: str, story_info: CreateStoryRequest) -> dict:
 async def update(
     user_id: str, story_id: str, update_info: UpdateStoryRequest
 ) -> dict:
-    story = await get_by_id(user_id, story_id)
+    story = await Story.filter(user_id=user_id, id=story_id).first()
 
     if not story:
         raise NotFoundError("We couldn't find this story. It may have been deleted.")
@@ -65,7 +56,7 @@ async def update(
 
 @handle_service_errors
 async def delete(user_id: str, story_id: str) -> dict:
-    story = await get_by_id(user_id, story_id)
+    story = await Story.filter(user_id=user_id, id=story_id).first()
 
     if not story:
         raise NotFoundError("We couldn't find this story. It may have been deleted.")
@@ -78,7 +69,7 @@ async def delete(user_id: str, story_id: str) -> dict:
 
 @handle_service_errors
 async def get_ordered_chapters(user_id: str, story_id: str) -> List[Chapter]:
-    story = await get_by_id(user_id, story_id)
+    story = await Story.filter(user_id=user_id, id=story_id).first()
 
     if not story:
         raise NotFoundError("Story not found")
@@ -104,36 +95,16 @@ async def get_ordered_chapters(user_id: str, story_id: str) -> List[Chapter]:
 async def get_story_details(user_id: str, story_id: str) -> StoryDetailResponse:
     chapters = await get_ordered_chapters(user_id, story_id)
 
-    story = await get_by_id(user_id, story_id)
+    story = await Story.filter(user_id=user_id, id=story_id).first()
 
     if not story:
         raise NotFoundError("A story with that title does not exist")
 
-    chapter_items = (
-        [
-            ChapterListItem(
-                id=chapter.id,
-                title=chapter.title,
-                published=chapter.published,
-                word_count=chapter.word_count,
-                updated_at=chapter.updated_at,
-            )
-            for chapter in chapters
-        ]
-        if chapters
-        else []
-    )
+    chapter_items = [
+        ChapterListItem.model_validate(chapter) for chapter in chapters
+    ] if chapters else []
 
-    return StoryDetailResponse(
-        id=story_id,
-        title=story.title,
-        status=story.status,
-        total_chapters=len(chapter_items),
-        word_count=sum(c.word_count for c in chapter_items),
-        created_at=story.created_at,
-        updated_at=story.updated_at,
-        chapters=chapter_items,
-    )
+    return StoryDetailResponse.from_story(story, chapter_items)
 
 
 @handle_service_errors
@@ -147,22 +118,9 @@ async def get_all_stories(user_id: str) -> StoryGridResponse:
     for chapter in all_chapters:
         chapters.setdefault(chapter.story_id, []).append(chapter)
 
-    story_cards = (
-        [
-            StoryCardResponse(
-                id=story.id,
-                latest_chapter_id=story.path_array[-1] if story.path_array else None,
-                title=story.title,
-                status=story.status,
-                total_chapters=len(chapters.get(story.id, [])),
-                word_count=sum(ch.word_count for ch in chapters.get(story.id, [])),
-                created_at=story.created_at,
-                updated_at=story.updated_at,
-            )
-            for story in stories
-        ]
-        if stories
-        else []
-    )
+    story_cards = [
+        StoryCardResponse.from_story(story, chapters.get(story.id, []))
+        for story in stories
+    ]
 
     return StoryGridResponse(stories=story_cards)
