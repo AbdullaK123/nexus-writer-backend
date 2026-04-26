@@ -73,42 +73,22 @@ class PostgresConfig(BaseModel, frozen=True):
     max_inactive_connection_lifetime: int = 300
 
 
-class SummaryTokenConfig(BaseModel, frozen=True):
-    character: int = 600
-    plot: int = 600
-    world: int = 500
-    style: int = 200
-
-
-class ExtractionTokenConfig(BaseModel, frozen=True):
-    character: int = 18000
-    events: int = 16000
-    world: int = 20000
-    voice: int = 4000
-
-
-class TokenConfig(BaseModel, frozen=True):
-    summary: SummaryTokenConfig = SummaryTokenConfig()
-    extraction: ExtractionTokenConfig = ExtractionTokenConfig()
-    editor: int = 4000
-
-
 class AiConfig(BaseModel, frozen=True):
-    max_tokens: TokenConfig = TokenConfig()
-    temperature: float = 0.0
     default_model: str = "gpt-5.4-nano-2026-03-17"
+    temperature: float = 0.0
     max_retries: int = 3
     timeout: float = 300.0
     max_concurrent_requests: int = 16
-    regeneration_batch_size: int = 20
-    regeneration_cron_expression: str = "0 * * * *"
-    extraction_cron_expression: str = "*/10 * * * * *"
+    scene_extraction_max_tokens: int = 8000
+    extraction_retry_attempts: int = 3
+    extraction_retry_wait_seconds: float = 1.0
 
 
 class JobConfig(BaseModel, frozen=True):
-    session_cleanup_batch_size: int = 1000
-    session_cleanup_cron_expression: str = "0 */6 * * *"
-    mark_stale_word_count_delta: int = 1000
+    session_cleanup_cron_expression: str = "0 * * * *"
+    scene_extraction_cron_expression: str = "0 */2 * * * *"
+    scene_extraction_batch_size: int = 5
+    scene_extraction_window_seconds: int = 60
 
 class Config(BaseModel, frozen=True):
     """Application-wide static configuration. Loaded from config.yaml."""

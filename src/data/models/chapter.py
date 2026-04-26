@@ -7,8 +7,7 @@ from src.data.models.user import TimestampMixin
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.data.models.story import Story
-    from src.data.models.user import User
+    from src.data.models import Story, User, Extraction
 
 
 class Chapter(Model, TimestampMixin):
@@ -44,6 +43,8 @@ class Chapter(Model, TimestampMixin):
         on_delete=fields.SET_NULL,
     )
     prev_chapter_id: Optional[str]
+
+    extractions: fields.ReverseRelation["Extraction"]
 
     class Meta:
         table = "chapter"

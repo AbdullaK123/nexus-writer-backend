@@ -41,9 +41,9 @@ services:
     networks:
       - nexus-network
 
-  session_worker:
+  worker:
     build: .
-    command: ["uv", "run", "session_worker.py"]
+    command: ["uv", "run", "worker.py"]
     env_file: .env
     environment: 
       DATABASE_URL: asyncpg://nexus_user:password@postgres-nexus:5432/nexus_writer
@@ -53,7 +53,7 @@ services:
     networks:
       - nexus-network
     healthcheck:
-      test: ["CMD-SHELL", "find /tmp/session_worker_heartbeat -mmin -2 | grep -q ."]
+      test: ["CMD-SHELL", "find /tmp/worker_heartbeat -mmin -2 | grep -q ."]
       interval: 30s
       timeout: 5s
       retries: 3

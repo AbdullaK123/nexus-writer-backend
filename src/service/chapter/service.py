@@ -1,18 +1,17 @@
 from typing import Tuple
-
 from loguru import logger
-
-from src.data.models import Chapter, Story
-from src.data.schemas.chapter import (
+from src.data.models import Chapter, Story, Extraction
+from src.data.schemas import (
     CreateChapterRequest,
     UpdateChapterRequest,
     ReorderChapterRequest,
     ChapterListItem,
     ChapterContentResponse,
     ChapterListResponse,
+    SceneExtraction
 )
 from src.service.exceptions import NotFoundError, ValidationError, InternalError
-from src.shared.utils.html import get_preview_content, get_word_count
+from src.shared.utils.html import get_preview_content, get_word_count, html_to_plain_text
 from src.service.chapter.utils import (
     handle_chapter_creation,
     handle_chapter_deletion,
@@ -20,7 +19,7 @@ from src.service.chapter.utils import (
 )
 from src.data.utils.decorators import transaction
 from src.service.utils.decorators import handle_service_errors
-
+from src.service.extraction import extraction_is_stale
 
 @handle_service_errors
 async def get_chapter_with_navigation(
@@ -49,7 +48,7 @@ async def create(
     story_id: str,
     user_id: str,
     data: CreateChapterRequest,
-) -> Tuple[str, ChapterContentResponse]:
+) -> ChapterContentResponse:
     story = await Story.get_or_none(id=story_id)
     if not story:
         raise NotFoundError("We couldn't find this story. It may have been deleted.")
@@ -71,7 +70,7 @@ async def create(
             user_id=user_id,
         )
 
-        return chapter_to_create.id, await get_chapter_with_navigation(
+        return await get_chapter_with_navigation(
             chapter_to_create.id, user_id, as_html=True
         )
 
@@ -108,7 +107,22 @@ async def update(
     updated_data = data.model_dump(exclude_unset=True)
 
     if "content" in updated_data:
+
         updated_data["word_count"] = get_word_count(updated_data["content"])
+        
+        extraction_raw = await Extraction.filter(chapter_id=chapter_id).first()
+
+        if extraction_raw:
+
+            extraction_data = SceneExtraction(**extraction_raw.data)
+
+            updated_chapter_content = html_to_plain_text(updated_data["content"])
+
+            if extraction_is_stale(extraction_data, updated_chapter_content):
+                extraction_raw.needs_reextraction = True
+                await extraction_raw.save(update_fields=["needs_reextraction"])
+
+
 
     for field, value in updated_data.items():
         setattr(chapter, field, value)

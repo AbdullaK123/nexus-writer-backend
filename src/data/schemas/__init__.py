@@ -1,6 +1,7 @@
 from .auth import *
 from .story import *
 from .chapter import *
+from .extraction import *
 
 __all__ = [
     # Auth schemas
@@ -21,4 +22,7 @@ __all__ = [
     "ChapterListItem",
     "ChapterContentResponse",
     "ChapterListResponse",
+    # extraction
+    "Scene",
+    "SceneExtraction"
 ]

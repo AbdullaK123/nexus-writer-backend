@@ -1,11 +1,13 @@
 import functools
 from openai import AuthenticationError, BadRequestError, NotFoundError, OpenAIError
+from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 from src.infrastructure.exceptions import DatabaseError
 from src.infrastructure.exceptions import (
     LLMConfigError,
     LLMServiceError,
     InfrastructureError,
 )
+from src.infrastructure.config import config
 from loguru import logger
 
 
@@ -47,3 +49,34 @@ def handle_openai_errors(func):
             ) from e
 
     return wrapper
+
+
+def retry_extraction(*exc_types: type[BaseException]):
+    """Retry an LLM extraction call when its post-validation rejects the result.
+
+    Used by extraction services whose validation layer raises an exception on
+    model nondeterminism (e.g. non-verbatim quotes). Retry policy is sourced
+    from `config.ai.extraction_retry_*` so it can be tuned without code changes.
+
+    The exception types to retry on are passed by the caller, keeping
+    infrastructure free of any upward import into the service layer.
+
+    Usage:
+        @retry_extraction(ValidationError)
+        async def _extract_and_validate(...): ...
+    """
+
+    def decorator(func):
+        @retry(
+            stop=stop_after_attempt(config.ai.extraction_retry_attempts),
+            wait=wait_fixed(config.ai.extraction_retry_wait_seconds),
+            retry=retry_if_exception_type(exc_types),
+            reraise=True,
+        )
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            return await func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator

@@ -1,6 +1,5 @@
-from fastapi import APIRouter, Depends
-
-from src.app.dependencies import get_current_user
+from fastapi import APIRouter, BackgroundTasks, Depends
+from src.app.dependencies import get_current_user, get_ai_provider
 from src.data.models import User
 from src.data.schemas.story import (
     CreateStoryRequest,
@@ -14,6 +13,8 @@ from src.data.schemas.chapter import (
     ReorderChapterRequest,
     ChapterListResponse,
 )
+from src.infrastructure.ai import AIProvider
+from src.service.extraction.service import extract_scenes
 from src.service.story import service as story_service
 from src.service.chapter import service as chapter_service
 
@@ -65,13 +66,12 @@ async def get_story_details(
 async def create_chapter(
     story_id: str,
     chapter_info: CreateChapterRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
+    provider: AIProvider = Depends(get_ai_provider),
 ) -> ChapterContentResponse:
-    _, result = await chapter_service.create(
-        story_id,
-        current_user.id,
-        chapter_info,
-    )
+    result = await chapter_service.create(story_id, current_user.id, chapter_info)
+    background_tasks.add_task(extract_scenes, provider, result.id)
     return result
 
 

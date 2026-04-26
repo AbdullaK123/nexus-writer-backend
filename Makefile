@@ -110,39 +110,39 @@ logs-err: ## Tail the application error log
 shell: ## Open a bash shell in the API container
 	./dev_scripts/shell.sh
 
-## --- Workers
-.PHONY: start-workers stop-workers restart-workers rebuild-workers logs-workers worker-status
+## --- Worker
+.PHONY: start-worker stop-worker restart-worker rebuild-worker logs-worker worker-status
 
-start-workers: ## Start the session worker container
-	docker compose up -d session_worker
+start-worker: ## Start the worker container
+	docker compose up -d worker
 
-stop-workers: ## Stop the session worker container
-	docker compose stop session_worker
+stop-worker: ## Stop the worker container
+	docker compose stop worker
 
-restart-workers: ## Restart the session worker container
-	docker compose restart session_worker
+restart-worker: ## Restart the worker container
+	docker compose restart worker
 
-rebuild-workers: ## Rebuild and restart the session worker container
-	docker compose up -d --build session_worker
+rebuild-worker: ## Rebuild and restart the worker container
+	docker compose up -d --build worker
 
-logs-workers: ## Follow logs for the session worker
-	docker compose logs -f session_worker
+logs-worker: ## Follow logs for the worker
+	docker compose logs -f worker
 
-worker-status: ## Show health status of the session worker
-	@docker compose ps session_worker --format "table {{.Name}}\t{{.Status}}"
+worker-status: ## Show health status of the worker
+	@docker compose ps worker --format "table {{.Name}}\t{{.Status}}"
 
 ## --- Code Quality
 .PHONY: lint format typecheck
 
 lint: ## Run ruff linter
-	@uv run ruff check src/ main.py session_worker.py
+	@uv run ruff check src/ main.py worker.py
 
 format: ## Auto-format code with ruff
-	@uv run ruff format src/ main.py session_worker.py
-	@uv run ruff check --fix src/ main.py session_worker.py
+	@uv run ruff format src/ main.py worker.py
+	@uv run ruff check --fix src/ main.py worker.py
 
 typecheck: ## Run mypy type checking
-	@uv run mypy src/ main.py session_worker.py
+	@uv run mypy src/ main.py worker.py
 
 ## --- Dependencies
 .PHONY: install install-dev outdated update-deps check-deps

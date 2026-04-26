@@ -1,36 +1,14 @@
 from src.data.models import Session
 from datetime import datetime, timezone
-from src.infrastructure.config import config
 from loguru import logger
 
 
 
-async def cleanup_expired_sessions_batched(
-    batch_size: int = config.jobs.session_cleanup_batch_size,
-):
-    """Remove expired sessions in batches for better performance"""
+async def cleanup_expired_sessions():
+    """Remove expired sessions."""
 
     now = datetime.now(timezone.utc)
-    total_deleted = 0
-
-    while True:
-        expired_sessions = (
-            await Session.filter(expires_at__lt=now)
-            .limit(batch_size)
-            .values_list("session_id", flat=True)
-        )
-
-        if not expired_sessions:
-            break
-
-        deleted_count = await Session.filter(
-            session_id__in=list(expired_sessions)
-        ).delete()
-
-        total_deleted += deleted_count
-
-        if len(expired_sessions) < batch_size:
-            break
+    total_deleted = await Session.filter(expires_at__lt=now).delete()
 
     if total_deleted > 0:
         logger.info("session.cleanup_complete", sessions_deleted=total_deleted)

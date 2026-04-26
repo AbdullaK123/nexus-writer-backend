@@ -12,28 +12,17 @@ postgres:
   max_inactive_connection_lifetime: 300
 
 jobs:
-  mark_stale_word_count_delta: 1000
-  session_cleanup_batch_size: 1000
-  session_cleanup_cron_expression: 0 */6 * * *
+  session_cleanup_cron_expression: "0 * * * *"
+  scene_extraction_cron_expression: "0 */2 * * * *"
+  scene_extraction_batch_size: 5
+  scene_extraction_window_seconds: 60
 
 ai:
-  max_tokens:
-    summary:
-      character: 2000
-      plot: 2000
-      world: 1800
-      style: 800
-    extraction:
-      character: 18000
-      events: 16000
-      world: 20000
-      voice: 4000
-    editor: 4000
-  temperature: 0.0
   default_model: gpt-5.4-2026-03-05
+  temperature: 0.0
   max_retries: 3
   timeout: 300.0
   max_concurrent_requests: 16
-  regeneration_batch_size: 20
-  regeneration_cron_expression: 0 * * * *
-  extraction_cron_expression: "*/10 * * * * *"
+  scene_extraction_max_tokens: 8000
+  extraction_retry_attempts: 3
+  extraction_retry_wait_seconds: 1.0
