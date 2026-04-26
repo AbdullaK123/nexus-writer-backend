@@ -36,7 +36,7 @@ def log_errors(func):
     else:
 
         @wraps(func)
-        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T: #type: ignore
             try:
                 return func(*args, **kwargs)
             except Exception:

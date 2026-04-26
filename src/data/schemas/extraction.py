@@ -37,6 +37,14 @@ class Scene(BaseModel):
         Use kebab-case, single concept per tag, no duplicates, and prefer reusable categorical labels over scene-specific descriptions (e.g. 'betrayal', not 'vale-betrays-mira').
         """
     )
+    questions_raised: List[str] = Field(
+        description="""
+        A short list (typically 0-5) of concrete narrative questions the scene opens, sharpens, or leaves unresolved in the reader's mind — the hooks that create forward pull.
+        Phrase each as a complete question from the reader's perspective (e.g. 'Will Hannah be able to convince Mindoir's governor to evacuate?', 'What is the Silent Ones' true objective?', 'Can Rael survive the assault on Earth?').
+        Include only questions that are genuinely live at the end of the scene — newly raised, escalated, or still open. Exclude questions the scene definitively answers, generic thematic musings, and meta-questions about the author's craft.
+        Prefer specific, plot- or character-grounded questions over vague ones ('Will Mark recover from his trauma?' over 'What will happen next?'). Return an empty list for purely connective scenes that raise no new questions.
+        """
+    )
 
 class SceneExtraction(BaseModel):
     scenes: List[Scene] = Field(default_factory=list)

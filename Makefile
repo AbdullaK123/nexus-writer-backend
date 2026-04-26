@@ -59,13 +59,13 @@ health: ## Check API health endpoint
 	@curl -sf http://localhost:8000/health && printf "\n$(GREEN)✓ API is healthy$(RESET)\n" || printf "\n$(RED)✗ API is not responding$(RESET)\n"
 
 routes: ## List all registered API routes
-	@docker compose exec nexus-writer uv run python -c "\
+	@docker compose exec nexus-writer uv run --no-sync python -c "\
 		from main import app; \
 		routes = sorted(set((r.path, ','.join(r.methods - {'HEAD','OPTIONS'})) for r in app.routes if hasattr(r, 'methods'))); \
 		[print(f'  {m:8s} {p}') for p, m in routes]"
 
 ## --- Database
-.PHONY: start-db stop-db reset-db dbshell migrate upgrade migrate-history dump-db restore-db
+.PHONY: start-db stop-db reset-db dbshell db-recreate init-db migrate-fresh migrate upgrade migrate-history dump-db restore-db
 
 start-db: ## Start only PostgreSQL
 	./dev_scripts/start_db.sh
@@ -79,7 +79,16 @@ reset-db: ## Reset PostgreSQL (destroy + recreate)
 dbshell: ## Open psql shell in the database
 	./dev_scripts/dbshell.sh
 
-migrate: ## Create a new migration (usage: make migrate name=add_field)
+db-recreate: ## DEV: drop DB + regenerate schema from models (no migrations)
+	./dev_scripts/db_recreate.sh
+
+init-db: ## Create the initial migration + apply it (first-time bootstrap)
+	./dev_scripts/init_db.sh
+
+migrate-fresh: ## DEV: wipe DB + migrations dir, regenerate baseline migration
+	./dev_scripts/migrate_fresh.sh
+
+migrate: ## Create a new diff migration (usage: make migrate name=add_field)
 	./dev_scripts/migrate.sh $(name)
 
 upgrade: ## Apply pending migrations

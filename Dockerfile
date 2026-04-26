@@ -23,16 +23,25 @@ ENV UV_PYTHON_VERSION=3.12
 ENV UV_SYSTEM_PYTHON=1
 
 
-# Install dependencies with uv cache mounted — avoids re-downloading on rebuilds
+# Install dependencies (as root) with uv cache mounted.
+# --no-install-project skips building the project itself here so this layer
+# stays cacheable on dep-only changes and doesn't need README.md / src yet.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-dev --frozen
+    uv sync --no-dev --frozen --no-install-project
 
-# Copy the rest of your code
+# Create the runtime user and hand over the venv + workdir
 RUN useradd --system --create-home --shell /usr/sbin/nologin appuser
-RUN mkdir -p /app/logs && chown appuser:appuser /app/logs
 COPY --chown=appuser:appuser . .
 
-RUN mkdir -p /app/migrations/models && chown -R appuser:appuser /app/migrations
+# Now that the source (incl. README.md) is present, install the project itself.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev --frozen --no-install-project
+
+RUN mkdir -p /app/logs /app/migrations/models \
+    && chown -R appuser:appuser /app
+
 USER appuser
 
-CMD ["uv", "run", "main.py"]
+# --no-sync prevents `uv run` from trying to mutate the baked-in venv at
+# runtime (which would attempt to install dev deps and fail).
+CMD ["uv", "run", "--no-sync", "main.py"]

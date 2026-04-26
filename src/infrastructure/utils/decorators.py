@@ -66,12 +66,37 @@ def retry_extraction(*exc_types: type[BaseException]):
         async def _extract_and_validate(...): ...
     """
 
+    def _log_before_sleep(retry_state):
+        exc = retry_state.outcome.exception() if retry_state.outcome else None
+        logger.warning(
+            "infra.extraction_retry",
+            func=retry_state.fn.__qualname__ if retry_state.fn else None,
+            attempt=retry_state.attempt_number,
+            max_attempts=config.ai.extraction_retry_attempts,
+            wait_seconds=config.ai.extraction_retry_wait_seconds,
+            exc_type=type(exc).__name__ if exc else None,
+            error=str(exc)[:500] if exc else None,
+        )
+
+    def _log_final_failure(retry_state):
+        exc = retry_state.outcome.exception() if retry_state.outcome else None
+        logger.error(
+            "infra.extraction_retry_exhausted",
+            func=retry_state.fn.__qualname__ if retry_state.fn else None,
+            attempts=retry_state.attempt_number,
+            exc_type=type(exc).__name__ if exc else None,
+            error=str(exc)[:500] if exc else None,
+        )
+        if exc:
+            raise exc
+
     def decorator(func):
         @retry(
             stop=stop_after_attempt(config.ai.extraction_retry_attempts),
             wait=wait_fixed(config.ai.extraction_retry_wait_seconds),
             retry=retry_if_exception_type(exc_types),
-            reraise=True,
+            before_sleep=_log_before_sleep,
+            retry_error_callback=_log_final_failure,
         )
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):

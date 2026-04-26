@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker compose exec nexus-writer uv run aerich upgrade
+docker compose exec nexus-writer uv run --no-sync aerich upgrade

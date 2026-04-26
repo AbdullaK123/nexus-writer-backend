@@ -1,6 +1,9 @@
-from typing import Optional
-from loguru import logger, Record
+from typing import Optional, TYPE_CHECKING
+from loguru import logger
 import sys
+
+if TYPE_CHECKING:
+    from loguru import Record
 
 from src.shared.utils.correlation import get_correlation_id, get_user_id
 
@@ -46,7 +49,7 @@ def context_logger(**extra):
     )
 
 
-def format_record(record: Record) -> str:
+def format_record(record: "Record") -> str:
     layer = record["extra"].get("layer") or detect_layer(record["name"])
     color = LAYER_COLORS.get(layer, "<white>")
     badge = LAYER_BADGES.get(layer, "[????] ")
@@ -61,7 +64,7 @@ def format_record(record: Record) -> str:
 
 
 def layer_filter(target: str):
-    def _f(record: Record) -> bool:
+    def _f(record: "Record") -> bool:
         layer = record["extra"].get("layer") or detect_layer(record["name"])
         return layer == target
     return _f

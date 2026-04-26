@@ -18,11 +18,11 @@ jobs:
   scene_extraction_window_seconds: 60
 
 ai:
-  default_model: gpt-5.4-2026-03-05
-  temperature: 0.0
+  default_model: gpt-5.5-2026-04-23
+  temperature: 1
   max_retries: 3
   timeout: 300.0
-  max_concurrent_requests: 16
-  scene_extraction_max_tokens: 8000
-  extraction_retry_attempts: 3
+  max_concurrent_requests: 35
+  scene_extraction_max_tokens: 6000
+  extraction_retry_attempts: 20
   extraction_retry_wait_seconds: 1.0

@@ -22,15 +22,18 @@ services:
     build: .
     ports:
       - 8000:8000
+    volumes:
+      - ./migrations:/app/migrations
     command: >
       sh -c "
-        if uv run aerich upgrade; then
-          echo 'Migrations applied';
+        if [ -z \"$$(ls -A migrations/models 2>/dev/null)\" ]; then
+          echo 'No migrations found, running aerich init-db';
+          uv run --no-sync aerich init-db;
         else
-          echo 'No migration history found, initializing DB'
-          uv run aerich init-db
+          echo 'Applying migrations';
+          uv run --no-sync aerich upgrade;
         fi &&
-        uv run uvicorn main:app --host 0.0.0.0 --port 8000
+        uv run --no-sync uvicorn main:app --host 0.0.0.0 --port 8000
       "
     env_file: .env
     environment:
@@ -43,7 +46,7 @@ services:
 
   worker:
     build: .
-    command: ["uv", "run", "worker.py"]
+    command: ["uv", "run", "--no-sync", "worker.py"]
     env_file: .env
     environment: 
       DATABASE_URL: asyncpg://nexus_user:password@postgres-nexus:5432/nexus_writer
