@@ -1,13 +1,5 @@
 import functools
 from uuid import UUID
-from tortoise.exceptions import OperationalError
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception_type,
-    before_sleep_log
-)
 from src.data.exceptions import NotFoundError as DataNotFound, DuplicateError
 from src.infrastructure.exceptions import DatabaseError
 from src.service.exceptions import (
@@ -17,23 +9,6 @@ from src.service.exceptions import (
     AuthError,
 )
 from loguru import logger
-
-
-def _log_retry(retry_state):
-    logger.warning(
-        "service.retry",
-        func=retry_state.fn.__qualname__,
-        attempt=retry_state.attempt_number,
-        error=str(retry_state.outcome.exception())
-    )
-
-retry_on_operational_error = retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=0.5, max=4),
-    retry=retry_if_exception_type((OperationalError,)),
-    before_sleep=_log_retry,
-    reraise=True
-) 
 
 def handle_service_errors(func):
     @functools.wraps(func)

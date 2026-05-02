@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic import EmailStr
 from typing import Optional
+from datetime import datetime
 import re
 from src.infrastructure.config import config
 
@@ -39,3 +40,34 @@ class UserResponse(BaseModel):
 class ConnectionDetails(BaseModel):
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
+
+
+# ─── Repository row models ───────────────────────────────────────────────────
+# Returned by UserRepository / SessionRepository. These replace direct use of
+# the Tortoise model classes in the service layer.
+
+class UserRow(BaseModel):
+    """One row from the `user` table. Includes password_hash — do NOT return
+    this to the API; convert to `UserResponse` first."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    username: str
+    email: str
+    password_hash: str
+    profile_img: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+
+class SessionRow(BaseModel):
+    """One row from the `session` table."""
+    model_config = ConfigDict(from_attributes=True)
+
+    session_id: str
+    user_id: str
+    expires_at: datetime
+    ip_address: Optional[str]
+    user_agent: Optional[str]
+    created_at: datetime
+    updated_at: datetime

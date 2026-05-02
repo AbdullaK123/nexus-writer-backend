@@ -1,6 +1,6 @@
-from .service import *
+from src.service.extraction.service import ExtractionService, scenes_are_stale
 
 __all__ = [
-    "extract_scenes",
-    "extraction_is_stale"
+    "ExtractionService",
+    "scenes_are_stale",
 ]

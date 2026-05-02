@@ -6,10 +6,10 @@ from src.data.schemas.auth import (
     AuthCredentials,
     ConnectionDetails,
 )
-from src.data.models import User
-from src.app.dependencies import get_current_user
+from src.data.schemas import UserRow
+from src.app.dependencies import get_current_user, get_auth_service
 from src.infrastructure.config import settings, config as app_config
-from src.service.auth import service as auth_service
+from src.service.auth import AuthService
 
 user_controller = APIRouter(prefix="/auth")
 
@@ -18,6 +18,7 @@ user_controller = APIRouter(prefix="/auth")
 async def register_user(
     request: Request,
     registration_data: RegistrationData,
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> UserResponse:
     return await auth_service.register_user(registration_data)
 
@@ -27,6 +28,7 @@ async def login_user(
     request: Request,
     response: Response,
     credentials: AuthCredentials,
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> UserResponse:
     connection_details = ConnectionDetails(
         ip_address=request.headers.get("X-Real-IP"),
@@ -51,8 +53,9 @@ async def login_user(
 async def logout_user(
     request: Request,
     response: Response,
-    user: User = Depends(get_current_user),
+    user: UserRow = Depends(get_current_user),
     session_id: str = Cookie(),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> dict:
     await auth_service.logout_user(session_id)
     response.delete_cookie("session_id")
@@ -61,6 +64,6 @@ async def logout_user(
 
 @user_controller.get("/me", response_model=UserResponse)
 async def get_active_user(
-    request: Request, user: User = Depends(get_current_user)
+    request: Request, user: UserRow = Depends(get_current_user)
 ) -> UserResponse:
-    return UserResponse.model_validate(user)
+    return UserResponse.model_validate(user, from_attributes=True)

@@ -1,214 +1,266 @@
-"""Tests for src/service/story/service.py."""
+"""Tests for StoryService — story CRUD + read endpoints.
+
+Strategy: mock StoryRepository / ChapterRepository at the boundary and
+construct a StoryService wrapping them.
+"""
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
-from src.data.models import Chapter, Story
-from src.data.schemas.story import CreateStoryRequest, UpdateStoryRequest
+from src.data.schemas.enums import StoryStatus
+from src.data.schemas import StoryRow, ChapterRow
+from src.data.schemas.story import (
+    CreateStoryRequest,
+    UpdateStoryRequest,
+    StoryGridResponse,
+    StoryDetailResponse,
+)
 from src.service.exceptions import ConflictError, NotFoundError
-from src.service.story import service as story_service
-from tests.factories import make_chapter, make_story, make_user
+from src.service.story import StoryService
+
+
+# ─── helpers ─────────────────────────────────────────────────────────────────
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _story(
+    *,
+    id: str = "s1",
+    user_id: str = "u1",
+    title: str = "Untitled",
+    story_context: str | None = None,
+    status: StoryStatus = StoryStatus.ONGOING,
+    path_array: list[str] | None = None,
+) -> StoryRow:
+    return StoryRow(
+        id=id,
+        user_id=user_id,
+        title=title,
+        story_context=story_context,
+        status=status,
+        path_array=path_array,
+        created_at=_now(),
+        updated_at=_now(),
+    )
+
+
+def _chapter(
+    *,
+    id: str = "c1",
+    story_id: str = "s1",
+    user_id: str = "u1",
+    title: str = "Ch",
+    word_count: int = 0,
+    created_at: datetime | None = None,
+) -> ChapterRow:
+    return ChapterRow(
+        id=id,
+        story_id=story_id,
+        user_id=user_id,
+        title=title,
+        content="<p></p>",
+        published=False,
+        word_count=word_count,
+        next_chapter_id=None,
+        prev_chapter_id=None,
+        created_at=created_at or _now(),
+        updated_at=_now(),
+    )
+
+
+def _story_repo_mock():
+    repo = MagicMock(name="StoryRepository")
+    repo.exists_with_title = AsyncMock(return_value=False)
+    repo.create = AsyncMock(return_value=_story())
+    repo.update = AsyncMock(return_value=_story())
+    repo.delete = AsyncMock(return_value=True)
+    repo.get = AsyncMock(return_value=None)
+    repo.list_for_user = AsyncMock(return_value=[])
+    return repo
+
+
+def _chapter_repo_mock():
+    repo = MagicMock(name="ChapterRepository")
+    repo.list_by_story = AsyncMock(return_value=[])
+    repo.list_by_story_ids = AsyncMock(return_value=[])
+    return repo
+
+
+def _service(story_repo=None, chapter_repo=None) -> StoryService:
+    return StoryService(
+        story_repo or _story_repo_mock(),
+        chapter_repo or _chapter_repo_mock(),
+    )
 
 
 # ─── create ──────────────────────────────────────────────────────────────────
-class TestCreate:
-    async def test_raises_conflict_when_user_already_has_story_with_same_title(self):
-        # Assumption: title is unique per user (composite (user_id, title))
-        user = await make_user()
-        await make_story(user, title="Same")
 
+
+class TestCreate:
+    async def test_creates_when_title_unique(self):
+        repo = _story_repo_mock()
+        svc = _service(story_repo=repo)
+        result = await svc.create_story("u1", CreateStoryRequest(title="A New Story"))
+        assert result == {"message": "Story successfully created"}
+        repo.create.assert_awaited_once_with(user_id="u1", title="A New Story")
+
+    async def test_raises_conflict_when_user_already_has_story_with_same_title(self):
+        repo = _story_repo_mock()
+        repo.exists_with_title = AsyncMock(return_value=True)
+        svc = _service(story_repo=repo)
         with pytest.raises(ConflictError):
-            await story_service.create(user.id, CreateStoryRequest(title="Same"))
+            await svc.create_story("u1", CreateStoryRequest(title="Dup"))
 
     async def test_does_not_create_row_on_conflict(self):
-        user = await make_user()
-        await make_story(user, title="Same")
-        before = await Story.filter(user_id=user.id).count()
-
+        repo = _story_repo_mock()
+        repo.exists_with_title = AsyncMock(return_value=True)
+        svc = _service(story_repo=repo)
         with pytest.raises(ConflictError):
-            await story_service.create(user.id, CreateStoryRequest(title="Same"))
-
-        assert await Story.filter(user_id=user.id).count() == before
-
-    async def test_two_users_can_share_a_title(self):
-        # Assumption: uniqueness scoped to user_id, not global
-        user_a = await make_user(email="a@x.com")
-        user_b = await make_user(email="b@x.com")
-        await story_service.create(user_a.id, CreateStoryRequest(title="Shared"))
-        await story_service.create(user_b.id, CreateStoryRequest(title="Shared"))
-        assert await Story.filter(title="Shared").count() == 2
-
-    async def test_initializes_path_array_to_empty_list(self):
-        user = await make_user()
-        await story_service.create(user.id, CreateStoryRequest(title="New"))
-        story = await Story.get(user_id=user.id, title="New")
-        assert story.path_array == []
+            await svc.create_story("u1", CreateStoryRequest(title="Dup"))
+        repo.create.assert_not_awaited()
 
 
 # ─── update ──────────────────────────────────────────────────────────────────
+
+
 class TestUpdate:
     async def test_raises_not_found_when_story_doesnt_belong_to_user(self):
-        # Assumption: filter scopes by both id and user_id
-        owner = await make_user(email="o@x.com")
-        intruder = await make_user(email="i@x.com")
-        story = await make_story(owner, title="O")
-
+        repo = _story_repo_mock()
+        repo.update = AsyncMock(return_value=None)
+        svc = _service(story_repo=repo)
         with pytest.raises(NotFoundError):
-            await story_service.update(
-                intruder.id, story.id, UpdateStoryRequest(title="hax"))
+            await svc.update_story("u1", "s1", UpdateStoryRequest(title="New"))
 
     async def test_only_explicitly_set_fields_are_updated(self):
-        # Assumption: model_dump(exclude_unset=True) drives the update
-        user = await make_user()
-        story = await make_story(user, title="orig")
+        repo = _story_repo_mock()
+        svc = _service(story_repo=repo)
+        await svc.update_story("u1", "s1", UpdateStoryRequest(title="New"))
+        repo.update.assert_awaited_once_with(
+            story_id="s1", user_id="u1", fields={"title": "New"},
+        )
 
-        await story_service.update(
-            user.id, story.id, UpdateStoryRequest())  # all fields unset
-
-        refreshed = await Story.get(id=story.id)
-        assert refreshed.title == "orig"  # unchanged
-
-    async def test_updates_supplied_field_only(self):
-        user = await make_user()
-        story = await make_story(user, title="orig")
-
-        await story_service.update(
-            user.id, story.id, UpdateStoryRequest(title="new"))
-
-        assert (await Story.get(id=story.id)).title == "new"
+    async def test_unset_fields_excluded(self):
+        repo = _story_repo_mock()
+        svc = _service(story_repo=repo)
+        await svc.update_story("u1", "s1", UpdateStoryRequest())
+        repo.update.assert_awaited_once_with(
+            story_id="s1", user_id="u1", fields={},
+        )
 
 
 # ─── delete ──────────────────────────────────────────────────────────────────
+
+
 class TestDelete:
     async def test_raises_not_found_when_story_belongs_to_someone_else(self):
-        owner = await make_user(email="o@x.com")
-        intruder = await make_user(email="i@x.com")
-        story = await make_story(owner)
-
+        repo = _story_repo_mock()
+        repo.delete = AsyncMock(return_value=False)
+        svc = _service(story_repo=repo)
         with pytest.raises(NotFoundError):
-            await story_service.delete(intruder.id, story.id)
+            await svc.delete_story("u1", "s1")
 
-        assert await Story.filter(id=story.id).exists()
-
-    async def test_removes_story_row(self):
-        user = await make_user()
-        story = await make_story(user)
-        await story_service.delete(user.id, story.id)
-        assert not await Story.filter(id=story.id).exists()
-
-    async def test_cascades_to_chapters(self):
-        # Assumption: on_delete=CASCADE on Chapter.story FK removes children
-        user = await make_user()
-        story = await make_story(user)
-        await make_chapter(story, user)
-        await story_service.delete(user.id, story.id)
-        assert await Chapter.filter(story_id=story.id).count() == 0
-
-
-# ─── get_ordered_chapters ────────────────────────────────────────────────────
-class TestGetOrderedChapters:
-    async def test_raises_not_found_when_story_missing(self):
-        user = await make_user()
-        with pytest.raises(NotFoundError):
-            await story_service.get_ordered_chapters(user.id, "missing")
-
-    async def test_falls_back_to_created_at_desc_when_path_array_empty(self):
-        # Assumption: empty path_array → reverse-chronological by created_at
-        user = await make_user()
-        story = await make_story(user, path_array=[])
-        c1 = await make_chapter(story, user, title="first", append_to_path=False)
-        c2 = await make_chapter(story, user, title="second", append_to_path=False)
-
-        result = await story_service.get_ordered_chapters(user.id, story.id)
-
-        assert [c.id for c in result] == [c2.id, c1.id]
-
-    async def test_skips_path_array_entries_with_no_matching_chapter(self):
-        # Assumption: path_array may drift; missing ids are silently skipped
-        user = await make_user()
-        story = await make_story(user, path_array=[])
-        c1 = await make_chapter(story, user, title="real")
-        # Inject ghost id
-        story.path_array = [c1.id, "ghost"]
-        await story.save(update_fields=["path_array"])
-
-        result = await story_service.get_ordered_chapters(user.id, story.id)
-
-        assert [c.id for c in result] == [c1.id]
-
-    async def test_orders_chapters_by_path_array(self):
-        user = await make_user()
-        story = await make_story(user, path_array=[])
-        a = await make_chapter(story, user, title="a", append_to_path=False)
-        b = await make_chapter(story, user, title="b", append_to_path=False)
-        c = await make_chapter(story, user, title="c", append_to_path=False)
-        story.path_array = [c.id, a.id, b.id]
-        await story.save(update_fields=["path_array"])
-
-        result = await story_service.get_ordered_chapters(user.id, story.id)
-
-        assert [ch.id for ch in result] == [c.id, a.id, b.id]
+    async def test_returns_success_message_on_delete(self):
+        repo = _story_repo_mock()
+        svc = _service(story_repo=repo)
+        result = await svc.delete_story("u1", "s1")
+        assert result == {"message": "Story successfully deleted"}
+        repo.delete.assert_awaited_once_with(story_id="s1", user_id="u1")
 
 
 # ─── get_story_details ───────────────────────────────────────────────────────
+
+
 class TestGetStoryDetails:
     async def test_raises_not_found_when_story_missing(self):
-        user = await make_user()
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(return_value=None)
+        svc = _service(story_repo=story_repo)
         with pytest.raises(NotFoundError):
-            await story_service.get_story_details(user.id, "missing")
+            await svc.get_story_details("u1", "missing")
 
-    async def test_returns_details_with_zero_chapters_when_empty(self):
-        user = await make_user()
-        story = await make_story(user, path_array=[])
-        resp = await story_service.get_story_details(user.id, story.id)
-        assert resp.total_chapters == 0
-        assert resp.chapters == []
-        assert resp.word_count == 0
+    async def test_returns_details_with_zero_chapters(self):
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(return_value=_story())
+        svc = _service(story_repo=story_repo)
+
+        result = await svc.get_story_details("u1", "s1")
+
+        assert isinstance(result, StoryDetailResponse)
+        assert result.total_chapters == 0
+        assert result.word_count == 0
+        assert result.chapters == []
 
     async def test_word_count_aggregates_chapter_word_counts(self):
-        user = await make_user()
-        story = await make_story(user, path_array=[])
-        await make_chapter(story, user, title="a", word_count=100)
-        await make_chapter(story, user, title="b", word_count=250)
-        resp = await story_service.get_story_details(user.id, story.id)
-        assert resp.word_count == 350
-        assert resp.total_chapters == 2
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(return_value=_story(path_array=["a", "b"]))
+        chapter_repo = _chapter_repo_mock()
+        chapter_repo.list_by_story = AsyncMock(return_value=[
+            _chapter(id="a", word_count=100),
+            _chapter(id="b", word_count=250),
+        ])
+        svc = _service(story_repo=story_repo, chapter_repo=chapter_repo)
+
+        result = await svc.get_story_details("u1", "s1")
+        assert result.word_count == 350
+        assert result.total_chapters == 2
+
+    async def test_orders_chapters_by_path_array(self):
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(return_value=_story(path_array=["b", "a", "c"]))
+        chapter_repo = _chapter_repo_mock()
+        chapter_repo.list_by_story = AsyncMock(return_value=[
+            _chapter(id="a"), _chapter(id="b"), _chapter(id="c"),
+        ])
+        svc = _service(story_repo=story_repo, chapter_repo=chapter_repo)
+
+        result = await svc.get_story_details("u1", "s1")
+        assert [c.id for c in result.chapters] == ["b", "a", "c"]
+
+    async def test_skips_path_entries_with_no_matching_chapter(self):
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(
+            return_value=_story(path_array=["a", "ghost", "b"]),
+        )
+        chapter_repo = _chapter_repo_mock()
+        chapter_repo.list_by_story = AsyncMock(return_value=[
+            _chapter(id="a"), _chapter(id="b"),
+        ])
+        svc = _service(story_repo=story_repo, chapter_repo=chapter_repo)
+
+        result = await svc.get_story_details("u1", "s1")
+        assert [c.id for c in result.chapters] == ["a", "b"]
 
 
 # ─── get_all_stories ─────────────────────────────────────────────────────────
+
+
 class TestGetAllStories:
     async def test_returns_empty_grid_when_user_has_no_stories(self):
-        user = await make_user()
-        resp = await story_service.get_all_stories(user.id)
-        assert resp.stories == []
+        svc = _service()
+        result = await svc.get_all_stories("u1")
+        assert result == StoryGridResponse(stories=[])
 
-    async def test_does_not_leak_other_users_stories(self):
-        # Assumption: filter is scoped to user_id
-        owner = await make_user(email="o@x.com")
-        other = await make_user(email="x@x.com")
-        await make_story(owner, title="mine")
-        await make_story(other, title="theirs")
+    async def test_groups_chapters_by_story_for_word_count(self):
+        story_repo = _story_repo_mock()
+        story_repo.list_for_user = AsyncMock(return_value=[
+            _story(id="s1", title="A"),
+            _story(id="s2", title="B"),
+        ])
+        chapter_repo = _chapter_repo_mock()
+        chapter_repo.list_by_story_ids = AsyncMock(return_value=[
+            _chapter(id="c1", story_id="s1", word_count=100),
+            _chapter(id="c2", story_id="s1", word_count=50),
+            _chapter(id="c3", story_id="s2", word_count=200),
+        ])
+        svc = _service(story_repo=story_repo, chapter_repo=chapter_repo)
 
-        resp = await story_service.get_all_stories(owner.id)
-
-        assert {s.title for s in resp.stories} == {"mine"}
-
-    async def test_orders_by_created_at_desc(self):
-        # Assumption: order_by("-created_at")
-        user = await make_user()
-        await make_story(user, title="first")
-        await make_story(user, title="second")
-        await make_story(user, title="third")
-        resp = await story_service.get_all_stories(user.id)
-        assert [s.title for s in resp.stories] == ["third", "second", "first"]
-
-    async def test_groups_chapters_by_story_when_aggregating_word_count(self):
-        # Assumption: chapters keyed by story_id; counts must not bleed across
-        user = await make_user()
-        s1 = await make_story(user, title="s1")
-        s2 = await make_story(user, title="s2")
-        await make_chapter(s1, user, title="a", word_count=10)
-        await make_chapter(s2, user, title="b", word_count=20)
-
-        resp = await story_service.get_all_stories(user.id)
-        by_title = {s.title: s for s in resp.stories}
-        assert by_title["s1"].word_count == 10
-        assert by_title["s2"].word_count == 20
+        result = await svc.get_all_stories("u1")
+        by_id = {s.id: s for s in result.stories}
+        assert by_id["s1"].word_count == 150
+        assert by_id["s1"].total_chapters == 2
+        assert by_id["s2"].word_count == 200
+        assert by_id["s2"].total_chapters == 1

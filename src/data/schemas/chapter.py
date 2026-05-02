@@ -1,7 +1,26 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
-from src.data.models.enums import StoryStatus
+from src.data.schemas.enums import StoryStatus
+
+
+class ChapterRow(BaseModel):
+    """One row from the `chapter` table."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    story_id: str
+    user_id: str
+    title: str
+    content: str
+    published: bool
+    word_count: int
+    next_chapter_id: Optional[str]
+    prev_chapter_id: Optional[str]
+    scenes_need_reextraction: bool = False
+    scenes_extracted_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
 
 
 class CreateChapterRequest(BaseModel):
@@ -46,15 +65,24 @@ class ChapterContentResponse(BaseModel):
 
     @classmethod
     def from_chapter(
-        cls, chapter, *, content: Optional[str] = None
+        cls,
+        chapter,
+        *,
+        content: Optional[str] = None,
+        story_title: Optional[str] = None,
     ) -> "ChapterContentResponse":
+        # `story_title` is required when `chapter` is a ChapterRow (no relation
+        # attribute). Tortoise Chapter still works via `chapter.story.title`.
+        resolved_story_title = (
+            story_title if story_title is not None else chapter.story.title
+        )
         return cls(
             id=chapter.id,
             title=chapter.title,
             published=chapter.published,
             content=chapter.content if content is None else content,
             story_id=chapter.story_id,
-            story_title=chapter.story.title,
+            story_title=resolved_story_title,
             created_at=chapter.created_at,
             updated_at=chapter.updated_at,
             previous_chapter_id=chapter.prev_chapter_id,

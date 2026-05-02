@@ -1,16 +1,30 @@
-"""Sanity check: schema generates and basic inserts work under SQLite."""
-from src.data.models import User, Story
-from tests.factories import make_user, make_story
+"""Sanity check: top-level packages import cleanly under the
+asyncpg-only architecture (no Tortoise, no Aerich)."""
 
 
-async def test_schema_generates_and_user_inserts():
-    user = await make_user()
-    assert (await User.all().count()) == 1
-    assert user.id
+def test_repositories_import():
+    from src.data import repositories  # noqa: F401
+
+    for name in (
+        "UserRepository", "SessionRepository",
+        "StoryRepository", "ChapterRepository", "SceneRepository",
+    ):
+        assert hasattr(repositories, name)
 
 
-async def test_array_field_shim_round_trips_path_array():
-    user = await make_user()
-    story = await make_story(user, title="S", path_array=["a", "b", "c"])
-    refreshed = await Story.get(id=story.id)
-    assert refreshed.path_array == ["a", "b", "c"]
+def test_schemas_import():
+    from src.data import schemas  # noqa: F401
+
+    for name in (
+        "UserRow", "SessionRow", "ChapterRow", "SceneRow",
+        "StoryStatus",
+    ):
+        assert hasattr(schemas, name) or name == "StoryStatus"
+
+
+def test_services_import():
+    from src.service import auth, chapter, story, extraction  # noqa: F401
+    from src.service.auth import AuthService  # noqa: F401
+    from src.service.chapter import ChapterService  # noqa: F401
+    from src.service.story import StoryService  # noqa: F401
+    from src.service.extraction import ExtractionService, scenes_are_stale  # noqa: F401

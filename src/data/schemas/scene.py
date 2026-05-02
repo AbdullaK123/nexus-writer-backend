@@ -1,6 +1,10 @@
 from datetime import datetime
 from pydantic import Field, BaseModel, ConfigDict
-from typing import Literal, List
+from typing import Literal, List, Optional
+
+
+# ─── LLM I/O models (used as JSON schema for structured generation) ─────────
+
 
 class Scene(BaseModel):
     title: str = Field(description="A short descriptive title for the scene.")
@@ -9,9 +13,9 @@ class Scene(BaseModel):
     description: str = Field(description="A 3-4 sentence synopsis of what happened in the scene")
     tension: Literal["low", "medium", "high"] = Field(
         description="""
-        The dramatic tension of the scene. 
-        'low' = calm, expository, or reflective beats with little immediate stakes; 
-        'medium' = active conflict, rising stakes, meaningful character friction, or unresolved questions driving the scene forward; 
+        The dramatic tension of the scene.
+        'low' = calm, expository, or reflective beats with little immediate stakes;
+        'medium' = active conflict, rising stakes, meaningful character friction, or unresolved questions driving the scene forward;
         'high' = climactic confrontation, danger, irreversible decisions, or emotional peaks where the outcome materially changes the story.
         """
     )
@@ -47,18 +51,101 @@ class Scene(BaseModel):
         """
     )
 
+
 class SceneExtraction(BaseModel):
+    """LLM output container — the bag of scenes extracted from one chapter.
+    Not persisted directly; the service explodes it into per-scene rows."""
     scenes: List[Scene] = Field(default_factory=list)
 
 
-class ExtractionRow(BaseModel):
-    """One row from the `extraction` table. Repository return type."""
+# ─── DB row model ──────────────────────────────────────────────────────────
+
+
+class SceneRow(BaseModel):
+    """One row from the `scene` table. Repository return type.
+
+    Embedding columns are nullable: extraction populates every column except
+    `embedding` / `embedding_model` / `embedded_at`. A separate worker
+    fills those in once the vector is generated.
+    """
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     chapter_id: str
-    extraction_type: str
-    needs_reextraction: bool
-    data: SceneExtraction
+    story_id: str
+    user_id: str
+    position: int
+    title: str
+    start_quote: str
+    end_quote: str
+    description: str
+    tension: Literal["low", "medium", "high"]
+    pacing: Literal["slow", "steady", "fast"]
+    mentioned_entities: List[str]
+    tags: List[str]
+    questions_raised: List[str]
+    # `embedding` itself isn't modelled here — pgvector returns it as text;
+    # callers that need the raw vector should fetch via a dedicated method.
+    embedding_model: Optional[str] = None
+    embedded_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+
+class SceneSearchResult(SceneRow):
+    """A `SceneRow` plus a hybrid-search relevance score.
+
+    Returned by `SceneRepository.search_scenes`. The score is the Reciprocal
+    Rank Fusion sum of the BM25 and vector-similarity ranks (higher = more
+    relevant). Values are not comparable across queries — they're only
+    meaningful for ordering within one result set.
+    """
+    score: float
+
+class SceneSearchRequest(BaseModel):
+    """Body for POST /stories/{story_id}/search.
+
+    `k` is the cap on returned hits; `candidate_pool` is how many FTS/vector
+    rows feed the RRF fusion before truncation. Both are optional — when
+    omitted, the service falls back to `search.default_k` /
+    `search.default_candidate_pool` from config. Most callers should leave
+    them unset.
+    """
+    query: str = Field(min_length=1, max_length=500)
+    k: int | None = Field(default=None, ge=1, le=50)
+    candidate_pool: int | None = Field(default=None, ge=1, le=500)
+
+
+class SceneSearchListResponse(BaseModel):
+    """Wrapper so the API returns an object, not a bare list (easier to
+    extend with paging/metadata later without breaking clients)."""
+    results: List["SceneSearchResponse"]
+
+
+class SceneSearchResponse(BaseModel):
+    """API-shaped projection of a hybrid-search hit.
+
+    Mirrors `SceneSearchResult` but excludes internal columns the client
+    doesn't need (user_id, position, embedded_at, embedding_model). Use
+    `from_result` to convert from the repository return type.
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    chapter_id: str
+    story_id: str
+    title: str
+    description: str
+    start_quote: str
+    end_quote: str
+    tension: Literal["low", "medium", "high"]
+    pacing: Literal["slow", "steady", "fast"]
+    mentioned_entities: List[str]
+    tags: List[str]
+    questions_raised: List[str]
+    score: float
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_result(cls, result: "SceneSearchResult") -> "SceneSearchResponse":
+        return cls.model_validate(result, from_attributes=True)

@@ -1,0 +1,322 @@
+"""SceneRepository — one row per extracted scene, plus per-chapter staleness
+tracking on the `chapter` table.
+
+Replaces the old ExtractionRepository which stored scenes as a JSONB blob.
+The big shape change: extraction is no longer an upsert against a single row.
+Instead, `replace_for_chapter` deletes-then-bulk-inserts inside a transaction
+so a re-extraction atomically swaps the scene set for a chapter.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timezone, timedelta
+from time import perf_counter
+from typing import Any, List, Sequence
+
+import asyncpg
+from loguru import logger
+from uuid_extensions import uuid7str
+
+from src.data.schemas import Scene, SceneRow
+from src.data.schemas.scene import SceneSearchResult
+
+
+_SCENE_COLUMNS = """
+    id, chapter_id, story_id, user_id, position,
+    title, start_quote, end_quote, description,
+    tension, pacing, mentioned_entities, tags, questions_raised,
+    embedding_model, embedded_at, created_at, updated_at
+"""
+
+# `embedding` is intentionally excluded from the default projection — it's a
+# pgvector value asyncpg surfaces as text, big, and rarely needed by the API.
+# Read it explicitly when running similarity queries.
+
+Executor = Any
+
+
+class SceneRepository:
+    def __init__(self, pool: asyncpg.Pool):
+        self._pool = pool
+
+    @property
+    def pool(self) -> asyncpg.Pool:
+        return self._pool
+
+    def _exe(self, executor: Executor) -> Executor:
+        return executor if executor is not None else self._pool
+
+    # ─── reads ────────────────────────────────────────────────────────────
+
+    async def list_by_chapter(
+        self, chapter_id: str, *, executor: Executor | None = None,
+    ) -> list[SceneRow]:
+        sql = f"""
+            SELECT {_SCENE_COLUMNS}
+              FROM "scene"
+             WHERE chapter_id = $1
+             ORDER BY position ASC
+        """
+        rows = await self._exe(executor).fetch(sql, chapter_id)
+        return [SceneRow.model_validate(dict(r)) for r in rows]
+
+    async def list_by_story(
+        self, story_id: str, user_id: str, *, executor: Executor | None = None,
+    ) -> list[SceneRow]:
+        sql = f"""
+            SELECT {_SCENE_COLUMNS}
+              FROM "scene"
+             WHERE story_id = $1 AND user_id = $2
+             ORDER BY chapter_id, position ASC
+        """
+        rows = await self._exe(executor).fetch(sql, story_id, user_id)
+        return [SceneRow.model_validate(dict(r)) for r in rows]
+
+    async def list_pending_embeddings(
+        self, *, limit: int, executor: Executor | None = None,
+    ) -> list[SceneRow]:
+        """Scenes with no embedding yet — input for the embedding worker.
+        Ordered oldest-first so old work doesn't starve."""
+        sql = f"""
+            SELECT {_SCENE_COLUMNS}
+              FROM "scene"
+             WHERE embedding IS NULL
+             ORDER BY created_at ASC
+             LIMIT $1
+        """
+        rows = await self._exe(executor).fetch(sql, limit)
+        return [SceneRow.model_validate(dict(r)) for r in rows]
+
+    # ─── writes ───────────────────────────────────────────────────────────
+
+    async def replace_for_chapter(
+        self,
+        *,
+        chapter_id: str,
+        story_id: str,
+        user_id: str,
+        scenes: Sequence[Scene],
+        executor: Executor | None = None,
+    ) -> None:
+        """Atomically replace this chapter's scenes with `scenes`. Wipes any
+        existing scenes (and their embeddings) and inserts the new set.
+
+        Requires either a caller-provided transactional executor OR will
+        acquire a connection and run its own transaction. Either way the
+        delete+insert pair is atomic.
+        """
+        if executor is None:
+            async with self._pool.acquire() as conn:
+                async with conn.transaction():
+                    await self._replace_for_chapter_inner(
+                        conn, chapter_id, story_id, user_id, scenes,
+                    )
+            return
+
+        await self._replace_for_chapter_inner(
+            executor, chapter_id, story_id, user_id, scenes,
+        )
+
+    async def _replace_for_chapter_inner(
+        self,
+        conn: Any,
+        chapter_id: str,
+        story_id: str,
+        user_id: str,
+        scenes: Sequence[Scene],
+    ) -> None:
+        await conn.execute('DELETE FROM "scene" WHERE chapter_id = $1', chapter_id)
+        if not scenes:
+            return
+
+        rows = [
+            (
+                uuid7str(),
+                chapter_id, story_id, user_id, position,
+                scene.title, scene.start_quote, scene.end_quote, scene.description,
+                scene.tension, scene.pacing,
+                scene.mentioned_entities, scene.tags, scene.questions_raised,
+            )
+            for position, scene in enumerate(scenes)
+        ]
+        # asyncpg.copy_records_to_table beats per-row INSERT for any non-trivial
+        # batch and skips the round-trip-per-row overhead.
+        await conn.copy_records_to_table(
+            "scene",
+            records=rows,
+            columns=[
+                "id", "chapter_id", "story_id", "user_id", "position",
+                "title", "start_quote", "end_quote", "description",
+                "tension", "pacing", "mentioned_entities", "tags",
+                "questions_raised",
+            ],
+        )
+
+    async def update_embedding(
+        self,
+        *,
+        scene_id: str,
+        embedding: Sequence[float],
+        embedding_model: str,
+        executor: Executor | None = None,
+    ) -> None:
+        """Patch in an embedding vector. Called by the embedding worker —
+        application code never reads `embedding` directly here.
+
+        `embedding` is a list[float]; pgvector accepts it via str cast.
+        """
+        sql = """
+            UPDATE "scene"
+               SET embedding = $2::vector,
+                   embedding_model = $3,
+                   embedded_at = NOW(),
+                   updated_at = NOW()
+             WHERE id = $1
+        """
+        # pgvector text format: '[1.0,2.0,3.0]'
+        embedding_text = "[" + ",".join(repr(float(x)) for x in embedding) + "]"
+        await self._exe(executor).execute(
+            sql, scene_id, embedding_text, embedding_model,
+        )
+
+    # ─── chapter-level extraction status ───────────────────────────────────
+
+    async def mark_chapter_stale(
+        self, chapter_id: str, *, executor: Executor | None = None,
+    ) -> None:
+        """Flag a chapter for re-extraction. Idempotent."""
+        sql = """
+            UPDATE "chapter"
+               SET scenes_need_reextraction = TRUE,
+                   updated_at = NOW()
+             WHERE id = $1
+        """
+        await self._exe(executor).execute(sql, chapter_id)
+
+    async def mark_chapter_extracted(
+        self, chapter_id: str, *, executor: Executor | None = None,
+    ) -> None:
+        """Clear the stale flag and stamp `scenes_extracted_at`. Called at
+        the end of a successful extraction, inside the same transaction."""
+        sql = """
+            UPDATE "chapter"
+               SET scenes_need_reextraction = FALSE,
+                   scenes_extracted_at = NOW(),
+                   updated_at = NOW()
+             WHERE id = $1
+        """
+        await self._exe(executor).execute(sql, chapter_id)
+
+    async def list_stale_chapter_ids(
+        self,
+        *,
+        window_seconds: int,
+        limit: int,
+        executor: Executor | None = None,
+    ) -> list[str]:
+        """Chapters flagged for re-extraction whose last edit is older than
+        `window_seconds` (debounce — don't re-extract while the user is
+        actively typing). Ordered oldest-first."""
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=window_seconds)
+        sql = """
+            SELECT id
+              FROM "chapter"
+             WHERE scenes_need_reextraction = TRUE
+               AND updated_at <= $1
+             ORDER BY updated_at ASC
+             LIMIT $2
+        """
+        rows = await self._exe(executor).fetch(sql, cutoff, limit)
+        return [r["id"] for r in rows]
+    
+
+    async def search_scenes(
+        self,
+        *,
+        user_id: str,
+        story_id: str | None,
+        query_text: str,
+        query_embedding: Sequence[float],
+        k: int,
+        candidate_pool: int,
+        executor: Executor | None = None,
+    ) -> list[SceneSearchResult]:
+        embedding_text = "[" + ",".join(repr(float(x)) for x in query_embedding) + "]"
+        # Hybrid search via Reciprocal Rank Fusion of two CTEs:
+        #   * `fts`: native Postgres FTS, ranked by ts_rank_cd. Lexical hits.
+        #   * `vec`: pgvector cosine distance. Semantic hits.
+        # We use Postgres-native FTS (not pg_textsearch / BM25) so this works
+        # on Neon and other managed providers.
+        #
+        # The to_tsvector(...) expression here MUST match the index expression
+        # in migration scene-fts-index literally for the planner to use the
+        # GIN index. Change one → change both.
+        # Indexed text is just title + description; arrays are skipped on the
+        # lexical side because array_to_string isn't IMMUTABLE. The vector
+        # CTE still covers tags / questions_raised via the embedded text.
+
+        sql = f"""
+            WITH fts AS (
+                SELECT id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY ts_rank_cd(
+                            to_tsvector(
+                                'english'::regconfig,
+                                coalesce(title, '') || ' ' || coalesce(description, '')
+                            ),
+                            websearch_to_tsquery('english', $3::text)
+                        ) DESC
+                    ) AS rank
+                FROM "scene"
+                WHERE user_id = $1
+                AND ($2::text IS NULL OR story_id = $2)
+                AND to_tsvector(
+                        'english'::regconfig,
+                        coalesce(title, '') || ' ' || coalesce(description, '')
+                    ) @@ websearch_to_tsquery('english', $3::text)
+                ORDER BY ts_rank_cd(
+                    to_tsvector(
+                        'english'::regconfig,
+                        coalesce(title, '') || ' ' || coalesce(description, '')
+                    ),
+                    websearch_to_tsquery('english', $3::text)
+                ) DESC
+                LIMIT $5
+            ),
+            vec AS (
+                SELECT id,
+                    ROW_NUMBER() OVER (ORDER BY embedding <=> $4::vector) AS rank
+                FROM "scene"
+                WHERE user_id = $1
+                AND ($2::text IS NULL OR story_id = $2)
+                AND embedding IS NOT NULL
+                ORDER BY embedding <=> $4::vector
+                LIMIT $5
+            ),
+            ranked AS (
+                SELECT COALESCE(f.id, v.id) AS id,
+                    COALESCE(1.0 / (60.0 + f.rank), 0)
+                    + COALESCE(1.0 / (60.0 + v.rank), 0) AS score
+                FROM fts f FULL OUTER JOIN vec v USING (id)
+                ORDER BY score DESC
+                LIMIT $6
+            )
+            SELECT {_SCENE_COLUMNS}, r.score
+            FROM "scene" s
+            JOIN ranked r USING (id)
+            ORDER BY r.score DESC
+        """
+        t0 = perf_counter()
+        rows = await self._exe(executor).fetch(
+            sql, user_id, story_id, query_text, embedding_text, candidate_pool, k,
+        )
+        logger.info(
+            "scene_repo.search_scenes.done",
+            user_id=user_id,
+            story_id=story_id,
+            query_len=len(query_text),
+            k=k,
+            candidate_pool=candidate_pool,
+            results=len(rows),
+            ms=round((perf_counter() - t0) * 1000, 1),
+        )
+        return [SceneSearchResult.model_validate(dict(r)) for r in rows]

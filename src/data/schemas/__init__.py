@@ -1,7 +1,7 @@
 from .auth import *
 from .story import *
 from .chapter import *
-from .extraction import *
+from .scene import *
 
 __all__ = [
     # Auth schemas
@@ -9,9 +9,12 @@ __all__ = [
     "AuthCredentials",
     "UserResponse",
     "ConnectionDetails",
+    "UserRow",
+    "SessionRow",
     # Story schemas
     "CreateStoryRequest",
     "UpdateStoryRequest",
+    "StoryRow",
     "StoryCardResponse",
     "StoryDetailResponse",
     "StoryGridResponse",
@@ -19,10 +22,16 @@ __all__ = [
     "CreateChapterRequest",
     "UpdateChapterRequest",
     "ReorderChapterRequest",
+    "ChapterRow",
     "ChapterListItem",
     "ChapterContentResponse",
     "ChapterListResponse",
-    # extraction
+    # Scene
     "Scene",
-    "SceneExtraction"
+    "SceneExtraction",
+    "SceneRow",
+    "SceneSearchResult",
+    "SceneSearchRequest",
+    "SceneSearchResponse",
+    "SceneSearchListResponse",
 ]

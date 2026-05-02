@@ -5,7 +5,6 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "aerich>=0.8.1",
     "asyncpg>=0.30.0",
     "bcrypt>=4.3.0",
     "bs4>=0.0.2",
@@ -14,7 +13,6 @@ dependencies = [
     "loguru>=0.7.3",
     "pydantic-settings>=2.9.1",
     "python-dotenv>=1.1.1",
-    "tortoise-orm[asyncpg]>=1.1.7",
     "uvicorn>=0.34.3",
     "pyyaml>=6.0",
     "openai>=2.32.0",
@@ -22,12 +20,8 @@ dependencies = [
     "tenacity>=9.1.4",
     "uuid7>=0.1.0",
     "python-docx>=1.2.0",
+    "yoyo-migrations>=8.2.0",
 ]
-
-[tool.aerich]
-tortoise_orm = "src.infrastructure.db.postgres.TORTOISE_ORM"
-location = "./migrations"
-src_folder = "."
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -37,8 +31,8 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-mock>=3.12",
-    "aiosqlite>=0.19",
     "python-docx>=1.2.0",
+    "psycopg2-binary>=2.9.12",
 ]
 
 [tool.pytest.ini_options]

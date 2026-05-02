@@ -1,350 +1,572 @@
-"""Tests for src/service/chapter/service.py."""
+"""Tests for ChapterService — public methods + private path/pointer helpers.
+
+Strategy: mock the three repos. Stub `chapter_repo.pool.acquire()` and
+`conn.transaction()` to be async-context-manager no-ops so we can exercise
+the transactional code paths. We're verifying that the service calls the
+right repo methods with the right arguments — not that asyncpg actually
+runs a transaction.
+"""
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
-from src.data.models import Chapter, Story
+from src.data.schemas.enums import StoryStatus
+from src.data.schemas import ChapterRow, StoryRow
 from src.data.schemas.chapter import (
-    CreateChapterRequest, ReorderChapterRequest, UpdateChapterRequest,
+    CreateChapterRequest,
+    UpdateChapterRequest,
+    ReorderChapterRequest,
+    ChapterContentResponse,
+    ChapterListResponse,
 )
-from src.service.chapter import service as chapter_service
-from src.service.exceptions import (
-    InternalError, NotFoundError, ValidationError,
-)
-from tests.factories import make_chapter, make_story, make_user
+from src.service.chapter import ChapterService
+from src.service.exceptions import NotFoundError, ValidationError, InternalError
+
+
+# ─── helpers ─────────────────────────────────────────────────────────────────
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _story(
+    *,
+    id: str = "s1",
+    user_id: str = "u1",
+    title: str = "My Story",
+    path_array: list[str] | None = None,
+) -> StoryRow:
+    return StoryRow(
+        id=id, user_id=user_id, title=title, story_context=None,
+        status=StoryStatus.ONGOING, path_array=path_array,
+        created_at=_now(), updated_at=_now(),
+    )
+
+
+def _chapter(
+    *,
+    id: str = "ch1",
+    story_id: str = "s1",
+    user_id: str = "u1",
+    title: str = "Ch",
+    content: str = "<p>hello world</p>",
+    word_count: int = 2,
+) -> ChapterRow:
+    return ChapterRow(
+        id=id, story_id=story_id, user_id=user_id, title=title,
+        content=content, published=False, word_count=word_count,
+        next_chapter_id=None, prev_chapter_id=None,
+        created_at=_now(), updated_at=_now(),
+    )
+
+
+def _make_pool_mock():
+    """Build a mock pool whose `.acquire()` and `conn.transaction()` are
+    async context managers that hand back a sentinel connection."""
+    conn = MagicMock(name="conn")
+
+    @asynccontextmanager
+    async def _txn():
+        yield None
+    conn.transaction = MagicMock(side_effect=_txn)
+
+    @asynccontextmanager
+    async def _acquire():
+        yield conn
+    pool = MagicMock(name="pool")
+    pool.acquire = MagicMock(side_effect=_acquire)
+    return pool
+
+
+def _story_repo_mock(*, path: list[str] | None = None):
+    repo = MagicMock(name="StoryRepository")
+    repo.get = AsyncMock(return_value=None)
+    repo.get_path_array = AsyncMock(return_value=path)
+    repo.set_path_array = AsyncMock(return_value=None)
+    repo.touch = AsyncMock(return_value=None)
+    repo.pool = _make_pool_mock()
+    return repo
+
+
+def _chapter_repo_mock():
+    repo = MagicMock(name="ChapterRepository")
+    repo.get_with_story_title = AsyncMock(return_value=None)
+    repo.list_by_story = AsyncMock(return_value=[])
+    repo.create = AsyncMock(return_value=_chapter())
+    repo.update = AsyncMock(return_value=_chapter())
+    repo.delete = AsyncMock(return_value="s1")
+    repo.sync_pointers = AsyncMock(return_value=None)
+    repo.pool = _make_pool_mock()
+    return repo
+
+
+def _scene_repo_mock():
+    repo = MagicMock(name="SceneRepository")
+    repo.list_by_chapter = AsyncMock(return_value=[])
+    repo.mark_chapter_stale = AsyncMock(return_value=None)
+    return repo
+
+
+def _service(story_repo=None, chapter_repo=None, scene_repo=None) -> ChapterService:
+    return ChapterService(
+        story_repo or _story_repo_mock(),
+        chapter_repo or _chapter_repo_mock(),
+        scene_repo or _scene_repo_mock(),
+    )
 
 
 # ─── get_chapter_with_navigation ─────────────────────────────────────────────
+
+
 class TestGetChapterWithNavigation:
-    async def test_raises_not_found_when_chapter_doesnt_belong_to_user(self):
-        # Assumption: filter scoped by both id AND user_id
-        owner = await make_user(email="o@x.com")
-        intruder = await make_user(email="i@x.com")
-        story = await make_story(owner)
-        ch = await make_chapter(story, owner)
-
-        with pytest.raises(NotFoundError):
-            await chapter_service.get_chapter_with_navigation(ch.id, intruder.id)
-
     async def test_raises_not_found_when_chapter_missing(self):
-        user = await make_user()
+        svc = _service()
         with pytest.raises(NotFoundError):
-            await chapter_service.get_chapter_with_navigation("ghost", user.id)
+            await svc.get_chapter_with_navigation("missing", "u1")
 
     async def test_returns_full_html_when_as_html_true(self):
-        user = await make_user()
-        story = await make_story(user)
-        ch = await make_chapter(story, user, content="<p>full content</p>")
-
-        resp = await chapter_service.get_chapter_with_navigation(
-            ch.id, user.id, as_html=True)
-
-        assert "full content" in resp.content
-
-    async def test_returns_preview_when_as_html_false(self, mocker):
-        # Assumption: as_html=False routes content through get_preview_content
-        spy = mocker.patch(
-            "src.service.chapter.service.get_preview_content",
-            return_value="PREVIEW",
+        chapter_repo = _chapter_repo_mock()
+        ch = _chapter(content="<p>Once upon a time</p>")
+        chapter_repo.get_with_story_title = AsyncMock(
+            return_value=(ch, "My Story"),
         )
-        user = await make_user()
-        story = await make_story(user)
-        ch = await make_chapter(story, user, content="<p>x</p>")
+        svc = _service(chapter_repo=chapter_repo)
 
-        resp = await chapter_service.get_chapter_with_navigation(
-            ch.id, user.id, as_html=False)
-
-        spy.assert_called_once()
-        assert resp.content == "PREVIEW"
-
-
-# ─── create ──────────────────────────────────────────────────────────────────
-class TestCreate:
-    async def test_raises_not_found_when_story_missing(self, mocker):
-        # Assumption: story must exist before chapter is created
-        spy = mocker.spy(Chapter, "create")
-        user = await make_user()
-        with pytest.raises(NotFoundError):
-            await chapter_service.create(
-                "ghost-story", user.id, CreateChapterRequest(title="X"))
-        spy.assert_not_called()
-
-    async def test_word_count_is_zero_when_content_is_empty(self, mocker):
-        # Assumption: empty content -> word_count=0 without calling get_word_count
-        spy = mocker.patch("src.service.chapter.service.get_word_count")
-        user = await make_user()
-        story = await make_story(user)
-
-        await chapter_service.create(
-            story.id, user.id, CreateChapterRequest(title="T", content=""))
-
-        spy.assert_not_called()
-        ch = await Chapter.get(story_id=story.id, title="T")
-        assert ch.word_count == 0
-
-    async def test_word_count_uses_get_word_count_for_non_empty_content(self, mocker):
-        spy = mocker.patch(
-            "src.service.chapter.service.get_word_count", return_value=42)
-        user = await make_user()
-        story = await make_story(user)
-
-        await chapter_service.create(
-            story.id, user.id,
-            CreateChapterRequest(title="T", content="<p>hello</p>"))
-
-        spy.assert_called_once_with("<p>hello</p>")
-        ch = await Chapter.get(story_id=story.id, title="T")
-        assert ch.word_count == 42
-
-    async def test_invokes_handle_chapter_creation_after_persist(self, mocker):
-        # Assumption: path_array bookkeeping happens after Chapter.create
-        spy = mocker.patch(
-            "src.service.chapter.service.handle_chapter_creation",
-            new=mocker.AsyncMock(),
-        )
-        user = await make_user()
-        story = await make_story(user)
-
-        await chapter_service.create(
-            story.id, user.id, CreateChapterRequest(title="T"))
-
-        spy.assert_called_once()
-        # First arg story_id, second arg = the new chapter id
-        called_story_id, called_chapter_id = spy.call_args.args
-        assert called_story_id == story.id
-        assert await Chapter.filter(id=called_chapter_id).exists()
-
-    async def test_wraps_unexpected_errors_in_internal_error(self, mocker):
-        # Assumption: any non-ServiceError is reported as InternalError
-        mocker.patch(
-            "src.service.chapter.service.handle_chapter_creation",
-            new=mocker.AsyncMock(side_effect=RuntimeError("boom")),
-        )
-        user = await make_user()
-        story = await make_story(user)
-
-        with pytest.raises(InternalError):
-            await chapter_service.create(
-                story.id, user.id, CreateChapterRequest(title="T"))
-
-    async def test_passes_through_service_errors_unchanged(self, mocker):
-        # Assumption: raised ServiceError subclasses are not re-wrapped
-        mocker.patch(
-            "src.service.chapter.service.handle_chapter_creation",
-            new=mocker.AsyncMock(side_effect=ValidationError(message="bad")),
-        )
-        user = await make_user()
-        story = await make_story(user)
-
-        with pytest.raises(ValidationError):
-            await chapter_service.create(
-                story.id, user.id, CreateChapterRequest(title="T"))
-
-
-# ─── update ──────────────────────────────────────────────────────────────────
-class TestUpdate:
-    async def test_raises_not_found_when_chapter_missing(self):
-        user = await make_user()
-        with pytest.raises(NotFoundError):
-            await chapter_service.update(
-                "ghost", user.id, UpdateChapterRequest(title="x"))
-
-    async def test_raises_not_found_when_chapter_belongs_to_other_user(self):
-        owner = await make_user(email="o@x.com")
-        other = await make_user(email="x@x.com")
-        story = await make_story(owner)
-        ch = await make_chapter(story, owner)
-
-        with pytest.raises(NotFoundError):
-            await chapter_service.update(
-                ch.id, other.id, UpdateChapterRequest(title="hax"))
-
-    async def test_only_explicitly_set_fields_are_persisted(self):
-        # Assumption: model_dump(exclude_unset=True)
-        user = await make_user()
-        story = await make_story(user)
-        ch = await make_chapter(
-            story, user, title="orig", content="<p>orig</p>", word_count=99)
-
-        await chapter_service.update(
-            ch.id, user.id, UpdateChapterRequest())  # nothing set
-
-        refreshed = await Chapter.get(id=ch.id)
-        assert refreshed.title == "orig"
-        assert refreshed.content == "<p>orig</p>"
-        assert refreshed.word_count == 99
-
-    async def test_word_count_recomputed_only_when_content_provided(self, mocker):
-        # Assumption: word_count auto-updates iff content is in update payload
-        spy = mocker.patch(
-            "src.service.chapter.service.get_word_count", return_value=7)
-        user = await make_user()
-        story = await make_story(user)
-        ch = await make_chapter(story, user, word_count=99)
-
-        # title-only update must not touch word_count
-        await chapter_service.update(
-            ch.id, user.id, UpdateChapterRequest(title="t"))
-        spy.assert_not_called()
-        assert (await Chapter.get(id=ch.id)).word_count == 99
-
-        # content update recomputes
-        await chapter_service.update(
-            ch.id, user.id, UpdateChapterRequest(content="<p>new</p>"))
-        spy.assert_called_once_with("<p>new</p>")
-        assert (await Chapter.get(id=ch.id)).word_count == 7
-
-
-# ─── delete ──────────────────────────────────────────────────────────────────
-class TestDelete:
-    async def test_raises_not_found_when_chapter_belongs_to_other_user(self):
-        owner = await make_user(email="o@x.com")
-        other = await make_user(email="x@x.com")
-        story = await make_story(owner)
-        ch = await make_chapter(story, owner)
-
-        with pytest.raises(NotFoundError):
-            await chapter_service.delete(ch.id, other.id)
-
-        assert await Chapter.filter(id=ch.id).exists()
-
-    async def test_invokes_handle_chapter_deletion_with_recorded_story_id(
-        self, mocker,
-    ):
-        # Assumption: story_id is captured BEFORE the chapter is deleted
-        # (after deletion, ch.story_id would still be in memory; this is the
-        # invariant we encode)
-        spy = mocker.patch(
-            "src.service.chapter.service.handle_chapter_deletion",
-            new=mocker.AsyncMock(),
-        )
-        user = await make_user()
-        story = await make_story(user)
-        ch = await make_chapter(story, user)
-
-        await chapter_service.delete(ch.id, user.id)
-
-        spy.assert_called_once_with(story.id, ch.id)
-
-    async def test_actually_deletes_the_row(self, mocker):
-        mocker.patch(
-            "src.service.chapter.service.handle_chapter_deletion",
-            new=mocker.AsyncMock(),
-        )
-        user = await make_user()
-        story = await make_story(user)
-        ch = await make_chapter(story, user)
-
-        await chapter_service.delete(ch.id, user.id)
-
-        assert not await Chapter.filter(id=ch.id).exists()
+        result = await svc.get_chapter_with_navigation("ch1", "u1", as_html=True)
+        assert isinstance(result, ChapterContentResponse)
+        assert result.content == "<p>Once upon a time</p>"
 
 
 # ─── get_story_chapters ──────────────────────────────────────────────────────
+
+
 class TestGetStoryChapters:
     async def test_raises_not_found_when_story_belongs_to_other_user(self):
-        owner = await make_user(email="o@x.com")
-        other = await make_user(email="x@x.com")
-        story = await make_story(owner)
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(return_value=None)
+        svc = _service(story_repo=story_repo)
         with pytest.raises(NotFoundError):
-            await chapter_service.get_story_chapters(story.id, other.id)
-
-    async def test_returns_empty_list_when_path_array_empty(self):
-        user = await make_user()
-        story = await make_story(user, path_array=[])
-        resp = await chapter_service.get_story_chapters(story.id, user.id)
-        assert resp.chapters == []
+            await svc.get_story_chapters("s1", "u1")
 
     async def test_returns_empty_list_when_no_chapters_exist(self):
-        # Assumption: even with stale path_array entries, no chapter rows
-        # produces an empty list (not an error)
-        user = await make_user()
-        story = await make_story(user, path_array=["ghost-1"])
-        resp = await chapter_service.get_story_chapters(story.id, user.id)
-        assert resp.chapters == []
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(return_value=_story(path_array=[]))
+        svc = _service(story_repo=story_repo)
 
-    async def test_skips_path_array_entries_with_no_matching_chapter(self):
-        user = await make_user()
-        story = await make_story(user, path_array=[])
-        ch = await make_chapter(story, user, title="real")
-        story.path_array = [ch.id, "ghost"]
-        await story.save(update_fields=["path_array"])
+        result = await svc.get_story_chapters("s1", "u1")
+        assert isinstance(result, ChapterListResponse)
+        assert result.chapters == []
 
-        resp = await chapter_service.get_story_chapters(story.id, user.id)
+    async def test_returns_empty_list_when_path_array_empty(self):
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(return_value=_story(path_array=None))
+        chapter_repo = _chapter_repo_mock()
+        chapter_repo.list_by_story = AsyncMock(
+            return_value=[_chapter(id="a"), _chapter(id="b")],
+        )
+        svc = _service(story_repo=story_repo, chapter_repo=chapter_repo)
 
-        assert [c.id for c in resp.chapters] == [ch.id]
+        result = await svc.get_story_chapters("s1", "u1")
+        assert result.chapters == []
 
     async def test_orders_chapters_by_path_array_not_creation_time(self):
-        user = await make_user()
-        story = await make_story(user, path_array=[])
-        a = await make_chapter(story, user, title="a", append_to_path=False)
-        b = await make_chapter(story, user, title="b", append_to_path=False)
-        story.path_array = [b.id, a.id]
-        await story.save(update_fields=["path_array"])
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(
+            return_value=_story(path_array=["b", "a", "c"]),
+        )
+        chapter_repo = _chapter_repo_mock()
+        chapter_repo.list_by_story = AsyncMock(return_value=[
+            _chapter(id="a"), _chapter(id="b"), _chapter(id="c"),
+        ])
+        svc = _service(story_repo=story_repo, chapter_repo=chapter_repo)
 
-        resp = await chapter_service.get_story_chapters(story.id, user.id)
+        result = await svc.get_story_chapters("s1", "u1")
+        assert [c.id for c in result.chapters] == ["b", "a", "c"]
 
-        assert [c.id for c in resp.chapters] == [b.id, a.id]
+    async def test_skips_path_array_entries_with_no_matching_chapter(self):
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(
+            return_value=_story(path_array=["a", "ghost", "b"]),
+        )
+        chapter_repo = _chapter_repo_mock()
+        chapter_repo.list_by_story = AsyncMock(
+            return_value=[_chapter(id="a"), _chapter(id="b")],
+        )
+        svc = _service(story_repo=story_repo, chapter_repo=chapter_repo)
+
+        result = await svc.get_story_chapters("s1", "u1")
+        assert [c.id for c in result.chapters] == ["a", "b"]
+
+
+# ─── create_chapter ──────────────────────────────────────────────────────────
+
+
+class TestCreateChapter:
+    async def test_raises_not_found_when_story_missing(self):
+        svc = _service()
+        with pytest.raises(NotFoundError):
+            await svc.create_chapter(
+                "s1", "u1",
+                CreateChapterRequest(title="T", content="<p>x</p>"),
+            )
+
+    async def test_creates_chapter_and_invokes_orchestration(self, mocker):
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(return_value=_story())
+        chapter_repo = _chapter_repo_mock()
+        new_ch = _chapter(id="new-ch")
+        chapter_repo.create = AsyncMock(return_value=new_ch)
+        chapter_repo.get_with_story_title = AsyncMock(
+            return_value=(new_ch, "My Story"),
+        )
+        svc = _service(story_repo=story_repo, chapter_repo=chapter_repo)
+        spy = mocker.patch.object(
+            svc, "_handle_chapter_creation", new=AsyncMock(),
+        )
+
+        result = await svc.create_chapter(
+            "s1", "u1",
+            CreateChapterRequest(title="New", content="<p>hello</p>"),
+        )
+        assert isinstance(result, ChapterContentResponse)
+        chapter_repo.create.assert_awaited_once()
+        spy.assert_awaited_once()
+
+
+# ─── update_chapter ──────────────────────────────────────────────────────────
+
+
+class TestUpdateChapter:
+    async def test_raises_not_found_when_chapter_missing(self):
+        svc = _service()
+        with pytest.raises(NotFoundError):
+            await svc.update_chapter(
+                "missing", "u1", UpdateChapterRequest(title="X"),
+            )
+
+    async def test_updates_word_count_when_content_changes(self):
+        chapter_repo = _chapter_repo_mock()
+        ch = _chapter()
+        chapter_repo.get_with_story_title = AsyncMock(
+            return_value=(ch, "My Story"),
+        )
+        chapter_repo.update = AsyncMock(return_value=ch)
+        svc = _service(chapter_repo=chapter_repo)
+
+        await svc.update_chapter(
+            "ch1", "u1",
+            UpdateChapterRequest(content="<p>one two three four</p>"),
+        )
+        call_kwargs = chapter_repo.update.await_args.kwargs
+        assert "word_count" in call_kwargs["fields"]
+        assert call_kwargs["fields"]["word_count"] == 4
+
+
+# ─── delete_chapter ──────────────────────────────────────────────────────────
+
+
+class TestDeleteChapter:
+    async def test_raises_not_found_when_chapter_missing(self):
+        chapter_repo = _chapter_repo_mock()
+        chapter_repo.delete = AsyncMock(return_value=None)
+        svc = _service(chapter_repo=chapter_repo)
+        with pytest.raises(NotFoundError):
+            await svc.delete_chapter("ch1", "u1")
+
+    async def test_invokes_deletion_handler_with_returned_story_id(self, mocker):
+        chapter_repo = _chapter_repo_mock()
+        chapter_repo.delete = AsyncMock(return_value="s1")
+        svc = _service(chapter_repo=chapter_repo)
+        spy = mocker.patch.object(
+            svc, "_handle_chapter_deletion", new=AsyncMock(),
+        )
+
+        result = await svc.delete_chapter("ch1", "u1")
+        assert result == {"message": "Chapter was successfully deleted"}
+        spy.assert_awaited_once()
 
 
 # ─── reorder_chapters ────────────────────────────────────────────────────────
+
+
 class TestReorderChapters:
     async def test_raises_not_found_when_story_belongs_to_other_user(self):
-        owner = await make_user(email="o@x.com")
-        other = await make_user(email="x@x.com")
-        story = await make_story(owner, path_array=["a", "b"])
+        svc = _service()
         with pytest.raises(NotFoundError):
-            await chapter_service.reorder_chapters(
-                story.id, other.id, ReorderChapterRequest(from_pos=0, to_pos=1))
+            await svc.reorder_chapters(
+                "s1", "u1", ReorderChapterRequest(from_pos=0, to_pos=1),
+            )
 
     async def test_raises_validation_when_path_array_empty(self):
-        user = await make_user()
-        story = await make_story(user, path_array=[])
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(return_value=_story(path_array=[]))
+        svc = _service(story_repo=story_repo)
         with pytest.raises(ValidationError):
-            await chapter_service.reorder_chapters(
-                story.id, user.id, ReorderChapterRequest(from_pos=0, to_pos=0))
+            await svc.reorder_chapters(
+                "s1", "u1", ReorderChapterRequest(from_pos=0, to_pos=0),
+            )
 
     @pytest.mark.parametrize("from_pos", [-1, 5])
     async def test_raises_validation_when_from_pos_out_of_bounds(self, from_pos):
-        user = await make_user()
-        story = await make_story(user, path_array=["a", "b", "c"])
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(
+            return_value=_story(path_array=["a", "b", "c"]),
+        )
+        svc = _service(story_repo=story_repo)
         with pytest.raises(ValidationError):
-            await chapter_service.reorder_chapters(
-                story.id, user.id,
-                ReorderChapterRequest(from_pos=from_pos, to_pos=0))
+            await svc.reorder_chapters(
+                "s1", "u1",
+                ReorderChapterRequest(from_pos=from_pos, to_pos=0),
+            )
 
     @pytest.mark.parametrize("to_pos", [-1, 5])
     async def test_raises_validation_when_to_pos_out_of_bounds(self, to_pos):
-        user = await make_user()
-        story = await make_story(user, path_array=["a", "b", "c"])
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(
+            return_value=_story(path_array=["a", "b", "c"]),
+        )
+        svc = _service(story_repo=story_repo)
         with pytest.raises(ValidationError):
-            await chapter_service.reorder_chapters(
-                story.id, user.id,
-                ReorderChapterRequest(from_pos=0, to_pos=to_pos))
+            await svc.reorder_chapters(
+                "s1", "u1",
+                ReorderChapterRequest(from_pos=0, to_pos=to_pos),
+            )
 
     async def test_no_op_when_from_equals_to_does_not_invoke_handler(self, mocker):
-        # Assumption: identical positions short-circuit before calling the job
-        spy = mocker.patch(
-            "src.service.chapter.service.handle_chapter_reordering",
-            new=mocker.AsyncMock(),
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(
+            return_value=_story(path_array=["a", "b", "c"]),
         )
-        user = await make_user()
-        story = await make_story(user, path_array=["a", "b"])
+        svc = _service(story_repo=story_repo)
+        spy = mocker.patch.object(
+            svc, "_handle_chapter_reordering", new=AsyncMock(),
+        )
 
-        result = await chapter_service.reorder_chapters(
-            story.id, user.id, ReorderChapterRequest(from_pos=1, to_pos=1))
+        result = await svc.reorder_chapters(
+            "s1", "u1", ReorderChapterRequest(from_pos=1, to_pos=1),
+        )
+        assert result == {"message": "No reordering needed"}
+        spy.assert_not_awaited()
 
-        spy.assert_not_called()
-        assert "No reordering" in result["message"]
+    async def test_invokes_handler_on_valid_reorder(self, mocker):
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(
+            return_value=_story(path_array=["a", "b", "c"]),
+        )
+        svc = _service(story_repo=story_repo)
+        spy = mocker.patch.object(
+            svc, "_handle_chapter_reordering", new=AsyncMock(),
+        )
+
+        result = await svc.reorder_chapters(
+            "s1", "u1", ReorderChapterRequest(from_pos=0, to_pos=2),
+        )
+        assert result == {"message": "Chapters reordered successfully"}
+        spy.assert_awaited_once()
 
     async def test_wraps_handler_failure_in_internal_error(self, mocker):
-        # Assumption: any error from path-job is surfaced as InternalError
-        mocker.patch(
-            "src.service.chapter.service.handle_chapter_reordering",
-            new=mocker.AsyncMock(side_effect=RuntimeError("boom")),
+        story_repo = _story_repo_mock()
+        story_repo.get = AsyncMock(
+            return_value=_story(path_array=["a", "b", "c"]),
         )
-        user = await make_user()
-        story = await make_story(user, path_array=["a", "b"])
+        svc = _service(story_repo=story_repo)
+        mocker.patch.object(
+            svc, "_handle_chapter_reordering",
+            new=AsyncMock(side_effect=RuntimeError("boom")),
+        )
 
         with pytest.raises(InternalError):
-            await chapter_service.reorder_chapters(
-                story.id, user.id,
-                ReorderChapterRequest(from_pos=0, to_pos=1))
+            await svc.reorder_chapters(
+                "s1", "u1", ReorderChapterRequest(from_pos=0, to_pos=2),
+            )
+
+
+# ─── path-array primitives (private) ─────────────────────────────────────────
+
+
+class TestAppendChapterToPathEnd:
+    async def test_raises_when_story_missing(self):
+        svc = _service(story_repo=_story_repo_mock(path=None))
+        with pytest.raises(ValueError, match="not found"):
+            await svc._append_chapter_to_path_end("missing", "ch-1")
+
+    async def test_appends_to_empty_path(self):
+        story_repo = _story_repo_mock(path=[])
+        svc = _service(story_repo=story_repo)
+        await svc._append_chapter_to_path_end("s1", "ch-1")
+        story_repo.set_path_array.assert_awaited_once_with(
+            "s1", ["ch-1"], executor=None,
+        )
+
+    async def test_is_idempotent_when_chapter_already_in_path(self):
+        story_repo = _story_repo_mock(path=["ch-1"])
+        svc = _service(story_repo=story_repo)
+        await svc._append_chapter_to_path_end("s1", "ch-1")
+        story_repo.set_path_array.assert_not_awaited()
+
+    async def test_appends_to_end_preserving_existing_order(self):
+        story_repo = _story_repo_mock(path=["a", "b"])
+        svc = _service(story_repo=story_repo)
+        await svc._append_chapter_to_path_end("s1", "c")
+        story_repo.set_path_array.assert_awaited_once_with(
+            "s1", ["a", "b", "c"], executor=None,
+        )
+
+    async def test_passes_executor_through(self):
+        story_repo = _story_repo_mock(path=[])
+        svc = _service(story_repo=story_repo)
+        sentinel = object()
+        await svc._append_chapter_to_path_end("s1", "ch-1", conn=sentinel)
+        story_repo.get_path_array.assert_awaited_once_with("s1", executor=sentinel)
+        story_repo.set_path_array.assert_awaited_once_with(
+            "s1", ["ch-1"], executor=sentinel,
+        )
+
+
+class TestRemoveChapterFromPath:
+    async def test_no_op_when_story_missing(self):
+        story_repo = _story_repo_mock(path=None)
+        svc = _service(story_repo=story_repo)
+        await svc._remove_chapter_from_path("missing", "ch")
+        story_repo.set_path_array.assert_not_awaited()
+
+    async def test_no_op_when_path_empty(self):
+        story_repo = _story_repo_mock(path=[])
+        svc = _service(story_repo=story_repo)
+        await svc._remove_chapter_from_path("s1", "ch")
+        story_repo.set_path_array.assert_not_awaited()
+
+    async def test_no_op_when_chapter_not_in_path(self):
+        story_repo = _story_repo_mock(path=["a", "b"])
+        svc = _service(story_repo=story_repo)
+        await svc._remove_chapter_from_path("s1", "ghost")
+        story_repo.set_path_array.assert_not_awaited()
+
+    async def test_removes_only_target_preserving_order(self):
+        story_repo = _story_repo_mock(path=["a", "b", "c"])
+        svc = _service(story_repo=story_repo)
+        await svc._remove_chapter_from_path("s1", "b")
+        story_repo.set_path_array.assert_awaited_once_with(
+            "s1", ["a", "c"], executor=None,
+        )
+
+
+class TestReorderChapterPath:
+    async def test_no_op_when_path_empty(self):
+        story_repo = _story_repo_mock(path=[])
+        svc = _service(story_repo=story_repo)
+        await svc._reorder_chapter_path("s1", 0, 0)
+        story_repo.set_path_array.assert_not_awaited()
+
+    @pytest.mark.parametrize("from_pos,to_pos", [(-1, 0), (5, 0), (0, -1), (0, 5)])
+    async def test_silent_on_out_of_bounds(self, from_pos, to_pos):
+        story_repo = _story_repo_mock(path=["a", "b", "c"])
+        svc = _service(story_repo=story_repo)
+        await svc._reorder_chapter_path("s1", from_pos, to_pos)
+        story_repo.set_path_array.assert_not_awaited()
+
+    async def test_no_op_when_from_equals_to(self):
+        story_repo = _story_repo_mock(path=["a", "b", "c"])
+        svc = _service(story_repo=story_repo)
+        await svc._reorder_chapter_path("s1", 1, 1)
+        story_repo.set_path_array.assert_not_awaited()
+
+    async def test_moves_via_pop_then_insert(self):
+        story_repo = _story_repo_mock(path=["a", "b", "c", "d"])
+        svc = _service(story_repo=story_repo)
+        await svc._reorder_chapter_path("s1", 0, 2)
+        story_repo.set_path_array.assert_awaited_once_with(
+            "s1", ["b", "c", "a", "d"], executor=None,
+        )
+
+
+class TestSyncAllChapterPointers:
+    async def test_no_op_when_story_missing(self):
+        story_repo = _story_repo_mock(path=None)
+        chapter_repo = _chapter_repo_mock()
+        svc = _service(story_repo=story_repo, chapter_repo=chapter_repo)
+        await svc._sync_all_chapter_pointers("missing")
+        chapter_repo.sync_pointers.assert_not_awaited()
+
+    async def test_passes_path_to_chapter_repo(self):
+        story_repo = _story_repo_mock(path=["a", "b"])
+        chapter_repo = _chapter_repo_mock()
+        svc = _service(story_repo=story_repo, chapter_repo=chapter_repo)
+        await svc._sync_all_chapter_pointers("s1")
+        chapter_repo.sync_pointers.assert_awaited_once_with(
+            "s1", ["a", "b"], executor=None,
+        )
+
+
+class TestUpdateStoryTimestamp:
+    async def test_delegates_to_repo_touch(self):
+        story_repo = _story_repo_mock()
+        svc = _service(story_repo=story_repo)
+        await svc._update_story_timestamp("s1")
+        story_repo.touch.assert_awaited_once_with("s1", executor=None)
+
+
+# ─── orchestration ordering (private) ────────────────────────────────────────
+
+
+def _track(order: list[str], label: str):
+    async def _record(*_a, **_kw):
+        order.append(label)
+    return _record
+
+
+class TestHandleChapterCreation:
+    async def test_invokes_append_sync_and_timestamp_in_order(self, mocker):
+        order: list[str] = []
+        svc = _service()
+        mocker.patch.object(
+            svc, "_append_chapter_to_path_end", new=_track(order, "append"),
+        )
+        mocker.patch.object(
+            svc, "_sync_all_chapter_pointers", new=_track(order, "sync"),
+        )
+        mocker.patch.object(
+            svc, "_update_story_timestamp", new=_track(order, "ts"),
+        )
+
+        await svc._handle_chapter_creation("s1", "ch-1")
+        assert order == ["append", "sync", "ts"]
+
+
+class TestHandleChapterDeletion:
+    async def test_invokes_remove_sync_and_timestamp_in_order(self, mocker):
+        order: list[str] = []
+        svc = _service()
+        mocker.patch.object(
+            svc, "_remove_chapter_from_path", new=_track(order, "remove"),
+        )
+        mocker.patch.object(
+            svc, "_sync_all_chapter_pointers", new=_track(order, "sync"),
+        )
+        mocker.patch.object(
+            svc, "_update_story_timestamp", new=_track(order, "ts"),
+        )
+
+        await svc._handle_chapter_deletion("s1", "ch-1")
+        assert order == ["remove", "sync", "ts"]
+
+
+class TestHandleChapterReordering:
+    async def test_invokes_reorder_sync_and_timestamp_in_order(self, mocker):
+        order: list[str] = []
+        svc = _service()
+        mocker.patch.object(
+            svc, "_reorder_chapter_path", new=_track(order, "reorder"),
+        )
+        mocker.patch.object(
+            svc, "_sync_all_chapter_pointers", new=_track(order, "sync"),
+        )
+        mocker.patch.object(
+            svc, "_update_story_timestamp", new=_track(order, "ts"),
+        )
+
+        await svc._handle_chapter_reordering("s1", 0, 1)
+        assert order == ["reorder", "sync", "ts"]

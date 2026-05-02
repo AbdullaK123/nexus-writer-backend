@@ -16,13 +16,23 @@ jobs:
   scene_extraction_cron_expression: "0 */2 * * * *"
   scene_extraction_batch_size: 5
   scene_extraction_window_seconds: 60
+  scene_embedding_cron_expression: "30 * * * * *"  # every minute, offset 30s from extraction
+
+search:
+  # Hybrid scene search defaults. Overridden per-request if the client passes
+  # `k` / `candidate_pool` in the body. Bump candidate_pool when the corpus
+  # grows enough that the FTS and vector top-N stop overlapping.
+  default_k: 5
+  default_candidate_pool: 50
 
 ai:
   default_model: gpt-5.5-2026-04-23
+  embedding_model: text-embedding-3-small
+  embedding_batch_size: 32  # scenes per cron tick; capped at 128 in settings
   temperature: 1
   max_retries: 3
   timeout: 300.0
   max_concurrent_requests: 35
-  scene_extraction_max_tokens: 6000
+  scene_extraction_max_tokens: 16000
   extraction_retry_attempts: 20
   extraction_retry_wait_seconds: 1.0

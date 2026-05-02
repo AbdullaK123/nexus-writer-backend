@@ -65,7 +65,7 @@ routes: ## List all registered API routes
 		[print(f'  {m:8s} {p}') for p, m in routes]"
 
 ## --- Database
-.PHONY: start-db stop-db reset-db dbshell db-recreate init-db migrate-fresh migrate upgrade migrate-history dump-db restore-db
+.PHONY: start-db stop-db reset-db dbshell upgrade migrate-history dump-db restore-db
 
 start-db: ## Start only PostgreSQL
 	./dev_scripts/start_db.sh
@@ -79,23 +79,11 @@ reset-db: ## Reset PostgreSQL (destroy + recreate)
 dbshell: ## Open psql shell in the database
 	./dev_scripts/dbshell.sh
 
-db-recreate: ## DEV: drop DB + regenerate schema from models (no migrations)
-	./dev_scripts/db_recreate.sh
-
-init-db: ## Create the initial migration + apply it (first-time bootstrap)
-	./dev_scripts/init_db.sh
-
-migrate-fresh: ## DEV: wipe DB + migrations dir, regenerate baseline migration
-	./dev_scripts/migrate_fresh.sh
-
-migrate: ## Create a new diff migration (usage: make migrate name=add_field)
-	./dev_scripts/migrate.sh $(name)
-
-upgrade: ## Apply pending migrations
+upgrade: ## Apply pending yoyo migrations
 	./dev_scripts/upgrade.sh
 
-migrate-history: ## Show applied migration history
-	@docker compose exec postgres-nexus psql -U nexus_user -d nexus_writer -c "SELECT * FROM aerich ORDER BY id;"
+migrate-history: ## Show applied yoyo migration history
+	@docker compose exec postgres-nexus psql -U nexus_user -d nexus_writer -c "SELECT * FROM _yoyo_log ORDER BY id;"
 
 dump-db: ## Dump database to backups/nexus_dump.sql
 	@mkdir -p backups

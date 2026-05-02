@@ -1,8 +1,18 @@
+"""Postgres connection helpers.
+
+The application uses asyncpg directly via the pool in
+`src.infrastructure.db.pool`; this module only owns the URL building so
+both the pool and any ad-hoc clients (yoyo, scripts, …) agree on the
+same parameter set.
+"""
 from urllib.parse import urlencode, urlparse, urlunparse
+
 from src.infrastructure.config.settings import settings, config
 
 
-def _build_database_url() -> str:
+def build_database_url() -> str:
+    """Return the configured database URL with pool sizing query params
+    appended. asyncpg picks these up automatically."""
     pool_params = urlencode(
         {
             "minsize": config.postgres.pool_min_size,
@@ -13,16 +23,3 @@ def _build_database_url() -> str:
     parsed = urlparse(str(settings.database_url))
     existing_query = f"{parsed.query}&{pool_params}" if parsed.query else pool_params
     return urlunparse(parsed._replace(query=existing_query))
-
-
-TORTOISE_ORM = {
-    "connections": {
-        "default": _build_database_url(),
-    },
-    "apps": {
-        "models": {
-            "models": ["src.data.models", "aerich.models"],
-            "default_connection": "default",
-        },
-    },
-}

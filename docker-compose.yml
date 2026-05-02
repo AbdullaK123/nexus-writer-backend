@@ -1,6 +1,9 @@
 services:
   postgres-nexus:
-    image: postgres:18.1-alpine
+    # pgvector image — same PG version as base; ships the `vector` extension
+    # for the scene embedding column. Switch back to plain postgres only if
+    # you've also dropped the embedding stuff.
+    image: pgvector/pgvector:pg18
     ports:
       - 5432:5432
     environment:
@@ -8,7 +11,7 @@ services:
       POSTGRES_USER: nexus_user
       POSTGRES_PASSWORD: password
     volumes:
-      - postgres_nexus_data:/var/lib/postgresql/data
+      - postgres_nexus_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U nexus_user -d nexus_writer"]
       interval: 10s
@@ -26,13 +29,9 @@ services:
       - ./migrations:/app/migrations
     command: >
       sh -c "
-        if [ -z \"$$(ls -A migrations/models 2>/dev/null)\" ]; then
-          echo 'No migrations found, running aerich init-db';
-          uv run --no-sync aerich init-db;
-        else
-          echo 'Applying migrations';
-          uv run --no-sync aerich upgrade;
-        fi &&
+        uv run --no-sync yoyo apply --batch
+          --database \"postgresql://nexus_user:password@postgres-nexus:5432/nexus_writer\"
+          ./migrations/yoyo &&
         uv run --no-sync uvicorn main:app --host 0.0.0.0 --port 8000
       "
     env_file: .env

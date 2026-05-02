@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
-from src.data.models.enums import StoryStatus
+from src.data.schemas.enums import StoryStatus
 from src.data.schemas.chapter import ChapterListItem
 
 
@@ -12,6 +12,20 @@ class CreateStoryRequest(BaseModel):
 class UpdateStoryRequest(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=255)
     status: Optional[StoryStatus] = None
+
+
+class StoryRow(BaseModel):
+    """One row from the `story` table."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    title: str
+    story_context: Optional[str]
+    status: StoryStatus
+    path_array: Optional[List[str]]
+    created_at: datetime
+    updated_at: datetime
 
 
 class StoryCardResponse(BaseModel):
