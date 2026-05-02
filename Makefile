@@ -65,7 +65,7 @@ routes: ## List all registered API routes
 		[print(f'  {m:8s} {p}') for p, m in routes]"
 
 ## --- Database
-.PHONY: start-db stop-db reset-db dbshell upgrade migrate-history dump-db restore-db
+.PHONY: start-db stop-db reset-db dbshell upgrade migrate-new migrate-history dump-db restore-db
 
 start-db: ## Start only PostgreSQL
 	./dev_scripts/start_db.sh
@@ -81,6 +81,17 @@ dbshell: ## Open psql shell in the database
 
 upgrade: ## Apply pending yoyo migrations
 	./dev_scripts/upgrade.sh
+
+migrate-new: ## Scaffold a new yoyo migration + rollback (usage: make migrate-new m="add chat tables")
+	@test -n "$(m)" || (printf "$(RED)✗ Specify message: make migrate-new m=\"add chat tables\"$(RESET)\n" && exit 1)
+	@./dev_scripts/yoyo.sh new -m "$(m)" --sql -b
+	@new_sql=$$(ls -t migrations/yoyo/*.sql 2>/dev/null | grep -v '\.rollback\.sql$$' | head -n 1); \
+	rollback="$${new_sql%.sql}.rollback.sql"; \
+	if [ ! -f "$$rollback" ]; then \
+		printf -- "-- Rollback for %s\n--\n-- Reverse the changes in the forward migration above.\n" "$$(basename $$new_sql)" > "$$rollback"; \
+	fi; \
+	printf "$(GREEN)✓ Created$(RESET) %s\n" "$$new_sql"; \
+	printf "$(GREEN)✓ Created$(RESET) %s\n" "$$rollback"
 
 migrate-history: ## Show applied yoyo migration history
 	@docker compose exec postgres-nexus psql -U nexus_user -d nexus_writer -c "SELECT * FROM _yoyo_log ORDER BY id;"

@@ -118,7 +118,8 @@ async def get_story_chapters(
 
 
 @story_controller.post(
-    "/{story_id}/search", response_model=SceneSearchListResponse,
+    "/{story_id}/search", 
+    response_model=SceneSearchListResponse,
 )
 async def search_story_scenes(
     story_id: str,

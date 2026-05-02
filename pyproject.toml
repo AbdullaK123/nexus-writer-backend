@@ -21,6 +21,7 @@ dependencies = [
     "uuid7>=0.1.0",
     "python-docx>=1.2.0",
     "yoyo-migrations>=8.2.0",
+    "pydantic-ai>=1.89.1",
 ]
 
 [tool.mypy]
