@@ -11,6 +11,7 @@ from src.data.repositories.user import UserRepository
 from src.data.repositories.session import SessionRepository
 from src.data.repositories.story import StoryRepository
 from src.data.repositories.chapter import ChapterRepository
+from src.data.repositories.chat import ChatRepository
 
 __all__ = [
     "SceneRepository",
@@ -18,4 +19,5 @@ __all__ = [
     "SessionRepository",
     "StoryRepository",
     "ChapterRepository",
+    "ChatRepository"
 ]

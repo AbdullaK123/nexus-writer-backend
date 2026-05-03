@@ -2081,6 +2081,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "loguru" },
     { name = "openai" },
+    { name = "psycopg2-binary" },
     { name = "pydantic-ai" },
     { name = "pydantic-settings" },
     { name = "python-docx" },
@@ -2094,7 +2095,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "psycopg2-binary" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-mock" },
@@ -2111,6 +2111,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.135.0" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "openai", specifier = ">=2.32.0" },
+    { name = "psycopg2-binary", specifier = ">=2.9.12" },
     { name = "pydantic-ai", specifier = ">=1.89.1" },
     { name = "pydantic-settings", specifier = ">=2.9.1" },
     { name = "python-docx", specifier = ">=1.2.0" },
@@ -2124,7 +2125,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "psycopg2-binary", specifier = ">=2.9.12" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
     { name = "pytest-mock", specifier = ">=3.12" },

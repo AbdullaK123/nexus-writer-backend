@@ -26,9 +26,11 @@ from src.data.schemas.scene import (
 from src.service.chapter import ChapterService
 from src.service.extraction import ExtractionService
 from src.service.story import StoryService
+from src.app.controllers.story_chat import chat_controller
 
 
 story_controller = APIRouter(prefix="/stories")
+story_controller.include_router(chat_controller)
 
 
 @story_controller.post("/", response_model=dict)

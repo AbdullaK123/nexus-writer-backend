@@ -2,9 +2,11 @@ from functools import lru_cache
 
 from fastapi import Depends, Request
 from loguru import logger
+from pydantic_ai import Agent
 
 from src.app.dependencies.repositories import (
     get_chapter_repository,
+    get_chat_repository,
     get_scene_repository,
     get_session_repository,
     get_story_repository,
@@ -12,6 +14,7 @@ from src.app.dependencies.repositories import (
 )
 from src.data.repositories import (
     ChapterRepository,
+    ChatRepository,
     SceneRepository,
     SessionRepository,
     StoryRepository,
@@ -22,6 +25,8 @@ from src.infrastructure.config.settings import config
 from src.infrastructure.db.pool import init_pool, close_pool
 from src.service.auth import AuthService
 from src.service.chapter import ChapterService
+from src.service.chat import ChatService
+from src.service.chat.agent import ChatDeps, build_agent
 from src.service.extraction import ExtractionService
 from src.service.story import StoryService
 
@@ -47,6 +52,20 @@ def get_ai_provider(request: Request) -> AIProvider:
     """FastAPI dependency. Reads the provider from app.state, where lifespan
     stashed it at startup. Override in tests via app.dependency_overrides."""
     return request.app.state.ai_provider
+
+
+@lru_cache
+def build_chat_agent() -> Agent[ChatDeps, str]:
+    """Construct the singleton pydantic-ai chat agent. The agent itself is
+    stateless (deps are passed per-run) and registers tools at construction
+    time, so building it once is correct."""
+    return build_agent(config.ai.default_model)
+
+
+def get_chat_agent(request: Request) -> Agent[ChatDeps, str]:
+    """FastAPI dependency. Reads the agent from app.state, where lifespan
+    stashed it at startup."""
+    return request.app.state.chat_agent
 
 
 def get_auth_service(
@@ -79,3 +98,21 @@ def get_extraction_service(
     scene_repo: SceneRepository = Depends(get_scene_repository),
 ) -> ExtractionService:
     return ExtractionService(provider, chapter_repo, scene_repo)
+
+
+def get_chat_service(
+    provider: AIProvider = Depends(get_ai_provider),
+    chat_repo: ChatRepository = Depends(get_chat_repository),
+    story_repo: StoryRepository = Depends(get_story_repository),
+    chapter_service: ChapterService = Depends(get_chapter_service),
+    story_service: StoryService = Depends(get_story_service),
+    agent: Agent[ChatDeps, str] = Depends(get_chat_agent),
+) -> ChatService:
+    return ChatService(
+        provider=provider,
+        chat_repo=chat_repo,
+        story_repo=story_repo,
+        chapter_service=chapter_service,
+        story_service=story_service,
+        agent=agent,
+    )

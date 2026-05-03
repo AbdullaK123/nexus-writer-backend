@@ -199,3 +199,7 @@ cython_debug/
 .cursorindexingignore
 # AI throwaway test scripts
 scratch/
+
+# DevUI throwaway playground (scratch/devui + built assets in static/)
+/scratch/devui/
+/static/

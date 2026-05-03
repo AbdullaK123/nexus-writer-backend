@@ -157,6 +157,28 @@ async def get_health() -> dict:
     return {"message": "Everything is healthy!"}
 
 
+# ── DevUI: throwaway React playground served from /devui in non-prod ────
+# Source lives in `scratch/devui/`, builds into `static/`. Both are
+# gitignored. Only mount when the build directory exists AND we're not
+# in prod, so a missing build (or a prod deploy) is a no-op.
+from pathlib import Path as _Path
+from fastapi.staticfiles import StaticFiles as _StaticFiles
+
+_devui_dir = _Path(__file__).parent / "static"
+if settings.env != "prod" and _devui_dir.is_dir() and (_devui_dir / "index.html").exists():
+    app.mount(
+        "/devui",
+        _StaticFiles(directory=str(_devui_dir), html=True),
+        name="devui",
+    )
+    logger.info("devui.mounted", directory=str(_devui_dir))
+elif settings.env != "prod":
+    logger.info(
+        "devui.skipped_no_build",
+        hint="run `cd scratch/devui && npm install && npm run build` to enable /devui",
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
 

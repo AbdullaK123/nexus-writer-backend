@@ -2,7 +2,7 @@ import asyncpg
 from typing import Any, List, Literal, Optional
 from uuid_extensions import uuid7str
 import json
-from src.data.schemas.chat import ChatMessageRow, ChatThreadRow, ChatToolCallRow
+from src.data.schemas.chat import ChatMessageRow, ChatThreadRow
 
 Executor = Any
 
@@ -42,14 +42,15 @@ class ChatRepository:
     async def get_thread(
         self, 
         thread_id: str,
+        user_id: str,
         executor: Executor | None = None
     ) -> Optional[ChatThreadRow]:
         sql = """
         SELECT *
         FROM "chat_thread"
-        WHERE id=$1
+        WHERE id=$1 AND user_id=$2
         """
-        row = await self._exe(executor).fetchrow(sql, thread_id)
+        row = await self._exe(executor).fetchrow(sql, thread_id, user_id)
         if row is None:
             return None 
         return ChatThreadRow.model_validate(dict(row))
@@ -77,6 +78,7 @@ class ChatRepository:
     async def update_thread_title(
         self,
         thread_id: str,
+        user_id: str,
         title: str,
         *,
         executor: Executor | None = None
@@ -84,12 +86,12 @@ class ChatRepository:
         
         sql = """
         UPDATE "chat_thread"
-        SET title=$2, updated_at=NOW()
-        WHERE id=$1
+        SET title=$3, updated_at=NOW()
+        WHERE id=$1 AND user_id=$2
         RETURNING *
         """
     
-        row = await self._exe(executor).fetchrow(sql, thread_id, title)
+        row = await self._exe(executor).fetchrow(sql, thread_id, user_id, title)
 
         if row is None:
             return None
@@ -100,6 +102,7 @@ class ChatRepository:
     async def touch_thread(
         self,
         thread_id: str, 
+        user_id: str,
         *,
         executor: Executor | None = None
     ) -> None:
@@ -107,102 +110,57 @@ class ChatRepository:
         sql = """
         UPDATE "chat_thread"
         SET updated_at=NOW()
-        WHERE id=$1
+        WHERE id=$1 AND user_id=$2
         """
-        await self._exe(executor).execute(sql, thread_id)
+        await self._exe(executor).execute(sql, thread_id, user_id)
 
         
     async def delete_thread(
         self,
         thread_id: str,
+        user_id: str,
         *,
         executor: Executor | None = None
     ) -> None:
         
         sql = """
         DELETE FROM "chat_thread"
-        WHERE id=$1
+        WHERE id=$1 AND user_id=$2
         """
-        await self._exe(executor).execute(sql, thread_id)
+        await self._exe(executor).execute(sql, thread_id, user_id)
 
 
     async def append_message(
         self,
         thread_id: str,
         user_id: str,
-        role: Literal['user', 'assistant', 'system', 'tool'],
-        content: str,
+        kind: Literal["request", "response"],
+        message: dict,
         *,
-        executor: Executor | None = None
+        executor: Executor | None = None,
     ) -> ChatMessageRow:
-        
+        """Append one pydantic-ai ModelMessage to a thread.
+
+        `message` must be the dict produced by
+        `ModelMessagesTypeAdapter.dump_python([msg])[0]` (or
+        `msg.model_dump(mode="json")`). `kind` matches pydantic-ai's
+        ModelMessage discriminator and must agree with the dict's own
+        `"kind"` field; we accept it explicitly so the column is indexable.
+        """
+
         sql = """
-        INSERT INTO "chat_message" (id, thread_id, user_id, role, sequence, content)
+        INSERT INTO "chat_message" (id, thread_id, user_id, sequence, kind, message)
         VALUES (
             $1,
             $2,
             $3,
-            $4,
             (
-                SELECT
-                    COALESCE(MAX(sequence) + 1, 0)
+                SELECT COALESCE(MAX(sequence) + 1, 0)
                 FROM "chat_message"
-                WHERE thread_id=$2
+                WHERE thread_id=$2::varchar
             ),
-            $5
-        )
-        RETURNING *
-        """
-
-        row = await self._exe(executor).fetchrow(sql, uuid7str(), thread_id, user_id, role, content)
-
-        return ChatMessageRow.model_validate(dict(row))
-    
-    async def list_messages(
-        self,
-        thread_id: str,
-        *,
-        executor: Executor | None = None
-    ) -> List[ChatMessageRow]:
-        
-        sql = """
-        SELECT *
-        FROM "chat_message"
-        WHERE thread_id=$1
-        ORDER BY sequence
-        """
-
-        rows = await self._exe(executor).fetch(sql, thread_id)
-
-        return [
-            ChatMessageRow.model_validate(dict(row))
-            for row in rows
-        ]
-    
-    async def append_tool_call(
-        self,
-        message_id: str,
-        user_id: str,
-        tool_name: str,
-        arguments: dict,
-        *,
-        executor: Executor | None = None
-    ) -> ChatToolCallRow:
-        
-        sql = """
-        INSERT INTO "chat_tool_call" (id, message_id, user_id, tool_name, sequence, arguments)
-        VALUES (
-            $1,
-            $2,
-            $3,
             $4,
-            (
-                SELECT
-                    COALESCE(MAX(sequence) + 1, 0)
-                FROM "chat_tool_call"
-                WHERE message_id=$2
-            ),
-            $5   
+            $5::jsonb
         )
         RETURNING *
         """
@@ -210,53 +168,35 @@ class ChatRepository:
         row = await self._exe(executor).fetchrow(
             sql,
             uuid7str(),
-            message_id,
+            thread_id,
             user_id,
-            tool_name,
-            json.dumps(arguments)
+            kind,
+            json.dumps(message),
         )
 
-        return ChatToolCallRow.model_validate(dict(row))
-    
-    async def update_tool_call_result(
-        self,
-        tool_call_id: str,
-        *,
-        result: dict | None = None,
-        error: str | None = None,
-        executor: Executor | None = None
-    ) -> None:
-        
-        sql = """
-        UPDATE "chat_tool_call"
-        SET result=COALESCE($2::jsonb, result),
-            error=COALESCE($3, error)
-        WHERE id=$1
-        """
-        await self._exe(executor).execute(
-            sql, 
-            tool_call_id, 
-            json.dumps(result) if result is not None else None, 
-            error
-        )
+        parsed = dict(row)
+        parsed["message"] = json.loads(parsed["message"])
+        return ChatMessageRow.model_validate(parsed)
 
-    async def list_tool_calls_for_message(
+    async def list_messages(
         self,
-        message_id: str,
+        thread_id: str,
+        user_id: str,
         *,
-        executor: Executor | None = None
-    ) -> List[ChatToolCallRow]:
-        
+        executor: Executor | None = None,
+    ) -> List[ChatMessageRow]:
         sql = """
         SELECT *
-        FROM "chat_tool_call"
-        WHERE message_id=$1
+        FROM "chat_message"
+        WHERE thread_id=$1 AND user_id=$2
         ORDER BY sequence
         """
 
-        rows = await self._exe(executor).fetch(sql, message_id)
+        rows = await self._exe(executor).fetch(sql, thread_id, user_id)
 
-        return [
-            ChatToolCallRow.model_validate(dict(row))
-            for row in rows
-        ]
+        out: List[ChatMessageRow] = []
+        for row in rows:
+            d = dict(row)
+            d["message"] = json.loads(d["message"])
+            out.append(ChatMessageRow.model_validate(d))
+        return out

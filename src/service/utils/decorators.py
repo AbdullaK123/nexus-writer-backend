@@ -31,6 +31,27 @@ def handle_service_errors(func):
 
     return wrapper
 
+def handle_service_errors_stream(func):
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            async for item in func(*args, **kwargs):
+                yield item
+        except ServiceError:
+            raise
+        except DataNotFound as e:
+            raise NotFoundError(f"{e.entity} not found")
+        except DuplicateError as e:
+            raise ConflictError(f"{e.entity} with this {e.field} already exists")
+        except DatabaseError as e:
+            logger.error(
+                "service.infrastructure_failure",
+                func=func.__qualname__,
+                error=str(e.original),
+            )
+            raise ServiceError("A database error occurred")
+    return wrapper
+
 
 def validate(schema_class):
     def decorator(func):
