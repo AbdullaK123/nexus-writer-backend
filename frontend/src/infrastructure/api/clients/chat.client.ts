@@ -16,7 +16,10 @@ import { unwrapResult } from "../../../shared/types"
 
 export class ChatClient {
 
-    private readonly api = new ApiClient()
+    private readonly api: ApiClient
+    constructor(api: ApiClient) {
+        this.api = api
+    }
 
     public async createThread(
         storyId: string,

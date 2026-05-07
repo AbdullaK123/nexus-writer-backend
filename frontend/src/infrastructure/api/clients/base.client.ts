@@ -41,16 +41,21 @@ async function fetchApi<T>(
                 : AbortSignal.timeout(timeoutMs);
         }
 
-        const fullUrl = `${config.api.baseURL}/${url}`
+        const fullUrl = new URL(url, config.api.baseURL).toString()
 
         const response = await fetch(fullUrl, effectiveOptions);
         const elapsedMs = Math.round(performance.now() - startedAt);
 
         if (!response.ok) {
-            const responseStatus = response.status
-            const responseText = await response.text()
-            console.warn(`[api] ✗ ${method} ${url} → ${responseStatus} (${elapsedMs}ms)`, responseText);
-            return Err(new ApiError(responseStatus, responseText))
+            const text = await response.text()
+            let message = ''
+            try {
+                const body = JSON.parse(text)
+                message = body?.detail?.message ?? body?.detail ?? text
+            } catch {
+                message = text
+            }
+            return Err(new ApiError(response.status, message))
         }
 
         if (response.status === 204 || response.status === 205) {

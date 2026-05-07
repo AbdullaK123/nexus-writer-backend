@@ -1,4 +1,5 @@
 import { 
+    ApiClient,
     AuthClient, 
     ChapterClient, 
     ChatClient, 
@@ -13,11 +14,12 @@ export interface AppApi {
     chat: ChatClient
 }
 
+const apiClient = new ApiClient()
 
 export const api: AppApi = Object.freeze({
-    auth: new AuthClient(),
-    story: new StoryClient(),
-    chapter: new ChapterClient(),
-    chat: new ChatClient()
+    auth: new AuthClient(apiClient),
+    story: new StoryClient(apiClient),
+    chapter: new ChapterClient(apiClient),
+    chat: new ChatClient(apiClient)
 })
 
