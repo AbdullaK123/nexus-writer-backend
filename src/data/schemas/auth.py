@@ -3,10 +3,11 @@ from pydantic import EmailStr
 from typing import Optional
 from datetime import datetime
 import re
+from src.data.schemas._base import ApiModel
 from src.infrastructure.config import config
 
 
-class RegistrationData(BaseModel):
+class RegistrationData(ApiModel):
     username: str = Field(min_length=1, max_length=100)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
@@ -23,14 +24,12 @@ class RegistrationData(BaseModel):
         return v
 
 
-class AuthCredentials(BaseModel):
+class AuthCredentials(ApiModel):
     email: EmailStr
     password: str
 
 
-class UserResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class UserResponse(ApiModel):
     id: str
     username: str
     email: str

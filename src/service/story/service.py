@@ -1,10 +1,14 @@
-from typing import List
+from typing import List, Literal
 
 from loguru import logger
 
 from src.data.repositories import StoryRepository, ChapterRepository, SceneRepository
 from src.data.schemas.chapter import ChapterListItem
-from src.data.schemas.scene import SceneSearchResponse
+from src.data.schemas.scene import (
+    SceneSearchResponse,
+    VocabularyItem,
+    VocabularyListResponse,
+)
 from src.data.schemas.story import (
     CreateStoryRequest,
     UpdateStoryRequest,
@@ -138,6 +142,11 @@ class StoryService:
         query_text: str,
         k: int | None = None,
         candidate_pool: int | None = None,
+        tension: Literal["low", "medium", "high"] | None = None,
+        pacing: Literal["slow", "steady", "fast"] | None = None,
+        tags: list[str] | None = None,
+        mentioned_entities: list[str] | None = None,
+        chapter_ids: list[str] | None = None,
     ) -> List[SceneSearchResponse]:
 
         query_text = query_text.strip()
@@ -164,6 +173,11 @@ class StoryService:
             query_len=len(query_text),
             k=k,
             candidate_pool=candidate_pool,
+            tension=tension,
+            pacing=pacing,
+            tags=tags,
+            mentioned_entities=mentioned_entities,
+            chapter_ids=chapter_ids,
         )
 
         query_embedding = await self._provider.embed(query_text)
@@ -174,6 +188,11 @@ class StoryService:
             query_text=query_text,
             query_embedding=query_embedding,
             k=k,
+            pacing=pacing,
+            tension=tension,
+            tags=tags,
+            mentioned_entities=mentioned_entities,
+            chapter_ids=chapter_ids,
             candidate_pool=candidate_pool,
         )
 
@@ -189,4 +208,32 @@ class StoryService:
             SceneSearchResponse.from_result(result)
             for result in search_results
         ]
+
+    @handle_service_errors
+    async def list_story_tags(
+        self, user_id: str, story_id: str,
+    ) -> VocabularyListResponse:
+        """Return every distinct tag in this story's scenes with its count,
+        sorted by frequency desc. Authorisation is row-level via user_id
+        — a foreign story silently returns an empty list."""
+        rows = await self._scene_repo.list_story_tags(
+            user_id=user_id, story_id=story_id,
+        )
+        return VocabularyListResponse(
+            items=[VocabularyItem(value=v, count=n) for v, n in rows],
+        )
+
+    @handle_service_errors
+    async def list_story_entities(
+        self, user_id: str, story_id: str,
+    ) -> VocabularyListResponse:
+        """Return every distinct mentioned entity in this story's scenes
+        with its count, sorted by frequency desc. Same auth model as
+        `list_story_tags`."""
+        rows = await self._scene_repo.list_story_entities(
+            user_id=user_id, story_id=story_id,
+        )
+        return VocabularyListResponse(
+            items=[VocabularyItem(value=v, count=n) for v, n in rows],
+        )
 

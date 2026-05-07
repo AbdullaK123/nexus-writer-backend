@@ -22,6 +22,7 @@ from src.data.schemas.chapter import (
 from src.data.schemas.scene import (
     SceneSearchRequest,
     SceneSearchListResponse,
+    VocabularyListResponse,
 )
 from src.service.chapter import ChapterService
 from src.service.extraction import ExtractionService
@@ -33,7 +34,7 @@ story_controller = APIRouter(prefix="/stories")
 story_controller.include_router(chat_controller)
 
 
-@story_controller.post("/", response_model=dict)
+@story_controller.post("")
 async def create_story(
     story_info: CreateStoryRequest,
     current_user: UserRow = Depends(get_current_user),
@@ -42,7 +43,7 @@ async def create_story(
     return await story_service.create_story(current_user.id, story_info)
 
 
-@story_controller.put("/{story_id}", response_model=dict)
+@story_controller.put("/{story_id}")
 async def update_story(
     story_id: str,
     update_info: UpdateStoryRequest,
@@ -54,7 +55,7 @@ async def update_story(
     )
 
 
-@story_controller.delete("/{story_id}", response_model=dict)
+@story_controller.delete("/{story_id}")
 async def delete_story(
     story_id: str,
     current_user: UserRow = Depends(get_current_user),
@@ -63,7 +64,7 @@ async def delete_story(
     return await story_service.delete_story(current_user.id, story_id)
 
 
-@story_controller.get("/", response_model=StoryGridResponse)
+@story_controller.get("", response_model=StoryGridResponse)
 async def get_stories(
     current_user: UserRow = Depends(get_current_user),
     story_service: StoryService = Depends(get_story_service),
@@ -96,7 +97,7 @@ async def create_chapter(
     return result
 
 
-@story_controller.post("/{story_id}/chapters/reorder", response_model=dict)
+@story_controller.post("/{story_id}/chapters/reorder")
 async def reorder_chapters(
     story_id: str,
     reorder_info: ReorderChapterRequest,
@@ -135,5 +136,34 @@ async def search_story_scenes(
         query_text=search_info.query,
         k=search_info.k,
         candidate_pool=search_info.candidate_pool,
+        tension=search_info.tension,
+        pacing=search_info.pacing,
+        tags=search_info.tags,
+        mentioned_entities=search_info.mentioned_entities,
+        chapter_ids=search_info.chapter_ids,
     )
     return SceneSearchListResponse(results=results)
+
+
+@story_controller.get(
+    "/{story_id}/tags",
+    response_model=VocabularyListResponse,
+)
+async def list_story_tags(
+    story_id: str,
+    current_user: UserRow = Depends(get_current_user),
+    story_service: StoryService = Depends(get_story_service),
+) -> VocabularyListResponse:
+    return await story_service.list_story_tags(current_user.id, story_id)
+
+
+@story_controller.get(
+    "/{story_id}/entities",
+    response_model=VocabularyListResponse,
+)
+async def list_story_entities(
+    story_id: str,
+    current_user: UserRow = Depends(get_current_user),
+    story_service: StoryService = Depends(get_story_service),
+) -> VocabularyListResponse:
+    return await story_service.list_story_entities(current_user.id, story_id)

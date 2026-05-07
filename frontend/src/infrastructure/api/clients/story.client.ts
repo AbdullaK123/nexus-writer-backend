@@ -17,7 +17,9 @@ import {
     type ChapterListResponse,
     ChapterListResponseSchema,
     type SceneSearchListResponse,
-    SceneSearchListResponseSchema
+    SceneSearchListResponseSchema,
+    type VocabularyListResponse,
+    VocabularyListResponseSchema,
  } from "../types"
 import { unwrapResult } from "../../../shared/types"
 
@@ -135,6 +137,30 @@ export class StoryClient {
             `/stories/${storyId}/search`,
             payload,
             SceneSearchListResponseSchema,
+            options
+        )
+        return unwrapResult(response)
+    }
+
+    public async listStoryTags(
+        storyId: string,
+        options: RequestOptions = {}
+    ): Promise<VocabularyListResponse> {
+        const response = await this.api.getJson(
+            `/stories/${storyId}/tags`,
+            VocabularyListResponseSchema,
+            options
+        )
+        return unwrapResult(response)
+    }
+
+    public async listStoryEntities(
+        storyId: string,
+        options: RequestOptions = {}
+    ): Promise<VocabularyListResponse> {
+        const response = await this.api.getJson(
+            `/stories/${storyId}/entities`,
+            VocabularyListResponseSchema,
             options
         )
         return unwrapResult(response)

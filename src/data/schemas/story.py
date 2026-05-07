@@ -1,15 +1,16 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
+from src.data.schemas._base import ApiModel
 from src.data.schemas.enums import StoryStatus
 from src.data.schemas.chapter import ChapterListItem
 
 
-class CreateStoryRequest(BaseModel):
+class CreateStoryRequest(ApiModel):
     title: str = Field(min_length=1, max_length=255)
 
 
-class UpdateStoryRequest(BaseModel):
+class UpdateStoryRequest(ApiModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=255)
     status: Optional[StoryStatus] = None
 
@@ -28,9 +29,7 @@ class StoryRow(BaseModel):
     updated_at: datetime
 
 
-class StoryCardResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class StoryCardResponse(ApiModel):
     id: str
     latest_chapter_id: Optional[str] = None
     title: str
@@ -74,5 +73,5 @@ class StoryDetailResponse(StoryCardResponse):
         )
 
 
-class StoryGridResponse(BaseModel):
+class StoryGridResponse(ApiModel):
     stories: List["StoryCardResponse"]

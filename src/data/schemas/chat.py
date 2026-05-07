@@ -1,6 +1,7 @@
 from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
+from src.data.schemas._base import ApiModel
 
 
 # ---------------------------------------------------------------------------
@@ -39,22 +40,22 @@ class ChatMessageRow(BaseModel):
 # HTTP request / response DTOs
 # ---------------------------------------------------------------------------
 
-class CreateThreadRequest(BaseModel):
+class CreateThreadRequest(ApiModel):
     story_id: str
     first_message: str
 
 
-class ThreadResponse(BaseModel):
+class ThreadResponse(ApiModel):
     thread_id: str
     thread_title: str
     updated_at: datetime
 
 
-class ThreadListResponse(BaseModel):
+class ThreadListResponse(ApiModel):
     threads: Optional[List[ThreadResponse]] = []
 
 
-class ChatMessageResponse(BaseModel):
+class ChatMessageResponse(ApiModel):
     """Pass-through of the stored ModelMessage. Front-end renders parts."""
 
     sequence: int
@@ -63,11 +64,11 @@ class ChatMessageResponse(BaseModel):
     created_at: datetime
 
 
-class ChatMessageListResponse(BaseModel):
+class ChatMessageListResponse(ApiModel):
     messages: Optional[List[ChatMessageResponse]] = []
 
 
-class ConversationTurnRequest(BaseModel):
+class ConversationTurnRequest(ApiModel):
     story_id: str
     thread_id: str
     user_message: str
@@ -77,13 +78,13 @@ class ConversationTurnRequest(BaseModel):
 # HTTP request bodies (path supplies story_id / thread_id)
 # ---------------------------------------------------------------------------
 
-class CreateThreadBody(BaseModel):
+class CreateThreadBody(ApiModel):
     first_message: str
 
 
-class TurnBody(BaseModel):
+class TurnBody(ApiModel):
     user_message: str
 
 
-class RenameThreadBody(BaseModel):
+class RenameThreadBody(ApiModel):
     title: str

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from src.app.controllers.auth import user_controller
@@ -28,6 +28,10 @@ app = FastAPI(
     description="The backend API for Nexus Writer",
     version="1.0",
     lifespan=lifespan,
+    # Disable trailing-slash auto-redirects. 307 responses drop request bodies
+    # in some clients and force every caller to follow redirects. Each route is
+    # registered at one canonical path (no trailing slash on collections).
+    redirect_slashes=False,
 )
 
 # ── Request body size limit middleware ─────────────────────────────────
@@ -147,36 +151,17 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content=payload)
 
 
-app.include_router(user_controller)
-app.include_router(chapter_controller)
-app.include_router(story_controller)
+main_router = APIRouter(prefix="/api")
+main_router.include_router(user_controller)
+main_router.include_router(chapter_controller)
+main_router.include_router(story_controller)
+
+app.include_router(main_router)
 
 
 @app.get("/health")
 async def get_health() -> dict:
     return {"message": "Everything is healthy!"}
-
-
-# ── DevUI: throwaway React playground served from /devui in non-prod ────
-# Source lives in `scratch/devui/`, builds into `static/`. Both are
-# gitignored. Only mount when the build directory exists AND we're not
-# in prod, so a missing build (or a prod deploy) is a no-op.
-from pathlib import Path as _Path
-from fastapi.staticfiles import StaticFiles as _StaticFiles
-
-_devui_dir = _Path(__file__).parent / "static"
-if settings.env != "prod" and _devui_dir.is_dir() and (_devui_dir / "index.html").exists():
-    app.mount(
-        "/devui",
-        _StaticFiles(directory=str(_devui_dir), html=True),
-        name="devui",
-    )
-    logger.info("devui.mounted", directory=str(_devui_dir))
-elif settings.env != "prod":
-    logger.info(
-        "devui.skipped_no_build",
-        hint="run `cd scratch/devui && npm install && npm run build` to enable /devui",
-    )
 
 
 if __name__ == "__main__":

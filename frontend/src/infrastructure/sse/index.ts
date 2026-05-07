@@ -28,7 +28,7 @@ export async function streamSse(
                 "Content-Type": "application/json",
                 ...request.headers
             },
-            body: request.body !== "undefined" ? JSON.stringify(request.body) : undefined,
+            body: request.body !== undefined ? JSON.stringify(request.body) : undefined,
             credentials: "same-origin",
             signal: request.signal
         }

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from functools import wraps
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Literal
 
 from pydantic_ai import Agent, RunContext
 
@@ -105,10 +105,58 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
     async def search_scenes_semantic(
         ctx: RunContext[ChatDeps],
         query: str,
+        tension: Literal["low", "medium", "high"] | None = None,
+        pacing: Literal["slow", "steady", "fast"] | None = None,
+        tags: list[str] | None = None,
+        mentioned_entities: list[str] | None = None,
+        chapter_ids: list[str] | None = None,
         k: int = 8,
     ) -> str:
         """Find scenes in the current story that are semantically related to
-        the query. Returns up to k matches. Each match includes:
+        the query. Returns up to k matches.
+
+        Optional filters (combine freely; both default to no filter):
+        - `tension`: restrict to scenes of a given dramatic tension level.
+            'low' = calm/expository, 'medium' = active conflict / rising
+            stakes, 'high' = climactic / irreversible / peak emotional beats.
+            Use when the user asks about "big moments", "quiet scenes",
+            "turning points", etc.
+        - `pacing`: restrict to scenes of a given narrative pacing.
+            'slow' = lingering / introspective, 'steady' = balanced forward
+            motion, 'fast' = rapid action or revelations. Use when the user
+            asks about "action scenes", "slow burns", "fast-paced sections",
+            etc.
+        - `tags`: restrict to scenes carrying ANY of the given tag labels
+            (OR semantics, not AND). Tags are an OPEN VOCABULARY produced
+            per-story by the extraction step (kebab-case, e.g.
+            'turning-point', 'foreshadowing', 'betrayal', 'flashback',
+            'worldbuilding', 'character-development'). Only pass values
+            you've actually seen in prior search results for THIS story —
+            guessing tag strings will silently return zero hits. Prefer
+            running an unfiltered search first to learn the vocabulary,
+            then re-query with a tag filter.
+        - `mentioned_entities`: restrict to scenes that explicitly name ANY
+            of the given entities (characters, locations, factions,
+            artifacts). Also OPEN VOCABULARY — use the exact canonical
+            spellings as they appear in scene results (e.g. 'Captain Vale',
+            not 'vale' or 'the captain'). Same caveat as tags: only pass
+            entity names you've seen in this story. Useful for "all scenes
+            with X" or "scenes where X and Y appear" (pass both — OR
+            semantics will return scenes mentioning either, then you can
+            inspect which contain both).
+        - `chapter_ids`: restrict to scenes inside specific chapters. Pass
+            chapter ids gathered from `list_chapters` (which returns them
+            in reading order). Useful for scoping analysis to an act or a
+            range of chapters — e.g. "pacing in chapters 8-12" → grab those
+            five ids from `list_chapters`, pass them all here. Ignored if
+            empty / not given.
+
+        For tag and entity filters, prefer calling `list_story_tags` /
+        `list_story_entities` first to discover the exact vocabulary for
+        this story rather than guessing. Guessed values silently return
+        zero hits.
+
+        Each match includes:
 
         - scene title + scene_id, parent chapter title + chapter_id
         - TENSION (low|medium|high) and PACING (slow|steady|fast)
@@ -129,6 +177,11 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
             story_id=ctx.deps.story_id,
             query_text=query,
             k=k,
+            tension=tension,
+            pacing=pacing,
+            tags=tags,
+            mentioned_entities=mentioned_entities,
+            chapter_ids=chapter_ids,
         )
         if not scenes:
             return "No matching scenes."
@@ -208,5 +261,45 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
         if not chapters.chapters:
             return "This story has no chapters yet."
         return "\n".join(_format_chapter_item(item) for item in chapters.chapters)
+
+    @agent.tool
+    @_service_errors_as_text
+    async def list_story_tags(ctx: RunContext[ChatDeps]) -> str:
+        """List every distinct tag used in this story's scenes, with how
+        many scenes carry each tag, sorted most-frequent first.
+
+        Use this to discover the actual tag vocabulary BEFORE filtering
+        `search_scenes_semantic` by `tags=[...]`. Tags are an open
+        vocabulary produced per-story by extraction — guessing tag strings
+        will silently return zero hits.
+
+        Returns one line per tag: `tag_value (N scenes)`."""
+        result = await ctx.deps.story_service.list_story_tags(
+            user_id=ctx.deps.user_id, story_id=ctx.deps.story_id,
+        )
+        if not result.items:
+            return "This story has no tagged scenes yet."
+        return "\n".join(f"{i.value} ({i.count} scenes)" for i in result.items)
+
+    @agent.tool
+    @_service_errors_as_text
+    async def list_story_entities(ctx: RunContext[ChatDeps]) -> str:
+        """List every distinct named entity (character, place, faction,
+        artifact) mentioned in this story's scenes, with how many scenes
+        each appears in, sorted most-frequent first.
+
+        Use this to discover the canonical entity spellings BEFORE
+        filtering `search_scenes_semantic` by `mentioned_entities=[...]`.
+        Entities are an open vocabulary produced per-story by extraction
+        and are case- and form-sensitive (e.g. 'Captain Vale' vs 'Vale'
+        are distinct). Guessed values silently return zero hits.
+
+        Returns one line per entity: `entity_value (N scenes)`."""
+        result = await ctx.deps.story_service.list_story_entities(
+            user_id=ctx.deps.user_id, story_id=ctx.deps.story_id,
+        )
+        if not result.items:
+            return "This story has no entities extracted yet."
+        return "\n".join(f"{i.value} ({i.count} scenes)" for i in result.items)
 
     return agent

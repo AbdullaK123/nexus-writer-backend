@@ -1,6 +1,7 @@
 from datetime import datetime
-from pydantic import Field, BaseModel, ConfigDict
+from pydantic import Field, BaseModel, ConfigDict, field_validator
 from typing import Literal, List, Optional
+from src.data.schemas._base import ApiModel
 
 
 # ─── LLM I/O models (used as JSON schema for structured generation) ─────────
@@ -101,7 +102,7 @@ class SceneSearchResult(SceneRow):
     """
     score: float
 
-class SceneSearchRequest(BaseModel):
+class SceneSearchRequest(ApiModel):
     """Body for POST /stories/{story_id}/search.
 
     `k` is the cap on returned hits; `candidate_pool` is how many FTS/vector
@@ -113,22 +114,33 @@ class SceneSearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=500)
     k: int | None = Field(default=None, ge=1, le=50)
     candidate_pool: int | None = Field(default=None, ge=1, le=500)
+    tension: Literal["low", "medium", "high"] | None = None
+    pacing: Literal["slow", "steady", "fast"] | None = None
+    # Open-vocabulary array filters. Empty list normalises to None so it
+    # behaves identically to "omit the field" — otherwise an empty list
+    # under the && operator would match zero rows, a confusing footgun.
+    tags: List[str] | None = None
+    mentioned_entities: List[str] | None = None
+    chapter_ids: List[str] | None = None
 
+    @field_validator("tags", "mentioned_entities", "chapter_ids", mode="after")
+    @classmethod
+    def _empty_to_none(cls, v: List[str] | None) -> List[str] | None:
+        return v or None
 
-class SceneSearchListResponse(BaseModel):
+class SceneSearchListResponse(ApiModel):
     """Wrapper so the API returns an object, not a bare list (easier to
     extend with paging/metadata later without breaking clients)."""
     results: List["SceneSearchResponse"]
 
 
-class SceneSearchResponse(BaseModel):
+class SceneSearchResponse(ApiModel):
     """API-shaped projection of a hybrid-search hit.
 
     Mirrors `SceneSearchResult` but excludes internal columns the client
     doesn't need (user_id, position, embedded_at, embedding_model). Use
     `from_result` to convert from the repository return type.
     """
-    model_config = ConfigDict(from_attributes=True)
 
     id: str
     chapter_id: str
@@ -149,3 +161,19 @@ class SceneSearchResponse(BaseModel):
     @classmethod
     def from_result(cls, result: "SceneSearchResult") -> "SceneSearchResponse":
         return cls.model_validate(result, from_attributes=True)
+
+
+# ─── Vocabulary listing (tags / entities) ────────────────────────────────────
+
+
+class VocabularyItem(ApiModel):
+    """One (value, count) pair from the per-story tag/entity vocabulary.
+    Sorted by count desc on the way out so the most common labels come
+    first — useful both for UI surfacing and for letting the agent prioritise
+    high-signal filter values."""
+    value: str
+    count: int
+
+
+class VocabularyListResponse(ApiModel):
+    items: List[VocabularyItem]

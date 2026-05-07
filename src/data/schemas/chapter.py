@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
+from src.data.schemas._base import ApiModel
 from src.data.schemas.enums import StoryStatus
 
 
@@ -23,25 +24,23 @@ class ChapterRow(BaseModel):
     updated_at: datetime
 
 
-class CreateChapterRequest(BaseModel):
+class CreateChapterRequest(ApiModel):
     title: str = Field(min_length=1, max_length=255)
     content: str = ""
 
 
-class UpdateChapterRequest(BaseModel):
+class UpdateChapterRequest(ApiModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=255)
     content: Optional[str] = None
     published: Optional[bool] = None
 
 
-class ReorderChapterRequest(BaseModel):
+class ReorderChapterRequest(ApiModel):
     from_pos: int
     to_pos: int
 
 
-class ChapterListItem(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class ChapterListItem(ApiModel):
     id: str
     title: str
     published: bool
@@ -49,9 +48,7 @@ class ChapterListItem(BaseModel):
     updated_at: datetime
 
 
-class ChapterContentResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class ChapterContentResponse(ApiModel):
     id: str
     title: str
     published: bool
@@ -90,7 +87,7 @@ class ChapterContentResponse(BaseModel):
         )
 
 
-class ChapterListResponse(BaseModel):
+class ChapterListResponse(ApiModel):
     story_id: str
     story_title: str
     story_status: StoryStatus

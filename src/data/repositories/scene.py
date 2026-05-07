@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 from time import perf_counter
-from typing import Any, List, Sequence
+from typing import Any, List, Literal, Sequence
 
 import asyncpg
 from loguru import logger
@@ -238,6 +238,11 @@ class SceneRepository:
         query_embedding: Sequence[float],
         k: int,
         candidate_pool: int,
+        tension: Literal["low", "medium", "high"] | None = None,
+        pacing: Literal["slow", "steady", "fast"] | None = None,
+        tags: list[str] | None = None,
+        mentioned_entities: list[str] | None = None,
+        chapter_ids: list[str] | None = None,
         executor: Executor | None = None,
     ) -> list[SceneSearchResult]:
         embedding_text = "[" + ",".join(repr(float(x)) for x in query_embedding) + "]"
@@ -269,6 +274,11 @@ class SceneRepository:
                 FROM "scene"
                 WHERE user_id = $1
                 AND ($2::text IS NULL OR story_id = $2)
+                AND ($7::text IS NULL OR tension = $7)
+                AND ($8::text IS NULL OR pacing = $8)
+                AND ($9::text[] IS NULL OR tags && $9::text[])
+                AND ($10::text[] IS NULL OR mentioned_entities && $10::text[])
+                AND ($11::text[] IS NULL OR chapter_id = ANY($11::text[]))
                 AND to_tsvector(
                         'english'::regconfig,
                         coalesce(title, '') || ' ' || coalesce(description, '')
@@ -287,6 +297,11 @@ class SceneRepository:
                     ROW_NUMBER() OVER (ORDER BY embedding <=> $4::vector) AS rank
                 FROM "scene"
                 WHERE user_id = $1
+                AND ($7::text IS NULL OR tension = $7)
+                AND ($8::text IS NULL OR pacing = $8)
+                AND ($9::text[] IS NULL OR tags && $9::text[])
+                AND ($10::text[] IS NULL OR mentioned_entities && $10::text[])
+                AND ($11::text[] IS NULL OR chapter_id = ANY($11::text[]))
                 AND ($2::text IS NULL OR story_id = $2)
                 AND embedding IS NOT NULL
                 ORDER BY embedding <=> $4::vector
@@ -307,7 +322,18 @@ class SceneRepository:
         """
         t0 = perf_counter()
         rows = await self._exe(executor).fetch(
-            sql, user_id, story_id, query_text, embedding_text, candidate_pool, k,
+            sql, 
+            user_id, 
+            story_id, 
+            query_text, 
+            embedding_text, 
+            candidate_pool, 
+            k,
+            tension,
+            pacing,
+            tags,
+            mentioned_entities,
+            chapter_ids,
         )
         logger.info(
             "scene_repo.search_scenes.done",
@@ -320,3 +346,43 @@ class SceneRepository:
             ms=round((perf_counter() - t0) * 1000, 1),
         )
         return [SceneSearchResult.model_validate(dict(r)) for r in rows]
+
+    # ─── vocabulary listing ───────────────────────────────────────────────
+    # Used by the agent to discover what tag / entity strings actually exist
+    # for a given story before issuing a filtered search. Both columns are
+    # text[]; unnest + group by gives a frequency-sorted vocabulary in one
+    # round trip. Authorization is enforced row-level via user_id.
+
+    async def list_story_tags(
+        self,
+        *,
+        user_id: str,
+        story_id: str,
+        executor: Executor | None = None,
+    ) -> list[tuple[str, int]]:
+        sql = """
+            SELECT tag, COUNT(*) AS n
+            FROM "scene", unnest(tags) AS tag
+            WHERE user_id = $1 AND story_id = $2
+            GROUP BY tag
+            ORDER BY n DESC, tag ASC
+        """
+        rows = await self._exe(executor).fetch(sql, user_id, story_id)
+        return [(r["tag"], r["n"]) for r in rows]
+
+    async def list_story_entities(
+        self,
+        *,
+        user_id: str,
+        story_id: str,
+        executor: Executor | None = None,
+    ) -> list[tuple[str, int]]:
+        sql = """
+            SELECT entity, COUNT(*) AS n
+            FROM "scene", unnest(mentioned_entities) AS entity
+            WHERE user_id = $1 AND story_id = $2
+            GROUP BY entity
+            ORDER BY n DESC, entity ASC
+        """
+        rows = await self._exe(executor).fetch(sql, user_id, story_id)
+        return [(r["entity"], r["n"]) for r in rows]
