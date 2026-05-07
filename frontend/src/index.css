@@ -1,0 +1,556 @@
+/* ============================================================
+ * Nexus Writer — Design Tokens
+ * Source: Figma "Nexus Writer Design" / Component Library
+ * Dark HUD / cyberpunk surface with cyan accent.
+ * ============================================================ */
+
+:root {
+  /* ---- Brand & accent ---- */
+  --color-cyan: #00d4ff;
+  --color-cyan-bright: #0ff;
+  --color-success: #00ff41;
+  --color-warning: #ff8000;
+  --color-danger: #ff0040;
+
+  /* ---- Surfaces (dark stack) ---- */
+  --surface-0: #0a0a0a; /* page background */
+  --surface-1: #101010; /* elevated rows */
+  --surface-2: #1a1a1a; /* cards, inputs */
+  --surface-glass: rgba(26, 26, 26, 0.92); /* HUD pills over canvas */
+
+  /* ---- Text ---- */
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-muted: #666666;
+  --text-on-accent: #0a0a0a;
+
+  /* ---- Borders ---- */
+  --border-subtle: rgba(0, 212, 255, 0.2);
+  --border-default: rgba(0, 212, 255, 0.3);
+  --border-strong: rgba(0, 212, 255, 0.5);
+  --border-focus: rgba(0, 255, 255, 0.7);
+  --border-danger: rgba(255, 0, 64, 0.7);
+
+  /* ---- Tinted fills (status / state) ---- */
+  --fill-cyan-soft: rgba(0, 212, 255, 0.08);
+  --fill-cyan: rgba(0, 212, 255, 0.1);
+  --fill-cyan-strong: rgba(0, 212, 255, 0.12);
+  --fill-success: rgba(0, 255, 65, 0.12);
+  --fill-success-border: rgba(0, 255, 65, 0.5);
+  --fill-warning: rgba(255, 128, 0, 0.12);
+  --fill-warning-border: rgba(255, 128, 0, 0.5);
+  --fill-danger: rgba(255, 0, 64, 0.12);
+  --fill-danger-border: rgba(255, 0, 64, 0.5);
+  --fill-danger-soft: rgba(255, 0, 64, 0.08);
+  --fill-neutral: rgba(102, 102, 102, 0.12);
+  --fill-neutral-border: rgba(102, 102, 102, 0.5);
+
+  /* ---- Typography ---- */
+  --font-display: 'Orbitron', 'Segoe UI', system-ui, sans-serif; /* chrome titles */
+  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace; /* labels, HUD */
+  --font-ui: 'Oxanium', 'Segoe UI', system-ui, sans-serif; /* body / UI prose */
+  --font-content: 'Exo 2', Georgia, serif; /* user content (story titles) */
+
+  /* ---- Type scale (px from Figma) ---- */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 18px;
+  --fs-2xl: 22px;
+  --fs-3xl: 36px;
+  --fs-4xl: 48px;
+
+  /* ---- Letter spacing (mono labels carry heavy tracking) ---- */
+  --tracking-tight: -0.24px;
+  --tracking-normal: 0;
+  --tracking-wide: 1.4px;
+  --tracking-wider: 1.8px;
+  --tracking-widest: 2.4px;
+  --tracking-mega: 2.8px;
+
+  /* ---- Spacing scale (8px grid) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* ---- Radii ---- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  /* ---- Elevation (Figma effects) ---- */
+  --elevation-card:
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 0 10px rgba(0, 212, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --elevation-modal:
+    0 12px 32px rgba(0, 0, 0, 0.6),
+    0 0 50px rgba(0, 212, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --glow-cyan: 0 0 24px rgba(0, 212, 255, 0.45);
+
+  /* ---- Base ---- */
+  color-scheme: dark;
+  color: var(--text-secondary);
+  background: var(--surface-0);
+  font: 400 var(--fs-lg) / 1.5 var(--font-ui);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+ * Reset / base
+ * ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  background: var(--surface-0);
+}
+
+#root {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--color-cyan);
+  text-decoration: none;
+  transition: color 120ms ease, text-shadow 120ms ease;
+}
+a:hover {
+  text-shadow: 0 0 8px rgba(0, 212, 255, 0.6);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: rgba(0, 212, 255, 0.35);
+  color: var(--text-primary);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface-0);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-pill);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* ============================================================
+ * Typography
+ * ============================================================ */
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  color: var(--color-cyan);
+  margin: 0;
+  letter-spacing: var(--tracking-wider);
+  font-weight: 800;
+}
+
+h1 {
+  font-size: var(--fs-4xl);
+  letter-spacing: var(--tracking-widest);
+  font-weight: 900;
+}
+
+h2 {
+  font-size: 32px;
+  letter-spacing: var(--tracking-wider);
+}
+
+h3 {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wide);
+}
+
+code,
+kbd,
+samp {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: var(--color-cyan);
+  background: var(--fill-cyan);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* User content (story / chapter titles): mixed-case Exo 2 */
+.content-title {
+  font-family: var(--font-content);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+
+/* Mono uppercase label — the system's signature wayfinder */
+.label-mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--fs-sm);
+  color: var(--color-cyan);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+}
+
+/* ============================================================
+ * Components — design system primitives
+ * ============================================================ */
+
+/* ---- 01 · Section Tag ---- */
+.section-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-5);
+  background: var(--fill-cyan);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--fs-md);
+  color: var(--color-cyan);
+  letter-spacing: var(--tracking-mega);
+  text-transform: uppercase;
+}
+
+/* ---- 02 · Status Badge ---- */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-4);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--fs-sm);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  background: var(--fill-cyan-strong);
+  border: 1px solid var(--border-strong);
+  color: var(--color-cyan);
+}
+.status-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+.status-badge--ongoing  { background: var(--fill-cyan-strong);  border-color: var(--border-strong);          color: var(--color-cyan); }
+.status-badge--complete { background: var(--fill-success);      border-color: var(--fill-success-border);   color: var(--color-success); }
+.status-badge--hiatus   { background: var(--fill-warning);      border-color: var(--fill-warning-border);   color: var(--color-warning); }
+.status-badge--error    { background: var(--fill-danger);       border-color: var(--fill-danger-border);    color: var(--color-danger); }
+.status-badge--draft    { background: var(--fill-neutral);      border-color: var(--fill-neutral-border);   color: var(--text-muted); }
+
+/* ---- 03 · Buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px var(--space-5);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-md);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  transition: transform 120ms ease, box-shadow 160ms ease,
+    background 160ms ease, border-color 160ms ease;
+}
+.btn:active { transform: translateY(1px); }
+
+.btn--primary {
+  background: var(--color-cyan);
+  border: 2px solid var(--color-cyan-bright);
+  color: var(--text-on-accent);
+  font-weight: 700;
+}
+.btn--primary:hover { box-shadow: var(--glow-cyan); }
+
+.btn--secondary {
+  background: var(--fill-cyan-soft);
+  border-color: var(--border-strong);
+  color: var(--color-cyan);
+}
+.btn--secondary:hover { background: var(--fill-cyan-strong); }
+
+.btn--ghost {
+  background: transparent;
+  border-color: var(--border-default);
+  color: var(--color-cyan);
+  font-family: var(--font-ui);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.btn--ghost:hover { border-color: var(--border-strong); }
+
+.btn--danger {
+  background: var(--fill-danger-soft);
+  border-color: var(--fill-danger-border);
+  color: var(--color-danger);
+}
+.btn--danger:hover { background: var(--fill-danger); }
+
+/* ---- 04 · Form Field ---- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 360px;
+  max-width: 100%;
+}
+.field__label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--fs-sm);
+  color: var(--color-cyan);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+}
+.field__input {
+  width: 100%;
+  padding: 14px var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 160ms ease;
+}
+.field__input::placeholder { color: var(--text-secondary); }
+.field__input:focus,
+.field__input--focus {
+  border: 2px solid var(--border-focus);
+  padding: 13px 15px; /* compensate +1px border so layout doesn't jump */
+  box-shadow: 0 0 0 3px rgba(0, 255, 255, 0.12);
+}
+.field__input--error,
+.field--error .field__input {
+  border: 2px solid var(--border-danger);
+  padding: 13px 15px;
+}
+.field__hint  { font-size: var(--fs-sm); color: var(--text-secondary); }
+.field__error { font-size: var(--fs-sm); color: var(--color-danger); }
+
+/* ---- 05 · HUD Pill (floats over editor canvas) ---- */
+.hud-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px var(--space-4);
+  background: var(--surface-glass);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--fs-base);
+  color: var(--text-primary);
+  letter-spacing: 1.95px;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+}
+.hud-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-cyan);
+  box-shadow: 0 0 8px var(--color-cyan);
+}
+.hud-pill__dot--unsaved { background: var(--color-warning); box-shadow: 0 0 8px var(--color-warning); }
+
+/* ---- 06 · Stat / KPI ---- */
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 220px;
+  padding: var(--space-5);
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+.stat__label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+}
+.stat__value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-3xl);
+  color: var(--color-cyan);
+  letter-spacing: var(--tracking-wider);
+}
+.stat__caption {
+  font-family: var(--font-ui);
+  font-size: var(--fs-base);
+  color: var(--text-secondary);
+}
+
+/* ---- 07 · Story Card ---- */
+.story-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 320px;
+  padding: var(--space-5);
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-card);
+  transition: transform 160ms ease, box-shadow 200ms ease,
+    border-color 160ms ease;
+}
+.story-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: var(--elevation-modal);
+}
+.story-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.story-card__chapter {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  letter-spacing: var(--tracking-wider);
+}
+.story-card__title {
+  font-family: var(--font-content);
+  font-weight: 600;
+  font-size: var(--fs-2xl);
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.story-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.story-card__words {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--fs-base);
+  color: var(--color-cyan);
+  letter-spacing: var(--tracking-wide);
+}
+.story-card__meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  letter-spacing: 1.65px;
+  text-transform: uppercase;
+}
+
+/* ---- 08 · Chapter Row (editor left rail) ---- */
+.chapter-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 360px;
+  padding: var(--space-2);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.chapter-row:hover,
+.chapter-row--active {
+  background: var(--fill-cyan);
+  border-color: var(--border-strong);
+}
+
+/* ============================================================
+ * Layout helpers
+ * ============================================================ */
+
+.page {
+  padding: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-9);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  align-items: center;
+}
+
+/* ============================================================
+ * Reduced motion
+ * ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+  }
+}
