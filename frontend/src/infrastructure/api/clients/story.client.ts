@@ -7,6 +7,7 @@ import {
     type StoryGridResponse,
     StoryGridResponseSchema,
     type RequestOptions,
+    noRequestOptions,
     type StoryDetailResponse,
     StoryDetailResponseSchema,
     type CreateChapterRequest,
@@ -21,7 +22,7 @@ import {
     type VocabularyListResponse,
     VocabularyListResponseSchema,
  } from "../types"
-import { unwrapResult } from "../../../shared/types"
+import type { Result, ApiError } from "../../../shared/types"
 
 export class StoryClient {
 
@@ -30,142 +31,131 @@ export class StoryClient {
         this.api = api
     }
 
-    public async createStory(
+    public createStory(
         payload: CreateStoryRequest,
-        options: RequestOptions = {}
-    ): Promise<ApiMessage> {
-        const response  = await this.api.postJson(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<ApiMessage, ApiError>> {
+        return this.api.postJson(
             "/stories",
             payload,
             ApiMessageSchema,
             options
         )
-        return unwrapResult(response)
     }
 
-    public async updateStory(
+    public updateStory(
         payload: UpdateStoryRequest,
-        options: RequestOptions = {}
-    ): Promise<ApiMessage> {
-        const response = await this.api.putJson(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<ApiMessage, ApiError>> {
+        return this.api.putJson(
             "/stories",
             payload,
             ApiMessageSchema,
             options
         )
-        return unwrapResult(response)
     }
 
-    public async deleteStory(
+    public deleteStory(
         storyId: string,
-        options: RequestOptions = {}
-    ): Promise<ApiMessage> {
-        const response = await this.api.deleteJson(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<ApiMessage, ApiError>> {
+        return this.api.deleteJson(
             `/stories/${storyId}`,
             ApiMessageSchema,
             options
         )
-        return unwrapResult(response)
     }
 
-    public async getStories(
-        options: RequestOptions = {}
-    ): Promise<StoryGridResponse> {
-        const response = await this.api.getJson(
+    public getStories(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<StoryGridResponse, ApiError>> {
+        return this.api.getJson(
             "/stories",
             StoryGridResponseSchema,
             options
         )
-        return unwrapResult(response)
     }
 
-    public async getStoryDetails(
+    public getStoryDetails(
         storyId: string,
-        options: RequestOptions = {}
-    ): Promise<StoryDetailResponse> {
-        const response = await this.api.getJson(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<StoryDetailResponse, ApiError>> {
+        return this.api.getJson(
             `/stories/${storyId}`,
             StoryDetailResponseSchema,
             options
         )
-        return unwrapResult(response)
     }
 
-    public async createChapter(
+    public createChapter(
         storyId: string,
         payload: CreateChapterRequest,
-        options: RequestOptions = {}
-    ): Promise<ChapterContentResponse> {
-        const response = await this.api.postJson(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<ChapterContentResponse, ApiError>> {
+        return this.api.postJson(
             `/stories/${storyId}/chapters`,
             payload,
             ChapterContentResponseSchema,
             options
         )
-        return unwrapResult(response)
     }
 
-    public async reorderChapters(
+    public reorderChapters(
         storyId: string,
         payload: ReorderChapterRequest,
-        options: RequestOptions = {}
-    ): Promise<ApiMessage> {
-        const response = await this.api.postJson(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<ApiMessage, ApiError>> {
+        return this.api.postJson(
             `/stories/${storyId}/chapters/reorder`,
             payload,
             ApiMessageSchema,
             options
         )
-        return unwrapResult(response)
     }
 
-    public async getStoryChapters(
+    public getStoryChapters(
         storyId: string,
-        options: RequestOptions = {}
-    ): Promise<ChapterListResponse> {
-        const response = await this.api.getJson(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<ChapterListResponse, ApiError>> {
+        return this.api.getJson(
             `/stories/${storyId}/chapters`,
             ChapterListResponseSchema,
             options
         )
-        return unwrapResult(response)
     }
 
-    public async searchStoryScenes(
+    public searchStoryScenes(
         storyId: string,
         payload: SceneSearchRequest,
-        options: RequestOptions = {}
-    ): Promise<SceneSearchListResponse> {
-        const response = await this.api.postJson(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<SceneSearchListResponse, ApiError>> {
+        return this.api.postJson(
             `/stories/${storyId}/search`,
             payload,
             SceneSearchListResponseSchema,
             options
         )
-        return unwrapResult(response)
     }
 
-    public async listStoryTags(
+    public listStoryTags(
         storyId: string,
-        options: RequestOptions = {}
-    ): Promise<VocabularyListResponse> {
-        const response = await this.api.getJson(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<VocabularyListResponse, ApiError>> {
+        return this.api.getJson(
             `/stories/${storyId}/tags`,
             VocabularyListResponseSchema,
             options
         )
-        return unwrapResult(response)
     }
 
-    public async listStoryEntities(
+    public listStoryEntities(
         storyId: string,
-        options: RequestOptions = {}
-    ): Promise<VocabularyListResponse> {
-        const response = await this.api.getJson(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<VocabularyListResponse, ApiError>> {
+        return this.api.getJson(
             `/stories/${storyId}/entities`,
             VocabularyListResponseSchema,
             options
         )
-        return unwrapResult(response)
     }
 }

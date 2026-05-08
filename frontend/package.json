@@ -14,7 +14,10 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.9",
+    "@tanstack/react-router": "^1.169.2",
+    "@tanstack/router-plugin": "^1.167.35",
     "eventsource-parser": "^3.0.8",
+    "oxide.ts": "^1.1.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "zod": "^4.4.3"

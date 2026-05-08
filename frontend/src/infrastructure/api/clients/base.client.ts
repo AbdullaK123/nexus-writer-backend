@@ -1,8 +1,17 @@
-import { Err, ApiError, type Result, Ok } from "../../../shared/types";
+import {
+    Err,
+    ApiError,
+    Result,
+    Ok,
+    type Option,
+    None,
+    Some,
+    fromNullable,
+} from "../../../shared/types";
 import { z } from "zod"
 import { buildValidationErrorMessage } from "../utils";
-import { type RequestOptions, type Api } from "../types/types"
-import { config } from "../../config"
+import { type RequestOptions, type Api, noRequestOptions } from "../types/types"
+import type { AppConfig } from "../../config"
 
 const DEFAULT_OPTIONS: RequestInit = {
   headers: {
@@ -13,12 +22,44 @@ const DEFAULT_OPTIONS: RequestInit = {
 };
 
 
+// Extract a human-readable error string out of an HTTP error body.
+// FastAPI conventionally puts it under `detail.message` or `detail`;
+// fall back to the raw text when the body isn't JSON or the shape
+// doesn't match.
+function extractErrorMessage(text: string): string {
+    const parsed = Result.safe(() => JSON.parse(text) as unknown);
+    if (parsed.isErr()) return text;
+
+    const detailOpt: Option<unknown> = fromNullable(parsed.unwrap()).andThen(
+        (b) =>
+            typeof b === "object" && b !== null && "detail" in b
+                ? fromNullable((b as { detail: unknown }).detail)
+                : None,
+    );
+
+    const messageOpt: Option<string> = detailOpt.andThen((detail) => {
+        if (typeof detail === "string") return Some(detail);
+        if (
+            typeof detail === "object" &&
+            detail !== null &&
+            "message" in detail &&
+            typeof (detail as { message: unknown }).message === "string"
+        ) {
+            return Some((detail as { message: string }).message);
+        }
+        return None;
+    });
+
+    return messageOpt.unwrapOr(text);
+}
+
 
 async function fetchApi<T>(
-    url: string, 
+    url: string,
     options: RequestInit,
     responseBodySchema: z.ZodType<T>,
-    timeoutMs: number = config.api.defaultTimeoutMs
+    baseURL: string,
+    timeoutMs: number,
 ): Promise<Result<T, ApiError>> {
     const method = options.method ?? "GET";
     const startedAt = performance.now();
@@ -41,21 +82,14 @@ async function fetchApi<T>(
                 : AbortSignal.timeout(timeoutMs);
         }
 
-        const fullUrl = new URL(url, config.api.baseURL).toString()
+        const fullUrl = new URL(url, baseURL).toString()
 
         const response = await fetch(fullUrl, effectiveOptions);
         const elapsedMs = Math.round(performance.now() - startedAt);
 
         if (!response.ok) {
             const text = await response.text()
-            let message = ''
-            try {
-                const body = JSON.parse(text)
-                message = body?.detail?.message ?? body?.detail ?? text
-            } catch {
-                message = text
-            }
-            return Err(new ApiError(response.status, message))
+            return Err(new ApiError(response.status, extractErrorMessage(text)))
         }
 
         if (response.status === 204 || response.status === 205) {
@@ -63,9 +97,14 @@ async function fetchApi<T>(
             return Err(new ApiError(response.status, "No content"))
         }
 
-        const contentType = response.headers.get("Content-Type") ?? ""
-        
-        if (contentType.includes("application/json")) {
+        // Header.get() returns null when absent — model that absence
+        // explicitly via Option rather than silently coalescing to "".
+        const contentTypeOpt = fromNullable(response.headers.get("Content-Type"));
+        const isJson = contentTypeOpt
+            .map((ct) => ct.includes("application/json"))
+            .unwrapOr(false);
+
+        if (isJson) {
 
             const data: unknown = await response.json()
 
@@ -83,10 +122,11 @@ async function fetchApi<T>(
             console.debug(`[api] ✓ ${method} ${url} → ${response.status} (${elapsedMs}ms)`);
             return Ok(parsed.data)
         } else {
+            const ctDisplay = contentTypeOpt.unwrapOr("no content-type");
             console.warn(
-                `[api] ✗ ${method} ${url} → unexpected content-type "${contentType || "none"}" (${elapsedMs}ms)`,
+                `[api] ✗ ${method} ${url} → unexpected content-type "${ctDisplay}" (${elapsedMs}ms)`,
             );
-            return Err(new ApiError(response.status, `Expected JSON, got: ${contentType || "no content-type"}`));
+            return Err(new ApiError(response.status, `Expected JSON, got: ${ctDisplay}`));
         }
 
     } catch (error) {
@@ -113,40 +153,49 @@ async function fetchApi<T>(
 
 
 export class ApiClient implements Api {
+    private readonly baseURL: string
+    private readonly defaultTimeoutMs: number
+
+    constructor(config: AppConfig) {
+        this.baseURL = config.api.baseURL
+        this.defaultTimeoutMs = config.api.defaultTimeoutMs
+    }
 
     getJson<T>(
         url: string,
         schema: z.ZodType<T>,
-        options: RequestOptions = {}
+        options: RequestOptions = noRequestOptions
     ) {
         return fetchApi(
-            url, 
-            { 
-                method: "GET", 
-                signal: options.signal, 
-                headers: options.headers 
+            url,
+            {
+                method: "GET",
+                signal: options.signal.into(null),
+                headers: options.headers.into(),
             },
             schema,
-            options.timeoutMs
+            this.baseURL,
+            options.timeoutMs.unwrapOr(this.defaultTimeoutMs)
         )
     }
-    
+
     postJson<T, B=unknown>(
         url: string,
         body: B,
         schema: z.ZodType<T>,
-        options: RequestOptions = {}
+        options: RequestOptions = noRequestOptions
     ) {
         return fetchApi(
             url,
             {
                 method: "POST",
-                signal: options.signal,
-                headers: options.headers,
+                signal: options.signal.into(null),
+                headers: options.headers.into(),
                 body: JSON.stringify(body)
             },
             schema,
-            options.timeoutMs
+            this.baseURL,
+            options.timeoutMs.unwrapOr(this.defaultTimeoutMs)
         )
     }
 
@@ -155,35 +204,37 @@ export class ApiClient implements Api {
         url: string,
         body: B,
         schema: z.ZodType<T>,
-        options: RequestOptions = {}
+        options: RequestOptions = noRequestOptions
     ) {
         return fetchApi(
             url,
             {
                 method: "PUT",
-                signal: options.signal,
-                headers: options.headers,
+                signal: options.signal.into(null),
+                headers: options.headers.into(),
                 body: JSON.stringify(body)
             },
             schema,
-            options.timeoutMs
+            this.baseURL,
+            options.timeoutMs.unwrapOr(this.defaultTimeoutMs)
         )
     }
 
     deleteJson<T>(
         url: string,
         schema: z.ZodType<T>,
-        options: RequestOptions = {}
+        options: RequestOptions = noRequestOptions
     ) {
         return fetchApi(
-            url, 
-            { 
-                method: "DELETE", 
-                signal: options.signal, 
-                headers: options.headers 
+            url,
+            {
+                method: "DELETE",
+                signal: options.signal.into(null),
+                headers: options.headers.into(),
             },
             schema,
-            options.timeoutMs
+            this.baseURL,
+            options.timeoutMs.unwrapOr(this.defaultTimeoutMs)
         )
     }
 
@@ -191,18 +242,19 @@ export class ApiClient implements Api {
         url: string,
         body: B,
         schema: z.ZodType<T>,
-        options: RequestOptions = {}
+        options: RequestOptions = noRequestOptions
      ) {
         return fetchApi(
             url,
             {
                 method: "PATCH",
-                signal: options.signal,
-                headers: options.headers,
+                signal: options.signal.into(null),
+                headers: options.headers.into(),
                 body: JSON.stringify(body)
             },
             schema,
-            options.timeoutMs
+            this.baseURL,
+            options.timeoutMs.unwrapOr(this.defaultTimeoutMs)
         )
     }
 }

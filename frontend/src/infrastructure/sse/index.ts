@@ -1,65 +1,122 @@
 import { createParser, type EventSourceMessage } from "eventsource-parser"
+import {
+    Err,
+    None,
+    Ok,
+    Result,
+    Some,
+    fromNullable,
+    type Callback,
+    type Option,
+} from "../../shared/types"
 
+// ─── Error model ─────────────────────────────────────────────
+// Tagged union so callers can `match` / `switch` exhaustively
+// instead of regex-sniffing an Error.message.
+
+export type SseError =
+    | { readonly _tag: "SseHttpError"; readonly status: number; readonly body: string }
+    | { readonly _tag: "SseNoBodyError" }
+    | { readonly _tag: "SseAbortedError" }
+    | { readonly _tag: "SseNetworkError"; readonly cause: Error }
+    | { readonly _tag: "SseStreamError"; readonly cause: Error }
+
+const SseHttpError = (status: number, body: string): SseError => ({
+    _tag: "SseHttpError",
+    status,
+    body,
+})
+const SseNoBodyError: SseError = { _tag: "SseNoBodyError" }
+const SseAbortedError: SseError = { _tag: "SseAbortedError" }
+const SseNetworkError = (cause: Error): SseError => ({
+    _tag: "SseNetworkError",
+    cause,
+})
+const SseStreamError = (cause: Error): SseError => ({
+    _tag: "SseStreamError",
+    cause,
+})
+
+// ─── Public types ────────────────────────────────────────────
 
 export interface SseHandlers {
-    onEvent: (event: EventSourceMessage) => void;
-    onClose?: () => void;
+    onEvent: (event: EventSourceMessage) => void
+    /** Optional close hook. Wrap in `Some(...)` or pass `None`. */
+    onClose: Option<Callback>
 }
 
 export interface SseRequest {
     url: string
-    method?: "GET" | "POST"
-    body?: unknown
-    headers?: HeadersInit
-    signal?: AbortSignal
+    method: Option<"GET" | "POST">
+    body: Option<unknown>
+    headers: Option<HeadersInit>
+    signal: Option<AbortSignal>
 }
+
+// ─── Implementation ──────────────────────────────────────────
 
 export async function streamSse(
     request: SseRequest,
-    handlers: SseHandlers
-): Promise<void> {
-    // send the request 
-    const response = await fetch(
-        request.url,
-        {
-            method: request.method ?? "POST",
+    handlers: SseHandlers,
+): Promise<Result<void, SseError>> {
+    const method = request.method.unwrapOr("POST" as const)
+    const extraHeaders: HeadersInit = request.headers.unwrapOr({})
+    const body = request.body.map((v) => JSON.stringify(v)).into(null)
+    const signal = request.signal.into(null)
+
+    const fetchResult = await Result.safe(
+        fetch(request.url, {
+            method,
             headers: {
-                "Accept": "text/event-stream",
+                Accept: "text/event-stream",
                 "Content-Type": "application/json",
-                ...request.headers
+                ...extraHeaders,
             },
-            body: request.body !== undefined ? JSON.stringify(request.body) : undefined,
+            body,
             credentials: "same-origin",
-            signal: request.signal
-        }
+            signal,
+        }),
     )
 
-    // handle the case when the response fails
+    if (fetchResult.isErr()) {
+        if (signal?.aborted) return Err(SseAbortedError)
+        return Err(SseNetworkError(fetchResult.unwrapErr()))
+    }
+
+    const response = fetchResult.unwrap()
+
     if (!response.ok) {
         const text = await response.text()
-        throw new Error(`SSE ${response.status}: ${text}`)
+        return Err(SseHttpError(response.status, text))
     }
 
-    // handle the case when there's no body
-    if (!response.body) {
-        throw new Error("SSE response had no body")
-    }
+    const bodyOpt = fromNullable(response.body)
+    if (bodyOpt.isNone()) return Err(SseNoBodyError)
 
-    // init the parser, the reader, and the decoder
-    const parser = createParser({ onEvent: handlers.onEvent})
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder() 
+    const parser = createParser({ onEvent: handlers.onEvent })
+    const reader = bodyOpt.unwrap().getReader()
+    const decoder = new TextDecoder()
 
-    // handle the stream
     try {
         while (true) {
-            const {done, value} = await reader.read()
+            const { done, value } = await reader.read()
             if (done) break
-            parser.feed(decoder.decode(value, {stream: true}))
+            parser.feed(decoder.decode(value, { stream: true }))
         }
-        handlers.onClose?.()
-
-    } finally {
+    } catch (e) {
+        if (signal?.aborted) {
+            reader.releaseLock()
+            return Err(SseAbortedError)
+        }
         reader.releaseLock()
+        return Err(SseStreamError(e instanceof Error ? e : new Error(String(e))))
     }
+
+    reader.releaseLock()
+    if (handlers.onClose.isSome()) handlers.onClose.unwrap()()
+    return Ok(undefined)
 }
+
+// ─── Re-exports for ergonomics at call sites ─────────────────
+
+export { Some, None }

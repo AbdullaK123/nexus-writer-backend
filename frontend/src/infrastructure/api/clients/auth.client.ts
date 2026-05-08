@@ -7,8 +7,9 @@ import {
     type ApiMessage,
     ApiMessageSchema,
     type RequestOptions,
+    noRequestOptions,
 } from "../types"
-import { unwrapResult } from "../../../shared/types"
+import type { Result, ApiError } from "../../../shared/types"
 
 export class AuthClient {
 
@@ -17,52 +18,48 @@ export class AuthClient {
         this.api = api
     }
 
-    public async register(
+    public register(
         payload: RegistrationData,
-        options: RequestOptions = {},
-    ): Promise<UserResponse> {
-        const response = await this.api.postJson(
+        options: RequestOptions = noRequestOptions,
+    ): Promise<Result<UserResponse, ApiError>> {
+        return this.api.postJson(
             "/auth/register",
             payload,
             UserResponseSchema,
             options,
         )
-        return unwrapResult(response)
     }
 
-    public async login(
+    public login(
         payload: AuthCredentials,
-        options: RequestOptions = {},
-    ): Promise<UserResponse> {
-        const response = await this.api.postJson(
+        options: RequestOptions = noRequestOptions,
+    ): Promise<Result<UserResponse, ApiError>> {
+        return this.api.postJson(
             "/auth/login",
             payload,
             UserResponseSchema,
             options,
         )
-        return unwrapResult(response)
     }
 
-    public async logout(
-        options: RequestOptions = {},
-    ): Promise<ApiMessage> {
-        const response = await this.api.postJson(
+    public logout(
+        options: RequestOptions = noRequestOptions,
+    ): Promise<Result<ApiMessage, ApiError>> {
+        return this.api.postJson(
             "/auth/logout",
             {},
             ApiMessageSchema,
             options,
         )
-        return unwrapResult(response)
     }
 
-    public async getCurrentUser(
-        options: RequestOptions = {},
-    ): Promise<UserResponse> {
-        const response = await this.api.getJson(
+    public getCurrentUser(
+        options: RequestOptions = noRequestOptions,
+    ): Promise<Result<UserResponse, ApiError>> {
+        return this.api.getJson(
             "/auth/me",
             UserResponseSchema,
             options,
         )
-        return unwrapResult(response)
     }
 }

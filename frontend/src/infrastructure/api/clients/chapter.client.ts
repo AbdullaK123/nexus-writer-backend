@@ -6,8 +6,9 @@ import {
     type ApiMessage,
     ApiMessageSchema,
     type RequestOptions,
+    noRequestOptions,
 } from "../types"
-import { unwrapResult } from "../../../shared/types"
+import type { Result, ApiError } from "../../../shared/types"
 
 export class ChapterClient {
 
@@ -16,42 +17,39 @@ export class ChapterClient {
         this.api = api
     }
 
-    public async getChapter(
+    public getChapter(
         chapterId: string,
         asHtml: boolean = true,
-        options: RequestOptions = {},
-    ): Promise<ChapterContentResponse> {
-        const response = await this.api.getJson(
+        options: RequestOptions = noRequestOptions,
+    ): Promise<Result<ChapterContentResponse, ApiError>> {
+        return this.api.getJson(
             `/chapters/${chapterId}?as_html=${asHtml}`,
             ChapterContentResponseSchema,
             options,
         )
-        return unwrapResult(response)
     }
 
-    public async updateChapter(
+    public updateChapter(
         chapterId: string,
         payload: UpdateChapterRequest,
-        options: RequestOptions = {},
-    ): Promise<ChapterContentResponse> {
-        const response = await this.api.putJson(
+        options: RequestOptions = noRequestOptions,
+    ): Promise<Result<ChapterContentResponse, ApiError>> {
+        return this.api.putJson(
             `/chapters/${chapterId}`,
             payload,
             ChapterContentResponseSchema,
             options,
         )
-        return unwrapResult(response)
     }
 
-    public async deleteChapter(
+    public deleteChapter(
         chapterId: string,
-        options: RequestOptions = {},
-    ): Promise<ApiMessage> {
-        const response = await this.api.deleteJson(
+        options: RequestOptions = noRequestOptions,
+    ): Promise<Result<ApiMessage, ApiError>> {
+        return this.api.deleteJson(
             `/chapters/${chapterId}`,
             ApiMessageSchema,
             options,
         )
-        return unwrapResult(response)
     }
 }

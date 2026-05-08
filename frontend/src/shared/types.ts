@@ -1,64 +1,77 @@
-// ─── Option<T> ───────────────────────────────────────────────
+// ─── Option / Result ────────────────────────────────────────
+//
+// Re-exported from `oxide.ts` — Rust's Option<T> / Result<T, E> for
+// TypeScript with full method chaining. Do NOT hand-roll combinators
+// here; everything lives on the values themselves:
+//
+//     opt.isSome() / opt.isNone()
+//     opt.unwrap() / opt.unwrapOr(default) / opt.unwrapOrElse(fn)
+//     opt.expect("msg")
+//     opt.map(fn) / opt.andThen(fn) / opt.mapOr(default, fn)
+//     opt.into(null)            // → T | null
+//
+//     res.isOk() / res.isErr()
+//     res.unwrap() / res.unwrapErr()
+//     res.unwrapOr(default) / res.unwrapOrElse(fn)
+//     res.map(fn) / res.mapErr(fn) / res.andThen(fn)
+//     res.ok()                  // → Option<T>
+//
+//     match(value, { Some: ..., None: ... })
+//     match(value, { Ok: ...,   Err: ...  })
+//
+//     Option.nonNull(x)         // null/undefined/NaN → None, else Some
+//     Result.safe(fn)           // capture throws as Err<Error>
+//     Result.safe(promise)      // capture rejections as Err<Error>
+//     Result.all(...) / Option.all(...)
+//
+// See https://github.com/traverse1984/oxide.ts for the full surface.
 
-export type Some<T> = { readonly _tag: "Some"; readonly value: T };
-export type None = { readonly _tag: "None" };
-export type Option<T> = Some<T> | None;
+export {
+    Option,
+    Some,
+    None,
+    Result,
+    Ok,
+    Err,
+    match,
+    Fn,
+    _,
+} from "oxide.ts";
 
-export const Some = <T>(value: T): Some<T> => ({ _tag: "Some", value });
-export const None: None = { _tag: "None" };
+import { Some, None, type Option, type Result } from "oxide.ts";
 
-export function isSome<T>(option: Option<T>): option is Some<T> {
-    return option._tag === "Some";
-}
+// ─── Compat shims ───────────────────────────────────────────
+// Thin named adapters for the two cross-boundary cases where a verb
+// reads more honestly than the underlying call. Keep this list small —
+// every alias is debt.
 
-export function isNone<T>(option: Option<T>): option is None {
-    return option._tag === "None";
-}
-
-// ─── Result<T, E> ────────────────────────────────────────────
-
-export type Ok<T> = { readonly _tag: "Ok"; readonly value: T };
-export type Err<E> = { readonly _tag: "Err"; readonly error: E };
-export type Result<T, E> = Ok<T> | Err<E>;
-
-export const Ok = <T>(value: T): Ok<T> => ({ _tag: "Ok", value });
-export const Err = <E>(error: E): Err<E> => ({ _tag: "Err", error });
-
-export function isOk<T, E>(result: Result<T, E>): result is Ok<T> {
-    return result._tag === "Ok";
-}
-
-export function isErr<T, E>(result: Result<T, E>): result is Err<E> {
-    return result._tag === "Err";
-}
-
-// ─── Transformers ────────────────────────────────────────────
-
-export function mapResult<T, U, E>(result: Result<T, E>, fn: (value: T) => U): Result<U, E> {
-    return result._tag === "Ok" ? Ok(fn(result.value)) : result;
-}
-
-export function mapOption<T, U>(option: Option<T>, fn: (value: T) => U): Option<U> {
-    return option._tag === "Some" ? Some(fn(option.value)) : None;
-}
-
+/**
+ * Wrap a possibly-nullish value into an `Option`. The boundary helper
+ * for code that interfaces with native `T | null | undefined` APIs
+ * (DOM, JSON, third-party, React Query). Note: this preserves the
+ * inner type literally; unlike `Option.nonNull`, it does not strip
+ * `NaN` from a `number` input.
+ */
 export function fromNullable<T>(value: T | null | undefined): Option<T> {
-    return value != null ? Some(value) : None;
+    return value == null ? None : Some(value);
 }
 
-// ─── Unwrap (bridges to React Query — throws on Err/None) ───
-
-export function unwrapResult<T>(result: Result<T, unknown>): T {
-    if (result._tag === "Ok") return result.value;
-    throw result.error;
-}
-
-export function unwrapOption<T>(option: Option<T>, message?: string): T {
-    if (option._tag === "Some") return option.value;
-    throw new Error(message ?? "Unwrapped a None value");
+/**
+ * React Query bridge. Awaits a `Promise<Result<T, E>>` and unwraps —
+ * `Ok` resolves to `T`, `Err` throws. Use ONLY in `queryFn` /
+ * `mutationFn`; everywhere else, prefer `match` / `unwrapOr` /
+ * `andThen`.
+ */
+export async function unwrapResultAsync<T, E>(
+    promise: Promise<Result<T, E>>,
+): Promise<T> {
+    return (await promise).unwrap();
 }
 
 // ─── ApiError ────────────────────────────────────────────────
+// Domain error type carried in `Result<T, ApiError>` from the API
+// client layer. Lives here so any layer can match on it without
+// importing from the infrastructure tree.
 
 export class ApiError extends Error {
     public readonly name = "ApiError" as const;
@@ -72,12 +85,14 @@ export class ApiError extends Error {
     }
 }
 
-// ─── Exhaustive Switch Helper ────────────────────────────────
-
-export function assertNever(x: never): never {
-    throw new Error(`Unhandled case: ${x}`);
-}
-
-// ─── Utility Types ───────────────────────────────────────────
+// ─── Misc utility types ──────────────────────────────────────
 
 export type Callback = () => void;
+
+/**
+ * Exhaustiveness helper for switch/match on tagged unions. The compile
+ * error you get when forgetting a case is the whole point.
+ */
+export function assertNever(x: never): never {
+    throw new Error(`Unreachable: unexpected value ${JSON.stringify(x)}`);
+}

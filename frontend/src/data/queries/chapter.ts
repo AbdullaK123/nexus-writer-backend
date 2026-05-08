@@ -1,7 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { api } from "../../infrastructure/api"
-import type { UpdateChapterRequest } from "../../infrastructure/api/types"
+import { useApi } from "../providers/ApiProvider"
+import {
+    type UpdateChapterRequest,
+    requestOptions,
+} from "../../infrastructure/api/types"
 import { storyKeys } from "./story"
+import { unwrapResultAsync } from "../../shared/types"
 
 // ─── Keys ──────────────────────────────────────────────────────────────────
 // Chapter cache lives under its own root because chapters are also
@@ -17,10 +21,11 @@ export const chapterKeys = {
 // ─── Queries ───────────────────────────────────────────────────────────────
 
 export function useChapter(chapterId: string, asHtml: boolean = true) {
+    const api = useApi()
     return useQuery({
         queryKey: chapterKeys.detail(chapterId, asHtml),
         queryFn: ({ signal }) =>
-            api.chapter.getChapter(chapterId, asHtml, { signal }),
+            unwrapResultAsync(api.chapter.getChapter(chapterId, asHtml, requestOptions({ signal }))),
         enabled: Boolean(chapterId),
     })
 }
@@ -28,10 +33,11 @@ export function useChapter(chapterId: string, asHtml: boolean = true) {
 // ─── Mutations ─────────────────────────────────────────────────────────────
 
 export function useUpdateChapter(chapterId: string) {
+    const api = useApi()
     const qc = useQueryClient()
     return useMutation({
         mutationFn: (payload: UpdateChapterRequest) =>
-            api.chapter.updateChapter(chapterId, payload),
+            unwrapResultAsync(api.chapter.updateChapter(chapterId, payload)),
         onSuccess: (chapter) => {
             // Wipe cached detail entries for this chapter (both html
             // representations).
@@ -48,9 +54,10 @@ export function useUpdateChapter(chapterId: string) {
 }
 
 export function useDeleteChapter(chapterId: string, storyId: string) {
+    const api = useApi()
     const qc = useQueryClient()
     return useMutation({
-        mutationFn: () => api.chapter.deleteChapter(chapterId),
+        mutationFn: () => unwrapResultAsync(api.chapter.deleteChapter(chapterId)),
         onSuccess: () => {
             qc.removeQueries({
                 queryKey: [...chapterKeys.all, "detail", chapterId],

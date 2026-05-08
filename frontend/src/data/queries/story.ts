@@ -4,15 +4,17 @@ import {
     useQueryClient,
     keepPreviousData,
 } from "@tanstack/react-query"
-import { api } from "../../infrastructure/api"
-import type {
-    CreateStoryRequest,
-    UpdateStoryRequest,
-    CreateChapterRequest,
-    ReorderChapterRequest,
-    SceneSearchRequest,
+import { useApi } from "../providers/ApiProvider"
+import {
+    type CreateStoryRequest,
+    type UpdateStoryRequest,
+    type CreateChapterRequest,
+    type ReorderChapterRequest,
+    type SceneSearchRequest,
+    requestOptions,
 } from "../../infrastructure/api/types"
 import { chapterKeys } from "./chapter"
+import { unwrapResultAsync } from "../../shared/types"
 
 // ─── Keys ──────────────────────────────────────────────────────────────────
 // Hierarchy mirrors URL paths so a partial-prefix invalidation cascades
@@ -37,35 +39,39 @@ export const storyKeys = {
 // ─── Queries ───────────────────────────────────────────────────────────────
 
 export function useStories() {
+    const api = useApi()
     return useQuery({
         queryKey: storyKeys.list(),
-        queryFn: ({ signal }) => api.story.getStories({ signal }),
+        queryFn: ({ signal }) => unwrapResultAsync(api.story.getStories(requestOptions({ signal }))),
     })
 }
 
 export function useStoryDetails(storyId: string) {
+    const api = useApi()
     return useQuery({
         queryKey: storyKeys.detail(storyId),
         queryFn: ({ signal }) =>
-            api.story.getStoryDetails(storyId, { signal }),
+            unwrapResultAsync(api.story.getStoryDetails(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
     })
 }
 
 export function useStoryChapters(storyId: string) {
+    const api = useApi()
     return useQuery({
         queryKey: storyKeys.chapters(storyId),
         queryFn: ({ signal }) =>
-            api.story.getStoryChapters(storyId, { signal }),
+            unwrapResultAsync(api.story.getStoryChapters(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
     })
 }
 
 export function useStoryTags(storyId: string) {
+    const api = useApi()
     return useQuery({
         queryKey: storyKeys.tags(storyId),
         queryFn: ({ signal }) =>
-            api.story.listStoryTags(storyId, { signal }),
+            unwrapResultAsync(api.story.listStoryTags(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
         // Vocabulary changes only when scenes are re-extracted; tolerate
         // a 5-minute stale window before background refetch.
@@ -74,10 +80,11 @@ export function useStoryTags(storyId: string) {
 }
 
 export function useStoryEntities(storyId: string) {
+    const api = useApi()
     return useQuery({
         queryKey: storyKeys.entities(storyId),
         queryFn: ({ signal }) =>
-            api.story.listStoryEntities(storyId, { signal }),
+            unwrapResultAsync(api.story.listStoryEntities(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
         staleTime: 5 * 60 * 1000,
     })
@@ -97,10 +104,11 @@ export function useStorySceneSearch(
     storyId: string,
     request: SceneSearchRequest,
 ) {
+    const api = useApi()
     return useQuery({
         queryKey: storyKeys.sceneSearch(storyId, request),
         queryFn: ({ signal }) =>
-            api.story.searchStoryScenes(storyId, request, { signal }),
+            unwrapResultAsync(api.story.searchStoryScenes(storyId, request, requestOptions({ signal }))),
         enabled: Boolean(storyId) && request.query.trim().length > 0,
         placeholderData: keepPreviousData,
         staleTime: 60 * 1000,
@@ -110,10 +118,11 @@ export function useStorySceneSearch(
 // ─── Mutations ─────────────────────────────────────────────────────────────
 
 export function useCreateStory() {
+    const api = useApi()
     const qc = useQueryClient()
     return useMutation({
         mutationFn: (payload: CreateStoryRequest) =>
-            api.story.createStory(payload),
+            unwrapResultAsync(api.story.createStory(payload)),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: storyKeys.list() })
         },
@@ -121,10 +130,11 @@ export function useCreateStory() {
 }
 
 export function useUpdateStory() {
+    const api = useApi()
     const qc = useQueryClient()
     return useMutation({
         mutationFn: (payload: UpdateStoryRequest) =>
-            api.story.updateStory(payload),
+            unwrapResultAsync(api.story.updateStory(payload)),
         // Title / metadata change — list cards reflect it, detail too.
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: storyKeys.all })
@@ -133,9 +143,10 @@ export function useUpdateStory() {
 }
 
 export function useDeleteStory() {
+    const api = useApi()
     const qc = useQueryClient()
     return useMutation({
-        mutationFn: (storyId: string) => api.story.deleteStory(storyId),
+        mutationFn: (storyId: string) => unwrapResultAsync(api.story.deleteStory(storyId)),
         onSuccess: (_data, storyId) => {
             qc.removeQueries({ queryKey: storyKeys.detail(storyId) })
             qc.invalidateQueries({ queryKey: storyKeys.list() })
@@ -144,10 +155,11 @@ export function useDeleteStory() {
 }
 
 export function useCreateChapter(storyId: string) {
+    const api = useApi()
     const qc = useQueryClient()
     return useMutation({
         mutationFn: (payload: CreateChapterRequest) =>
-            api.story.createChapter(storyId, payload),
+            unwrapResultAsync(api.story.createChapter(storyId, payload)),
         onSuccess: () => {
             // New chapter affects story detail (chapter list).
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
@@ -156,10 +168,11 @@ export function useCreateChapter(storyId: string) {
 }
 
 export function useReorderChapters(storyId: string) {
+    const api = useApi()
     const qc = useQueryClient()
     return useMutation({
         mutationFn: (payload: ReorderChapterRequest) =>
-            api.story.reorderChapters(storyId, payload),
+            unwrapResultAsync(api.story.reorderChapters(storyId, payload)),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
             // Per-chapter prev/next pointers shift on reorder.

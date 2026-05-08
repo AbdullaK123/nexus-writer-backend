@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { api } from "../../infrastructure/api"
-import type {
-    CreateThreadBody,
-    RenameThreadBody,
+import { useApi } from "../providers/ApiProvider"
+import {
+    type CreateThreadBody,
+    type RenameThreadBody,
+    requestOptions,
 } from "../../infrastructure/api/types"
+import { unwrapResultAsync } from "../../shared/types"
 
 // ─── Keys ──────────────────────────────────────────────────────────────────
 // Threads are story-scoped; messages are thread-scoped. Hierarchy makes
@@ -21,18 +23,20 @@ export const chatKeys = {
 // ─── Queries ───────────────────────────────────────────────────────────────
 
 export function useThreads(storyId: string) {
+    const api = useApi()
     return useQuery({
         queryKey: chatKeys.threads(storyId),
-        queryFn: ({ signal }) => api.chat.getThreads(storyId, { signal }),
+        queryFn: ({ signal }) => unwrapResultAsync(api.chat.getThreads(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
     })
 }
 
 export function useThreadMessages(storyId: string, threadId: string) {
+    const api = useApi()
     return useQuery({
         queryKey: chatKeys.messages(storyId, threadId),
         queryFn: ({ signal }) =>
-            api.chat.getThreadMessages(storyId, threadId, { signal }),
+            unwrapResultAsync(api.chat.getThreadMessages(storyId, threadId, requestOptions({ signal }))),
         enabled: Boolean(storyId) && Boolean(threadId),
     })
 }
@@ -44,10 +48,11 @@ export function useThreadMessages(storyId: string, threadId: string) {
 // canonical persisted message list refetches.
 
 export function useCreateThread(storyId: string) {
+    const api = useApi()
     const qc = useQueryClient()
     return useMutation({
         mutationFn: (payload: CreateThreadBody) =>
-            api.chat.createThread(storyId, payload),
+            unwrapResultAsync(api.chat.createThread(storyId, payload)),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: chatKeys.threads(storyId) })
         },
@@ -55,10 +60,11 @@ export function useCreateThread(storyId: string) {
 }
 
 export function useRenameThread(storyId: string, threadId: string) {
+    const api = useApi()
     const qc = useQueryClient()
     return useMutation({
         mutationFn: (payload: RenameThreadBody) =>
-            api.chat.renameThread(storyId, threadId, payload),
+            unwrapResultAsync(api.chat.renameThread(storyId, threadId, payload)),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: chatKeys.threads(storyId) })
         },
@@ -66,9 +72,10 @@ export function useRenameThread(storyId: string, threadId: string) {
 }
 
 export function useDeleteThread(storyId: string, threadId: string) {
+    const api = useApi()
     const qc = useQueryClient()
     return useMutation({
-        mutationFn: () => api.chat.deleteThread(storyId, threadId),
+        mutationFn: () => unwrapResultAsync(api.chat.deleteThread(storyId, threadId)),
         onSuccess: () => {
             qc.removeQueries({
                 queryKey: chatKeys.messages(storyId, threadId),

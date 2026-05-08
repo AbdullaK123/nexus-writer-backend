@@ -1,10 +1,11 @@
-import { 
+import {
     ApiClient,
-    AuthClient, 
-    ChapterClient, 
-    ChatClient, 
-    StoryClient
- } from "./clients";
+    AuthClient,
+    ChapterClient,
+    ChatClient,
+    StoryClient,
+} from "./clients";
+import type { AppConfig } from "../config"
 
 
 export interface AppApi {
@@ -14,12 +15,21 @@ export interface AppApi {
     chat: ChatClient
 }
 
-const apiClient = new ApiClient()
 
-export const api: AppApi = Object.freeze({
-    auth: new AuthClient(apiClient),
-    story: new StoryClient(apiClient),
-    chapter: new ChapterClient(apiClient),
-    chat: new ChatClient(apiClient)
-})
+/**
+ * Build an `AppApi` instance bound to a concrete config.
+ *
+ * No module-level singleton — the api object is created at the
+ * composition root (main.tsx) once config has been successfully
+ * loaded, then handed to the React tree via `ApiProvider`.
+ */
+export function createApi(config: AppConfig): AppApi {
+    const apiClient = new ApiClient(config)
+    return Object.freeze({
+        auth: new AuthClient(apiClient),
+        story: new StoryClient(apiClient),
+        chapter: new ChapterClient(apiClient),
+        chat: new ChatClient(apiClient),
+    })
+}
 

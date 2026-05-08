@@ -11,8 +11,9 @@ import {
     type ApiMessage,
     ApiMessageSchema,
     type RequestOptions,
+    noRequestOptions,
 } from "../types"
-import { unwrapResult } from "../../../shared/types"
+import type { Result, ApiError } from "../../../shared/types"
 
 export class ChatClient {
 
@@ -21,70 +22,65 @@ export class ChatClient {
         this.api = api
     }
 
-    public async createThread(
+    public createThread(
         storyId: string,
         payload: CreateThreadBody,
-        options: RequestOptions = {},
-    ): Promise<ThreadResponse> {
-        const response = await this.api.postJson(
+        options: RequestOptions = noRequestOptions,
+    ): Promise<Result<ThreadResponse, ApiError>> {
+        return this.api.postJson(
             `/stories/${storyId}/chat/threads`,
             payload,
             ThreadResponseSchema,
             options,
         )
-        return unwrapResult(response)
     }
 
-    public async getThreads(
+    public getThreads(
         storyId: string,
-        options: RequestOptions = {},
-    ): Promise<ThreadListResponse> {
-        const response = await this.api.getJson(
+        options: RequestOptions = noRequestOptions,
+    ): Promise<Result<ThreadListResponse, ApiError>> {
+        return this.api.getJson(
             `/stories/${storyId}/chat/threads`,
             ThreadListResponseSchema,
             options,
         )
-        return unwrapResult(response)
     }
 
-    public async getThreadMessages(
+    public getThreadMessages(
         storyId: string,
         threadId: string,
-        options: RequestOptions = {},
-    ): Promise<ChatMessageListResponse> {
-        const response = await this.api.getJson(
+        options: RequestOptions = noRequestOptions,
+    ): Promise<Result<ChatMessageListResponse, ApiError>> {
+        return this.api.getJson(
             `/stories/${storyId}/chat/threads/${threadId}/messages`,
             ChatMessageListResponseSchema,
             options,
         )
-        return unwrapResult(response)
     }
 
-    public async renameThread(
+    public renameThread(
         storyId: string,
         threadId: string,
         payload: RenameThreadBody,
-        options: RequestOptions = {},
-    ): Promise<ThreadResponse> {
-        const response = await this.api.patchJson(
+        options: RequestOptions = noRequestOptions,
+    ): Promise<Result<ThreadResponse, ApiError>> {
+        return this.api.patchJson(
             `/stories/${storyId}/chat/threads/${threadId}`,
             payload,
             ThreadResponseSchema,
             options,
         )
-        return unwrapResult(response)
     }
 
-    public async deleteThread(
+    public deleteThread(
         storyId: string,
         threadId: string,
-        options: RequestOptions = {},
-    ): Promise<ApiMessage> {
-        const response = await this.api.deleteJson(
+        options: RequestOptions = noRequestOptions,
+    ): Promise<Result<ApiMessage, ApiError>> {
+        return this.api.deleteJson(
             `/stories/${storyId}/chat/threads/${threadId}`,
             ApiMessageSchema,
             options,
         )
-        return unwrapResult(response)
     }
 }
