@@ -1,11 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.tsx'
+import { AppRouter} from "./AppRouter.tsx"
 import { loadConfig } from './infrastructure/config'
 import { createApi } from './infrastructure/api'
 import { ApiProvider, AuthProvider, QueryProvider } from './data/providers'
 import { match, fromNullable } from './shared/types'
+import { QueryClient } from '@tanstack/react-query';
+import { queryClientDefaults } from './data/providers/QueryProvider/config.ts';
 
 // ─── Composition root ───────────────────────────────────────
 //
@@ -44,12 +46,13 @@ match(rootOpt, {
             },
             Ok: (config) => {
                 const api = createApi(config)
+                const queryClient = new QueryClient({ defaultOptions: queryClientDefaults })
                 createRoot(rootEl).render(
                     <StrictMode>
-                        <QueryProvider>
+                        <QueryProvider client={queryClient}>
                             <ApiProvider api={api}>
                                 <AuthProvider>
-                                    <App />
+                                    <AppRouter />
                                 </AuthProvider>
                             </ApiProvider>
                         </QueryProvider>

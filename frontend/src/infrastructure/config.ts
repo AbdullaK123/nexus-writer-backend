@@ -14,8 +14,6 @@ const EnvSchema = z
             .int()
             .positive("VITE_API_TIMEOUT_MS must be a positive integer"),
     })
-    .strict()
-
 
 // ─── Public types ────────────────────────────────────────────
 
