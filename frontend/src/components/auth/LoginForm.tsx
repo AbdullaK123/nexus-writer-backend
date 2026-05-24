@@ -114,7 +114,7 @@ export function LoginForm() {
 
             <p className="card__footer">
                 <span className="card__footer-text">Don't have a vault?</span>
-                <a href="#" className="card__footer-link">Begin one →</a>
+                <a href="/signup" className="card__footer-link">Begin one →</a>
             </p>
         </form>
     )

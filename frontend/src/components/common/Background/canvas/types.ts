@@ -5,7 +5,11 @@ export type Edge = {
     b: Node
 }
 
-export type Node = Vector2D
+export type Node = {
+    initialPos: Vector2D
+    currentPos: Vector2D
+    velocity: Vector2D
+}
 
 
 export type DelaunayGraph = {
@@ -35,6 +39,18 @@ export type Packet = {
     speed: number
 }
 
+
+export type SpawnConfig = 
+      | { type: 'random' }
+      | { type: 'point', origin: Vector2D }
+
+
+export type RadialWave = {
+    origin: Vector2D
+    startTime: number 
+    amplitude: number 
+    velocity: number
+}     
 
 export type Renderer = {
     start: () => void;

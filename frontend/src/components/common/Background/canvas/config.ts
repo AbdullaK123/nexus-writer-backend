@@ -28,33 +28,44 @@ export const PacketAnimConfigSchema = z.object({
     color: cssColor.default("#8bd7f5"),
     radius: positive.default(3.5),
     speedPxPerSec: positive.default(40000),
-    trailLength: z.number().int().min(0).default(8),
+    trailLength: z.number().int().min(0).default(400),
     fadeInMs: z.number().min(0).default(250),
     fadeOutMs: z.number().min(0).default(250)
 }).strict()
 
 export const PathAnimConfigSchema = z.object({
     // Highlight along the active path while the packet traverses it.
-    color:        cssColor.default("#7aa2ff"),
-    widthPx:      positive.default(0.75),
-    baseOpacity:  opacity.default(0.35),
+    color: cssColor.default("#7aa2ff"),
+    widthPx: positive.default(0.75),
+    baseOpacity: opacity.default(0.35),
 }).strict()
 
 
 export const SamplerConfigSchema = z.object({
-    minDistancePx: positive.default(45),
-    maxNodes: positiveInt.default(2000),
+    minDistancePx: positive.default(4),
+    maxNodes: positiveInt.default(1000),
     seed: z.number().int().nonnegative().default(0xdecafbad)
 }).strict()
 
 export const PathSelectionConfigSchema = z.object({
     minEdges: positiveInt.default(6),
-    maxEdges: positiveInt.default(20),
+    maxEdges: positiveInt.default(200),
     selectionRetries: positiveInt.default(50)
 }).strict().refine(
     (v) => v.maxEdges >= v.minEdges,
     { message: "maxEdges must be >= minEdges", path: ["maxEdges"] }
 )
+
+export const PhysicsConfigSchema = z.object({
+    springConstant: z.number().gt(0).default(400),
+    dampingConstant: z.number().gt(0).default(25),
+    repulsionStrength: z.number().gt(0).default(60000),
+    repulsionRadius: z.number().gt(0).default(200),
+    radialWaveInitialAmplitude: z.number().gt(0).default(30000),
+    radialWaveInitialVelocity: z.number().gt(0).default(1000),
+    radialWaveDecayConstant: z.number().gt(0).default(0.25),
+    radialWaveThickness: z.number().gt(0).default(200)
+}).strict()
 
 export const BackgroundConfigSchema = z.object({
     sampler: SamplerConfigSchema,
@@ -63,6 +74,7 @@ export const BackgroundConfigSchema = z.object({
     edge: EdgeAnimConfigSchema,
     path: PathAnimConfigSchema,
     packet: PacketAnimConfigSchema,
+    physics: PhysicsConfigSchema,
     respectReducedMotion: z.boolean().default(true),
 }).strict()
 
@@ -74,6 +86,7 @@ export type PathAnimConfig      = z.infer<typeof PathAnimConfigSchema>
 export type SamplerConfig       = z.infer<typeof SamplerConfigSchema>
 export type PathSelectionConfig = z.infer<typeof PathSelectionConfigSchema>
 export type BackgroundConfig    = z.infer<typeof BackgroundConfigSchema>
+export type PhysicsConfig       = z.infer<typeof PhysicsConfigSchema>
 
 // Defaults: parse `{}` so defaults flow from the schema, not a parallel object.
 export const DEFAULT_BACKGROUND_CONFIG: BackgroundConfig =
@@ -84,6 +97,7 @@ export const DEFAULT_BACKGROUND_CONFIG: BackgroundConfig =
         edge: {},
         path: {},
         packet: {},
+        physics: {},
         respectReducedMotion: true
     })
 

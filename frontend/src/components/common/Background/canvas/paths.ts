@@ -1,22 +1,101 @@
-import { match, None, Some, type Option } from "oxide.ts";
+import { Err, match, None, Ok, Result, Some, type Option } from "oxide.ts";
 import type { BackgroundConfig } from "./config";
-import type { DelaunayGraph } from "./types";
-import { randInt, randItem } from "./utils";
+import type { DelaunayGraph, Node, SpawnConfig, Vector2D } from "./types";
+import { dist, randInt, randItem } from "./utils";
 
-export function selectRandomPath(graph: DelaunayGraph, config: BackgroundConfig): Option<number[]> {
+export function getSpawnConfig(
+    type: 'random' | 'point' | 'center', 
+    origin: Option<Vector2D>
+): Result<SpawnConfig, string> {
+
+    if (type !== "point" && origin.isSome()) return Err("You can only provide an origin if type = 'point'!")
+    if (type === "point" && origin.isNone()) return Err("If type = 'point' you must provide an origin!")
+
+    switch (type) {
+        case 'center': 
+            return Ok({
+                type: 'point', 
+                origin: {
+                    x: window.innerWidth / 2, 
+                    y: window.innerHeight / 2
+                }
+            })
+        case 'point':
+            return Ok({
+                type: 'point',
+                origin: {
+                    x: origin.unwrap().x,
+                    y: origin.unwrap().y
+                }
+            })
+        default:
+            return Ok({
+                type: 'random'
+            })
+    }
+}
+
+export function filterNodes(
+    nodes: Node[],
+    predicate: (node: Node) => boolean
+): number[] {
+    return nodes
+        .map((node, idx) => ({node, idx}))
+        .filter((item) => predicate(item.node))
+        .map(({idx}) => idx)
+}
+
+export function getStartingPointsBySpawnType(
+    nodes: Node[],
+    config: BackgroundConfig,
+    spawnOrigin: Option<Vector2D>,
+    spawnType: 'random' | 'point' | 'center'
+): number[] {
+
+    const spawnConfig  = getSpawnConfig(spawnType, spawnOrigin).expect("Invalid spawn config!")
+
+    switch (spawnConfig.type) {
+        case "point": 
+            return filterNodes(
+                nodes,
+                (node: Node) => (dist(spawnConfig.origin.x, spawnConfig.origin.y, node.initialPos.x, node.initialPos.y) < 12*config.sampler.minDistancePx)
+            )
+        case "random":
+            return filterNodes(
+                nodes,
+                (node: Node) => (
+                    (node.initialPos.x >= 2*config.sampler.minDistancePx) &&
+                    (node.initialPos.x <= window.innerWidth - 2*config.sampler.minDistancePx) &&
+                    (node.initialPos.y >= 2*config.sampler.minDistancePx) &&
+                    (node.initialPos.y <= window.innerHeight - 2*config.sampler.minDistancePx)
+                )
+            )
+    }
+}
+
+export function selectRandomPath(
+    graph: DelaunayGraph, 
+    config: BackgroundConfig,
+    spawnOrigin: Option<Vector2D> = None,
+    spawnType: 'random' | 'point' | 'center' = 'random',
+): Option<number[]> {
 
     if (!graph.adjacency) return None
     if (graph.nodes.length === 0) return None
 
-    const allowed = graph.nodes
-        .map((node, idx) => ({node, idx}))
-        .filter((item) => (
-            (item.node.x >= 15) &&
-            (item.node.x <= window.innerWidth - 15) &&
-            (item.node.y >= 15) &&
-            (item.node.y <= window.innerHeight - 15)
-        ))
-        .map(({idx}) => idx)
+    const allowedStarting = getStartingPointsBySpawnType(graph.nodes, config, spawnOrigin, spawnType)
+
+    if (allowedStarting.length === 0) return None
+    
+    const allowed = filterNodes(
+        graph.nodes,
+        (node: Node) => (
+            (node.initialPos.x >= 2*config.sampler.minDistancePx) &&
+            (node.initialPos.x <= window.innerWidth - 2*config.sampler.minDistancePx) &&
+            (node.initialPos.y >= 2*config.sampler.minDistancePx) &&
+            (node.initialPos.y <= window.innerHeight - 2*config.sampler.minDistancePx)
+        )
+    )
 
     if (allowed.length === 0) {
         return None
@@ -28,7 +107,8 @@ export function selectRandomPath(graph: DelaunayGraph, config: BackgroundConfig)
     const pathLength = randInt(config.pathSelection.minEdges, config.pathSelection.maxEdges)
 
     let previousNodeIdx: Option<number> = None
-    let currentNodeIdx = allowed[Math.floor(Math.random()*allowed.length)] 
+
+    let currentNodeIdx = allowedStarting[Math.floor(Math.random()*allowedStarting.length)] 
 
     const path = [currentNodeIdx]
 

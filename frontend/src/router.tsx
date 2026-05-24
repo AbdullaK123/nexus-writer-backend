@@ -10,6 +10,7 @@ import { LoginPage } from "./components/auth";
 import type { AuthContextValue } from "./data/providers/AuthProvider/AuthContext"
 import { None } from "oxide.ts";
 import { Background } from "./components/common/Background/Background";
+import { SignupPage } from "./components/auth/SignupPage";
 
 interface RouterContext {
     auth: AuthContextValue
@@ -35,6 +36,15 @@ const loginRoute = createRoute({
     component: LoginPage
 })
 
+const signupRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/signup",
+    validateSearch: (s: Record<string, unknown>) => ({
+        redirect: typeof s.redict === "string" ? s.redirect : undefined
+    }),
+    component: SignupPage
+})
+
 const appRoute = createRoute({
     getParentRoute: () => rootRoute,
     id: "app",
@@ -58,6 +68,7 @@ const dashboardRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
     loginRoute,
+    signupRoute,
     appRoute.addChildren([dashboardRoute])
 ])
 

@@ -6,8 +6,8 @@ export function triangulate(nodes: Node[]): DelaunayGraph {
     
     const delaunay = Delaunay.from(
         nodes,
-        (n) => n.x,
-        (n) => n.y
+        (n) => n.initialPos.x,
+        (n) => n.initialPos.y
     )
 
     const seen = new Set<number>()

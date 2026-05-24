@@ -2,8 +2,8 @@ import { LoginForm } from "./LoginForm"
 
 export function LoginPage() {
     return (
-        <div className="login-page">
-            <aside className="login-page__hero">
+        <div className="auth-page">
+            <aside className="auth-page__hero">
                 <div className="hero-brand">
                     <div className="hero-brand__row">
                         <span className="hero-brand__logo">NX</span>
@@ -39,7 +39,7 @@ export function LoginPage() {
                 </footer>
             </aside>
 
-            <main className="login-page__form-pane">
+            <main className="auth-page__form-pane">
                 <LoginForm />
             </main>
         </div>

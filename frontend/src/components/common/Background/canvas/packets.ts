@@ -32,10 +32,10 @@ export function getPacketState(packet: Packet, t: number): Option<PacketState> {
 
     const progress = remaining / packet.edgeLengths[onEdgeIdx]
 
-    const coords = lerp2(packet.nodes[onEdgeIdx].x, packet.nodes[onEdgeIdx].y, packet.nodes[onEdgeIdx + 1].x, packet.nodes[onEdgeIdx + 1].y, progress)
+    const coords = lerp2(packet.nodes[onEdgeIdx].currentPos.x, packet.nodes[onEdgeIdx].currentPos.y, packet.nodes[onEdgeIdx + 1].currentPos.x, packet.nodes[onEdgeIdx + 1].currentPos.y, progress)
     const heading: Vector2D = {
-        x: (packet.nodes[onEdgeIdx + 1].x - packet.nodes[onEdgeIdx].x) / packet.edgeLengths[onEdgeIdx],
-        y: (packet.nodes[onEdgeIdx + 1].y - packet.nodes[onEdgeIdx].y) / packet.edgeLengths[onEdgeIdx]
+        x: (packet.nodes[onEdgeIdx + 1].currentPos.x - packet.nodes[onEdgeIdx].currentPos.x) / packet.edgeLengths[onEdgeIdx],
+        y: (packet.nodes[onEdgeIdx + 1].currentPos.y - packet.nodes[onEdgeIdx].currentPos.y) / packet.edgeLengths[onEdgeIdx]
     }
 
     const totalProgress = dist / packet.totalPathLength
@@ -48,14 +48,20 @@ export function getPacketState(packet: Packet, t: number): Option<PacketState> {
 }
 
 
-export function spawnPacket(graph: DelaunayGraph, config: BackgroundConfig): Option<Packet> {
+export function spawnPacket(
+    graph: DelaunayGraph, 
+    config: BackgroundConfig,
+    spawnOrigin: Option<Vector2D> = None,
+    spawnType: 'random' | 'point' | 'center' = 'random',
+): Option<Packet> {
+    
 
-    const path = selectRandomPath(graph, config).unwrapOr([])
+    const path = selectRandomPath(graph, config, spawnOrigin, spawnType).unwrapOr([])
 
     if (path.length <= 1) return None
     
     const nodes = path.map((idx) => graph.nodes[idx])
-    const edgeLengths = nodes.slice(1).map((node, i) => dist2(nodes[i].x, nodes[i].y, node.x, node.y))
+    const edgeLengths = nodes.slice(1).map((node, i) => dist2(nodes[i].currentPos.x, nodes[i].currentPos.y, node.currentPos.x, node.currentPos.y))
     const totalPacketLength = edgeLengths.reduce((a, b) => a + b, 0)
 
     const startTime = performance.now() / 1000
