@@ -7,7 +7,7 @@ import {
     type ApiMessage,
     requestOptions,
 } from "../../infrastructure/api/types"
-import { unwrapResultAsync } from "../../shared/types"
+import { ApiError, unwrapResultAsync } from "../../shared/types"
 
 export const authKeys = {
     all: ["auth"] as const,
@@ -27,7 +27,7 @@ export function useCurrentUser() {
 export function useLogin() {
     const api = useApi()
     const qc = useQueryClient()
-    return useMutation<UserResponse, Error, AuthCredentials>({
+    return useMutation<UserResponse, ApiError, AuthCredentials>({
         mutationFn: (payload) => unwrapResultAsync(api.auth.login(payload)),
         onSuccess: (user) => {
             qc.setQueryData(authKeys.me(), user)
@@ -38,7 +38,7 @@ export function useLogin() {
 export function useRegister() {
     const api = useApi()
     const qc = useQueryClient()
-    return useMutation<UserResponse, Error, RegistrationData>({
+    return useMutation<UserResponse, ApiError, RegistrationData>({
         mutationFn: (payload) => unwrapResultAsync(api.auth.register(payload)),
         onSuccess: (user) => {
             qc.setQueryData(authKeys.me(), user)
@@ -49,7 +49,7 @@ export function useRegister() {
 export function useLogout() {
     const api = useApi()
     const qc = useQueryClient()
-    return useMutation<ApiMessage, Error, void>({
+    return useMutation<ApiMessage, ApiError, void>({
         mutationFn: () => unwrapResultAsync(api.auth.logout()),
         // Auth changes invalidate EVERYTHING — every cached query is
         // user-scoped on the backend.

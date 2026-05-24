@@ -17,21 +17,21 @@ export function SignupPage() {
                     </h1>
                     <div className="hero-brand">
                         <div className="hero-promise">
-                            <span className="hero-brand__logo">1</span>
+                            <span className="hero-brand__numeral">01</span>
                             <div>
                                 <h3 className="hero-promise__headline">Every scene, indexed.</h3>
                                 <p className="hero-content__subtitle">Background extraction turns chapters into searchable scenes. Characters, tension, pacing, threads. All Queryable.</p>
                             </div>
                         </div>
                         <div className="hero-promise">
-                            <span className="hero-brand__logo">2</span>
+                            <span className="hero-brand__numeral">02</span>
                             <div>
                                 <h3 className="hero-promise__headline">An agent that's read it.</h3>
-                                <p className="hero-content__subtitle">Ask anything about your own book. The agent knows everything and cites its sources.</p>
+                                <p className="hero-content__subtitle">Ask anything about your own book. The agent runs hybrid search and cites the chapters it pulled from.</p>
                             </div>
                         </div>
                         <div className="hero-promise">
-                            <span className="hero-brand__logo">3</span>
+                            <span className="hero-brand__numeral">03</span>
                             <div>
                                 <h3 className="hero-promise__headline">Inline edits you control.</h3>
                                 <p className="hero-content__subtitle">Suggestions appear as Grammarly-style underlines. Accept, reject, or refine each one.</p>

@@ -601,12 +601,19 @@ samp {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 64px;
-    height: 64px;
+    width: 48px;
+    height: 48px;
     border-radius: var(--radius-sm);
     background: rgba(0, 212, 255, 0.15);
     border: 1px solid var(--border-strong);
     font-family: var(--font-display);
+    font-weight: 900;
+    font-size: var(--fs-lg);
+    color: var(--color-cyan);
+    letter-spacing: 0.8px;
+}
+.hero-brand__numeral {
+    font-family: var(--font-mono);
     font-weight: 900;
     font-size: var(--fs-lg);
     color: var(--color-cyan);
@@ -672,7 +679,7 @@ samp {
   flex: 1;
   align-items: center;
   justify-content: center;
-  gap: var(--space-5);
+  gap: var(--space-4);
   padding: var(--space-5)
 }
 .hero-content__headline {

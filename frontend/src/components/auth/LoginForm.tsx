@@ -3,7 +3,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Field } from "@ark-ui/react/field"
 import { useLogin } from "../../data/queries";
-import { match, Result } from "oxide.ts";
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { Button } from "../common";
 
@@ -35,10 +34,12 @@ export function LoginForm() {
     const search = useSearch({ from: "/login" })
 
     const onSubmit = handleSubmit(async (values) => {
-        const result = await Result.safe(login.mutateAsync(values))
-        match(result, {
-            Ok: () => { navigate({ to: search.redirect ?? "/" }) },
-            Err: (err) => { setError("root", { message: err.message }) },
+        login.mutate({
+            email: values.email,
+            password: values.password
+        }, {
+            onSuccess: () => navigate({ to: search.redirect ?? "/"}),
+            onError: (err) => setError("root", { message: err.detail })
         })
     })
 

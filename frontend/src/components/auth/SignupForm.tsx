@@ -3,24 +3,30 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Field } from "@ark-ui/react/field"
 import { useLogin, useRegister } from "../../data/queries"
-import { match, Result } from "oxide.ts"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { Button } from "../common"
+import { getPasswordStrength, PasswordStrengthMeter } from "./PasswordStrengthMeter";
 
 const signupFormSchema = z.object({
     username: z.string().min(5, "Display name must be at least 5 characters."),
     email: z.email(),
-    password: z.string().regex(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/,
-         "Password must be at least 8 characters with uppercase, lowercase, number, and special character"
-    ),
-    agreeTermsAndService: z.boolean().optional()
+    password: z.string().superRefine((val, ctx) => {
+        const result = getPasswordStrength(val)
+        if (result.score < 2) {
+            ctx.addIssue({
+                code: "custom",
+                message: result.warning || "Password is too weak."
+            })
+        }
+    }),
+    agreeTermsAndService: z.literal(true)
 })
 type SignupFormSchema = z.infer<typeof signupFormSchema>
 
 export function SignupForm() {
 
     const {
+        watch,
         register,
         handleSubmit,
         formState: {
@@ -38,32 +44,37 @@ export function SignupForm() {
     const search = useSearch({ from: "/signup" })
 
     const onSubmit = handleSubmit(async (values) => {
-        const result = await Result.safe(signup.mutateAsync({
+       signup.mutate({
             username: values.username,
             email: values.email,
             password: values.password
-        }))
-        match(result, {
-            Ok: () => {
-                const handleLogin = async () => {
-                    const loginResult = await Result.safe(login.mutateAsync({email: values.email, password: values.password}))
-                    match(loginResult, {
-                        Ok: () => { navigate({ to: (search.redirect as string) ?? "/"})},
-                        Err: (err) => { setError("root", { message: err.message })}
-                    })
-                }
-                handleLogin()
+       }, {
+            onSuccess: () => {
+                login.mutate({
+                    email: values.email,
+                    password: values.password
+                }, {
+                    onSuccess: () => navigate({ to: (search.redirect as string) ?? "/" }),
+                    onError: (err) => setError("root", { message: err.detail })
+                })
             },
-            Err: (err) => { setError("root", { message: err.message })}
-        })
+            onError: (err) => {
+                if (err.status === 409) 
+                    setError("email", { message: err.detail }) 
+                else 
+                    setError("root", { message: err.detail})
+            }
+       })
     })
+    
+    const password = watch("password")
 
     return (
         <form onSubmit={onSubmit} className="card">
             <header className="card__header">
                 <span className="system-badge system-badge__nobg">[NEW VAULT]</span>
                 <h2 className="card__title">BEGIN.</h2>
-                <p className="card__subtitle">Your library. your rules. Free for as long as you write.</p>
+                <p className="card__subtitle">Your library, your rules. Free for as long as you write.</p>
             </header>
 
             <Field.Root invalid={!!errors.username} className="field">
@@ -96,7 +107,7 @@ export function SignupForm() {
                 />
                 {errors.email && (
                     <Field.ErrorText className="field__error">
-                        {errors.password?.message}
+                        {errors.email?.message}
                     </Field.ErrorText>
                 )}
             </Field.Root>
@@ -107,7 +118,7 @@ export function SignupForm() {
                 </Field.Label>
                 <Field.Input 
                     type="password"
-                    autoComplete="current-password"
+                    autoComplete="new-password"
                     placeholder="••••••••••"
                     className="field__input"
                     {...register("password")}
@@ -119,7 +130,11 @@ export function SignupForm() {
                 )}
             </Field.Root>
 
-            {/*Password strength checker*/}
+            {password && (
+                <PasswordStrengthMeter 
+                    {...getPasswordStrength(password)}
+                />
+            ) }
 
             <label className="checkbox-row">
                 <input 
@@ -127,7 +142,7 @@ export function SignupForm() {
                     className="checkbox-input"
                     {...register("agreeTermsAndService")}
                 />
-                <span className="checkbox-row__label">I agree to the terms and service</span>
+                <span className="checkbox-row__label">I agree to the Terms and Privacy Policy</span>
             </label>
 
             <Button
@@ -135,12 +150,17 @@ export function SignupForm() {
                 type="submit"
                 disabled={isSubmitting}
             >   
-                {isSubmitting ? "Signing you ip..." : "Create Vault →"}
+                {isSubmitting ? "Signing you up..." : "CREATE VAULT →"}
             </Button>
             <p className="card__footer">
                 <span className="card__footer-text">Already have one?</span>
-                <a href="/login" className="card__footer-link">Login</a>
+                <a href="/login" className="card__footer-link">Log in →</a>
             </p>
+            {errors.root && (
+                <span className="suggestion">
+                    {errors.root.message}
+                </span>
+            )}
         </form>
     )
 }
