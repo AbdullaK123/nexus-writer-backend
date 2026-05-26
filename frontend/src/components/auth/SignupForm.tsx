@@ -67,6 +67,7 @@ export function SignupForm() {
        })
     })
     
+    // eslint-disable-next-line react-hooks/incompatible-library
     const password = watch("password")
 
     return (

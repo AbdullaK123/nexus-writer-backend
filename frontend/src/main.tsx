@@ -8,6 +8,7 @@ import { ApiProvider, AuthProvider, QueryProvider } from './data/providers'
 import { match, fromNullable } from './shared/types'
 import { QueryClient } from '@tanstack/react-query';
 import { queryClientDefaults } from './data/providers/QueryProvider/config.ts';
+import { Toast } from './components/common/Toast/Toast.tsx';
 
 // ─── Composition root ───────────────────────────────────────
 //
@@ -52,7 +53,9 @@ match(rootOpt, {
                         <QueryProvider client={queryClient}>
                             <ApiProvider api={api}>
                                 <AuthProvider>
-                                    <AppRouter />
+                                    <Toast>
+                                        <AppRouter />
+                                    </Toast>
                                 </AuthProvider>
                             </ApiProvider>
                         </QueryProvider>
