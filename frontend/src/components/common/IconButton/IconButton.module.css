@@ -1,0 +1,33 @@
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-1);
+}
+
+.icon-btn__ghost {
+    border: none;
+    background: none
+}
+
+.icon-btn__outline {
+    border: 1px solid var(--border-default);
+    background: none;
+    border-radius: var(--radius-sm);
+}
+
+.icon-btn__solid {
+    border: 1px solid var(--border-default);
+    background: var(--surface-0);
+    border-radius: var(--radius-sm);
+}
+
+.icon-btn__sm {
+    width: 3rem;
+    height: 3rem;
+}
+
+.icon-btn__md {
+    width: 5rem;
+    height: 5rem;
+}
