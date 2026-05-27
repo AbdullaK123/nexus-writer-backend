@@ -1,0 +1,27 @@
+.root {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    position: relative;
+    flex-shrink: 0;
+    user-select: none;
+    border-radius: var(--radius-pill);
+    background: var(--fill-cyan);
+    color: var(--fill-cyan-strong);
+    font-size: 1rem;
+    width: 3rem;
+    height: 3rem;
+}
+
+
+
+.fallback {
+    border-radius: inherit;
+    line-height: 1;
+    text-transform: uppercase;
+    font-weight: 500;
+    font-size: inherit;
+    background: var(--fill-cyan);
+    color: var(--fill-cyan-strong);
+}
