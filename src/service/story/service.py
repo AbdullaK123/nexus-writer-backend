@@ -1,9 +1,10 @@
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 from loguru import logger
 
 from src.data.repositories import StoryRepository, ChapterRepository, SceneRepository
 from src.data.schemas.chapter import ChapterListItem
+from src.data.schemas.enums import StoryStatus
 from src.data.schemas.scene import (
     SceneSearchResponse,
     VocabularyItem,
@@ -116,13 +117,19 @@ class StoryService:
         return StoryDetailResponse.from_story(story, chapter_items)
 
     @handle_service_errors
-    async def get_all_stories(self, user_id: str) -> StoryGridResponse:
+    async def get_all_stories(self, user_id: str, status: Optional[StoryStatus] = None) -> StoryGridResponse:
+
         stories = await self._story_repo.list_for_user(user_id)
         if not stories:
             return StoryGridResponse(stories=[])
+        
+        if status:
+            story_ids = [s.id for s in stories if s.status == status]
+        else:
+            story_ids = [s.id for s in stories]
 
         all_chapters = await self._chapter_repo.list_by_story_ids(
-            [s.id for s in stories],
+            story_ids
         )
 
         by_story: dict[str, list] = {}

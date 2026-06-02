@@ -1,0 +1,6 @@
+.kpis_container {
+    display: flex;
+    justify-content: space-evenly;
+    width: 100%;
+    padding: var(--space-2)
+}

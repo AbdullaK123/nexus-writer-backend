@@ -1,0 +1,20 @@
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-2);
+    width: 100%;
+}
+
+.welcome-section-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-1);
+}
+
+.search-section-container {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-1);
+    padding: var(--space-1);
+}

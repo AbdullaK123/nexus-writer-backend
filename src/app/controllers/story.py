@@ -1,4 +1,6 @@
-from fastapi import APIRouter, BackgroundTasks, Depends
+from typing import Optional
+
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
 from src.app.dependencies import (
     get_current_user,
@@ -7,6 +9,7 @@ from src.app.dependencies import (
     get_story_service,
 )
 from src.data.schemas import UserRow
+from src.data.schemas.enums import StoryStatus
 from src.data.schemas.story import (
     CreateStoryRequest,
     UpdateStoryRequest,
@@ -67,9 +70,10 @@ async def delete_story(
 @story_controller.get("", response_model=StoryGridResponse)
 async def get_stories(
     current_user: UserRow = Depends(get_current_user),
+    status: Optional[StoryStatus] = Query(default=None),
     story_service: StoryService = Depends(get_story_service),
 ) -> StoryGridResponse:
-    return await story_service.get_all_stories(current_user.id)
+    return await story_service.get_all_stories(current_user.id, status)
 
 
 @story_controller.get("/{story_id}", response_model=StoryDetailResponse)

@@ -47,11 +47,11 @@ End-state: production v1 deployed to Render (or Railway) with managed Postgres +
 
 ## Phase 1 — Dashboard (Home) + Library
 
-- [ ] **Backend**: `GET /me/dashboard` → `{ total_words, total_stories, chapters_total, chapters_published, scenes_tracked, streak_days, jump_back_in: [chapter_card x3] }`
-  - [ ] `DashboardService.get_summary(user_id)` aggregating across stories/chapters/scenes
-  - [ ] Streak from `chapter.updated_at` distinct-day series
-  - [ ] `DashboardResponse` schema
-- [ ] **Backend**: extend story list with `?status=ongoing|hiatus|complete` and ensure cards return `chapter_count, word_count, last_touched_at, status`
+- [X] **Backend**: `GET /me/dashboard` → `{ total_words, total_stories, chapters_total, chapters_published, scenes_tracked, streak_days, jump_back_in: [chapter_card x3] }`
+  - [X] `DashboardService.get_summary(user_id)` aggregating across stories/chapters/scenes
+  - [X] Streak from `chapter.updated_at` distinct-day series
+  - [X] `DashboardResponse` schema
+- [X] **Backend**: extend story list with `?status=ongoing|hiatus|complete` and ensure cards return `chapter_count, word_count, last_touched_at, status`
 - [ ] **Frontend**: `frontend/src/components/story/DashboardPage.tsx`
   - [ ] Welcome header with display name + streak chip
   - [ ] 4 stat cards (TOTAL WORDS / CHAPTERS / SCENES TRACKED / STREAK)
