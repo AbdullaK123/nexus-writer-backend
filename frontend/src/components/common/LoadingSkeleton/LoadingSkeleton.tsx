@@ -1,7 +1,11 @@
 import styles from "./LoadingSkeleton.module.css"
 
-export function LoadingSkeleton() {
+type LoadingSkeletonProps = {
+    className?: string 
+}
+
+export function LoadingSkeleton({ className }: LoadingSkeletonProps) {
     return (
-        <div className={styles['skeleton']} />
+        <div className={`${styles['skeleton']} ${className ? className : undefined}`} />
     )
 }

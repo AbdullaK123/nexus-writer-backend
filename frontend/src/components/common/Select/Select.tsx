@@ -1,4 +1,5 @@
-import { Select as ArcSelect, createListCollection } from "@ark-ui/react/select"
+import { forwardRef } from "react";
+import styles from "./Select.module.css"
 
 type Option = {
     label: string 
@@ -6,55 +7,35 @@ type Option = {
 }
 
 type SelectProps = {
-    options: Option[]
-    value?: string 
-    defaultValue?: string
-    placeholder?: string 
-    onChange?: (value: string) => void
-}
+  label: string
+  options: Option[]
+} & React.ComponentPropsWithoutRef<"select">
 
 
-export function Select({
-    options,
-    value,
-    defaultValue,
-    placeholder,
-    onChange
-}: SelectProps) {
-
-    const collection = createListCollection<Option>({
-        items: options
-    })
-
-    const handleValueChange = (details: ArcSelect.ValueChangeDetails<Option>) => {
-        if (onChange) {
-            onChange(details.value[0])
-        }
-    }
-
-
-    return (
-        <ArcSelect.Root
-            collection={collection}
-            value={value ? [value] : undefined}
-            defaultValue={ defaultValue ? [defaultValue] : undefined }
-            onValueChange={handleValueChange}
-        >
-            <ArcSelect.Trigger>
-                <ArcSelect.ValueText placeholder={placeholder} />
-            </ArcSelect.Trigger>
-
-            <ArcSelect.Positioner>
-                <ArcSelect.Content>
-                    {collection.items.map((option) => (
-                        <ArcSelect.Item key={option.value} item={option}>
-                            <ArcSelect.ItemText>{option.label}</ArcSelect.ItemText>
-                            <ArcSelect.ItemIndicator>✓</ArcSelect.ItemIndicator>
-                        </ArcSelect.Item>
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(
+    function Select({
+        label,
+        options,
+        ...rest
+    }, ref) {
+        return (
+            <div className={styles['select-container']}>
+                <label className={styles['label']} htmlFor={label}>{label}</label>
+                <select
+                    id={label} 
+                    ref={ref}
+                    {...rest}
+                >
+                    {options.map((option) => (
+                        <option 
+                            key={option.value} 
+                            value={option.value}
+                        >
+                            {option.label}
+                        </option>
                     ))}
-                </ArcSelect.Content>
-            </ArcSelect.Positioner>
-
-        </ArcSelect.Root>
-    )
-}
+                </select>
+            </div>
+        )
+    }
+)

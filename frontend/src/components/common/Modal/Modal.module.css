@@ -1,0 +1,23 @@
+.modal__backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    z-index: 40;
+}
+
+.modal__positioner {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    z-index: 50;
+}
+
+.modal__content {
+    width: min(520px, calc(100vw - 32px));
+    padding: var(--space-7);
+    background: var(--surface-2);
+    border: 1px solid var(--border-default);
+    border-radius: 20px;
+    box-shadow: var(--elevation-modal);
+}

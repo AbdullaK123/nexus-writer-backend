@@ -69,8 +69,8 @@ app.add_middleware(
 async def service_error_handler(request: Request, exc: ServiceError):
     cid = get_correlation_id()
     detail = {"code": exc.code, "message": exc.message, "correlation_id": cid}
-    if hasattr(exc, "fields") and exc.fields:
-        detail["fields"] = exc.fields
+    if hasattr(exc, "fields") and exc.fields: # type: ignore
+        detail["fields"] = exc.fields # type: ignore
     logger.warning(
         "Service error: {code} — {message}", code=exc.code, message=exc.message
     )

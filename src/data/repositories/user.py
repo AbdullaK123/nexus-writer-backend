@@ -1,5 +1,6 @@
 """UserRepository — raw asyncpg + SQL. Returns Pydantic UserRow."""
 from __future__ import annotations
+from typing import Tuple
 
 import asyncpg
 
@@ -50,3 +51,73 @@ class UserRepository:
             )
         assert row is not None
         return UserRow.model_validate(dict(row))
+    
+    async def get_dashboard(
+        self,
+        *,
+        user_id: str
+    ) -> Tuple[dict, list[dict]]:
+        
+        async with self._pool.acquire() as conn:
+        
+            agg_sql = """
+            WITH unique_dates AS (
+                SELECT DISTINCT
+                    DATE_TRUNC('day', updated_at)::date AS active_date
+                FROM chapter
+                WHERE user_id = $1
+            ),
+            numbered_dates AS (
+                SELECT
+                    active_date,
+                    active_date - ROW_NUMBER() OVER(
+                        ORDER BY active_date
+                    ) * INTERVAL '1 day' AS streak_group
+                FROM unique_dates
+            ),
+            all_streaks AS (
+                SELECT
+                    MAX(active_date) AS streak_end,
+                    COUNT(*) AS streak_days
+                FROM numbered_dates
+                GROUP BY streak_group
+            ),
+            active_streak AS (
+                SELECT 
+                    COALESCE(MAX(streak_days), 0) AS current_streak_days
+                FROM all_streaks
+                WHERE streak_end >= CURRENT_DATE - INTERVAL '1 day'
+            )
+            SELECT
+                SUM(c.word_count) AS total_words,
+                COUNT(s.id) AS total_stories,
+                COUNT(c.id) AS chapters_total,
+                COUNT(CASE WHEN c.published THEN 1 ELSE 0 END) AS chapters_published,
+                COUNT(sc.id) AS scenes_tracked,
+                active_streak.current_streak_days AS streak_days
+            FROM user u 
+            WHERE u.id = $1
+            INNER JOIN story s ON (u.id = s.user_id)
+            INNER JOIN chapter c ON (u.id = c.user_id)
+            INNER JOIN scene sc ON (u.id = sc.user_id)
+            """
+
+            agg_result = await conn.fetch(agg_sql, user_id)
+
+            last_three_chapters_sql = """
+            SELECT
+                id,
+                title,
+                published,
+                word_count,
+                updated_at
+            FROM chapter 
+            WHERE user_id = $1
+            ORDER BY updated_at DESC
+            LIMIT 3
+            """
+
+            last_three_chapters_result = await conn.fetch(last_three_chapters_sql, user_id)
+
+    
+            return dict(agg_result), [dict(result) for result in last_three_chapters_result]

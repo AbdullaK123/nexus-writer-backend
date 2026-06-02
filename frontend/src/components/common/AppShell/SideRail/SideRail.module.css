@@ -1,0 +1,30 @@
+
+.siderail-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    width: 64px;
+    height: 100vh;
+    background: var(--surface-0);
+    gap: var(--space-1);
+    padding: var(--space-2);
+    z-index: 800;
+}
+
+
+.siderail-item {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 48px;
+    height: 48px;
+    color: var(--color-cyan);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--surface-glass);
+}
+
+.siderail-item:hover {
+    box-shadow: var(--elevation-card);
+}

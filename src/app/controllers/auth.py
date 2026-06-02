@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Response, Depends, Cookie
 
 from src.data.schemas.auth import (
+    DashboardResponse,
     UserResponse,
     RegistrationData,
     AuthCredentials,
@@ -67,3 +68,11 @@ async def get_active_user(
     request: Request, user: UserRow = Depends(get_current_user)
 ) -> UserResponse:
     return UserResponse.model_validate(user, from_attributes=True)
+
+@user_controller.get("/me/dashboard", response_model=DashboardResponse)
+async def get_dashboard(
+    request: Request, 
+    current_user: UserRow = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service)
+) -> DashboardResponse:
+    return await auth_service.get_dashboard(user_id=current_user.id)

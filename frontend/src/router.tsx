@@ -11,6 +11,7 @@ import type { AuthContextValue } from "./data/providers/AuthProvider/AuthContext
 import { None } from "oxide.ts";
 import { Background } from "./components/common/Background/Background";
 import { SignupPage } from "./components/auth/SignupPage";
+import { AppShell, KitchenSink } from "./components";
 
 interface RouterContext {
     auth: AuthContextValue
@@ -45,6 +46,12 @@ const signupRoute = createRoute({
     component: SignupPage
 })
 
+const devRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/dev",
+    component: KitchenSink
+})
+
 const appRoute = createRoute({
     getParentRoute: () => rootRoute,
     id: "app",
@@ -57,7 +64,19 @@ const appRoute = createRoute({
             search: {redirect: location.href}
         })
     },
-    component: () => <Outlet />
+    component: () => (
+        <AppShell
+            sideRail={{
+                onClickHome: ()=>{},
+                onClickChat: ()=>{},
+                onClickStat: ()=>{},
+                onClickSet: ()=>{},
+                onClickEdit: ()=>{}
+            }}
+        >
+            <Outlet />
+        </AppShell>
+    )
 })
 
 const dashboardRoute = createRoute({
@@ -69,6 +88,7 @@ const dashboardRoute = createRoute({
 const routeTree = rootRoute.addChildren([
     loginRoute,
     signupRoute,
+    devRoute,
     appRoute.addChildren([dashboardRoute])
 ])
 

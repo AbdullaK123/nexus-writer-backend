@@ -1,0 +1,7 @@
+.app-container {
+    display: grid;
+    width: 100vw;
+    height: 100vh;
+    grid-template-columns: 64px 1fr;
+    gap: var(--space-2)
+}

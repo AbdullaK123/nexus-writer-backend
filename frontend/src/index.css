@@ -98,6 +98,9 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
   --glow-cyan: 0 0 24px rgba(0, 212, 255, 0.45);
 
+  --popover-z-index: 50;
+  --layer-index:  
+
   /* ---- Base ---- */
   color-scheme: dark;
   color: var(--text-secondary);

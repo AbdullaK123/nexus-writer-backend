@@ -1,9 +1,10 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic import EmailStr
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 import re
 from src.data.schemas._base import ApiModel
+from src.data.schemas.chapter import ChapterListItem
 from src.infrastructure.config import config
 
 
@@ -70,3 +71,14 @@ class SessionRow(BaseModel):
     user_agent: Optional[str]
     created_at: datetime
     updated_at: datetime
+
+
+
+class DashboardResponse(ApiModel):
+    total_words: Optional[int] = Field(default=0)
+    total_stories: Optional[int] = Field(default=0)
+    chapters_total: Optional[int] = Field(default=0)
+    chapters_published: Optional[int] = Field(default=0)
+    scenes_tracked: Optional[int] = Field(default=0)
+    streak_days: Optional[int] = Field(default=0)
+    jump_back_in: Optional[List[ChapterListItem]] = []

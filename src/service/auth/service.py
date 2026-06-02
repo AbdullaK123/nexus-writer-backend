@@ -2,10 +2,12 @@ from datetime import datetime, timedelta, timezone
 
 from loguru import logger
 
+from src.data.schemas.chapter import ChapterListItem
 from src.infrastructure.config import config
 from src.data.repositories import UserRepository, SessionRepository
 from src.data.schemas import UserRow
 from src.data.schemas.auth import (
+    DashboardResponse,
     RegistrationData,
     UserResponse,
     AuthCredentials,
@@ -151,3 +153,28 @@ class AuthService:
 
         if total_deleted > 0:
             logger.info("session.cleanup_complete", sessions_deleted=total_deleted)
+
+
+    @handle_service_errors
+    async def get_dashboard(self, user_id: str) -> DashboardResponse:
+        
+        kpis, last_three_chapters = await self._user_repo.get_dashboard(user_id=user_id)
+
+        return DashboardResponse(
+            total_words=kpis['total_words'],
+            total_stories=kpis['total_stories'],
+            chapters_total=kpis['chapters_total'],
+            chapters_published=kpis['chapters_published'],
+            scenes_tracked=kpis['scenes_tracked'],
+            streak_days=kpis['streak_days'],
+            jump_back_in=[
+                ChapterListItem(
+                    id=item['id'],
+                    title=item['title'],
+                    published=item['published'],
+                    word_count=item['word_count'],
+                    updated_at=item['updated_at']
+                )
+                for item in last_three_chapters
+            ]
+        )

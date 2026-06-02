@@ -1,0 +1,11 @@
+.footer-container {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-1);
+}
+
+.kbd-container {
+    display: flex;
+    justify-content: space-evenly;
+    padding: var(--space-1);
+}
