@@ -1,0 +1,58 @@
+.chapter-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    width: 320px;
+    padding: var(--space-5);
+    border-radius: var(--radius-lg);
+    background: var(--surface-2);
+    border: 1px solid var(--border-default);
+    box-shadow: var(--elevation-card);
+    transition: transform 160ms ease, box-shadow 200ms ease, border-color 160ms ease;
+}
+
+.chapter-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--broder-strong);
+    box-shadow: var(--elevation-modal);
+}
+
+.chapter-card__header {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-1);
+}
+
+.chapter-card__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-1);
+}
+
+.chapter-card__footer {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-1);
+}
+
+.chapter-card__number {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 4px var(--space-3);
+    background: var(--fill-cyan-soft);
+    border: 1px solid rgba(0, 212, 255, 0.25);
+}
+
+.chapter-card__text {
+    text-transform: uppercase;
+}
+
+.color-warning {
+    color: var(--color-warning);
+}
+
+.color-cyan {
+    color: var(--color-cyan);
+}
