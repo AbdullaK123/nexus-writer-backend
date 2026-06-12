@@ -2,7 +2,7 @@ import { formatDistanceToNowStrict } from 'date-fns'
 import { Button } from '../../../common';
 import styles from "./ChapterCard.module.css"
 
-type ChapterCardProps = {
+export type ChapterCardProps = {
     storyId: string 
     chapterId: string 
     chapterNumber: number 

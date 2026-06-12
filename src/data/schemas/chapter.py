@@ -41,10 +41,13 @@ class ReorderChapterRequest(ApiModel):
 
 
 class ChapterListItem(ApiModel):
-    id: str
-    title: str
-    published: bool
+    story_id: str
+    chapter_id: str
+    chapter_number: int
     word_count: int
+    story_title: str
+    chapter_title: str 
+    published: bool
     updated_at: datetime
 
 

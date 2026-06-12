@@ -106,14 +106,18 @@ class UserRepository:
 
             last_three_chapters_sql = """
             SELECT
-                id,
-                title,
-                published,
-                word_count,
-                updated_at
-            FROM chapter 
-            WHERE user_id = $1
-            ORDER BY updated_at DESC
+                c.story_id AS story_id,
+                c.id AS chapter_id,
+                c.chapter_number AS chapter_number,
+                c.word_count AS word_count,
+                s.title AS story_title,
+                c.title AS chapter_title,
+                c.published AS published,
+                c.updated_at AS updated_at
+            FROM chapter c
+            INNER JOIN story s ON (c.story_id = s.id)
+            WHERE c.user_id = $1
+            ORDER BY c.updated_at DESC
             LIMIT 3
             """
 

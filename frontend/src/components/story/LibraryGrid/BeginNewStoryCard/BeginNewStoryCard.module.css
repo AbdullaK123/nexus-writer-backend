@@ -1,0 +1,15 @@
+.new-btn {
+    display: inline-flex;
+    background: var(--fill-cyan-soft);
+    border: 1px solid var(--color-cyan);
+    padding: var(--space-2);
+    border-radius: var(--radius-pill);
+}
+
+.new-card-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    align-items: center;
+    justify-content: center;
+}

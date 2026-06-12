@@ -1,6 +1,6 @@
 
 
-type StatusBadgeVariant = "ongoing" | "complete" | "hiatus" | "error" | "draft"
+export type StatusBadgeVariant = "ongoing" | "complete" | "hiatus" | "error" | "draft"
 
 type StatusBadgeProps = {
     variant: StatusBadgeVariant

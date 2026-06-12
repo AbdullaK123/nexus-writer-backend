@@ -169,10 +169,13 @@ class AuthService:
             streak_days=kpis['streak_days'],
             jump_back_in=[
                 ChapterListItem(
-                    id=item['id'],
-                    title=item['title'],
-                    published=item['published'],
+                    story_id=item['story_id'],
+                    chapter_id=item['chapter_id'],
+                    chapter_number=item['chapter_number'],
                     word_count=item['word_count'],
+                    story_title=item['story_title'],
+                    chapter_title=item['chapter_title'],
+                    published=item['published'],
                     updated_at=item['updated_at']
                 )
                 for item in last_three_chapters

@@ -1,0 +1,15 @@
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--fill-neutral);
+    color: var(--text-muted);
+    border: 1px solid var(--border-subtle);
+    text-transform: uppercase
+}
+
+.filter-chip__selected {
+    background: var(--fill-cyan-soft);
+    color: var(--color-cyan)
+}
