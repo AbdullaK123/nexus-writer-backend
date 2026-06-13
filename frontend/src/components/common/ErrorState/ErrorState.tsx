@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import styles from "./EmptyState.module.css"
+import styles from "./ErrorState.module.css"
 
 type EmptyStateProps = {
     headline: string
@@ -8,11 +8,11 @@ type EmptyStateProps = {
     action?: ReactNode
 }
 
-export function EmptyState({ headline, title, description, action }: EmptyStateProps) {
+export function ErrorState({ headline, title, description, action }: EmptyStateProps) {
     return (
         <div className="card">
-            <span className={styles['logo']}>NX</span>
-            <span className="system-badge system-badge__nobg">
+            <span className={styles['logo']}>!</span>
+            <span className={`system-badge system-badge__nobg ${styles['red-text']}`}>
                 {`[${headline}]`}
             </span>
             <h2>{title}</h2>

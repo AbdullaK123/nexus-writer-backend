@@ -2,7 +2,7 @@ import { WelcomeHeader } from "./WelcomeHeader";
 import { KpisRow } from "./KpisRow";
 import { JumpBackInRow } from "./JumpBackInRow";
 import { LibraryGrid } from "./LibraryGrid/LibraryGrid";
-import { EmptyState } from "../../components/common"
+import { Button, EmptyState, ErrorState } from "../../components/common"
 import { DashboardLoadingSkeleton } from "./DashboardLoadingSkeleton";
 import { useDashboardPage } from "./useDashboardPage";
 import { LibraryLoadingSkeleton } from "./LibraryLoadingSkeleton";
@@ -13,7 +13,8 @@ export function DashboardPage() {
     const {
         welcomeHeader,
         dashboard,
-        stories
+        stories,
+        refetch
     } = useDashboardPage()
 
     return (
@@ -25,17 +26,35 @@ export function DashboardPage() {
                 <DashboardLoadingSkeleton />
             )} 
             {dashboard.isError && (
-                <div>
-                    Error state goes here...
-                </div>  
-            )}
-            {dashboard.isEmpty && (
-                <EmptyState
-                    headline="Your vault is empty"
-                    title="Create a story to get started"
+                <ErrorState 
+                    headline="Error"
+                    title="Failed to load your dashboard."
+                    description="Sorry we couldn't load your dashboard. The server might be experiencing issues. Please try again."
+                    action={
+                        <Button
+                            variant="primary"
+                            onClick={() => refetch.dashboard()}
+                        >
+                            Try Again
+                        </Button>
+                    }
                 />
             )}
-            {dashboard.kpisRow && (
+            {stories.isEmpty && (
+                <EmptyState
+                    headline="No stories yet"
+                    title="Your shelf is empty"
+                    description="Start with one story. Even a working title. The agent will read what you write as you write it, and the analytics fill in by themselves."
+                    action={
+                        <Button
+                            variant="primary"
+                        >
+                            Begin a new story →
+                        </Button>
+                    }
+                />
+            )}
+            {!stories.isEmpty && dashboard.kpisRow && (
                 <>
                     <KpisRow 
                         {...dashboard.kpisRow}
@@ -49,11 +68,21 @@ export function DashboardPage() {
                 <LibraryLoadingSkeleton />
             )}
             {stories.isError && (
-                <div>
-                    Story error state goes here
-                </div>
+                <ErrorState 
+                    headline="Error"
+                    title="Failed to load your stories."
+                    description="Sorry we couldn't load your stories. The server might be experiencing issues. Please try again."
+                    action={
+                        <Button
+                            variant="primary"
+                            onClick={() => refetch.stories()}
+                        >
+                            Try Again
+                        </Button>
+                    }
+                />
             )}
-            {stories.libraryGrid && (
+            {!stories.isEmpty && (
                 <LibraryGrid 
                     {...stories.libraryGrid}
                 />

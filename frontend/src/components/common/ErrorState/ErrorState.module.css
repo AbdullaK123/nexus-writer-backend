@@ -1,0 +1,15 @@
+.logo {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 48px;
+    height: 48px;
+    color: var(--color-danger);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--fill-danger);
+}
+
+.red-text {
+    color: var(--color-danger)
+}

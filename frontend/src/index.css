@@ -111,6 +111,7 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+
 /* ============================================================
  * Reset / base
  * ============================================================ */
@@ -253,6 +254,12 @@ samp {
 /* ============================================================
  * Components — design system primitives
  * ============================================================ */
+
+ .hstack {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2);
+ }
 
 /* ---- 01 · Section Tag ---- */
 .section-tag {
@@ -770,6 +777,14 @@ samp {
     font-family: var(--font-ui);
     font-weight: 600;
     color: var(--color-cyan);
+}
+
+.toast_root {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    background: var(--surface-2);
 }
 
 /* When fields/buttons live inside a card they should stretch full width,

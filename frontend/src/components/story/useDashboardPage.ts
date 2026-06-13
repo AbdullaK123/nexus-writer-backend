@@ -10,13 +10,15 @@ export function useDashboardPage() {
     const {
         data: stories,
         isLoading: storiesLoading,
-        isError: storiesError
+        isError: storiesError,
+        refetch: refetchStories
     } = useStories()
 
     const {
         data: dashboard,
         isLoading: dashboardLoading,
-        isError: dashboardError
+        isError: dashboardError,
+        refetch: refetchDashboard
     } = useDashboard()
 
     const onStoryError = useEffectEvent(() => {
@@ -70,6 +72,10 @@ export function useDashboardPage() {
             isLoading: storiesLoading,
             isError: storiesError,
             isEmpty: stories && stories.stories.length === 0
+        },
+        refetch: {
+            dashboard: refetchDashboard,
+            stories: refetchStories
         }
     }
 }

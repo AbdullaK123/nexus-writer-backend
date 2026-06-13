@@ -1,0 +1,93 @@
+[data-scope='toast'][data-part='root'] {
+  translate: var(--x) var(--y);
+  scale: var(--scale);
+  z-index: var(--z-index);
+  height: var(--height);
+  opacity: var(--opacity);
+  will-change: translate, opacity, scale;
+  transition:
+    translate 400ms,
+    scale 400ms,
+    opacity 400ms,
+    height 400ms,
+    box-shadow 200ms;
+  transition-timing-function: cubic-bezier(0.21, 1.02, 0.73, 1);
+
+  &[data-state='closed'] {
+    transition:
+      translate 400ms,
+      scale 400ms,
+      opacity 200ms;
+    transition-timing-function: cubic-bezier(0.06, 0.71, 0.55, 1);
+  }
+}
+
+[data-scope='toast'][data-part='root'] {
+  &[data-type='error'] {
+    border: 1px solid var(--color-danger);
+    color: var(--color-danger);
+  }
+
+  &[data-type='info'] {
+    border: 1px solid var(--color-cyan);
+    color: var(--color-cyan);
+  }
+
+  &[data-type='warning'] {
+    border: 1px solid var(--color-warning);
+    color: var(--color-warning);
+  }
+
+  &[data-type='success'] {
+    border: 1px solid var(--color-success);
+    color: var(--color-success);
+  }
+}
+
+.Root {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    background: var(--surface-2);
+    min-width: 400px;
+    border: 1px solid var(--color-cyan);
+    border-radius: var(--radius-md);
+}
+
+.Title {
+    font-family: var(--font-display);
+    margin: 0;
+    letter-spacing: var(--tracking-wider);
+    font-weight: 800;
+    padding: var(--space-2);
+    text-transform: uppercase;
+}
+
+.Description {
+    padding: var(--space-2)
+}
+
+.accent-left__error {
+  border-left: 6px solid var(--color-danger); /* Thicker line on the left */
+  padding-left: var(--space-1);
+  border-radius: var(--radius-sm);           /* Space between line and text */
+}
+
+.accent-left__warning {
+  border-left: 6px solid var(--color-warning); /* Thicker line on the left */
+  padding-left: var(--space-1);
+  border-radius: var(--radius-sm);           /* Space between line and text */
+}
+
+.accent-left__info {
+  border-left: 6px solid var(--color-cyan); /* Thicker line on the left */
+  padding-left: var(--space-1);
+  border-radius: var(--radius-sm);           /* Space between line and text */
+}
+
+.accent-left__success{
+  border-left: 6px solid var(--color-success); /* Thicker line on the left */
+  padding-left: var(--space-1);
+  border-radius: var(--radius-sm);           /* Space between line and text */
+}
