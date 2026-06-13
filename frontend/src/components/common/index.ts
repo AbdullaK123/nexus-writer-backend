@@ -2,7 +2,6 @@ export * from "./Button"
 export * from "./Background"
 export * from "./Card"
 export * from "./AvatarBadge"
-export * from "./Input"
 export * from "./LoadingSkeleton"
 export * from './Modal'
 export * from "./Popover"

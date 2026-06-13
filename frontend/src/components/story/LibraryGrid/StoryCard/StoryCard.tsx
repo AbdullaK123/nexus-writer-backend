@@ -7,20 +7,18 @@ import { toStatusBadgeVariant } from "./utils";
 
 export type StoryCardProps = {
     storyId: string 
-    chapterId: string 
     status: StoryStatus
     chapterNumber: number
     title: string
     wordCount: number
     updatedAt: Date
-    onClick: (chapterId: string, storyId: string) => void;
+    onClick: (storyId: string) => void;
 }
 
 
 
 export function StoryCard({
     storyId,
-    chapterId,
     status,
     chapterNumber,
     title,
@@ -30,7 +28,7 @@ export function StoryCard({
 }: StoryCardProps)  {
     return (
         <Card
-            onClick={() => onClick(chapterId, storyId)}
+            onClick={() => onClick(storyId)}
             header={(
                 <div className={styles['header-container']}>
                     <StatusBadge variant={toStatusBadgeVariant(status)} />

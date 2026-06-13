@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AvatarBadge, SectionTag } from "../../common";
 import styles from "./WelcomeHeader.module.css"
 
@@ -5,12 +6,14 @@ import styles from "./WelcomeHeader.module.css"
 type WelcomeHeaderProps = {
     username: string
     profileImageUrl?: string;
-    query: string;
-    onQueryChange: (query: string) => void;
+    onEnterDown: (query: string) => void;
 }
 
 
-export function WelcomeHeader({ username, profileImageUrl, query, onQueryChange }: WelcomeHeaderProps) {
+export function WelcomeHeader({ username, profileImageUrl, onEnterDown }: WelcomeHeaderProps) {
+
+    const [query, setQuery] = useState("")
+
     return (
         <div className={styles['header-container']}>
             <div className={styles['welcome-section-container']}>
@@ -23,7 +26,11 @@ export function WelcomeHeader({ username, profileImageUrl, query, onQueryChange 
                 <input 
                     type="text"
                     value={query}
-                    onChange={() => onQueryChange(query)}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" && query.trim() !== "") 
+                            onEnterDown(query)
+                    }}
                     placeholder="Search scenes, chapters..."
                 />
                 <AvatarBadge 

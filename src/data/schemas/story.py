@@ -3,7 +3,7 @@ from typing import List, Optional
 from datetime import datetime
 from src.data.schemas._base import ApiModel
 from src.data.schemas.enums import StoryStatus
-from src.data.schemas.chapter import ChapterListItem
+from src.data.schemas.chapter import ChapterListItem, ChapterRow
 
 
 class CreateStoryRequest(ApiModel):
@@ -30,44 +30,44 @@ class StoryRow(BaseModel):
 
 
 class StoryCardResponse(ApiModel):
-    id: str
-    latest_chapter_id: Optional[str] = None
-    title: str
+    story_id: str
     status: StoryStatus
-    chapter_count: int
+    chapter_number: int
+    title: str
     word_count: int
-    created_at: datetime
     updated_at: datetime
 
     @classmethod
-    def from_story(cls, story, chapters: list) -> "StoryCardResponse":
+    def from_story(cls, story: StoryRow, chapters: List[ChapterRow]) -> "StoryCardResponse":
         return cls(
-            id=story.id,
-            latest_chapter_id=story.path_array[-1] if story.path_array else None,
+            story_id=story.id,
             title=story.title,
             status=story.status,
-            chapter_count=len(chapters),
+            chapter_number=len(chapters),
             word_count=sum(ch.word_count for ch in chapters),
-            created_at=story.created_at,
             updated_at=story.updated_at,
         )
 
 
-class StoryDetailResponse(StoryCardResponse):
+class StoryDetailResponse(ApiModel):
+    story_id: str
+    status: StoryStatus
+    chapter_number: int
+    title: str
+    word_count: int
+    updated_at: datetime
     chapters: List["ChapterListItem"]
 
     @classmethod
     def from_story(
-        cls, story, chapters: list["ChapterListItem"]
+        cls, story: StoryRow, chapters: List["ChapterListItem"]
     ) -> "StoryDetailResponse":
         return cls(
-            id=story.id,
-            latest_chapter_id=story.path_array[-1] if story.path_array else None,
+            story_id=story.id,
             title=story.title,
             status=story.status,
-            chapter_count=len(chapters),
-            word_count=sum(c.word_count for c in chapters),
-            created_at=story.created_at,
+            chapter_number=len(chapters),
+            word_count=sum(ch.word_count for ch in chapters),
             updated_at=story.updated_at,
             chapters=chapters,
         )

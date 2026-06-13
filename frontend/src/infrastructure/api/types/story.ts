@@ -18,14 +18,12 @@ export type UpdateStoryRequest = z.infer<typeof UpdateStoryRequestSchema>
 // ─── Responses ───────────────────────────────────────────────
 
 export const StoryCardResponseSchema = z.object({
-    id: z.string(),
-    latestChapterId: z.string().nullable(),
-    title: z.string(),
+    storyId: z.string(),
     status: StoryStatusSchema,
-    totalChapters: z.number().int(),
-    wordCount: z.number().int(),
-    createdAt: DateTimeSchema,
-    updatedAt: DateTimeSchema,
+    chapterNumber: z.int(),
+    title: z.string(),
+    wordCount: z.int().default(0),
+    updatedAt: DateTimeSchema
 })
 export type StoryCardResponse = z.infer<typeof StoryCardResponseSchema>
 

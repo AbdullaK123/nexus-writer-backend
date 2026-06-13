@@ -8,6 +8,8 @@ import {
     ApiMessageSchema,
     type RequestOptions,
     noRequestOptions,
+    DashboardResponseSchema,
+    type DashboardResponse,
 } from "../types"
 import type { Result, ApiError } from "../../../shared/types"
 
@@ -60,6 +62,16 @@ export class AuthClient {
             "/auth/me",
             UserResponseSchema,
             options,
+        )
+    }
+
+    public getDashboard(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<DashboardResponse, ApiError>> {
+        return this.api.getJson(
+            "/auth/dashboard",
+            DashboardResponseSchema,
+            options
         )
     }
 }

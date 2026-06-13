@@ -11,7 +11,8 @@ import { ApiError, unwrapResultAsync } from "../../shared/types"
 
 export const authKeys = {
     all: ["auth"] as const,
-    me: () => [...authKeys.all, "me"] as const
+    me: () => [...authKeys.all, "me"] as const,
+    dashboard: () => [...authKeys.all, "me", "dashboard"]
 }
 
 export function useCurrentUser() {
@@ -21,6 +22,15 @@ export function useCurrentUser() {
         queryFn: ({ signal }) => unwrapResultAsync(api.auth.getCurrentUser(requestOptions({ signal }))),
         staleTime: 5*60*1000,
         retry: false
+    })
+}
+
+export function useDashboard() {
+    const api = useApi()
+    return useQuery({
+        queryKey: authKeys.dashboard(),
+        queryFn: ({ signal }) => unwrapResultAsync(api.auth.getDashboard(requestOptions({ signal }))),
+        staleTime: 5*60*100
     })
 }
 

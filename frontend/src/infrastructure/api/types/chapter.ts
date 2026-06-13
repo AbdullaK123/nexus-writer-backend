@@ -25,11 +25,14 @@ export type ReorderChapterRequest = z.infer<typeof ReorderChapterRequestSchema>
 // ─── Responses ───────────────────────────────────────────────
 
 export const ChapterListItemSchema = z.object({
-    id: z.string(),
-    title: z.string(),
+    storyId: z.string(),
+    chapterId: z.string(),
+    chapterNumber: z.int(),
+    wordCount: z.int().default(0),
+    storyTitle: z.string(),
+    chapterTitle: z.string(),
     published: z.boolean(),
-    wordCount: z.number().int(),
-    updatedAt: DateTimeSchema,
+    updatedAt: DateTimeSchema
 })
 export type ChapterListItem = z.infer<typeof ChapterListItemSchema>
 

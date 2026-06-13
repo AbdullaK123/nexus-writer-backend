@@ -118,7 +118,7 @@ class AuthService:
         session_id = await self.create_session(
             user.id, connection_details=connection_details
         )
-        logger.info("auth.user_logged_in", user_id=str(user.id))
+        logger.info("auth.user_logged_in", user_id=str(user.id), ip_address=str(connection_details.ip_address), user_agent=str(connection_details.user_agent))
         return UserResponse.model_validate(user, from_attributes=True), session_id
 
     @handle_service_errors
