@@ -16,7 +16,7 @@ export type AuthStatus =
 
 export type AuthContextValue = {
     user: Option<UserResponse>
-    status: AuthStatus
+    status: Option<AuthStatus>
     error: Option<Error>
 }
 

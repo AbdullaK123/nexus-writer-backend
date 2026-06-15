@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const value: AuthContextValue = {
         user,
-        status,
+        status: Some(status),
         error: errorOpt,
     }
 

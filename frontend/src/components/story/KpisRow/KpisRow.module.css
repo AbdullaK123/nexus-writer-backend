@@ -1,13 +1,21 @@
+.row-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    width: 100%;
+}
+
 .kpis-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     place-items: center;
-    gap: var(--space-6);
+    gap: var(--space-5);
     width: 100%;
-    padding: var(--space-6);
+    padding: var(--space-5);
+    max-width: 1200px;
+    margin: 0 auto;
 
     & > * {
         height: 100%;
     }
 }
-

@@ -3,7 +3,8 @@ import {
     createRoute,
     Outlet,
     redirect,
-    createRootRouteWithContext
+    createRootRouteWithContext,
+    useNavigate,
 } from "@tanstack/react-router"
 import { DashboardPage } from "./components/story";
 import { LoginPage } from "./components/auth";
@@ -41,7 +42,7 @@ const signupRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/signup",
     validateSearch: (s: Record<string, unknown>) => ({
-        redirect: typeof s.redict === "string" ? s.redirect : undefined
+        redirect: typeof s.redirect === "string" ? s.redirect : undefined
     }),
     component: SignupPage
 })
@@ -57,26 +58,31 @@ const appRoute = createRoute({
     id: "app",
     beforeLoad: ({ context, location}) => {
         const { status, user } = context.auth 
-        if (status === "loading") return 
-        if (status === "authenticated" && user.isSome()) return 
+        if (status.isSome() && status.unwrap() === "loading") return 
+        if (status.isSome() && status.unwrap() === "authenticated" && user.isSome()) return 
         throw redirect({
             to: "/login",
             search: {redirect: location.href}
         })
     },
-    component: () => (
-        <AppShell
-            sideRail={{
-                onClickHome: ()=>{},
-                onClickChat: ()=>{},
-                onClickStat: ()=>{},
-                onClickSet: ()=>{},
-                onClickEdit: ()=>{}
-            }}
-        >
-            <Outlet />
-        </AppShell>
-    )
+    component: () => {
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        const navigate = useNavigate() 
+
+        return (
+            <AppShell
+                sideRail={{
+                    onClickHome: () => navigate({ to: "/" }),
+                    onClickChat: () => {},
+                    onClickStat: () => {},
+                    onClickSet: () => {},
+                    onClickEdit: () => {}
+                }}
+            >
+                <Outlet />
+            </AppShell>
+        )
+    }
 })
 
 const dashboardRoute = createRoute({
@@ -97,7 +103,7 @@ export const router = createRouter({
     context: {
         auth: {
             user: None,
-            status: "loading",
+            status: None,
             error: None
         }
     }
