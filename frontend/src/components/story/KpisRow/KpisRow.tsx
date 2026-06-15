@@ -20,7 +20,7 @@ export function KpisRow({
     currentStreak
 }: KpisRowProps) {
     return (
-        <div>
+        <div className={styles['row-container']}>
             <span className="system-badge system-badge__nobg">
                 [YOUR PROGRESS]
             </span>

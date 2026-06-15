@@ -1,11 +1,15 @@
-import { useEffect, useEffectEvent } from "react";
-import { useDashboard, useStories } from "../../data/queries";
+import { useEffect, useEffectEvent, useState, type ChangeEvent } from "react";
+import { useCreateStory, useDashboard, useStories } from "../../data/queries";
 import { useToast } from "../common";
 import { useRouteContext } from "@tanstack/react-router";
 
 
 export function useDashboardPage() {
-    const { error } = useToast()
+
+    const [modalOpen, setModalOpen] = useState(false)
+    const [storyTitle, setStoryTitle] = useState("")
+
+    const { error, success } = useToast()
 
     const {
         data: stories,
@@ -13,6 +17,12 @@ export function useDashboardPage() {
         isError: storiesError,
         refetch: refetchStories
     } = useStories()
+
+    const {
+        mutate: createStory,
+        isError: createStoryError,
+        isSuccess: createStorySuccess
+    } = useCreateStory()
 
     const {
         data: dashboard,
@@ -29,6 +39,14 @@ export function useDashboardPage() {
         error("Failed to load you dashboard.", "Something went wrong. If the problem persits, please contact support.")
     })
 
+    const onStoryCreateError = useEffectEvent(() => {
+        error("Failed to create your story", "Something went wrong. If the problem persists, please contact support.")
+    })
+
+    const onStoryCreateSuccess = useEffectEvent(() => {
+        success("Success!", "Your story has been successfully created! Happy Writing!")
+    })
+
     useEffect(() => {
         if (storiesError) onStoryError()
     }, [storiesError])
@@ -36,6 +54,18 @@ export function useDashboardPage() {
      useEffect(() => {
         if (dashboardError) onDashboardError()
     }, [dashboardError])
+
+    useEffect(() => {
+        if (createStoryError) {
+            onStoryCreateError()
+        }
+    }, [createStoryError])
+
+    useEffect(() => {
+        if (createStorySuccess) {
+            onStoryCreateSuccess()
+        }
+    }, [createStorySuccess])
 
     const ctx = useRouteContext({ from: "/app" })
 
@@ -67,7 +97,17 @@ export function useDashboardPage() {
                 stories: stories ? stories.stories.map(
                      (storyCard) => ({...storyCard, onClick: () => {}})
                  ) : [],
-                 onNewStory: () => {}
+                 modalOpen: modalOpen,
+                 storyTitle: storyTitle,
+                 onStoryTitleChange: (e: ChangeEvent<HTMLInputElement>) => setStoryTitle(e.target.value),
+                 onModalOpenChange: (e: boolean) => setModalOpen(e),
+                 onNewStory: (title: string) => {
+                    try {
+                        createStory({title: title})
+                    } finally {
+                        setModalOpen(false)
+                    }
+                 }
             },
             isLoading: storiesLoading,
             isError: storiesError,

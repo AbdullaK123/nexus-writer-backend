@@ -4,7 +4,7 @@ import { z } from "zod"
 import { Field } from "@ark-ui/react/field"
 import { useLogin } from "../../data/queries";
 import { useNavigate, useSearch } from "@tanstack/react-router"
-import { Button } from "../common";
+import { Button, useToast } from "../common";
 
 const loginFormSchema = z.object({
     email: z.email("Invalid email"),
@@ -33,13 +33,23 @@ export function LoginForm() {
 
     const search = useSearch({ from: "/login" })
 
+    
+    const { error, success } = useToast()
+
+
     const onSubmit = handleSubmit(async (values) => {
         login.mutate({
             email: values.email,
             password: values.password
         }, {
-            onSuccess: () => navigate({ to: search.redirect ?? "/"}),
-            onError: (err) => setError("root", { message: err.detail })
+            onSuccess: () => {
+                success("Login Successful!", "Taking you to your dashboard...")
+                navigate({ to: search.redirect ?? "/"})
+            },
+            onError: (err) => {
+                error("Login failed!", err.message)
+                setError("root", { message: err.detail })
+            }
         })
     })
 
@@ -104,7 +114,7 @@ export function LoginForm() {
                 type="submit"
                 disabled={isSubmitting}
             >
-                {isSubmitting ? "Signing you in..." : "Launch Nexus  →"}
+                {login.isPending ? "Signing you in..." : "Launch Nexus  →"}
             </Button>
 
             <div className="divider">

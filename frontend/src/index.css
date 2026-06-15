@@ -116,6 +116,16 @@
  * Reset / base
  * ============================================================ */
 
+ .no__bg {
+  background: none
+ }
+
+ .no__border {
+  border: none;
+  box-shadow: none;
+ }
+ 
+
 *,
 *::before,
 *::after {
@@ -430,9 +440,9 @@ samp {
 .stat {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  width: 220px;
-  padding: var(--space-5);
+  gap: var(--space-2);
+  width: 400px;
+  padding: var(--space-2);
   background: var(--surface-2);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
@@ -440,7 +450,7 @@ samp {
 .stat__label {
   font-family: var(--font-mono);
   font-weight: 500;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-md);
   color: var(--text-secondary);
   letter-spacing: var(--tracking-widest);
   text-transform: uppercase;
@@ -448,13 +458,14 @@ samp {
 .stat__value {
   font-family: var(--font-display);
   font-weight: 700;
+  text-align: center;
   font-size: var(--fs-3xl);
   color: var(--color-cyan);
   letter-spacing: var(--tracking-wider);
 }
 .stat__caption {
   font-family: var(--font-ui);
-  font-size: var(--fs-base);
+  font-size: var(--fs-2xlR);
   color: var(--text-secondary);
 }
 
@@ -639,7 +650,7 @@ samp {
 }
 
 .system-badge {
-    display: inline-flex;
+    display: inline-block;
     align-items: center;
     gap: var(--space-2);
     padding: 4px var(--space-3);
@@ -648,7 +659,7 @@ samp {
     border-radius: var(--radius-pill);
     font-family: var(--font-mono);
     font-weight: 500;
-    font-size: var(--fs-xs);
+    font-size: var(--fs-lg);
     color: var(--color-cyan);
     letter-spacing: 2.2px;
 }
@@ -740,37 +751,49 @@ samp {
 .card {
     display: flex;
     flex-direction: column;
-    gap: var(--space-5);
+    overflow-wrap: break-word;
+    align-items: center;
+    gap: var(--space-6);
     max-width: 100%;
-    padding: var(--space-7);
+    padding: var(--space-6);
     background: var(--surface-2);
+    font-size: var(--fs-lg);
     border: 1px solid var(--border-default);
     border-radius: 20px;
     box-shadow: var(--elevation-modal);
 }
 .card__header {
     display: flex;
+    width: 100%;
     flex-direction: column;
-    gap: var(--space-2);
+    align-items: center;
+    padding: var(--space-3);
+    gap: var(--space-3);
 }
 .card__title {
     font-family: var(--font-display);
     font-weight: 700;
+    width: 100%;
     font-size: 28px;
+    text-align: center;
     color: var(--text-primary);
     letter-spacing: var(--tracking-wide);
     margin: 0;
 }
 .card__subtitle {
     font-family: var(--font-ui);
-    font-size: var(--fs-md);
+    font-size: var(--fs-lg);
+    width: 100%;
     color: var(--text-secondary);
 }
 .card__footer {
     display: flex;
     justify-content: center;
     gap: var(--space-2);
-    font-size: var(--fs-base);
+    width: 100%;
+    font-size: var(--fs-lg);
+    padding: var(--space-3);
+    gap: var(--space-3);
 }
 .card__footer-text { color: var(--text-secondary); }
 .card__footer-link {

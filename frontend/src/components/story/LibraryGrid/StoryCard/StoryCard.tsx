@@ -32,17 +32,17 @@ export function StoryCard({
             header={(
                 <div className={styles['header-container']}>
                     <StatusBadge variant={toStatusBadgeVariant(status)} />
-                    <p className={styles['all-caps']}>{`${chapterNumber} CH`}</p>
+                    <p className={styles['all-caps']}>{`${chapterNumber} chapters`}</p>
                 </div>
             )}
             footer={(
                 <div className={styles['footer-container']}>
-                    <p className={styles['color-cyan']}>{wordCount}</p>
-                    <p className={styles['all-caps']}>{formatDistanceToNowStrict(updatedAt, { addSuffix: true })}</p>
+                    <p className={styles['color-cyan']}>{`${wordCount} words`}</p>
+                    <p className={styles['all-caps']}>{`updated ${formatDistanceToNowStrict(updatedAt, { addSuffix: true })}`}</p>
                 </div>
             )}
         >
-            {title}
+            {<p className={styles['text-left']}>{title}</p>}
         </Card>
     )
 }

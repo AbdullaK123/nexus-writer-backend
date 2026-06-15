@@ -2,10 +2,11 @@ import { WelcomeHeader } from "./WelcomeHeader";
 import { KpisRow } from "./KpisRow";
 import { JumpBackInRow } from "./JumpBackInRow";
 import { LibraryGrid } from "./LibraryGrid/LibraryGrid";
-import { Button, EmptyState, ErrorState } from "../../components/common"
+import { Button, EmptyState, ErrorState, Modal } from "../../components/common"
 import { DashboardLoadingSkeleton } from "./DashboardLoadingSkeleton";
 import { useDashboardPage } from "./useDashboardPage";
 import { LibraryLoadingSkeleton } from "./LibraryLoadingSkeleton";
+import styles from "./DashboardPage.module.css"
 
 
 export function DashboardPage() {
@@ -18,7 +19,7 @@ export function DashboardPage() {
     } = useDashboardPage()
 
     return (
-        <div>
+        <div className={styles['page-container']}>
             <WelcomeHeader 
                 {...welcomeHeader}
             />
@@ -46,11 +47,40 @@ export function DashboardPage() {
                     title="Your shelf is empty"
                     description="Start with one story. Even a working title. The agent will read what you write as you write it, and the analytics fill in by themselves."
                     action={
-                        <Button
-                            variant="primary"
+                        <Modal
+                            open={stories.libraryGrid.modalOpen}
+                            onOpenChange={stories.libraryGrid.onModalOpenChange}
+                            content={
+                                <div className={styles['form-container']}>
+                                    <h2>Create a new Story</h2>
+                                    <div className="hstack">
+                                        <input 
+                                            type="text"
+                                            value={stories.libraryGrid.storyTitle}
+                                            className="field__input"
+                                            placeholder="Give it a nice title..."
+                                            onChange={stories.libraryGrid.onStoryTitleChange}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") 
+                                                    stories.libraryGrid.onNewStory(stories.libraryGrid.storyTitle)
+                                            }}
+                                        />
+                                        <Button
+                                            variant="primary"
+                                            onClick={() => stories.libraryGrid.onNewStory(stories.libraryGrid.storyTitle)}
+                                        >
+                                            Submit
+                                        </Button>
+                                    </div>
+                                </div>
+                            }
                         >
-                            Begin a new story →
-                        </Button>
+                            <Button
+                                variant="primary"
+                            >
+                                Begin a new story →
+                            </Button>
+                        </Modal>
                     }
                 />
             )}

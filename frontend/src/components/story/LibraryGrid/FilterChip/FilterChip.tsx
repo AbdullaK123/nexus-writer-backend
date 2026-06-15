@@ -20,7 +20,7 @@ export function FilterChip({
             role="button"
             onClick={onClick}
         >
-            `{status} - {count}`
+            {`${status} - ${count}`}
         </span>
     )
 }

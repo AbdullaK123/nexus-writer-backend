@@ -7,5 +7,6 @@
     color: var(--color-cyan);
     padding: var(--space-2);
     border-radius: var(--radius-sm);
+    border: 1px solid var(--color-cyan);
     background: var(--surface-glass);
 }

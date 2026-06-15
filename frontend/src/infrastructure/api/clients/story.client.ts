@@ -36,7 +36,7 @@ export class StoryClient {
         options: RequestOptions = noRequestOptions
     ): Promise<Result<ApiMessage, ApiError>> {
         return this.api.postJson(
-            "/stories",
+            "stories",
             payload,
             ApiMessageSchema,
             options
@@ -48,7 +48,7 @@ export class StoryClient {
         options: RequestOptions = noRequestOptions
     ): Promise<Result<ApiMessage, ApiError>> {
         return this.api.putJson(
-            "/stories",
+            "stories",
             payload,
             ApiMessageSchema,
             options
@@ -60,7 +60,7 @@ export class StoryClient {
         options: RequestOptions = noRequestOptions
     ): Promise<Result<ApiMessage, ApiError>> {
         return this.api.deleteJson(
-            `/stories/${storyId}`,
+            `stories/${storyId}`,
             ApiMessageSchema,
             options
         )
@@ -70,7 +70,7 @@ export class StoryClient {
         options: RequestOptions = noRequestOptions
     ): Promise<Result<StoryGridResponse, ApiError>> {
         return this.api.getJson(
-            "/stories",
+            "stories",
             StoryGridResponseSchema,
             options
         )
@@ -81,7 +81,7 @@ export class StoryClient {
         options: RequestOptions = noRequestOptions
     ): Promise<Result<StoryDetailResponse, ApiError>> {
         return this.api.getJson(
-            `/stories/${storyId}`,
+            `stories/${storyId}`,
             StoryDetailResponseSchema,
             options
         )
@@ -93,7 +93,7 @@ export class StoryClient {
         options: RequestOptions = noRequestOptions
     ): Promise<Result<ChapterContentResponse, ApiError>> {
         return this.api.postJson(
-            `/stories/${storyId}/chapters`,
+            `stories/${storyId}/chapters`,
             payload,
             ChapterContentResponseSchema,
             options
@@ -106,7 +106,7 @@ export class StoryClient {
         options: RequestOptions = noRequestOptions
     ): Promise<Result<ApiMessage, ApiError>> {
         return this.api.postJson(
-            `/stories/${storyId}/chapters/reorder`,
+            `stories/${storyId}/chapters/reorder`,
             payload,
             ApiMessageSchema,
             options
@@ -118,7 +118,7 @@ export class StoryClient {
         options: RequestOptions = noRequestOptions
     ): Promise<Result<ChapterListResponse, ApiError>> {
         return this.api.getJson(
-            `/stories/${storyId}/chapters`,
+            `stories/${storyId}/chapters`,
             ChapterListResponseSchema,
             options
         )
@@ -130,7 +130,7 @@ export class StoryClient {
         options: RequestOptions = noRequestOptions
     ): Promise<Result<SceneSearchListResponse, ApiError>> {
         return this.api.postJson(
-            `/stories/${storyId}/search`,
+            `stories/${storyId}/search`,
             payload,
             SceneSearchListResponseSchema,
             options
@@ -142,7 +142,7 @@ export class StoryClient {
         options: RequestOptions = noRequestOptions
     ): Promise<Result<VocabularyListResponse, ApiError>> {
         return this.api.getJson(
-            `/stories/${storyId}/tags`,
+            `stories/${storyId}/tags`,
             VocabularyListResponseSchema,
             options
         )
@@ -153,7 +153,7 @@ export class StoryClient {
         options: RequestOptions = noRequestOptions
     ): Promise<Result<VocabularyListResponse, ApiError>> {
         return this.api.getJson(
-            `/stories/${storyId}/entities`,
+            `stories/${storyId}/entities`,
             VocabularyListResponseSchema,
             options
         )

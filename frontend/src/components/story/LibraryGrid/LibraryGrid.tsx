@@ -9,7 +9,9 @@ import styles from './LibraryGrid.module.css'
 
 export type LibraryGridProps = {
     stories: StoryCardProps[]
-    onNewStory: () => void;
+    modalOpen: boolean
+    onModalOpenChange: (e: boolean) => void 
+    onNewStory: (title: string) => void
 }
 
 const getCounts = (stories: StoryCardProps[]) => {
@@ -25,7 +27,12 @@ const getCounts = (stories: StoryCardProps[]) => {
     }
 }
 
-export function LibraryGrid({ stories, onNewStory }: LibraryGridProps) {
+export function LibraryGrid({ 
+    stories, 
+    modalOpen,
+    onModalOpenChange,
+    onNewStory
+ }: LibraryGridProps) {
     
     const [selected, setSelected] = useState< "all" | "ongoing" | "hiatus" | "complete">("all")
 
@@ -80,7 +87,11 @@ export function LibraryGrid({ stories, onNewStory }: LibraryGridProps) {
                         />
                     ))
                 )}
-                <BeginNewStoryCard onClick={onNewStory} />
+                <BeginNewStoryCard 
+                    modalOpen={modalOpen}
+                    onModalOpenChange={onModalOpenChange}
+                    onNewStory={onNewStory}
+                />
             </div>
         </div>
     )

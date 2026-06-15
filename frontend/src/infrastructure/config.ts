@@ -7,8 +7,7 @@ import { Err, Ok, type Result } from "../shared/types"
 const EnvSchema = z
     .object({
         VITE_API_BASE_URL: z
-            .url()
-            .refine((u) => !u.endsWith("/"), "VITE_API_URL must not end with '/'"),
+            .url(),
         VITE_API_TIMEOUT_MS: z
             .coerce.number()
             .int()

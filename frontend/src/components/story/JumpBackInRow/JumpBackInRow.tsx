@@ -1,3 +1,4 @@
+import { EmptyState } from "../../common";
 import { ChapterCard, type ChapterCardProps } from "./ChapterCard/ChapterCard";
 import styles from "./JumpBackInRow.module.css"
 
@@ -15,12 +16,21 @@ export function JumpBackInRow({ chapterCards }: JumpBackInRowProps) {
                 <p>Last 3 chapters you touched</p>
             </div>
             <div className={styles['content']}>
-                {chapterCards.map((card, idx) => (
-                    <ChapterCard 
-                        key={idx}
-                        {...card}
+                {chapterCards.length === 0 && (
+                    <EmptyState 
+                        headline="No Chapters."
+                        title="No chapters yet."
+                        description="You haven't started writing any chapters yet. Click on any of your stories to start writing Chapter 1."
                     />
-                ))}
+                )}
+                {chapterCards.length > 0 && (
+                    chapterCards.map((card, idx) => (
+                        <ChapterCard 
+                            key={idx}
+                            {...card}
+                        />
+                    ))
+                )}
             </div>
         </div>
     )

@@ -25,7 +25,7 @@ export class AuthClient {
         options: RequestOptions = noRequestOptions,
     ): Promise<Result<UserResponse, ApiError>> {
         return this.api.postJson(
-            "/auth/register",
+            "auth/register",
             payload,
             UserResponseSchema,
             options,
@@ -37,7 +37,7 @@ export class AuthClient {
         options: RequestOptions = noRequestOptions,
     ): Promise<Result<UserResponse, ApiError>> {
         return this.api.postJson(
-            "/auth/login",
+            "auth/login",
             payload,
             UserResponseSchema,
             options,
@@ -48,7 +48,7 @@ export class AuthClient {
         options: RequestOptions = noRequestOptions,
     ): Promise<Result<ApiMessage, ApiError>> {
         return this.api.postJson(
-            "/auth/logout",
+            "auth/logout",
             {},
             ApiMessageSchema,
             options,
@@ -59,7 +59,7 @@ export class AuthClient {
         options: RequestOptions = noRequestOptions,
     ): Promise<Result<UserResponse, ApiError>> {
         return this.api.getJson(
-            "/auth/me",
+            "auth/me",
             UserResponseSchema,
             options,
         )
@@ -69,7 +69,7 @@ export class AuthClient {
         options: RequestOptions = noRequestOptions
     ): Promise<Result<DashboardResponse, ApiError>> {
         return this.api.getJson(
-            "/auth/dashboard",
+            "auth/me/dashboard",
             DashboardResponseSchema,
             options
         )

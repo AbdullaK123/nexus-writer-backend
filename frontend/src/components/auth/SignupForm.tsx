@@ -4,7 +4,7 @@ import { z } from "zod"
 import { Field } from "@ark-ui/react/field"
 import { useLogin, useRegister } from "../../data/queries"
 import { useNavigate, useSearch } from "@tanstack/react-router"
-import { Button } from "../common"
+import { Button, useToast } from "../common"
 import { getPasswordStrength, PasswordStrengthMeter } from "./PasswordStrengthMeter";
 
 const signupFormSchema = z.object({
@@ -41,6 +41,8 @@ export function SignupForm() {
 
     const navigate = useNavigate()
 
+    const { error, success } = useToast()
+
     const search = useSearch({ from: "/signup" })
 
     const onSubmit = handleSubmit(async (values) => {
@@ -54,8 +56,14 @@ export function SignupForm() {
                     email: values.email,
                     password: values.password
                 }, {
-                    onSuccess: () => navigate({ to: (search.redirect as string) ?? "/" }),
-                    onError: (err) => setError("root", { message: err.detail })
+                    onSuccess: () => {
+                        success("Registration Successful!", "Logging you in...")
+                        navigate({ to: (search.redirect as string) ?? "/" })
+                    },
+                    onError: (err) => {
+                        error("Registration failed", err.message)
+                        setError("root", { message: err.detail })
+                    }
                 })
             },
             onError: (err) => {
@@ -151,7 +159,7 @@ export function SignupForm() {
                 type="submit"
                 disabled={isSubmitting}
             >   
-                {isSubmitting ? "Signing you up..." : "CREATE VAULT →"}
+                {signup.isPending ? "Signing you up..." : "CREATE VAULT →"}
             </Button>
             <p className="card__footer">
                 <span className="card__footer-text">Already have one?</span>

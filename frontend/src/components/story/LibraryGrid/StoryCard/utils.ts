@@ -5,7 +5,7 @@ export const toStatusBadgeVariant = (status: StoryStatus): StatusBadgeVariant =>
     switch (status) {
         case "Complete": return "complete"
         case "On Hiatus": return "hiatus"
-        case "Ongoing": return "hiatus"
+        case "Ongoing": return "ongoing"
         default: return "ongoing"
     }
 }

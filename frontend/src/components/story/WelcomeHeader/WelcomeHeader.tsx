@@ -18,7 +18,7 @@ export function WelcomeHeader({ username, profileImageUrl, onEnterDown }: Welcom
         <div className={styles['header-container']}>
             <div className={styles['welcome-section-container']}>
                 <SectionTag 
-                    sectionName={`{username} - online`}
+                    sectionName={`${username} - online`}
                 />
                 <h2>Welcome Back.</h2>
             </div>
@@ -26,6 +26,7 @@ export function WelcomeHeader({ username, profileImageUrl, onEnterDown }: Welcom
                 <input 
                     type="text"
                     value={query}
+                    className="field__input"
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" && query.trim() !== "") 

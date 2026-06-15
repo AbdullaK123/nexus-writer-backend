@@ -1,11 +1,12 @@
 
 .siderail-container {
+    /* REMOVE position: sticky and top */
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
     align-items: center;
     width: 64px;
-    height: 100vh;
+    height: 100vh; /* Keeps sidebar full height */
     background: var(--surface-0);
     gap: var(--space-1);
     padding: var(--space-2);

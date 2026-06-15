@@ -18,7 +18,7 @@ const DEFAULT_OPTIONS: RequestInit = {
     "Accept": "application/json",
     "Content-Type": "application/json",
   },
-  credentials: "same-origin"
+  credentials: 'include'
 };
 
 
@@ -83,6 +83,7 @@ async function fetchApi<T>(
         }
 
         const fullUrl = new URL(url, baseURL).toString()
+        
 
         const response = await fetch(fullUrl, effectiveOptions);
         const elapsedMs = Math.round(performance.now() - startedAt);
@@ -185,6 +186,7 @@ export class ApiClient implements Api {
         schema: z.ZodType<T>,
         options: RequestOptions = noRequestOptions
     ) {
+        console.log(this.baseURL)
         return fetchApi(
             url,
             {

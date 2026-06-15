@@ -70,9 +70,7 @@ class UserRepository:
             numbered_dates AS (
                 SELECT
                     active_date,
-                    active_date - ROW_NUMBER() OVER(
-                        ORDER BY active_date
-                    ) * INTERVAL '1 day' AS streak_group
+                    active_date - (ROW_NUMBER() OVER (ORDER BY active_date) * INTERVAL '1 day') AS streak_group
                 FROM unique_dates
             ),
             all_streaks AS (
@@ -83,32 +81,34 @@ class UserRepository:
                 GROUP BY streak_group
             ),
             active_streak AS (
-                SELECT 
+                SELECT
                     COALESCE(MAX(streak_days), 0) AS current_streak_days
                 FROM all_streaks
                 WHERE streak_end >= CURRENT_DATE - INTERVAL '1 day'
             )
             SELECT
-                SUM(c.word_count) AS total_words,
-                COUNT(s.id) AS total_stories,
-                COUNT(c.id) AS chapters_total,
-                COUNT(CASE WHEN c.published THEN 1 ELSE 0 END) AS chapters_published,
-                COUNT(sc.id) AS scenes_tracked,
-                active_streak.current_streak_days AS streak_days
-            FROM user u 
+                COALESCE(SUM(c.word_count), 0) AS total_words,
+                COUNT(DISTINCT s.id) AS total_stories,
+                COUNT(DISTINCT c.id) AS chapters_total,
+                COUNT(DISTINCT CASE WHEN c.published THEN c.id END) AS chapters_published,
+                COUNT(DISTINCT sc.id) AS scenes_tracked,
+                a.current_streak_days AS streak_days
+            FROM "user" u
+            LEFT JOIN story s ON u.id = s.user_id
+            LEFT JOIN chapter c ON u.id = c.user_id
+            LEFT JOIN scene sc ON u.id = sc.user_id
+            CROSS JOIN active_streak a
             WHERE u.id = $1
-            INNER JOIN story s ON (u.id = s.user_id)
-            INNER JOIN chapter c ON (u.id = c.user_id)
-            INNER JOIN scene sc ON (u.id = sc.user_id)
+            GROUP BY a.current_streak_days
             """
 
-            agg_result = await conn.fetch(agg_sql, user_id)
+            agg_result = await conn.fetchrow(agg_sql, user_id)
 
             last_three_chapters_sql = """
             SELECT
                 c.story_id AS story_id,
                 c.id AS chapter_id,
-                c.chapter_number AS chapter_number,
+                ARRAY_POSITION(s.path_array, c.id) AS chapter_number,
                 c.word_count AS word_count,
                 s.title AS story_title,
                 c.title AS chapter_title,
@@ -124,4 +124,5 @@ class UserRepository:
             last_three_chapters_result = await conn.fetch(last_three_chapters_sql, user_id)
 
     
-            return dict(agg_result), [dict(result) for result in last_three_chapters_result]
+    
+            return (dict(agg_result) if agg_result else {}), [dict(result) for result in last_three_chapters_result]

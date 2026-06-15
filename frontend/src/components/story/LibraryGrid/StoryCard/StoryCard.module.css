@@ -1,13 +1,13 @@
 .header-container {
     display: flex;
+    width: 100%;
     justify-content: space-between;
-    padding: var(--space-1);
 }
 
 .footer-container {
     display: flex;
+    width: 100%;
     justify-content: space-between;
-    padding: var(--space-1);
 }
 
 .color-cyan {
@@ -16,4 +16,10 @@
 
 .all-caps {
     text-transform: uppercase;
+}
+
+.text-left {
+    width: 100%;
+    text-align: left;
+    font-size: var(--fs-xl);
 }
