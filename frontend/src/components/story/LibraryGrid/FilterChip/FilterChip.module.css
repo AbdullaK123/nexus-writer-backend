@@ -1,8 +1,8 @@
 .filter-chip {
     display: inline-flex;
     align-items: center;
-    padding: var(--space-2);
-    border-radius: var(--radius-pill);
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
     background: var(--fill-neutral);
     color: var(--text-muted);
     border: 1px solid var(--border-subtle);

@@ -1,3 +1,4 @@
+import asyncio
 from typing import List, Literal, Optional
 
 from loguru import logger
@@ -5,7 +6,9 @@ from loguru import logger
 from src.data.repositories import StoryRepository, ChapterRepository, SceneRepository
 from src.data.schemas.chapter import ChapterListItem
 from src.data.schemas.enums import StoryStatus
+from src.data.schemas.extraction import BookPulseResponse, PulseDimension
 from src.data.schemas.scene import (
+    SceneRow,
     SceneSearchResponse,
     VocabularyItem,
     VocabularyListResponse,
@@ -17,10 +20,12 @@ from src.data.schemas.story import (
     StoryDetailResponse,
     StoryGridResponse,
 )
+from src.infrastructure.ai.prompts import CHARACTER_PULSE_PROMPT, PLOT_PULSE_PROMPT, STRUCTURE_PULSE_PROMPT, WORLD_PULSE_PROMPT
 from src.infrastructure.ai.providers.protocol import AIProvider
 from src.infrastructure.config.settings import SearchConfig
 from src.service.exceptions import NotFoundError, ConflictError
 from src.service.utils.decorators import handle_service_errors
+from src.infrastructure.config import config
 
 
 class StoryService:
@@ -242,5 +247,101 @@ class StoryService:
         )
         return VocabularyListResponse(
             items=[VocabularyItem(value=v, count=n) for v, n in rows],
+        )
+    
+    def _format_scenes(self, scenes: List[SceneRow]) -> str:
+
+        formatted_scenes = []
+
+        for i, scene in enumerate(scenes):
+
+            header = f"""\
+            SCENE - {i + 1}
+            TITLE: {scene.title}
+            TENSION: {scene.tension} PACING: {scene.pacing}
+            """
+
+            body = f"""\
+            DESCRIPTION:
+            {scene.description}
+            MENTIONED ENTITIES:
+            {", ".join(scene.mentioned_entities)}
+            TAGS:
+            {", ".join(scene.tags)}
+            OPEN QUESTIONS RAISED:
+            {"\n".join(f" - {q}" for q in scene.questions_raised)}
+            """
+
+            formatted_scenes.append("\n".join([header, body]))
+
+        return "\n".join(formatted_scenes)
+            
+    
+    @handle_service_errors
+    async def get_pulse(
+        self, user_id: str, story_id: str
+    ) -> BookPulseResponse:
+        
+        # get all scenes
+        scenes = await self._scene_repo.list_by_story(story_id, user_id)
+
+        # format them as story context
+        story_ctx = self._format_scenes(scenes)
+
+        character_pulse_task = self._provider.extract(
+            system_prompt=CHARACTER_PULSE_PROMPT,
+            text=f"""\
+            <story_context>
+            {story_ctx}
+            </story_context>
+            """,
+            max_tokens=config.ai.pulse_extraction_max_tokens,
+            schema=PulseDimension
+        )
+        plot_pulse_task = self._provider.extract(
+            system_prompt=PLOT_PULSE_PROMPT,
+            text=f"""\
+            <story_context>
+            {story_ctx}
+            </story_context>
+            """,
+            max_tokens=config.ai.pulse_extraction_max_tokens,
+            schema=PulseDimension
+        )
+        structure_pulse_task = self._provider.extract(
+            system_prompt=STRUCTURE_PULSE_PROMPT,
+            text=f"""\
+            <story_context>
+            {story_ctx}
+            </story_context>
+            """,
+            max_tokens=config.ai.pulse_extraction_max_tokens,
+            schema=PulseDimension
+        )
+        world_pulse_task = self._provider.extract(
+            system_prompt=WORLD_PULSE_PROMPT,
+            text=f"""\
+            <story_context>
+            {story_ctx}
+            </story_context>
+            """,
+            max_tokens=config.ai.pulse_extraction_max_tokens,
+            schema=PulseDimension
+        )
+
+        # four parellel extractions
+        character_result, plot_result, structure_result, world_result = \
+            await asyncio.gather(
+                character_pulse_task,
+                plot_pulse_task,
+                structure_pulse_task,
+                world_pulse_task
+            )
+
+        return BookPulseResponse(
+            characters=character_result,
+            plot=plot_result,
+            structure=structure_result,
+            world=world_result
         )
 

@@ -2,6 +2,9 @@ from datetime import datetime
 from pydantic import Field, BaseModel, ConfigDict
 from typing import Literal, List
 
+from src.data.schemas._base import ApiModel
+
+
 class Scene(BaseModel):
     title: str = Field(description="A short descriptive title for the scene.")
     start_quote: str = Field(description="A short VERBATIM quote from the chapter marking where the scene begins.")
@@ -62,3 +65,84 @@ class ExtractionRow(BaseModel):
     data: SceneExtraction
     created_at: datetime
     updated_at: datetime
+
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class PulseDimension(BaseModel):
+    """
+    A high-level editorial assessment of one dimension of the story:
+    characters, plot, structure, or world.
+
+    The assessment identifies the single most consequential pattern visible
+    across the ordered scene synopses. It evaluates broad narrative health
+    and state only, without making claims about prose-level execution.
+    """
+
+    label: Literal[
+        "healthy",
+        "watch",
+        "needs-attention",
+        "unavailable",
+    ] = Field(
+        description="""
+        The current health classification for this story dimension.
+
+        Use 'healthy' when the dimension functions coherently and no
+        significant manuscript-wide concern is evident.
+
+        Use 'watch' when there is a plausible developing imbalance or weakness
+        that deserves the author's attention but does not substantially impair
+        the story.
+
+        Use 'needs-attention' when a clear and consequential pattern across the
+        manuscript warrants author review.
+
+        Use 'unavailable' only when the input lacks coherent narrative scenes,
+        is unrelated to story analysis, is gibberish, or is too sparse to
+        support a responsible assessment.
+        """
+    )
+
+    headline: str = Field(
+        description="""
+        A concise, story-specific headline expressing the single most important
+        high-level finding for this dimension.
+
+        State the actual narrative pattern rather than a generic judgment.
+        Prefer a clear observation such as 'The supporting cast disappears as
+        the invasion escalates' over labels such as 'Character development
+        needs work.'
+
+        When the label is 'unavailable', state that this dimension's pulse is
+        unavailable.
+        """
+    )
+
+    report: str = Field(
+        description="""
+        A short executive report explaining the headline in 2-3 sentences.
+
+        Describe the dominant manuscript-wide pattern, support it with concrete
+        story-specific observations from the scene synopses, and briefly explain
+        why it matters. Remain at the level of characters, plot, structure, or
+        world appropriate to the current call.
+
+        Do not provide a list, detailed scene critique, prescriptive rewrite
+        advice, unsupported speculation, or claims about prose-level qualities
+        that cannot be determined from scene synopses.
+
+        When the label is 'unavailable', briefly explain why the supplied
+        context cannot support the assessment.
+        """
+    )
+
+class BookPulseResponse(ApiModel):
+    """The complete high-level editorial pulse for a story."""
+
+    characters: PulseDimension
+    plot: PulseDimension
+    structure: PulseDimension
+    world: PulseDimension

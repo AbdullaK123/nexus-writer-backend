@@ -10,7 +10,7 @@ type EmptyStateProps = {
 
 export function EmptyState({ headline, title, description, action }: EmptyStateProps) {
     return (
-        <div className="card">
+        <div className={`card ${styles['max-width']}`}>
             <span className={styles['logo']}>NX</span>
             <span className="system-badge system-badge__nobg">
                 {`[${headline}]`}

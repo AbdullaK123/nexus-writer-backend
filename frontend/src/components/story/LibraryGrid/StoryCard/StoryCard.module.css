@@ -22,4 +22,5 @@
     width: 100%;
     text-align: left;
     font-size: var(--fs-xl);
+    padding: var(--space-2);
 }

@@ -21,34 +21,37 @@ export function KpisRow({
 }: KpisRowProps) {
     return (
         <div className={styles['row-container']}>
-            <span className="system-badge system-badge__nobg">
-                [YOUR PROGRESS]
-            </span>
+            <div className={styles['space-between']}>
+                 <span className="system-badge system-badge__nobg">
+                    [YOUR PROGRESS]
+                </span>
+                <p>{`${currentStreak} day streak`}</p>
+            </div>
             <div className={styles['kpis-container']}>
                 <Card 
                     className="stat"
-                    title="TOTAL WORDS"
+                    header="TOTAL WORDS"
                     footer={<p className="stat__caption">{`across ${storyCount} stories`}</p>}
                 >
                     <h2 className="stat__value">{totalWords}</h2>
                 </Card>
                 <Card
                     className="stat"
-                    title="CHAPTERS"
-                    footer={<p className="stat__caption">{chaptersPublished}</p>}
+                    header="CHAPTERS"
+                    footer={<p className="stat__caption">{chaptersPublished} published</p>}
                 >
                     <h2 className="stat__value">{totalChapters}</h2>
                 </Card>
                 <Card
                     className="stat"
-                    title="SCENES TRACKED"
+                    header="SCENES TRACKED"
                     footer={<p className="stat__caption">extracted</p>}
                 >
                     <h2 className="stat__value">{totalScenesTracked}</h2>
                 </Card>
                 <Card
                     className="stat"
-                    title="STREAK"
+                    header="STREAK"
                     footer={<p className="stat__caption">days writing</p>}
                 >
                     <h2 className="stat__value">{currentStreak}</h2>

@@ -42,7 +42,7 @@ export function StoryCard({
                 </div>
             )}
         >
-            {<p className={styles['text-left']}>{title}</p>}
+            {<h3 className={styles['text-left']}>{title}</h3>}
         </Card>
     )
 }

@@ -52,15 +52,15 @@ End-state: production v1 deployed to Render (or Railway) with managed Postgres +
   - [X] Streak from `chapter.updated_at` distinct-day series
   - [X] `DashboardResponse` schema
 - [X] **Backend**: extend story list with `?status=ongoing|hiatus|complete` and ensure cards return `chapter_count, word_count, last_touched_at, status`
-- [ ] **Frontend**: `frontend/src/components/story/DashboardPage.tsx`
-  - [ ] Welcome header with display name + streak chip
-  - [ ] 4 stat cards (TOTAL WORDS / CHAPTERS / SCENES TRACKED / STREAK)
-  - [ ] "Jump back in" row — 3 recent chapter cards
-  - [ ] Library grid with status filter pills (ALL / ONGOING / HIATUS / COMPLETE)
-  - [ ] `BeginNewStoryCard` that expands inline into create form
-- [ ] **Frontend**: `useDashboard` hook in `frontend/src/data/queries/dashboard.ts`
-- [ ] **Frontend**: status filter via TanStack Router search param
-- [ ] Click story card → `/stories/$storyId`
+- [X] **Frontend**: `frontend/src/components/story/DashboardPage.tsx`
+  - [X] Welcome header with display name + streak chip
+  - [X] 4 stat cards (TOTAL WORDS / CHAPTERS / SCENES TRACKED / STREAK)
+  - [X] "Jump back in" row — 3 recent chapter cards
+  - [X] Library grid with status filter pills (ALL / ONGOING / HIATUS / COMPLETE)
+  - [X] `BeginNewStoryCard` that expands inline into create form
+- [X] **Frontend**: `useDashboard` hook in `frontend/src/data/queries/dashboard.ts`
+- [X] **Frontend**: status filter via TanStack Router search param
+- [X] Click story card → `/stories/$storyId`
 - [ ] **Verify**: pytest integration — seed 4 stories, `/me/dashboard` returns correct counts + streak
 - [ ] **Verify**: Playwright — login, dashboard renders with seeded data, filter pills work
 

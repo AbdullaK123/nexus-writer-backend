@@ -34,5 +34,6 @@ ai:
   timeout: 300.0
   max_concurrent_requests: 35
   scene_extraction_max_tokens: 16000
+  pulse_extraction_max_tokens: 10000
   extraction_retry_attempts: 20
   extraction_retry_wait_seconds: 1.0

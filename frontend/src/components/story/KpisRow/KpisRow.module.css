@@ -5,6 +5,12 @@
     width: 100%;
 }
 
+.space-between {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-2);
+}
+
 .kpis-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -12,7 +18,7 @@
     gap: var(--space-5);
     width: 100%;
     padding: var(--space-5);
-    max-width: 1200px;
+    max-width: 1920px;
     margin: 0 auto;
 
     & > * {

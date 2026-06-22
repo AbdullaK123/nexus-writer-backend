@@ -88,6 +88,7 @@ class AiConfig(BaseModel, frozen=True):
     timeout: float = 300.0
     max_concurrent_requests: int = 16
     scene_extraction_max_tokens: int = 8000
+    pulse_extraction_max_tokens: int = 8000
     extraction_retry_attempts: int = 3
     extraction_retry_wait_seconds: float = 1.0
 
