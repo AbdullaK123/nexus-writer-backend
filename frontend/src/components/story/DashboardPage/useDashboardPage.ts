@@ -19,9 +19,7 @@ export function useDashboardPage() {
     } = useStories()
 
     const {
-        mutate: createStory,
-        isError: createStoryError,
-        isSuccess: createStorySuccess
+        mutate: createStory
     } = useCreateStory()
 
     const {
@@ -39,14 +37,6 @@ export function useDashboardPage() {
         error("Failed to load you dashboard.", "Something went wrong. If the problem persits, please contact support.")
     })
 
-    const onStoryCreateError = useEffectEvent(() => {
-        error("Failed to create your story", "Something went wrong. If the problem persists, please contact support.")
-    })
-
-    const onStoryCreateSuccess = useEffectEvent(() => {
-        success("Success!", "Your story has been successfully created! Happy Writing!")
-    })
-
     useEffect(() => {
         if (storiesError) onStoryError()
     }, [storiesError])
@@ -54,18 +44,6 @@ export function useDashboardPage() {
      useEffect(() => {
         if (dashboardError) onDashboardError()
     }, [dashboardError])
-
-    useEffect(() => {
-        if (createStoryError) {
-            onStoryCreateError()
-        }
-    }, [createStoryError])
-
-    useEffect(() => {
-        if (createStorySuccess) {
-            onStoryCreateSuccess()
-        }
-    }, [createStorySuccess])
 
     const ctx = useRouteContext({ from: "/app" })
 
@@ -103,7 +81,22 @@ export function useDashboardPage() {
                  onModalOpenChange: (e: boolean) => setModalOpen(e),
                  onNewStory: (title: string) => {
                     try {
-                        createStory({title: title})
+                        createStory({title: title}, {
+                            onSuccess: () => {
+                                success(
+                                    "Success!",
+                                    "Your story has been successfully created! Happy writing!"
+                                )
+                                setStoryTitle("")
+                                setModalOpen(false)
+                            },
+                            onError: () => {
+                                error(
+                                    "Failed to create your story.",
+                                    "Something went wrong. If the problem persists, please contact support."
+                                )
+                            }
+                        })
                     } finally {
                         setModalOpen(false)
                     }
@@ -111,7 +104,7 @@ export function useDashboardPage() {
             },
             isLoading: storiesLoading,
             isError: storiesError,
-            isEmpty: stories && stories.stories.length === 0
+            isEmpty: Boolean(dashboard && dashboard.jumpBackIn.length === 0)
         },
         refetch: {
             dashboard: refetchDashboard,

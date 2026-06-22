@@ -2,7 +2,7 @@ import { WelcomeHeader } from "./WelcomeHeader";
 import { KpisRow } from "./KpisRow";
 import { JumpBackInRow } from "./JumpBackInRow";
 import { LibraryGrid } from "./LibraryGrid/LibraryGrid";
-import { Button, EmptyState, ErrorState, Modal } from "../../components/common"
+import { Button, EmptyState, ErrorState, Modal } from "../../common"
 import { DashboardLoadingSkeleton } from "./DashboardLoadingSkeleton";
 import { useDashboardPage } from "./useDashboardPage";
 import { LibraryLoadingSkeleton } from "./LibraryLoadingSkeleton";
