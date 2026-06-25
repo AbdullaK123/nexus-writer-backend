@@ -1,0 +1,16 @@
+.content {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: var(--space-2);
+    padding: var(--space-2);
+}
+
+.list-items {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    overflow-y: scroll;
+}

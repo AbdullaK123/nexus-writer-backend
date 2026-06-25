@@ -1,0 +1,23 @@
+.main-content {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: var(--space-1);
+}
+
+
+
+.count-container {
+    display: flex;
+    flex-direction: column;
+    width: fit-content;
+    gap: var(--space-1);
+    padding: var(--space-1);
+}
+
+.filter-chip-container {
+    display: flex;
+    justify-content: space-evenly;
+    padding: var(--space-1);
+    width: fit-content;
+}

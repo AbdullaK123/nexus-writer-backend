@@ -1,0 +1,40 @@
+.content {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: var(--space-4);
+}
+
+.selected {
+    background: var(--fill-cyan-soft);
+    border: 1px solid var(--color-cyan);
+    border-radius: var(--radius-md)
+}
+
+.chapter-info-container {
+    display: flex;
+    width: fit-content;
+    gap: var(--space-2);
+    padding: var(--space-1);
+}
+
+.chapter-number {
+    display: inline-block;
+    font-size: var(--fs-lg);
+    padding: var(--space-1);
+}
+
+.chapter-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-1);
+}
+
+.draft {
+    color: var(--color-warning);
+}
+
+.all-caps {
+    text-transform: uppercase;
+}

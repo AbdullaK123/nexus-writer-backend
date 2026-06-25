@@ -42,6 +42,8 @@ export const PulseDimensionSchema = z.object({
     headline: z.string(),
     report: z.string()
 })
+export type PulseDimension = z.infer<typeof PulseDimensionSchema>
+
 export const BookPulseResponseSchema = z.object({
     characters: PulseDimensionSchema,
     plot: PulseDimensionSchema,

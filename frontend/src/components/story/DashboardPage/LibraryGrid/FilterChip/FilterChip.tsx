@@ -2,7 +2,7 @@ import styles from "./FilterChip.module.css"
 
 
 type FilterChipProps = {
-    status: "all" | "ongoing" | "hiatus" | "complete"
+    status: "all" | "ongoing" | "hiatus" | "complete" | "draft" | "published"
     count: number
     selected: boolean
     onClick: () => void;
