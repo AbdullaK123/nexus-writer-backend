@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from src.app.dependencies import get_current_user, get_chapter_service
 from src.data.schemas import UserRow
-from src.data.schemas.chapter import ChapterContentResponse, UpdateChapterRequest
+from src.data.schemas.chapter import ChapterContentResponse, ChapterSummaryResponse, UpdateChapterRequest
 from src.service.chapter import ChapterService
 
 chapter_controller = APIRouter(prefix="/chapters")
@@ -43,4 +43,15 @@ async def delete_chapter(
     return await chapter_service.delete_chapter(
         chapter_id=chapter_id,
         user_id=current_user.id,
+    )
+
+@chapter_controller.get("/{chapter_id}/summary", response_model=ChapterSummaryResponse)
+async def summarize_chapter(
+    chapter_id: str,
+    current_user: UserRow = Depends(get_current_user),
+    chapter_service: ChapterService = Depends(get_chapter_service),
+) -> ChapterSummaryResponse:
+    return await chapter_service.summarize_chapter(
+        chapter_id=chapter_id,
+        user_id=current_user.id
     )

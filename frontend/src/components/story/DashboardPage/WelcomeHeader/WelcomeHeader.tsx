@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { AvatarBadge, SectionTag } from "../../common";
+import { AvatarBadge, SectionTag } from "../../../common";
 import styles from "./WelcomeHeader.module.css"
+import { Option } from "oxide.ts"
 
-
-type WelcomeHeaderProps = {
+export type WelcomeHeaderProps = {
     username: string
-    profileImageUrl?: string;
+    profileImageUrl: Option<string>;
     onEnterDown: (query: string) => void;
 }
 

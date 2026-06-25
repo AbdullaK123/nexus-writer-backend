@@ -7,6 +7,7 @@ import { DashboardLoadingSkeleton } from "./DashboardLoadingSkeleton";
 import { useDashboardPage } from "./useDashboardPage";
 import { LibraryLoadingSkeleton } from "./LibraryLoadingSkeleton";
 import styles from "./DashboardPage.module.css"
+import { None, Some } from "oxide.ts";
 
 
 export function DashboardPage() {
@@ -30,14 +31,14 @@ export function DashboardPage() {
                 <ErrorState 
                     headline="Error"
                     title="Failed to load your dashboard."
-                    description="Sorry we couldn't load your dashboard. The server might be experiencing issues. Please try again."
+                    description={Some("Sorry we couldn't load your dashboard. The server might be experiencing issues. Please try again.")}
                     action={
-                        <Button
+                        Some(<Button
                             variant="primary"
                             onClick={() => refetch.dashboard()}
                         >
                             Try Again
-                        </Button>
+                        </Button>)
                     }
                 />
             )}
@@ -45,49 +46,52 @@ export function DashboardPage() {
                 <EmptyState
                     headline="No stories yet"
                     title="Your shelf is empty"
-                    description="Start with one story. Even a working title. The agent will read what you write as you write it, and the analytics fill in by themselves."
+                    description={Some("Start with one story. Even a working title. The agent will read what you write as you write it, and the analytics fill in by themselves.")}
                     action={
-                        <Modal
-                            open={stories.libraryGrid.modalOpen}
-                            onOpenChange={stories.libraryGrid.onModalOpenChange}
-                            content={
-                                <div className={styles['form-container']}>
-                                    <h2>Create a new Story</h2>
-                                    <div className="hstack">
-                                        <input 
-                                            type="text"
-                                            value={stories.libraryGrid.storyTitle}
-                                            className="field__input"
-                                            placeholder="Give it a nice title..."
-                                            onChange={stories.libraryGrid.onStoryTitleChange}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") 
-                                                    stories.libraryGrid.onNewStory(stories.libraryGrid.storyTitle)
-                                            }}
-                                        />
-                                        <Button
-                                            variant="primary"
-                                            onClick={() => stories.libraryGrid.onNewStory(stories.libraryGrid.storyTitle)}
-                                        >
-                                            Submit
-                                        </Button>
+                        Some(<Modal
+                                open={stories.libraryGrid.modalOpen}
+                                onOpenChange={stories.libraryGrid.onModalOpenChange}
+                                closeTrigger={None}
+                                title={None}
+                                description={None}
+                                content={
+                                    <div className={styles['form-container']}>
+                                        <h2>Create a new Story</h2>
+                                        <div className="hstack">
+                                            <input 
+                                                type="text"
+                                                value={stories.storyTitle}
+                                                className="field__input"
+                                                placeholder="Give it a nice title..."
+                                                onChange={stories.onStoryTitleChange}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") 
+                                                        stories.libraryGrid.onNewStory(stories.storyTitle)
+                                                }}
+                                            />
+                                            <Button
+                                                variant="primary"
+                                                onClick={() => stories.libraryGrid.onNewStory(stories.storyTitle)}
+                                            >
+                                                Submit
+                                            </Button>
+                                        </div>
                                     </div>
-                                </div>
-                            }
-                        >
-                            <Button
-                                variant="primary"
+                                }
                             >
-                                Begin a new story →
-                            </Button>
-                        </Modal>
+                                <Button
+                                    variant="primary"
+                                >
+                                    Begin a new story →
+                                </Button>
+                            </Modal>)
                     }
                 />
             )}
             {!stories.isEmpty && dashboard.kpisRow && (
                 <>
                     <KpisRow 
-                        {...dashboard.kpisRow}
+                        {...dashboard.kpisRow.unwrap()}
                     />
                     <JumpBackInRow 
                         {...dashboard.jumpBackInRow}
@@ -101,14 +105,14 @@ export function DashboardPage() {
                 <ErrorState 
                     headline="Error"
                     title="Failed to load your stories."
-                    description="Sorry we couldn't load your stories. The server might be experiencing issues. Please try again."
+                    description={Some("Sorry we couldn't load your stories. The server might be experiencing issues. Please try again.")}
                     action={
-                        <Button
+                        Some(<Button
                             variant="primary"
                             onClick={() => refetch.stories()}
                         >
                             Try Again
-                        </Button>
+                        </Button>)
                     }
                 />
             )}

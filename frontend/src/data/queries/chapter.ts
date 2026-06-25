@@ -1,11 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useApi } from "../providers/ApiProvider"
 import {
+    type ChapterContentResponse,
+    type ChapterSummaryResponse,
     type UpdateChapterRequest,
     requestOptions,
 } from "../../infrastructure/api/types"
 import { storyKeys } from "./story"
 import { unwrapResultAsync } from "../../shared/types"
+import { toAsyncState } from "../../infrastructure/api/utils";
 
 // ─── Keys ──────────────────────────────────────────────────────────────────
 // Chapter cache lives under its own root because chapters are also
@@ -16,18 +19,20 @@ export const chapterKeys = {
     all: ["chapters"] as const,
     detail: (chapterId: string, asHtml: boolean) =>
         [...chapterKeys.all, "detail", chapterId, { asHtml }] as const,
+    summary: (chapterId: string) => 
+        [...chapterKeys.all, chapterId, "summary"]
 }
 
 // ─── Queries ───────────────────────────────────────────────────────────────
 
 export function useChapter(chapterId: string, asHtml: boolean = true) {
     const api = useApi()
-    return useQuery({
+    return toAsyncState<ChapterContentResponse>(useQuery({
         queryKey: chapterKeys.detail(chapterId, asHtml),
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.chapter.getChapter(chapterId, asHtml, requestOptions({ signal }))),
         enabled: Boolean(chapterId),
-    })
+    }))
 }
 
 // ─── Mutations ─────────────────────────────────────────────────────────────
@@ -65,4 +70,13 @@ export function useDeleteChapter(chapterId: string, storyId: string) {
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
         },
     })
+}
+
+export function useChapterSummary(chapterId: string) {
+    const api = useApi()
+    return toAsyncState<ChapterSummaryResponse>(useQuery({
+        queryKey: chapterKeys.summary(chapterId),
+        queryFn: ({ signal }) => unwrapResultAsync(api.chapter.summarizeChapter(chapterId, requestOptions({ signal }))),
+        enabled: Boolean(chapterId)
+    }))
 }

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List, Optional
 
 import asyncpg
 from loguru import logger
@@ -16,6 +17,11 @@ from src.data.schemas import (
     ChapterContentResponse,
     ChapterListResponse,
 )
+from src.data.schemas.chapter import ChapterSummaryResponse
+from src.data.schemas.scene import SceneRow
+from src.infrastructure.config import config
+from src.infrastructure.ai.prompts import SUMMARIZATION_PROMPT
+from src.infrastructure.ai.providers.protocol import AIProvider
 from src.service.exceptions import NotFoundError, ValidationError, InternalError
 from src.service.extraction import scenes_are_stale
 from src.service.utils.decorators import handle_service_errors
@@ -32,10 +38,12 @@ class ChapterService:
         story_repo: StoryRepository,
         chapter_repo: ChapterRepository,
         scene_repo: SceneRepository,
+        provider: AIProvider
     ):
         self._story_repo = story_repo
         self._chapter_repo = chapter_repo
         self._scene_repo = scene_repo
+        self._provider = provider
 
     # ─── reads ─────────────────────────────────────────────────────────────
 
@@ -375,3 +383,81 @@ class ChapterService:
             "chapter.path_reordered",
             story_id=story_id, from_pos=from_pos, to_pos=to_pos,
         )
+
+    def _format_scenes(self, scenes: List[SceneRow]) -> str:
+
+        formatted_scenes = []
+
+        for i, scene in enumerate(scenes):
+
+            header = f"""\
+            SCENE - {i + 1}
+            TITLE: {scene.title}
+            TENSION: {scene.tension} PACING: {scene.pacing}
+            """
+
+            body = f"""\
+            DESCRIPTION:
+            {scene.description}
+            MENTIONED ENTITIES:
+            {", ".join(scene.mentioned_entities)}
+            TAGS:
+            {", ".join(scene.tags)}
+            OPEN QUESTIONS RAISED:
+            {"\n".join(f" - {q}" for q in scene.questions_raised)}
+            """
+
+            formatted_scenes.append("\n".join([header, body]))
+
+        return "\n".join(formatted_scenes)
+    
+    @handle_service_errors
+    async def get_story_context(
+        self, user_id: str, story_id: str, chapter_id: Optional[str] = None
+    ) -> str:
+        
+        scenes = await self._scene_repo.list_by_story(
+            story_id=story_id, 
+            user_id=user_id, 
+            chapter_id=chapter_id
+        )
+            
+        story_ctx = self._format_scenes(scenes)
+
+        return story_ctx
+
+    @handle_service_errors
+    async def summarize_chapter(
+        self,
+        chapter_id: str,
+        user_id: str
+    ) -> ChapterSummaryResponse:
+        
+        chapter_to_summarize = await self._chapter_repo.get(chapter_id, user_id)
+
+        if chapter_to_summarize is None:
+            raise NotFoundError("Chapter not found")
+        
+        ctx = await self.get_story_context(
+            user_id=user_id,
+            story_id=chapter_to_summarize.story_id,
+            chapter_id=chapter_to_summarize.prev_chapter_id
+        )
+
+        summary = await self._provider.generate(
+            system_prompt=SUMMARIZATION_PROMPT,
+            text=f"""\
+            <story_context_so_far>
+            {ctx}
+            </story_context_so_far>
+
+            <chapter_text>
+            {html_to_plain_text(chapter_to_summarize.content)}
+            </chapter_text>
+            """,
+            max_tokens=config.ai.summarization_max_tokens
+        )
+
+        return ChapterSummaryResponse(summary=summary)
+
+

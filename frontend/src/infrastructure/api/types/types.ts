@@ -1,6 +1,7 @@
 import type { z } from "zod";
-import { fromNullable, None, type Option, type Result } from "../../../shared/types";
+import { fromNullable } from "../../../shared/types";
 import type { ApiError } from "../../../shared/types";
+import { type Err, type Ok, type Some, None, type Option, type Result } from "oxide.ts";
 
 export interface RequestOptions {
     signal: Option<AbortSignal>;
@@ -72,3 +73,12 @@ export interface Api {
         options?: RequestOptions,
     ): Promise<Result<TResponse, ApiError>>;
 }
+
+export type AsyncState<T, E> = 
+    | { status: "idle"; data: Option<never> } 
+    | { status: "loading"; data: Option<never> }
+    | { status: "error"; data: Some<Err<E>> }
+    | { status: "empty"; data: Some<Ok<[]>> }
+    | { status: "success"; data: Some<Ok<T>> };
+
+    

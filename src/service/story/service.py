@@ -275,18 +275,29 @@ class StoryService:
             formatted_scenes.append("\n".join([header, body]))
 
         return "\n".join(formatted_scenes)
+    
+    @handle_service_errors
+    async def get_story_context(
+        self, user_id: str, story_id: str, chapter_id: Optional[str] = None
+    ) -> str:
+        
+        scenes = await self._scene_repo.list_by_story(
+            story_id=story_id, 
+            user_id=user_id, 
+            chapter_id=chapter_id
+        )
             
+        story_ctx = self._format_scenes(scenes)
+
+        return story_ctx
     
     @handle_service_errors
     async def get_pulse(
         self, user_id: str, story_id: str
     ) -> BookPulseResponse:
         
-        # get all scenes
-        scenes = await self._scene_repo.list_by_story(story_id, user_id)
-
-        # format them as story context
-        story_ctx = self._format_scenes(scenes)
+        # get story_context
+        story_ctx = await self.get_story_context(user_id, story_id)
 
         character_pulse_task = self._provider.extract(
             system_prompt=CHARACTER_PULSE_PROMPT,

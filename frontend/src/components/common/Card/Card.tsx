@@ -1,38 +1,39 @@
 import { type ComponentPropsWithoutRef, type ReactNode } from "react"
+import { Option } from "oxide.ts"
 
 type CardProps = ComponentPropsWithoutRef<"div"> & {
-    title?: string 
-    subtitle?: string
-    header?: ReactNode
-    footer?: ReactNode
+    cardTitle: Option<string> 
+    subtitle: Option<string>
+    header: Option<ReactNode>
+    footer: Option<ReactNode>
     children: ReactNode
 }
 
-export function Card({ title, subtitle, header, footer, children, className, ...rest }: CardProps) {
+export function Card({ cardTitle, subtitle, header, footer, children, className, ...rest }: CardProps) {
     return (
         <div 
             className={`card ${className ? className : ""}`}
             {...rest}
         >
-            {header && (
+            {header.isSome() && (
                 <div className="card__header">
-                    {header}
+                    {header.unwrap()}
                 </div>
             )}
-            { title && (
+            { cardTitle.isSome() && (
                 <div className="card__title">
-                    {title}
+                    {cardTitle.unwrap()}
                 </div>
             )}
-            { subtitle && (
+            { subtitle.isSome() && (
                 <div className="card__subtitle">
-                    {subtitle}
+                    {subtitle.unwrap()}
                 </div>
             )}
            { children }
-           { footer && (
+           { footer.isSome() && (
                 <div className="card__footer">
-                    {footer}
+                    {footer.unwrap()}
                 </div>
            )}
         </div>

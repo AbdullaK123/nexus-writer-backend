@@ -60,15 +60,28 @@ class SceneRepository:
         return [SceneRow.model_validate(dict(r)) for r in rows]
 
     async def list_by_story(
-        self, story_id: str, user_id: str, *, executor: Executor | None = None,
+        self, story_id: str, user_id: str, *, chapter_id: str | None = None, executor: Executor | None = None,
     ) -> list[SceneRow]:
+
         sql = f"""
+            WITH story_ids AS (
+                SELECT UNNEST(
+                    path_array[1 : COALESCE(
+                        array_position(path_array, $3),
+                        cardinality(path_array)
+                    )]
+                ) AS chapter_id
+                FROM story
+                WHERE id = $1
+            )
             SELECT {_SCENE_COLUMNS}
-              FROM "scene"
-             WHERE story_id = $1 AND user_id = $2
-             ORDER BY chapter_id, position ASC
+            FROM "scene"
+            WHERE story_id = $1 
+                AND user_id = $2
+                AND chapter_id IN (SELECT chapter_id FROM story_ids)
+            ORDER BY chapter_id, position ASC
         """
-        rows = await self._exe(executor).fetch(sql, story_id, user_id)
+        rows = await self._exe(executor).fetch(sql, story_id, user_id, chapter_id)
         return [SceneRow.model_validate(dict(r)) for r in rows]
 
     async def list_pending_embeddings(

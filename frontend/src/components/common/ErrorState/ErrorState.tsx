@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
 import styles from "./ErrorState.module.css"
+import { Option, match } from "oxide.ts"
 
 type EmptyStateProps = {
     headline: string
     title: string
-    description?: string 
-    action?: ReactNode
+    description: Option<string>
+    action: Option<ReactNode>
 }
 
 export function ErrorState({ headline, title, description, action }: EmptyStateProps) {
@@ -16,8 +17,11 @@ export function ErrorState({ headline, title, description, action }: EmptyStateP
                 {`[${headline}]`}
             </span>
             <h2>{title}</h2>
-            {description && (<p>{description}</p>)}
-            {action}
+            {description.isSome() && (<p>{description.unwrap()}</p>)}
+            {match(action, {
+                Some: (action) => action,
+                None: () => {}
+            })}
         </div>
     )
 }

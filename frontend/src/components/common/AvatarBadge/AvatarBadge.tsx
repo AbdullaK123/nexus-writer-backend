@@ -1,9 +1,10 @@
 import { Avatar } from "@ark-ui/react/avatar"
 import styles from "./AvatarBadge.module.css"
+import { Option } from "oxide.ts"
 
 type AvatarBadgeProps = {
     username: string 
-    profileImgUrl?: string 
+    profileImgUrl: Option<string> 
 }
 
 export function AvatarBadge({ username, profileImgUrl }: AvatarBadgeProps) {
@@ -12,7 +13,7 @@ export function AvatarBadge({ username, profileImgUrl }: AvatarBadgeProps) {
             <Avatar.Fallback className={styles['fallback']}>
                 {username.slice(0, 2)}
             </Avatar.Fallback>
-            {profileImgUrl && (<Avatar.Image src={profileImgUrl} alt="avatar"/>)}
+            {profileImgUrl && (<Avatar.Image src={profileImgUrl.isSome() ? profileImgUrl.unwrap() : ""} alt="avatar"/>)}
         </Avatar.Root>
     )
 }

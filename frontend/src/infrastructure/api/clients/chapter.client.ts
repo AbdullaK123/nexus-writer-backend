@@ -7,6 +7,8 @@ import {
     ApiMessageSchema,
     type RequestOptions,
     noRequestOptions,
+    type ChapterSummaryResponse,
+    ChapterSummaryResponseSchema,
 } from "../types"
 import type { Result, ApiError } from "../../../shared/types"
 
@@ -23,7 +25,7 @@ export class ChapterClient {
         options: RequestOptions = noRequestOptions,
     ): Promise<Result<ChapterContentResponse, ApiError>> {
         return this.api.getJson(
-            `/chapters/${chapterId}?as_html=${asHtml}`,
+            `chapters/${chapterId}?as_html=${asHtml}`,
             ChapterContentResponseSchema,
             options,
         )
@@ -35,7 +37,7 @@ export class ChapterClient {
         options: RequestOptions = noRequestOptions,
     ): Promise<Result<ChapterContentResponse, ApiError>> {
         return this.api.putJson(
-            `/chapters/${chapterId}`,
+            `chapters/${chapterId}`,
             payload,
             ChapterContentResponseSchema,
             options,
@@ -47,9 +49,20 @@ export class ChapterClient {
         options: RequestOptions = noRequestOptions,
     ): Promise<Result<ApiMessage, ApiError>> {
         return this.api.deleteJson(
-            `/chapters/${chapterId}`,
+            `chapters/${chapterId}`,
             ApiMessageSchema,
             options,
+        )
+    }
+
+    public summarizeChapter(
+        chapterId: string,
+        options: RequestOptions = noRequestOptions,
+    ): Promise<Result<ChapterSummaryResponse, ApiError>> {
+        return this.api.getJson(
+            `chapters/${chapterId}/summary`,
+            ChapterSummaryResponseSchema,
+            options
         )
     }
 }

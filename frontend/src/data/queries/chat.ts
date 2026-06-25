@@ -1,11 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useApi } from "../providers/ApiProvider"
 import {
+    type ChatMessageListResponse,
     type CreateThreadBody,
     type RenameThreadBody,
     requestOptions,
+    type ThreadListResponse,
 } from "../../infrastructure/api/types"
 import { unwrapResultAsync } from "../../shared/types"
+import { toAsyncState } from "../../infrastructure/api/utils";
 
 // ─── Keys ──────────────────────────────────────────────────────────────────
 // Threads are story-scoped; messages are thread-scoped. Hierarchy makes
@@ -24,21 +27,21 @@ export const chatKeys = {
 
 export function useThreads(storyId: string) {
     const api = useApi()
-    return useQuery({
+    return toAsyncState<ThreadListResponse>(useQuery({
         queryKey: chatKeys.threads(storyId),
         queryFn: ({ signal }) => unwrapResultAsync(api.chat.getThreads(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
-    })
+    }))
 }
 
 export function useThreadMessages(storyId: string, threadId: string) {
     const api = useApi()
-    return useQuery({
+    return toAsyncState<ChatMessageListResponse>(useQuery({
         queryKey: chatKeys.messages(storyId, threadId),
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.chat.getThreadMessages(storyId, threadId, requestOptions({ signal }))),
         enabled: Boolean(storyId) && Boolean(threadId),
-    })
+    }))
 }
 
 // ─── Mutations ─────────────────────────────────────────────────────────────

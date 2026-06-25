@@ -89,6 +89,7 @@ class AiConfig(BaseModel, frozen=True):
     max_concurrent_requests: int = 16
     scene_extraction_max_tokens: int = 8000
     pulse_extraction_max_tokens: int = 8000
+    summarization_max_tokens: int = 2000
     extraction_retry_attempts: int = 3
     extraction_retry_wait_seconds: float = 1.0
 

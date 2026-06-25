@@ -1,4 +1,5 @@
-import { EmptyState } from "../../common";
+import { None, Some } from "oxide.ts";
+import { EmptyState } from "../../../common";
 import { ChapterCard, type ChapterCardProps } from "./ChapterCard/ChapterCard";
 import styles from "./JumpBackInRow.module.css"
 
@@ -20,7 +21,8 @@ export function JumpBackInRow({ chapterCards }: JumpBackInRowProps) {
                     <EmptyState 
                         headline="No Chapters."
                         title="No chapters yet."
-                        description="You haven't started writing any chapters yet. Click on any of your stories to start writing Chapter 1."
+                        description={Some("You haven't started writing any chapters yet. Click on any of your stories to start writing Chapter 1.")}
+                        action={None}
                     />
                 )}
                 {chapterCards.length > 0 && (

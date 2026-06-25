@@ -1,8 +1,9 @@
-import { Card } from "../../common"
+import { None, Some } from "oxide.ts";
+import { Card } from "../../../common"
 import styles from "./KpisRow.module.css"
 
 
-type KpisRowProps = {
+export type KpisRowProps = {
     totalWords: number
     storyCount: number 
     totalChapters: number 
@@ -30,29 +31,37 @@ export function KpisRow({
             <div className={styles['kpis-container']}>
                 <Card 
                     className="stat"
-                    header="TOTAL WORDS"
-                    footer={<p className="stat__caption">{`across ${storyCount} stories`}</p>}
+                    cardTitle={None}
+                    subtitle={None}
+                    header={Some("TOTAL WORDS")}
+                    footer={Some(<p className="stat__caption">{`across ${storyCount} stories`}</p>)}
                 >
                     <h2 className="stat__value">{totalWords}</h2>
                 </Card>
                 <Card
                     className="stat"
-                    header="CHAPTERS"
-                    footer={<p className="stat__caption">{chaptersPublished} published</p>}
+                    cardTitle={None}
+                    subtitle={None}
+                    header={Some("CHAPTERS")}
+                    footer={Some(<p className="stat__caption">{chaptersPublished} published</p>)}
                 >
                     <h2 className="stat__value">{totalChapters}</h2>
                 </Card>
                 <Card
                     className="stat"
-                    header="SCENES TRACKED"
-                    footer={<p className="stat__caption">extracted</p>}
+                    cardTitle={None}
+                    subtitle={None}
+                    header={Some("SCENES TRACKED")}
+                    footer={Some(<p className="stat__caption">extracted</p>)}
                 >
                     <h2 className="stat__value">{totalScenesTracked}</h2>
                 </Card>
                 <Card
                     className="stat"
-                    header="STREAK"
-                    footer={<p className="stat__caption">days writing</p>}
+                    cardTitle={None}
+                    subtitle={None}
+                    header={Some("STREAK")}
+                    footer={Some(<p className="stat__caption">days writing</p>)}
                 >
                     <h2 className="stat__value">{currentStreak}</h2>
                 </Card>

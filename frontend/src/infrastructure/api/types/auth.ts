@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { ChapterListItemSchema } from "./chapter";
+import { None, Some } from "oxide.ts";
 
 // ─── Requests ────────────────────────────────────────────────
 
@@ -23,7 +24,9 @@ export const UserResponseSchema = z.object({
     id: z.string(),
     username: z.string(),
     email: z.string(),
-    profileImg: z.string().nullable(),
+    profileImg: z.string().optional().transform((value) => {
+        return value !== undefined ? Some(value) : None
+    }),
 })
 export type UserResponse = z.infer<typeof UserResponseSchema>
 

@@ -1,11 +1,12 @@
 import styles from "./LoadingSkeleton.module.css"
+import { Option } from "oxide.ts"
 
 type LoadingSkeletonProps = {
-    className?: string 
+    className: Option<string >
 }
 
 export function LoadingSkeleton({ className }: LoadingSkeletonProps) {
     return (
-        <div className={`${styles['skeleton']} ${className ? className : undefined}`} />
+        <div className={`${styles['skeleton']} ${className.isSome() ? className.unwrap() : "" }`} />
     )
 }

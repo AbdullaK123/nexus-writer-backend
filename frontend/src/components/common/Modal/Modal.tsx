@@ -2,15 +2,16 @@ import { Portal } from "@ark-ui/react/portal";
 import { Dialog } from "@ark-ui/react/dialog"
 import { type ReactNode} from "react"
 import styles from "./Modal.module.css"
+import { Option } from "oxide.ts"
 
 type ModalProps = {
     open: boolean
     onOpenChange: (e: boolean) => void
     children: ReactNode
     content: ReactNode
-    closeTrigger?: ReactNode
-    title?: string
-    description?: string
+    closeTrigger: Option<ReactNode>
+    title: Option<string>
+    description: Option<string>
 }
 
 export function Modal({ 
@@ -29,11 +30,11 @@ export function Modal({
                 <Dialog.Backdrop className={styles['modal__backdrop']} />
                 <Dialog.Positioner className={styles['modal__positioner']}>
                     <Dialog.Content className={styles['modal__content']}>
-                        {closeTrigger && (<Dialog.CloseTrigger>{closeTrigger}</Dialog.CloseTrigger>)}
-                        {title && (<Dialog.Title>{title}</Dialog.Title>)}
-                        {description && (
+                        {closeTrigger.isSome() && (<Dialog.CloseTrigger>{closeTrigger.unwrap()}</Dialog.CloseTrigger>)}
+                        {title.isSome() && (<Dialog.Title>{title.unwrap()}</Dialog.Title>)}
+                        {description.isSome() && (
                             <Dialog.Description>
-                                {description}
+                                {description.unwrap()}
                             </Dialog.Description>
                         )}
                         {content}

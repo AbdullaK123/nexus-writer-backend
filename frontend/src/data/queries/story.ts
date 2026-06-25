@@ -12,9 +12,16 @@ import {
     type ReorderChapterRequest,
     type SceneSearchRequest,
     requestOptions,
+    type StoryGridResponse,
+    type StoryDetailResponse,
+    type ChapterListResponse,
+    type VocabularyListResponse,
+    type SceneSearchListResponse,
+    type BookPulseResponse,
 } from "../../infrastructure/api/types"
 import { chapterKeys } from "./chapter"
-import { unwrapResultAsync } from "../../shared/types"
+import { ApiError, unwrapResultAsync } from "../../shared/types"
+import { toAsyncState } from "../../infrastructure/api/utils";
 
 // ─── Keys ──────────────────────────────────────────────────────────────────
 // Hierarchy mirrors URL paths so a partial-prefix invalidation cascades
@@ -34,41 +41,44 @@ export const storyKeys = {
         [...storyKeys.detail(storyId), "entities"] as const,
     sceneSearch: (storyId: string, request: SceneSearchRequest) =>
         [...storyKeys.detail(storyId), "sceneSearch", request] as const,
+    pulse: (storyId: string) =>
+        [...storyKeys.detail(storyId), "pulse"]
 }
 
 // ─── Queries ───────────────────────────────────────────────────────────────
 
 export function useStories() {
     const api = useApi()
-    return useQuery({
+    const result = useQuery<StoryGridResponse, ApiError>({
         queryKey: storyKeys.list(),
-        queryFn: ({ signal }) => unwrapResultAsync(api.story.getStories(requestOptions({ signal }))),
+        queryFn: ({ signal }) => unwrapResultAsync<StoryGridResponse, ApiError>(api.story.getStories(requestOptions({ signal }))),
     })
+    return [toAsyncState<StoryGridResponse>(result), result.refetch] as const
 }
 
 export function useStoryDetails(storyId: string) {
     const api = useApi()
-    return useQuery({
+    return toAsyncState<StoryDetailResponse>(useQuery({
         queryKey: storyKeys.detail(storyId),
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.story.getStoryDetails(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
-    })
+    }))
 }
 
 export function useStoryChapters(storyId: string) {
     const api = useApi()
-    return useQuery({
+    return toAsyncState<ChapterListResponse>(useQuery({
         queryKey: storyKeys.chapters(storyId),
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.story.getStoryChapters(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
-    })
+    }))
 }
 
 export function useStoryTags(storyId: string) {
     const api = useApi()
-    return useQuery({
+    return toAsyncState<VocabularyListResponse>(useQuery({
         queryKey: storyKeys.tags(storyId),
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.story.listStoryTags(storyId, requestOptions({ signal }))),
@@ -76,18 +86,18 @@ export function useStoryTags(storyId: string) {
         // Vocabulary changes only when scenes are re-extracted; tolerate
         // a 5-minute stale window before background refetch.
         staleTime: 5 * 60 * 1000,
-    })
+    }))
 }
 
 export function useStoryEntities(storyId: string) {
     const api = useApi()
-    return useQuery({
+    return toAsyncState<VocabularyListResponse>(useQuery({
         queryKey: storyKeys.entities(storyId),
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.story.listStoryEntities(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
         staleTime: 5 * 60 * 1000,
-    })
+    }))
 }
 
 /**
@@ -105,14 +115,14 @@ export function useStorySceneSearch(
     request: SceneSearchRequest,
 ) {
     const api = useApi()
-    return useQuery({
+    return toAsyncState<SceneSearchListResponse>(useQuery({
         queryKey: storyKeys.sceneSearch(storyId, request),
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.story.searchStoryScenes(storyId, request, requestOptions({ signal }))),
         enabled: Boolean(storyId) && request.query.trim().length > 0,
         placeholderData: keepPreviousData,
         staleTime: 60 * 1000,
-    })
+    }))
 }
 
 // ─── Mutations ─────────────────────────────────────────────────────────────
@@ -179,4 +189,13 @@ export function useReorderChapters(storyId: string) {
             qc.invalidateQueries({ queryKey: chapterKeys.all })
         },
     })
+}
+
+export function useStoryPulse(storyId: string) {
+    const api = useApi()
+    return toAsyncState<BookPulseResponse>(useQuery({
+        queryKey: storyKeys.pulse(storyId),
+        queryFn: ({ signal }) => unwrapResultAsync(api.story.getPulse(storyId, requestOptions({ signal }))),
+        enabled: Boolean(storyId)
+    }))
 }

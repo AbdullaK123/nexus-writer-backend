@@ -108,3 +108,6 @@ class ChapterListResponse(ApiModel):
             story_last_updated=story.updated_at,
             chapters=chapters,
         )
+
+class ChapterSummaryResponse(ApiModel):
+    summary: str

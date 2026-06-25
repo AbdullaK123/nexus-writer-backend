@@ -21,6 +21,8 @@ import {
     SceneSearchListResponseSchema,
     type VocabularyListResponse,
     VocabularyListResponseSchema,
+    type BookPulseResponse,
+    BookPulseResponseSchema,
  } from "../types"
 import type { Result, ApiError } from "../../../shared/types"
 
@@ -155,6 +157,17 @@ export class StoryClient {
         return this.api.getJson(
             `stories/${storyId}/entities`,
             VocabularyListResponseSchema,
+            options
+        )
+    }
+
+    public getPulse(
+        storyId: string,
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<BookPulseResponse, ApiError>> {
+        return this.api.getJson(
+            `stories/${storyId}/pulse`,
+            BookPulseResponseSchema,
             options
         )
     }

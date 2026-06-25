@@ -6,8 +6,10 @@ import {
     type UserResponse,
     type ApiMessage,
     requestOptions,
+    type DashboardResponse,
 } from "../../infrastructure/api/types"
 import { ApiError, unwrapResultAsync } from "../../shared/types"
+import { toAsyncState } from "../../infrastructure/api/utils";
 
 export const authKeys = {
     all: ["auth"] as const,
@@ -17,21 +19,22 @@ export const authKeys = {
 
 export function useCurrentUser() {
     const api = useApi()
-    return useQuery({
+    return toAsyncState<UserResponse>(useQuery({
         queryKey: authKeys.me(),
         queryFn: ({ signal }) => unwrapResultAsync(api.auth.getCurrentUser(requestOptions({ signal }))),
         staleTime: 5*60*1000,
         retry: false
-    })
+    }))
 }
 
 export function useDashboard() {
     const api = useApi()
-    return useQuery({
+    const result = useQuery<DashboardResponse, ApiError>({
         queryKey: authKeys.dashboard(),
         queryFn: ({ signal }) => unwrapResultAsync(api.auth.getDashboard(requestOptions({ signal }))),
         staleTime: 5*60*100
     })
+    return [toAsyncState<DashboardResponse>(result), result.refetch] as const
 }
 
 export function useLogin() {

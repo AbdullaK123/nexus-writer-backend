@@ -58,3 +58,10 @@ export const ChapterListResponseSchema = z.object({
     chapters: z.array(ChapterListItemSchema),
 })
 export type ChapterListResponse = z.infer<typeof ChapterListResponseSchema>
+
+
+export const ChapterSummaryResponseSchema = z.object({
+    summary: z.string()
+})
+
+export type ChapterSummaryResponse = z.infer<typeof ChapterSummaryResponseSchema>

@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
+import { Option } from "oxide.ts"
 import styles from "./IconButton.module.css"
 
 type IconButtonProps = {
     label: string 
     children: ReactNode
-    variant?: "ghost" | "outline" | "solid"
-    size?: "sm" | "md"
+    variant: Option<"ghost" | "outline" | "solid">
+    size: Option<"sm" | "md">
 }
 
 const getStyles = (
@@ -48,7 +49,7 @@ export function IconButton({
 }: IconButtonProps) {
     return (
         <button 
-            className={`${styles["icon-btn"]} ${getStyles(variant, size)}`} 
+            className={`${styles["icon-btn"]} ${getStyles(variant.isSome() ? variant.unwrap() : "ghost", size.isSome() ? size.unwrap() : "md")}`} 
             aria-label={label}
         >
             {children}
