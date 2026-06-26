@@ -1,3 +1,9 @@
+.content-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
 .content {
     display: flex;
     flex-direction: column;
@@ -20,6 +26,19 @@
     justify-content: space-between;
     padding: var(--space-2);
     width: 100%;
+}
+
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-2);
+    width: 100%;
+}
+
+.system-tag-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
 }
 
 .all-caps {

@@ -35,9 +35,9 @@ export function BookPulse({
 
 
     return (
-        <div>
-            <div>
-                <div>
+        <div className={styles['content-container']}>
+            <div className={styles['content-header']}>
+                <div className={styles['system-tag-container']}>
                     <span className="system-badge system-badge__nobg">
                         [BOOK PULSE]
                     </span>
