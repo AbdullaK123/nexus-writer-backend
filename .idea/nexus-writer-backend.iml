@@ -9,7 +9,10 @@
     <content url="file://$MODULE_DIR$" />
     <orderEntry type="jdk" jdkName="Python 3.12 (2)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
+<<<<<<< Updated upstream
     <orderEntry type="library" name="Python 3.14 interpreter library" level="application" />
+=======
+>>>>>>> Stashed changes
   </component>
   <component name="PyDocumentationSettings">
     <option name="format" value="NUMPY" />
