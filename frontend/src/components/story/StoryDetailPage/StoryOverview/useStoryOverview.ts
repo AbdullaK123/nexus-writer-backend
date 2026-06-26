@@ -1,6 +1,6 @@
 import { formatDistanceToNow } from 'date-fns'
 import { useEffect, useEffectEvent } from 'react'
-import { None, Option } from 'oxide.ts'
+import { Option } from 'oxide.ts'
 import type { StoryStatus } from '../../../../infrastructure/api/types'
 import { useChapterSummary } from '../../../../data/queries/chapter'
 import { useStoryStats } from '../../../../data/queries/story'

@@ -22,21 +22,21 @@ export function ChapterListFilterBar(props: ChapterListFilterBarProps) {
           </div>
           <div className={styles['filter-chip-container']}>
             <FilterChip
-              status="all"
+              status={props.selected === 'all' ? 'selected' : 'idle'}
+              label="all"
               count={props.totalChapters}
-              selected={props.selected === 'all'}
               onClick={() => props.onClickFilterChip('all')}
             />
             <FilterChip
-              status="draft"
+              status={props.selected === 'draft' ? 'selected' : 'idle'}
+              label="draft"
               count={props.totalDraftChapters}
-              selected={props.selected === 'draft'}
               onClick={() => props.onClickFilterChip('draft')}
             />
             <FilterChip
-              status="published"
+              status={props.selected === 'published' ? 'selected' : 'idle'}
+              label="published"
               count={props.totalPublishedChapters}
-              selected={props.selected === 'published'}
               onClick={() => props.onClickFilterChip('published')}
             />
           </div>

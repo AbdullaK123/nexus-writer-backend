@@ -1,26 +1,31 @@
 import styles from "./FilterChip.module.css"
 
 
-type FilterChipProps = {
-    status: "all" | "ongoing" | "hiatus" | "complete" | "draft" | "published"
-    count: number
-    selected: boolean
-    onClick: () => void;
-}
+export type FilterChipProps =
+  | { status: 'idle'; label: 'all' | 'ongoing' | 'hiatus' | 'complete' | 'draft' | 'published'; count: number; onClick: () => void }
+  | { status: 'selected'; label: 'all' | 'ongoing' | 'hiatus' | 'complete' | 'draft' | 'published'; count: number; onClick: () => void }
 
-export function FilterChip({ 
-    status, 
-    count, 
-    selected, 
-    onClick
- }: FilterChipProps) {
-    return (
+export function FilterChip(props: FilterChipProps) {
+  switch (props.status) {
+    case 'idle':
+      return (
         <span
-            className={selected ? `${styles['filter-chip']} ${styles['filter-chip__selected']}` : styles['filter-chip']}
-            role="button"
-            onClick={onClick}
+          className={styles['filter-chip']}
+          role="button"
+          onClick={props.onClick}
         >
-            {`${status} - ${count}`}
+          {`${props.label} - ${props.count}`}
         </span>
-    )
+      )
+    case 'selected':
+      return (
+        <span
+          className={`${styles['filter-chip']} ${styles['filter-chip__selected']}`}
+          role="button"
+          onClick={props.onClick}
+        >
+          {`${props.label} - ${props.count}`}
+        </span>
+      )
+  }
 }

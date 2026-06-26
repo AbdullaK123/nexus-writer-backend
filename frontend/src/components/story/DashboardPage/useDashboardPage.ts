@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState, type ChangeEvent } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { useCreateStory, useDashboard, useStories } from "../../../data/queries";
 import { useToast } from "../../common";
 import { useRouteContext } from "@tanstack/react-router";
@@ -9,24 +9,6 @@ import type { LibraryGridProps } from "./LibraryGrid/LibraryGrid";
 import type { AsyncState, DashboardResponse, StoryGridResponse } from "../../../infrastructure/api/types";
 import type { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
 import type { ApiError } from "../../../shared/types";
-import { None, Option, Some } from "oxide.ts"
-
-export type DashboardProps = {
-    kpisRow: Option<KpisRowProps>
-    jumpBackInRow: JumpBackInRowProps,
-    isLoading: boolean,
-    isError: boolean,
-    isEmpty: boolean
-}
-
-export type StoriesProps = {
-    libraryGrid: LibraryGridProps
-    storyTitle: string,
-    onStoryTitleChange: (e: ChangeEvent<HTMLInputElement>) => void;
-    isLoading: boolean,
-    isError: boolean,
-    isEmpty: boolean
-}
 
 export type RefetchProps = {
     dashboard: (options?: RefetchOptions) => Promise<QueryObserverResult<DashboardResponse, ApiError>>
@@ -35,14 +17,19 @@ export type RefetchProps = {
 
 export type DashboardPageProps = {
     welcomeHeader: WelcomeHeaderProps,
-    dashboard: DashboardProps,
-    stories: StoriesProps,
+    kpisRow: KpisRowProps,
+    jumpBackInRow: JumpBackInRowProps,
+    libraryGrid: LibraryGridProps,
     refetch: RefetchProps
 }
 
 export function useDashboardPage(): DashboardPageProps {
+    // Local UI state scoped to LibraryGrid feature
     const [modalOpen, setModalOpen] = useState(false);
     const [storyTitle, setStoryTitle] = useState("");
+    const [libraryFilter, setLibraryFilter] = useState<'all' | 'ongoing' | 'hiatus' | 'complete'>("all");
+    // Local UI state scoped to WelcomeHeader feature
+    const [searchQuery, setSearchQuery] = useState("");
 
     const { error, success } = useToast();
     const [storiesState, refetchStories] = useStories();
@@ -60,7 +47,7 @@ export function useDashboardPage(): DashboardPageProps {
 
     useEffect(() => {
         if (storiesState.status === "error") onStoryError();
-    }, [storiesState]);
+    }, [storiesState.status]);
 
     useEffect(() => {
         if (dashboardState.status === "error") onDashboardError();
@@ -68,10 +55,33 @@ export function useDashboardPage(): DashboardPageProps {
 
     const ctx = useRouteContext({ from: "/app" });
 
-    // 1. COMPILER FIX: Unwrapping happens safely inside the success block
-    const getStoriesProps = (state: AsyncState<StoryGridResponse, ApiError>): StoriesProps => {
-        const common = {
-            modalOpen: modalOpen,
+    // ---- Derive LibraryGrid DU from stories state ----
+    const buildReadyLibraryGrid = (stories: { storyId: string; status: any; chapterNumber: number; title: string; wordCount: number; updatedAt: Date; onClick: (id: string) => void; }[]): LibraryGridProps => {
+        const counts = stories.reduce(
+            (acc, s) => {
+                acc.all += 1;
+                switch (s.status) {
+                    case 'Ongoing': acc.ongoing += 1; break;
+                    case 'On Hiatus': acc.hiatus += 1; break;
+                    case 'Complete': acc.complete += 1; break;
+                }
+                return acc;
+            },
+            { all: 0, ongoing: 0, hiatus: 0, complete: 0 }
+        );
+        const filterFn = (s: typeof stories[number]) =>
+            libraryFilter === 'all' ? true :
+            libraryFilter === 'ongoing' ? s.status === 'Ongoing' :
+            libraryFilter === 'hiatus' ? s.status === 'On Hiatus' :
+            s.status === 'Complete';
+        const filtered = stories.filter(filterFn);
+        return {
+            status: 'ready',
+            stories: filtered,
+            selected: libraryFilter,
+            counts,
+            onSelect: setLibraryFilter,
+            modalOpen,
             onModalOpenChange: (e: boolean) => setModalOpen(e),
             onNewStory: (title: string) => {
                 createStory({ title }, {
@@ -86,105 +96,129 @@ export function useDashboardPage(): DashboardPageProps {
                     }
                 });
             }
-        };
+        } as const;
+    };
 
-        const storyTitleProps = {
-            storyTitle: storyTitle,
-            onStoryTitleChange: (e: ChangeEvent<HTMLInputElement>) => setStoryTitle(e.target.value)
-        }
-
-        if (state.status === "idle" || state.status === "loading") {
-            return {
-                libraryGrid: { ...common, stories: [] },
-                ...storyTitleProps,
-                isLoading: true,
-                isError: false,
-                isEmpty: false,
+    const libraryGrid: LibraryGridProps = ((): LibraryGridProps => {
+        switch (storiesState.status) {
+            case 'idle':
+            case 'loading':
+                return { status: 'loading' };
+            case 'error':
+                return { status: 'error', onRetry: () => { void refetchStories(); } };
+            case 'empty':
+                return {
+                    status: 'empty',
+                    modalOpen,
+                    onModalOpenChange: (e: boolean) => setModalOpen(e),
+                    storyTitle,
+                    onStoryTitleChange: (v: string) => setStoryTitle(v),
+                    onNewStory: (title: string) => {
+                        createStory({ title }, {
+                            onSuccess: () => {
+                                success("Success!", "Your story has been successfully created! Happy writing!");
+                                setStoryTitle("");
+                                setModalOpen(false);
+                            },
+                            onError: () => {
+                                error("Failed to create your story.", "Something went wrong. If the problem persists, please contact support.");
+                                setModalOpen(false);
+                            }
+                        });
+                    }
+                };
+            case 'success': {
+                const rawData = storiesState.data.unwrap().unwrap();
+                const mappedStories = rawData.stories.map((story) => ({
+                    ...story,
+                    onClick: () => {}
+                }));
+                // If success but no stories, surface 'empty' DU to show creation flow
+                if (mappedStories.length === 0) {
+                    return {
+                        status: 'empty',
+                        modalOpen,
+                        onModalOpenChange: (e: boolean) => setModalOpen(e),
+                        storyTitle,
+                        onStoryTitleChange: (v: string) => setStoryTitle(v),
+                        onNewStory: (title: string) => {
+                            createStory({ title }, {
+                                onSuccess: () => {
+                                    success("Success!", "Your story has been successfully created! Happy writing!");
+                                    setStoryTitle("");
+                                    setModalOpen(false);
+                                },
+                                onError: () => {
+                                    error("Failed to create your story.", "Something went wrong. If the problem persists, please contact support.");
+                                    setModalOpen(false);
+                                }
+                            });
+                        }
+                    };
+                }
+                return buildReadyLibraryGrid(mappedStories);
             }
         }
-                
-        if (state.status === "empty") {
-            return {
-                libraryGrid: { ...common, stories: [] },
-                ...storyTitleProps,
-                isLoading: false,
-                isError: false,
-                isEmpty: true,
-            };
+    })();
+
+    // ---- Derive KPIs DU and JumpBackIn DU from dashboard state ----
+    const kpisRow: KpisRowProps = ((): KpisRowProps => {
+        switch (dashboardState.status) {
+            case 'idle':
+            case 'loading':
+                return { status: 'loading' };
+            case 'error':
+                return { status: 'error', onRetry: () => { void refetchDashboard(); } };
+            case 'empty':
+                return { status: 'empty' };
+            case 'success': {
+                const d = dashboardState.data.unwrap().unwrap();
+                return {
+                    status: 'ready',
+                    totalWords: d.totalWords,
+                    storyCount: d.totalStories,
+                    totalChapters: d.chaptersTotal,
+                    chaptersPublished: d.chaptersPublished,
+                    currentStreak: d.streakDays,
+                    totalScenesTracked: d.scenesTracked
+                };
+            }
         }
-                
-        if (state.status === "error") {
-            return {
-                libraryGrid: { ...common, stories: [] },
-                ...storyTitleProps,
-                isLoading: false,
-                isError: true,
-                isEmpty: false,
-            };
+    })();
+
+    const jumpBackInRow: JumpBackInRowProps = ((): JumpBackInRowProps => {
+        switch (dashboardState.status) {
+            case 'idle':
+            case 'loading':
+                return { status: 'loading' };
+            case 'error':
+                return { status: 'error', onRetry: () => { void refetchDashboard(); } };
+            case 'empty':
+                return { status: 'empty' };
+            case 'success': {
+                const d = dashboardState.data.unwrap().unwrap();
+                if (d.jumpBackIn.length === 0) return { status: 'empty' };
+                return {
+                    status: 'ready',
+                    chapterCards: d.jumpBackIn.map((chapterCard) => ({ ...chapterCard, onClick: () => {} }))
+                };
+            }
         }
-             
-        const rawData = state.data.unwrap().unwrap();
+    })();
 
-        const mappedStories = rawData.stories.map((story) => ({
-            ...story,
-            onClick: () => {}
-        }));
-
-        return {
-            libraryGrid: { ...common, stories: mappedStories },
-            ...storyTitleProps,
-            isLoading: false,
-            isError: false,
-            isEmpty: mappedStories.length === 0,
-        };
-    
-                // Safely unwrap data here since status === "success" guarantees Option holds Ok varian
-    };
-
-    // 2. Separate formatting for the dashboard state
-    const getDashboardProps = (state: AsyncState<DashboardResponse, ApiError>): DashboardProps => {
-        const isLoading = state.status === "loading" || state.status === "idle";
-        const isError = state.status === "error";
-        const isEmpty = state.status === "empty";
-
-        if (state.status !== "success") {
-            return {
-                kpisRow: None,
-                jumpBackInRow: { chapterCards: [] },
-                isLoading,
-                isError,
-                isEmpty
-            };
-        }
-
-        const data = state.data.unwrap().unwrap();
-        return {
-            kpisRow: Some({
-                totalWords: data.totalWords,
-                storyCount: data.totalStories,
-                totalChapters: data.chaptersTotal,
-                chaptersPublished: data.chaptersPublished,
-                currentStreak: data.streakDays,
-                totalScenesTracked: data.scenesTracked
-            }),
-            jumpBackInRow: {
-                chapterCards: data.jumpBackIn.map((chapterCard) => ({ ...chapterCard, onClick: () => {} }))
-            },
-            isLoading: false,
-            isError: false,
-            isEmpty: data.jumpBackIn.length === 0
-        };
-    };
-
-    // 3. Consume the formatting blocks directly into your execution payload
+    // 3. Compose final page payload of fully-resolved DUs
     return {
         welcomeHeader: {
+            status: 'ready',
             username: ctx.auth.user.unwrap().username,
             profileImageUrl: ctx.auth.user.unwrap().profileImg,
+            query: searchQuery,
+            onQueryChange: setSearchQuery,
             onEnterDown: (query: string) => console.log(query)
         },
-        dashboard: getDashboardProps(dashboardState),
-        stories: getStoriesProps(storiesState),
+        kpisRow,
+        jumpBackInRow,
+        libraryGrid,
         refetch: {
             dashboard: refetchDashboard,
             stories: refetchStories
