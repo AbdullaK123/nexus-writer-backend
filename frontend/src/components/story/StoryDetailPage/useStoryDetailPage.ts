@@ -3,11 +3,14 @@ import { useStoryChapters } from "../../../data/queries";
 import type { ChapterListProps } from "./ChapterList/ChapterList";
 import type { StoryHeaderProps } from "./StoryHeader/StoryHeader";
 import type { StoryOverviewProps } from "./StoryOverview/StoryOverview";
+import type { BookPulseProps } from "./BookPulse/BookPulse";
+import { useBookPulse } from "./BookPulse/useBookPulse";
 import { useNavigate, useSearch } from "@tanstack/react-router"
 
 export type StoryDetailPageProps = {
   storyHeader: StoryHeaderProps
   storyOverview: StoryOverviewProps
+  bookPulse: BookPulseProps
   chapterList: ChapterListProps
 }
 
@@ -28,7 +31,9 @@ export function useStoryDetailPage(): StoryDetailPageProps {
 
   const storyOverview: StoryOverviewProps = { status: 'loading' }
 
+  const bookPulse: BookPulseProps = useBookPulse(storyId)
+
   const chapterList: ChapterListProps = { status: 'loading' }
 
-  return { storyHeader, storyOverview, chapterList }
+  return { storyHeader, storyOverview, bookPulse, chapterList }
 }
