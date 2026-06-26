@@ -18,6 +18,7 @@ import {
     type VocabularyListResponse,
     type SceneSearchListResponse,
     type BookPulseResponse,
+    type StoryStatsResponse,
 } from "../../infrastructure/api/types"
 import { chapterKeys } from "./chapter"
 import { ApiError, unwrapResultAsync } from "../../shared/types"
@@ -42,7 +43,9 @@ export const storyKeys = {
     sceneSearch: (storyId: string, request: SceneSearchRequest) =>
         [...storyKeys.detail(storyId), "sceneSearch", request] as const,
     pulse: (storyId: string) =>
-        [...storyKeys.detail(storyId), "pulse"]
+        [...storyKeys.detail(storyId), "pulse"],
+    stats: (storyId: string) =>
+        [...storyKeys.detail(storyId), "stats"]
 }
 
 // ─── Queries ───────────────────────────────────────────────────────────────
@@ -68,12 +71,13 @@ export function useStoryDetails(storyId: string) {
 
 export function useStoryChapters(storyId: string) {
     const api = useApi()
-    return toAsyncState<ChapterListResponse>(useQuery({
+    const result = useQuery<ChapterListResponse, ApiError>({
         queryKey: storyKeys.chapters(storyId),
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.story.getStoryChapters(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
-    }))
+    })
+    return [toAsyncState<ChapterListResponse>(result), result.refetch] as const
 }
 
 export function useStoryTags(storyId: string) {
@@ -193,9 +197,20 @@ export function useReorderChapters(storyId: string) {
 
 export function useStoryPulse(storyId: string) {
     const api = useApi()
-    return toAsyncState<BookPulseResponse>(useQuery({
+    const result = useQuery<BookPulseResponse, ApiError>({
         queryKey: storyKeys.pulse(storyId),
         queryFn: ({ signal }) => unwrapResultAsync(api.story.getPulse(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId)
-    }))
+    })
+    return [toAsyncState<BookPulseResponse>(result), result.refetch] as const
+}
+
+export function useStoryStats(storyId: string) {
+    const api = useApi()
+    const result = useQuery<StoryStatsResponse, ApiError>({
+        queryKey: storyKeys.stats(storyId),
+        queryFn: ({ signal }) => unwrapResultAsync(api.story.getStats(storyId, requestOptions({ signal }))),
+        enabled: Boolean(storyId)
+    })
+    return [toAsyncState<StoryStatsResponse>(result), result.refetch] as const
 }

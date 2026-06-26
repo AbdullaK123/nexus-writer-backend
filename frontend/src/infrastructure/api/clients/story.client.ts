@@ -23,6 +23,8 @@ import {
     VocabularyListResponseSchema,
     type BookPulseResponse,
     BookPulseResponseSchema,
+    type StoryStatsResponse,
+    StoryStatsResponseSchema,
  } from "../types"
 import type { Result, ApiError } from "../../../shared/types"
 
@@ -168,6 +170,17 @@ export class StoryClient {
         return this.api.getJson(
             `stories/${storyId}/pulse`,
             BookPulseResponseSchema,
+            options
+        )
+    }
+
+    public getStats(
+        storyId: string,
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<StoryStatsResponse, ApiError>> {
+        return this.api.getJson(
+            `stories/${storyId}/stats`,
+            StoryStatsResponseSchema,
             options
         )
     }

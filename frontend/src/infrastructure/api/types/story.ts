@@ -51,3 +51,12 @@ export const BookPulseResponseSchema = z.object({
     world: PulseDimensionSchema
 })
 export type BookPulseResponse = z.infer<typeof BookPulseResponseSchema>
+
+
+export const StoryStatsResponseSchema = z.object({
+    totalWords: z.int(),
+    totalChapters: z.int(),
+    totalScenes: z.int(),
+    streakDays: z.int()
+})
+export type StoryStatsResponse = z.infer<typeof StoryStatsResponseSchema>

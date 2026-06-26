@@ -15,6 +15,7 @@ from src.data.schemas.scene import (
 )
 from src.data.schemas.story import (
     CreateStoryRequest,
+    StoryStatsResponse,
     UpdateStoryRequest,
     StoryCardResponse,
     StoryDetailResponse,
@@ -354,5 +355,26 @@ class StoryService:
             plot=plot_result,
             structure=structure_result,
             world=world_result
+        )
+    
+    @handle_service_errors
+    async def get_story_stats(
+        self,
+        story_id: str,
+        user_id: str
+    ) -> StoryStatsResponse:
+        
+        story = await self._story_repo.get(story_id, user_id)
+
+        if story is None:
+            raise NotFoundError("Story not found")
+        
+        stats = await self._story_repo.get_stats(story_id, user_id)
+
+        return StoryStatsResponse(
+            total_words=stats.get("total_words", 0),
+            total_chapters=stats.get("chapters_total", 0),
+            total_scenes=stats.get("scenes_tracked", 0),
+            streak_days=stats.get("streak_days", 0)
         )
 

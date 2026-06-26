@@ -13,6 +13,7 @@ from src.data.schemas.enums import StoryStatus
 from src.data.schemas.extraction import BookPulseResponse
 from src.data.schemas.story import (
     CreateStoryRequest,
+    StoryStatsResponse,
     UpdateStoryRequest,
     StoryGridResponse,
     StoryDetailResponse,
@@ -184,3 +185,15 @@ async def get_pulse(
     story_service: StoryService = Depends(get_story_service),
 ) -> BookPulseResponse:
     return await story_service.get_pulse(current_user.id, story_id)
+
+
+@story_controller.get(
+    "/{story_id}/stats",
+    response_model=StoryStatsResponse
+)
+async def get_stats(
+    story_id: str,
+    current_user: UserRow = Depends(get_current_user),
+    story_service: StoryService = Depends(get_story_service)
+) -> StoryStatsResponse:
+    return await story_service.get_story_stats(story_id, current_user.id)

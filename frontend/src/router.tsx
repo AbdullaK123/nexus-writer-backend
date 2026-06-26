@@ -13,6 +13,8 @@ import { None } from "oxide.ts";
 import { Background } from "./components/common/Background/Background";
 import { SignupPage } from "./components/auth/SignupPage";
 import { AppShell, KitchenSink } from "./components";
+import { StoryDetailPage } from "./components/story/StoryDetailPage/StoryDetailPage";
+import { z } from "zod";
 
 interface RouterContext {
     auth: AuthContextValue
@@ -91,11 +93,23 @@ const dashboardRoute = createRoute({
     component: DashboardPage
 })
 
+const storyDetailRoute = createRoute({
+    getParentRoute: () => appRoute,
+    path: "/stories/$storyId",
+    validateSearch: z.object({
+        storyId: z.string()
+    }),
+    component: StoryDetailPage
+})
+
 const routeTree = rootRoute.addChildren([
     loginRoute,
     signupRoute,
     devRoute,
-    appRoute.addChildren([dashboardRoute])
+    appRoute.addChildren([
+        dashboardRoute, 
+        storyDetailRoute
+    ])
 ])
 
 export const router = createRouter({

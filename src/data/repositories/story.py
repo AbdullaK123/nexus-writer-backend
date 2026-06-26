@@ -140,3 +140,49 @@ class StoryRepository:
     ) -> None:
         sql = 'UPDATE "story" SET updated_at = NOW() WHERE id = $1'
         await self._exe(executor).execute(sql, story_id)
+
+    async def get_stats(
+        self, story_id: str, user_id: str, *, executor: Executor | None = None,
+    ) -> dict:
+        sql = \
+        """
+           WITH unique_dates AS (
+                SELECT DISTINCT
+                    DATE_TRUNC('day', updated_at)::date AS active_date
+                FROM chapter
+                WHERE user_id = $1 AND story_id = $2
+            ),
+            numbered_dates AS (
+                SELECT
+                    active_date,
+                    active_date - (ROW_NUMBER() OVER (ORDER BY active_date) * INTERVAL '1 day') AS streak_group
+                FROM unique_dates
+            ),
+            all_streaks AS (
+                SELECT
+                    MAX(active_date) AS streak_end,
+                    COUNT(*) AS streak_days
+                FROM numbered_dates
+                GROUP BY streak_group
+            ),
+            active_streak AS (
+                SELECT
+                    COALESCE(MAX(streak_days), 0) AS current_streak_days
+                FROM all_streaks
+                WHERE streak_end >= CURRENT_DATE - INTERVAL '1 day'
+            )
+            SELECT
+                COALESCE(SUM(c.word_count), 0) AS total_words,
+                COUNT(DISTINCT c.id) AS chapters_total,
+                COUNT(DISTINCT sc.id) AS scenes_tracked,
+                a.current_streak_days AS streak_days
+            FROM "story" s
+            LEFT JOIN chapter c ON s.id = c.story_id
+            LEFT JOIN scene sc ON s.id = sc.story_id
+            CROSS JOIN active_streak a
+            WHERE s.user_id = $1
+            GROUP BY a.current_streak_days
+        """
+        result = await self._exe(executor).fetch(sql, user_id, story_id)
+        
+        return dict(result) if result else {}

@@ -75,3 +75,10 @@ class StoryDetailResponse(ApiModel):
 
 class StoryGridResponse(ApiModel):
     stories: List["StoryCardResponse"]
+
+
+class StoryStatsResponse(ApiModel):
+    total_words: Optional[int] = 0
+    total_chapters: Optional[int] = 0
+    total_scenes: Optional[int] = 0
+    streak_days: Optional[int] = 0    
