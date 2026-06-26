@@ -7,7 +7,7 @@ import {
     requestOptions,
 } from "../../infrastructure/api/types"
 import { storyKeys } from "./story"
-import { unwrapResultAsync } from "../../shared/types"
+import { ApiError, unwrapResultAsync } from "../../shared/types"
 import { toAsyncState } from "../../infrastructure/api/utils";
 
 // ─── Keys ──────────────────────────────────────────────────────────────────
@@ -74,9 +74,10 @@ export function useDeleteChapter(chapterId: string, storyId: string) {
 
 export function useChapterSummary(chapterId: string) {
     const api = useApi()
-    return toAsyncState<ChapterSummaryResponse>(useQuery({
+    const result = useQuery<ChapterSummaryResponse, ApiError>({
         queryKey: chapterKeys.summary(chapterId),
         queryFn: ({ signal }) => unwrapResultAsync(api.chapter.summarizeChapter(chapterId, requestOptions({ signal }))),
         enabled: Boolean(chapterId)
-    }))
+    })
+    return [toAsyncState<ChapterSummaryResponse>(result), result.refetch] as const
 }

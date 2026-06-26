@@ -1,6 +1,6 @@
 import { useChapterSummary } from "../../../../data/queries";
 import type { StoryStatus } from "../../../../infrastructure/api/types";
-import { StatusBadge, useToast } from "../../../common";
+import { Button, StatusBadge, useToast } from "../../../common";
 import { formatDistanceToNow } from "date-fns"
 import styles from "./StoryOverview.module.css"
 import { useEffect, useEffectEvent } from "react";
@@ -28,11 +28,7 @@ export function StoryOverview({
     currentStreak
 }: StoryOverviewProps) {
 
-    const {
-        data: chapterSummary,
-        isLoading,
-        isError
-    } = useChapterSummary(selectedChapterId)
+    const [summaryState, refetchSummary] = useChapterSummary(selectedChapterId)
 
     const { error } = useToast()
 
@@ -41,8 +37,8 @@ export function StoryOverview({
     })
 
     useEffect(() => {
-        if (isError) onFetchFailed()
-    }, [isError])
+        if (summaryState.status === "error") onFetchFailed()
+    }, [summaryState.status])
 
     const toStatusVariant = (status: StoryStatus) => {
         switch (status) {
@@ -64,9 +60,23 @@ export function StoryOverview({
                 </div>
                 <div className={styles['summary-container']}>
                     <h2>{storyTitle}</h2>
-                    {isLoading && (<p>Loading summary...</p>)}
-                    {isError && (<p>X Failed to load chapter summary</p>)}
-                    <p className={styles['summary']}>{chapterSummary ? chapterSummary.summary : "No summary yet"}</p>
+                    {summaryState.status === "loading" && (<p>Loading summary...</p>)}
+                    {summaryState.status === "error" && (
+                        <div className={styles['error-state']}>
+                            <p>X Failed to load chapter summary</p>
+                            <Button
+                                variant="primary"
+                                onClick={() => refetchSummary()}
+                            >
+                                Retry
+                            </Button>
+                        </div>
+                    )}
+                    <p className={styles['summary']}>
+                        {(summaryState.status === "success") && 
+                            summaryState.data.unwrap().unwrap().summary}
+                        {(summaryState.status === "empty") && "No summary yet"}
+                    </p>
                 </div>
             </div>
             <div className={styles['stats-container']}>
