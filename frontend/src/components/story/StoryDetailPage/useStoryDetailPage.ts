@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { None } from "oxide.ts";
 import { useStoryChapters } from "../../../data/queries";
 import type { ChapterListProps } from "./ChapterList/ChapterList";
 import type { StoryHeaderProps } from "./StoryHeader/StoryHeader";
 import type { StoryOverviewProps } from "./StoryOverview/StoryOverview";
 import type { BookPulseProps } from "./BookPulse/BookPulse";
 import { useBookPulse } from "./BookPulse/useBookPulse";
-import { useNavigate, useSearch } from "@tanstack/react-router"
+import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useStoryHeaderProps } from "./hooks/useStoryHeaderProps";
+import { useChapterListProps } from "./hooks/useChapterListProps";
+import { useStoryOverview } from "./StoryOverview/useStoryOverview";
 
 export type StoryDetailPageProps = {
   storyHeader: StoryHeaderProps
@@ -15,25 +18,34 @@ export type StoryDetailPageProps = {
 }
 
 export function useStoryDetailPage(): StoryDetailPageProps {
-  const { storyId } = useSearch({ from: "/app/stories/$storyId" })
-  // Minimal wiring for now: keep everything in loading to satisfy DU boundaries while we derive real state next.
-  const navigate = useNavigate()
-  const [_storyChaptersState] = useStoryChapters(storyId)
-  const [_modalOpen, _setModalOpen] = useState(false)
+  const { storyId } = useSearch({ from: "/app/stories/$storyId" });
+  const navigate = useNavigate();
+  const [chaptersState, refetchChapters] = useStoryChapters(storyId);
 
-  const storyHeader: StoryHeaderProps = {
-    status: 'loading',
+  const storyHeader: StoryHeaderProps = useStoryHeaderProps({
+    chaptersState,
+    onRetry: () => { void refetchChapters(); },
     onNavigateToLibrary: () => navigate({ to: "/" }),
     onClickSettings: () => {},
     onAskNexus: () => {},
     onNewChapter: () => {},
-  }
+  });
 
-  const storyOverview: StoryOverviewProps = { status: 'loading' }
+  // Keep StoryOverview using its own subhook; pass Nones to yield 'loading' until details are wired.
+  const storyOverview: StoryOverviewProps = useStoryOverview({
+    storyId,
+    storyStatus: None,
+    createdAt: None,
+    storyTitle: None,
+    selectedChapterId: "",
+  });
 
-  const bookPulse: BookPulseProps = useBookPulse(storyId)
+  const bookPulse: BookPulseProps = useBookPulse(storyId);
 
-  const chapterList: ChapterListProps = { status: 'loading' }
+  const chapterList: ChapterListProps = useChapterListProps({
+    chaptersState,
+    onRetry: () => { void refetchChapters(); }
+  });
 
-  return { storyHeader, storyOverview, bookPulse, chapterList }
+  return { storyHeader, storyOverview, bookPulse, chapterList };
 }
