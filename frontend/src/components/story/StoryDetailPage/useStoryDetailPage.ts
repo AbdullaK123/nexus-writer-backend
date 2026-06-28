@@ -1,51 +1,111 @@
-import { None } from "oxide.ts";
-import { useStoryChapters } from "../../../data/queries";
+import { useEffect, useEffectEvent, useState } from "react";
+import { useChapterSummary, useCreateChapter, useStoryChapters, useStoryStats } from "../../../data/queries";
 import type { ChapterListProps } from "./ChapterList/ChapterList";
 import type { StoryHeaderProps } from "./StoryHeader/StoryHeader";
 import type { StoryOverviewProps } from "./StoryOverview/StoryOverview";
+import { useNavigate, useSearch } from "@tanstack/react-router"
+import { Option, Some, None } from "oxide.ts"
 import type { BookPulseProps } from "./BookPulse/BookPulse";
-import { useBookPulse } from "./BookPulse/useBookPulse";
-import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useStoryHeaderProps } from "./hooks/useStoryHeaderProps";
+import { useStoryOverviewProps } from "./hooks/useStoryOverviewProps";
 import { useChapterListProps } from "./hooks/useChapterListProps";
-import { useStoryOverview } from "./StoryOverview/useStoryOverview";
+import { useBookPulse } from "./BookPulse/useBookPulse";
+import { useToast } from "../../common";
 
 export type StoryDetailPageProps = {
   storyHeader: StoryHeaderProps
   storyOverview: StoryOverviewProps
-  bookPulse: BookPulseProps
   chapterList: ChapterListProps
+  bookPulse: BookPulseProps
 }
 
 export function useStoryDetailPage(): StoryDetailPageProps {
-  const { storyId } = useSearch({ from: "/app/stories/$storyId" });
-  const navigate = useNavigate();
-  const [chaptersState, refetchChapters] = useStoryChapters(storyId);
+  const { storyId } = useSearch({ from: "/app/stories/$storyId" })
+  // Minimal wiring for now: keep everything in loading to satisfy DU boundaries while we derive real state next.
+  const navigate = useNavigate()
+
+  const [selectedChapterId, setSelectedChapterId] = useState<Option<string>>(None)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [chapterTitle, setChapterTitle] = useState("")
+  const { error, success } = useToast()
+
+  const [storyState, refetchStory] = useStoryChapters(storyId)
+  const [statsState, refetchStats] = useStoryStats(storyId)
+  const [summaryState, refetchSummary] = useChapterSummary(selectedChapterId)
+  const { 
+    mutate: createChapter
+  } = useCreateChapter(storyId)
+
+  const onStoryError = useEffectEvent(() => {
+    error("Failed to fetch story data.", "Something went wrong. The server might be experiencing issues.")
+  })
+
+  const onStatsError = useEffectEvent(() => {
+    error("Failed to fetch story stats.", "Something went wrong. The server might be experiencing issues.")
+  })
+
+  const onSummaryError = useEffectEvent(() => {
+    error("Failed to fetch chapterSummary.", "Something went wrong. The server might be experiencing issues.")
+  })
+
+  useEffect(() => {
+    if (storyState.status === "error") onStoryError()
+  }, [storyState.status])
+
+  useEffect(() => {
+    if (statsState.status === "error") onStatsError()
+  }, [statsState.status])
+
+  useEffect(() => {
+    if (summaryState.status === "error") onSummaryError()
+  }, [summaryState.status])
+
+  const handleChapterCreate = () => createChapter(
+    { title: chapterTitle, content: "" },
+    {
+      onSuccess: () => {
+        success("Successfully created a new chapter!", "Happy writing!")
+      },
+      onError: () => {
+        error("Failed to create a new chapter", "Something went wrong. The server might be experiencing issues.")
+      },
+      onSettled: () => {
+        setChapterTitle("")
+        setModalOpen(false)
+      }
+    }
+  )
 
   const storyHeader: StoryHeaderProps = useStoryHeaderProps({
-    chaptersState,
-    onRetry: () => { void refetchChapters(); },
+    chaptersState: storyState,
+    chapterTitle: chapterTitle,
+    onChapterTitleChange: (title: string) => setChapterTitle(title),
+    modalOpen: modalOpen,
+    onModalOpenChange: (open: boolean) => setModalOpen(!open),
     onNavigateToLibrary: () => navigate({ to: "/" }),
     onClickSettings: () => {},
     onAskNexus: () => {},
-    onNewChapter: () => {},
-  });
+    onNewChapter: handleChapterCreate,
+    onRetry: refetchStory
+  })
 
-  // Keep StoryOverview using its own subhook; pass Nones to yield 'loading' until details are wired.
-  const storyOverview: StoryOverviewProps = useStoryOverview({
-    storyId,
-    storyStatus: None,
-    createdAt: None,
-    storyTitle: None,
-    selectedChapterId: "",
-  });
-
-  const bookPulse: BookPulseProps = useBookPulse(storyId);
+  const storyOverview: StoryOverviewProps = useStoryOverviewProps({
+    storyState: storyState,
+    summaryState: summaryState,
+    statsState: statsState,
+    onRetryStats: refetchStats,
+    onRetrySummary: refetchSummary
+  })
 
   const chapterList: ChapterListProps = useChapterListProps({
-    chaptersState,
-    onRetry: () => { void refetchChapters(); }
-  });
+    chaptersState: storyState,
+    selectedChapterId: selectedChapterId,
+    onRetry: refetchStory,
+    onChapterClick: (chapterId: string) => setSelectedChapterId(Some(chapterId)),
+    onChapterDoubleClick: () => {}
+  })
 
-  return { storyHeader, storyOverview, bookPulse, chapterList };
+  const bookPulse: BookPulseProps = useBookPulse(storyId)
+
+  return { storyHeader, storyOverview, chapterList, bookPulse }
 }

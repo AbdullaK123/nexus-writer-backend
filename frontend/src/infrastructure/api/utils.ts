@@ -51,7 +51,7 @@ export function toAsyncState<T>(query: UseQueryResult<T, ApiError>): AsyncState<
 export function useTypedQuery<T>(
   options: UseQueryOptions<T, ApiError>
 ): AsyncState<T, ApiError> {
-  const query = useQuery(options);
+  const query = useQuery<T, ApiError>(options);
 
   switch (query.status) {
     case "pending":
@@ -69,3 +69,54 @@ export function useTypedQuery<T>(
 
 export const toOption = <T>(val: T | undefined | null): Option<T> => 
   (val !== undefined && val !== null) ? Some(val) : None;
+
+
+export type ResolvedAsyncState<T, E> = 
+  | { status: "loading" }
+  | { status: "error", errors: E[] }
+  | { status: "empty"}
+  | { status: "success", data: T }
+
+export function resolveAsyncStates<T extends Record<string, unknown>, E>(
+  states: {
+    [K in keyof T]: AsyncState<T[K], E>
+  }
+): ResolvedAsyncState<T, E> {
+
+  const errors: E[] = []
+  const data = {} as Partial<T>
+  let hasEmpty = false
+
+  for (const key in states) {
+    const state = states[key]
+
+    switch (state.status) {
+      case "idle":
+      case "loading":
+        return { status: "loading" }
+      case "empty":
+        hasEmpty = true
+        break;
+      case "error":
+        errors.push(state.data.unwrap().unwrap())
+        break;
+      case "success":
+        data[key] = state.data.unwrap().unwrap()
+        break;
+    }
+  }
+
+  if (errors.length > 0) {
+    return { status: "error", errors: errors}
+  }
+
+  if (hasEmpty) {
+    return { status: "empty" }
+  }
+
+  return {
+    status: "success",
+    data: data as T
+  }
+
+}

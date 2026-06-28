@@ -9,6 +9,7 @@ import {
 import { storyKeys } from "./story"
 import { ApiError, unwrapResultAsync } from "../../shared/types"
 import { toAsyncState } from "../../infrastructure/api/utils";
+import { Option } from "oxide.ts"
 
 // ─── Keys ──────────────────────────────────────────────────────────────────
 // Chapter cache lives under its own root because chapters are also
@@ -72,12 +73,20 @@ export function useDeleteChapter(chapterId: string, storyId: string) {
     })
 }
 
-export function useChapterSummary(chapterId: string) {
-    const api = useApi()
-    const result = useQuery<ChapterSummaryResponse, ApiError>({
-        queryKey: chapterKeys.summary(chapterId),
-        queryFn: ({ signal }) => unwrapResultAsync(api.chapter.summarizeChapter(chapterId, requestOptions({ signal }))),
-        enabled: Boolean(chapterId)
-    })
-    return [toAsyncState<ChapterSummaryResponse>(result), result.refetch] as const
+export function useChapterSummary(chapterId: Option<string>) {
+  const api = useApi()
+
+  const enabled = chapterId.isSome()
+  const id = chapterId.unwrapOr("__none__")
+
+  const result = useQuery<ChapterSummaryResponse, ApiError>({
+    queryKey: chapterKeys.summary(id),
+    queryFn: ({ signal }) =>
+      unwrapResultAsync(
+        api.chapter.summarizeChapter(id, requestOptions({ signal }))
+      ),
+    enabled,
+  })
+
+  return [toAsyncState<ChapterSummaryResponse>(result), result.refetch] as const
 }

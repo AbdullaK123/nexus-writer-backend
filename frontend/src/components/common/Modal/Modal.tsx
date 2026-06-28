@@ -4,7 +4,7 @@ import { type ReactNode} from "react"
 import styles from "./Modal.module.css"
 import { Option } from "oxide.ts"
 
-type ModalProps = {
+export type ModalProps = {
     open: boolean
     onOpenChange: (e: boolean) => void
     children: ReactNode

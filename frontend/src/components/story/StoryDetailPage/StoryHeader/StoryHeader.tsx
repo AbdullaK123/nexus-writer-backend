@@ -1,15 +1,21 @@
-import { Button, LoadingSkeleton } from "../../../common";
+import { Button, LoadingSkeleton, Modal } from "../../../common";
 import styles from "./StoryHeader.module.css"
 import { None } from "oxide.ts"
+
+
 
 export type StoryHeaderProps =
   | {
       status: 'loading'
+      modalOpen: boolean
+      onModalOpenChange: (open: boolean) => void
+      chapterTitle: string
+      onChapterTitleChange: (title: string) => void;
       onNavigateToLibrary: () => void
       onClickSettings: () => void
       onAskNexus: () => void
-      onNewChapter: () => void
-    }
+      onNewChapter: (title: string) => void
+    } 
   | {
       status: 'error'
       message: string
@@ -29,11 +35,15 @@ export type StoryHeaderProps =
   | {
       status: 'ready'
       title: string
+      modalOpen: boolean
+      onModalOpenChange: (open: boolean) => void
+      chapterTitle: string
+      onChapterTitleChange: (title: string) => void
       onNavigateToLibrary: () => void
       onClickSettings: () => void
       onAskNexus: () => void
-      onNewChapter: () => void
-    }
+      onNewChapter: (title: string) => void
+    } 
 
 export function StoryHeader(props: StoryHeaderProps) {
   switch (props.status) {
@@ -44,7 +54,35 @@ export function StoryHeader(props: StoryHeaderProps) {
           <div className={styles['btn-container']}>
             <Button variant="secondary" onClick={props.onClickSettings}>Settings</Button>
             <Button variant="primary" onClick={props.onAskNexus}>Ask Nexus</Button>
-            <Button variant="primary" onClick={props.onNewChapter}>+ New Chapter</Button>
+            <Modal
+                open={props.modalOpen}
+                onOpenChange={props.onModalOpenChange}
+                closeTrigger={None}
+                title={None}
+                description={None}
+                content={
+                  <div>
+                    <h2>Create a new chapter</h2>
+                    <div className="hstack">
+                      <input
+                        type="text"
+                        value={props.chapterTitle}
+                        className="field__input"
+                        placeholder="Give it a nice title..."
+                        onChange={(e) => props.onChapterTitleChange(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') props.onNewChapter(props.chapterTitle)
+                        }}
+                      />
+                      <Button variant="primary" onClick={() => props.onNewChapter(props.chapterTitle)}>
+                        Submit
+                      </Button>
+                    </div>
+                  </div>
+                }
+            >
+              <Button variant="primary">+ New Chapter</Button>
+            </Modal>
           </div>
         </div>
       )
@@ -79,7 +117,35 @@ export function StoryHeader(props: StoryHeaderProps) {
           <div className={styles['btn-container']}>
             <Button variant="secondary" onClick={props.onClickSettings}>Settings</Button>
             <Button variant="primary" onClick={props.onAskNexus}>Ask Nexus</Button>
-            <Button variant="primary" onClick={props.onNewChapter}>+ New Chapter</Button>
+            <Modal
+                open={props.modalOpen}
+                onOpenChange={props.onModalOpenChange}
+                closeTrigger={None}
+                title={None}
+                description={None}
+                content={
+                  <div>
+                    <h2>Create a new chapter</h2>
+                    <div className="hstack">
+                      <input
+                        type="text"
+                        value={props.chapterTitle}
+                        className="field__input"
+                        placeholder="Give it a nice title..."
+                        onChange={(e) => props.onChapterTitleChange(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') props.onNewChapter(props.chapterTitle)
+                        }}
+                      />
+                      <Button variant="primary" onClick={() => props.onNewChapter(props.chapterTitle)}>
+                        Submit
+                      </Button>
+                    </div>
+                  </div>
+                }
+            >
+              <Button variant="primary">+ New Chapter</Button>
+            </Modal>
           </div>
         </div>
       )

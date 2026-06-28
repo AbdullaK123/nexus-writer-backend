@@ -1,12 +1,16 @@
 import type { ChapterListProps } from "../ChapterList/ChapterList";
 import type { AsyncState, ChapterListResponse } from "../../../../infrastructure/api/types";
 import type { ApiError } from "../../../../shared/types";
+import { Option } from "oxide.ts"
 
 export function useChapterListProps(args: {
-  chaptersState: AsyncState<ChapterListResponse, ApiError>
-  onRetry: () => void
+  chaptersState: AsyncState<ChapterListResponse, ApiError>,
+  selectedChapterId: Option<string>,
+  onRetry: () => void,
+  onChapterClick: (chapterId: string) => void,
+  onChapterDoubleClick: () => void
 }): ChapterListProps {
-  const { chaptersState, onRetry } = args;
+  const { chaptersState, selectedChapterId, onRetry, onChapterClick, onChapterDoubleClick } = args;
   switch (chaptersState.status) {
     case 'idle':
     case 'loading':
@@ -37,7 +41,16 @@ export function useChapterListProps(args: {
           selected: 'all',
           onClickFilterChip: () => {}
         },
-        items: []
+        items: chaptersState.data.unwrap().unwrap().chapters.map((chapter) => ({
+          status: (selectedChapterId.isSome() && selectedChapterId.unwrap() === chapter.chapterId) ? "selected" : "idle",
+          chapterNumber: chapter.chapterNumber,
+          chapterTitle: chapter.chapterTitle,
+          chapterStatus: chapter.published ? "published" : "draft",
+          updatedAt: chapter.updatedAt,
+          wordCount: chapter.wordCount,
+          onClick: () => onChapterClick(chapter.chapterId),
+          onDoubleClick: onChapterDoubleClick
+        }))
       };
     }
   }
