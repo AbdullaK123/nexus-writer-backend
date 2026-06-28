@@ -4,11 +4,13 @@ import type { AsyncState, StoryGridResponse } from "../../../../infrastructure/a
 import type { ApiError } from "../../../../shared/types";
 import { useCreateStory } from "../../../../data/queries";
 import { useToast } from "../../../common";
+import { useNavigate } from "@tanstack/react-router"
 
 export function useLibraryGridProps(args: { storiesState: AsyncState<StoryGridResponse, ApiError>; onRetry: () => void }): LibraryGridProps {
   const { storiesState, onRetry } = args;
   const { error, success } = useToast();
   const { mutate: createStory } = useCreateStory();
+  const navigate = useNavigate()
 
   const [modalOpen, setModalOpen] = useState(false);
   const [storyTitle, setStoryTitle] = useState("");
@@ -53,7 +55,7 @@ export function useLibraryGridProps(args: { storiesState: AsyncState<StoryGridRe
       };
     case 'success': {
       const data = storiesState.data.unwrap().unwrap();
-      const stories = data.stories.map(s => ({ ...s, onClick: () => {} }));
+      const stories = data.stories.map(s => ({ ...s, onClick: () => navigate({ to: `/stories/${s.storyId}` }) }));
       if (stories.length === 0) {
         return {
           status: 'empty',
