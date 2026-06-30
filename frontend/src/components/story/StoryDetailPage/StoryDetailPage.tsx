@@ -12,8 +12,8 @@ export function StoryDetailPage() {
       <StoryHeader {...storyHeader} />
       <StoryOverview {...storyOverview} />
       <div className={styles['list-and-pulse-container']}>
-        <BookPulse {...bookPulse} />
         <ChapterList {...chapterList} />
+        <BookPulse {...bookPulse} />
       </div>
     </div>
   )

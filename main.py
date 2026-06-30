@@ -23,7 +23,7 @@ load_dotenv()
 configure_logger()
 
 
-app = FastAPI(
+api = FastAPI(
     title="Nexus Writer API",
     description="The backend API for Nexus Writer",
     version="1.0",
@@ -38,7 +38,7 @@ app = FastAPI(
 from src.infrastructure.config import config as app_config
 
 
-@app.middleware("http")
+@api.middleware("http")
 async def limit_request_body(request: Request, call_next):
     content_length = request.headers.get("content-length")
     if content_length:
@@ -53,19 +53,10 @@ async def limit_request_body(request: Request, call_next):
             )
     return await call_next(request)
 
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=settings.cors_allow_credentials,
-    allow_methods=settings.cors_allow_methods,
-    allow_headers=settings.cors_allow_headers,
-)
-
 # ── Layer exception handlers ──────────────────────────────────────────
 
 
-@app.exception_handler(ServiceError)
+@api.exception_handler(ServiceError)
 async def service_error_handler(request: Request, exc: ServiceError):
     cid = get_correlation_id()
     detail = {"code": exc.code, "message": exc.message, "correlation_id": cid}
@@ -77,7 +68,7 @@ async def service_error_handler(request: Request, exc: ServiceError):
     return JSONResponse(status_code=exc.status_code, content={"detail": detail})
 
 
-@app.exception_handler(DataError)
+@api.exception_handler(DataError)
 async def data_error_handler(request: Request, exc: DataError):
     cid = get_correlation_id()
     if isinstance(exc, DataNotFound):
@@ -126,7 +117,7 @@ async def data_error_handler(request: Request, exc: DataError):
     )
 
 
-@app.exception_handler(InfrastructureError)
+@api.exception_handler(InfrastructureError)
 async def infrastructure_error_handler(request: Request, exc: InfrastructureError):
     cid = get_correlation_id()
     logger.error("Infrastructure error: {exc}", exc=exc)
@@ -143,7 +134,7 @@ async def infrastructure_error_handler(request: Request, exc: InfrastructureErro
 
 
 # Global exception handler to ensure bullet-proof logging with correlation id
-@app.exception_handler(Exception)
+@api.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled exception while processing request")
     cid = get_correlation_id()
@@ -156,12 +147,20 @@ main_router.include_router(user_controller)
 main_router.include_router(chapter_controller)
 main_router.include_router(story_controller)
 
-app.include_router(main_router)
+api.include_router(main_router)
 
 
-@app.get("/health")
+@api.get("/health")
 async def get_health() -> dict:
     return {"message": "Everything is healthy!"}
+
+app = CORSMiddleware(
+    app=api,
+    allow_origins=settings.cors_origins,
+    allow_credentials=settings.cors_allow_credentials,
+    allow_methods=settings.cors_allow_methods,
+    allow_headers=settings.cors_allow_headers,
+)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,9 @@
-import type { StoryStatus } from "../../../../infrastructure/api/types";
+import type { StoryStatus } from "../../../../../infrastructure/api/types";
 import { formatDistanceToNowStrict  } from 'date-fns'
-import { Card, StatusBadge } from "../../../common"
+import { Card, StatusBadge } from "../../../../common"
 import styles from "./StoryCard.module.css"
 import { toStatusBadgeVariant } from "./utils";
+import { None, Some } from "oxide.ts";
 
 
 export type StoryCardProps = {
@@ -28,18 +29,21 @@ export function StoryCard({
 }: StoryCardProps)  {
     return (
         <Card
+            className={styles['raise-card']}
             onClick={() => onClick(storyId)}
+            cardTitle={None}
+            subtitle={None}
             header={(
-                <div className={styles['header-container']}>
+                Some(<div className={styles['header-container']}>
                     <StatusBadge variant={toStatusBadgeVariant(status)} />
                     <p className={styles['all-caps']}>{`${chapterNumber} chapters`}</p>
-                </div>
+                </div>)
             )}
             footer={(
-                <div className={styles['footer-container']}>
+                Some(<div className={styles['footer-container']}>
                     <p className={styles['color-cyan']}>{`${wordCount} words`}</p>
                     <p className={styles['all-caps']}>{`updated ${formatDistanceToNowStrict(updatedAt, { addSuffix: true })}`}</p>
-                </div>
+                </div>)
             )}
         >
             {<h3 className={styles['text-left']}>{title}</h3>}

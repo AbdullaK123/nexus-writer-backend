@@ -1,5 +1,5 @@
 import { formatDistanceToNowStrict } from 'date-fns'
-import { Button } from '../../../common';
+import { Button } from '../../../../common';
 import styles from "./ChapterCard.module.css"
 
 export type ChapterCardProps = {

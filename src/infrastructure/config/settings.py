@@ -32,6 +32,8 @@ class Settings(BaseSettings):
 
     # open ai api key
     openai_api_key: str
+    open_router_api_key: str
+    open_router_api_url: str
 
     # CORS
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]

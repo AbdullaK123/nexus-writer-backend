@@ -26,7 +26,8 @@ class OpenAIProvider:
         self.temperature = temperature
         self._sem = asyncio.Semaphore(max_concurrent_requests)
         self._client = AsyncOpenAI(
-            api_key=settings.openai_api_key,
+            base_url=settings.open_router_api_url,
+            api_key=settings.open_router_api_key,
             max_retries=config.ai.max_retries,
             timeout=config.ai.timeout,
         )
@@ -153,7 +154,7 @@ class OpenAIProvider:
             ],
             response_format=schema,
             max_completion_tokens=max_tokens,
-            temperature=self.temperature,
+            temperature=self.temperature
         )
         content = response.choices[0].message.parsed
         if response.choices[0].finish_reason == "length":

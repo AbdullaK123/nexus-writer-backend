@@ -13,7 +13,7 @@ export function JumpBackInRow(props: JumpBackInRowProps) {
   switch (props.status) {
     case 'loading':
       return (
-        <div>
+        <div className={styles['main-content']}>
           <div className={styles['header']}>
             <span className="system-badge system-badge__nobg">[JUMP BACK IN]</span>
             <p>Loading…</p>
@@ -31,7 +31,7 @@ export function JumpBackInRow(props: JumpBackInRowProps) {
       )
     case 'empty':
       return (
-        <div>
+        <div className={styles['main-content']}>
           <div className={styles['header']}>
             <span className="system-badge system-badge__nobg">[JUMP BACK IN]</span>
             <p>Last 3 chapters you touched</p>
@@ -48,7 +48,7 @@ export function JumpBackInRow(props: JumpBackInRowProps) {
       )
     case 'ready':
       return (
-        <div>
+        <div className={styles['main-content']}>
           <div className={styles['header']}>
             <span className="system-badge system-badge__nobg">[JUMP BACK IN]</span>
             <p>Last 3 chapters you touched</p>

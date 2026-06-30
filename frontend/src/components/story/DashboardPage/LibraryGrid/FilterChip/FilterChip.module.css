@@ -6,7 +6,8 @@
     background: var(--fill-neutral);
     color: var(--text-muted);
     border: 1px solid var(--border-subtle);
-    text-transform: uppercase
+    text-transform: uppercase;
+    cursor: pointer
 }
 
 .filter-chip__selected {

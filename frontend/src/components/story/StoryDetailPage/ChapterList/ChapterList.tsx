@@ -8,7 +8,7 @@ export type ChapterListProps =
   | { status: 'loading' }
   | { status: 'error'; headline: string; title: string; onRetry: () => void }
   | { status: 'empty'; filterBar: ChapterListFilterBarProps }
-  | { status: 'ready'; filterBar: ChapterListFilterBarProps; items: ChapterListItemProps[] }
+  | { status: 'ready'; filterBar: ChapterListFilterBarProps; items: ChapterListItemProps[], selected: 'all' | 'draft' | 'published' }
 
 export function ChapterList(props: ChapterListProps) {
   switch (props.status) {
@@ -48,7 +48,12 @@ export function ChapterList(props: ChapterListProps) {
         <div className={styles['content']}>
           <ChapterListFilterBar {...props.filterBar} />
           <div className={styles['list-items']}>
-            {props.items.map((item, idx) => (
+            {props.items.filter((chapter) => {
+              if (props.selected === "all") 
+                return true
+              else
+                return chapter.chapterStatus === props.selected
+            }).map((item, idx) => (
               <ChapterListItem key={idx} {...item} />
             ))}
           </div>

@@ -24,3 +24,18 @@
     font-size: var(--fs-xl);
     padding: var(--space-2);
 }
+
+.raise-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+}
+
+.raise-card:hover {
+    transform: translateY(calc(-1*var(--space-2)));
+    border-color: var(--broder-strong);
+    box-shadow: var(--elevation-card)
+}
+
+.raise-card:active {
+    transform: scale(0.95);
+}

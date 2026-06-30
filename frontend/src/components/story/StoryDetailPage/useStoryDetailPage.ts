@@ -3,7 +3,7 @@ import { useChapterSummary, useCreateChapter, useStoryChapters, useStoryStats } 
 import type { ChapterListProps } from "./ChapterList/ChapterList";
 import type { StoryHeaderProps } from "./StoryHeader/StoryHeader";
 import type { StoryOverviewProps } from "./StoryOverview/StoryOverview";
-import { useNavigate, useSearch } from "@tanstack/react-router"
+import { useNavigate, useParams } from "@tanstack/react-router"
 import { Option, Some, None } from "oxide.ts"
 import type { BookPulseProps } from "./BookPulse/BookPulse";
 import { useStoryHeaderProps } from "./hooks/useStoryHeaderProps";
@@ -20,13 +20,14 @@ export type StoryDetailPageProps = {
 }
 
 export function useStoryDetailPage(): StoryDetailPageProps {
-  const { storyId } = useSearch({ from: "/app/stories/$storyId" })
+  const { storyId } = useParams({ from: "/app/stories/$storyId" })
   // Minimal wiring for now: keep everything in loading to satisfy DU boundaries while we derive real state next.
   const navigate = useNavigate()
 
   const [selectedChapterId, setSelectedChapterId] = useState<Option<string>>(None)
   const [modalOpen, setModalOpen] = useState(false)
   const [chapterTitle, setChapterTitle] = useState("")
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'draft' | 'published'>('all')
   const { error, success } = useToast()
 
   const [storyState, refetchStory] = useStoryChapters(storyId)
@@ -81,7 +82,7 @@ export function useStoryDetailPage(): StoryDetailPageProps {
     chapterTitle: chapterTitle,
     onChapterTitleChange: (title: string) => setChapterTitle(title),
     modalOpen: modalOpen,
-    onModalOpenChange: (open: boolean) => setModalOpen(!open),
+    onModalOpenChange: (open: boolean) => setModalOpen(open),
     onNavigateToLibrary: () => navigate({ to: "/" }),
     onClickSettings: () => {},
     onAskNexus: () => {},
@@ -97,9 +98,12 @@ export function useStoryDetailPage(): StoryDetailPageProps {
     onRetrySummary: refetchSummary
   })
 
+
   const chapterList: ChapterListProps = useChapterListProps({
     chaptersState: storyState,
     selectedChapterId: selectedChapterId,
+    selectedFilter: selectedFilter,
+    onFilterChange: (filter: 'all' | 'draft' | 'published') => setSelectedFilter(filter),
     onRetry: refetchStory,
     onChapterClick: (chapterId: string) => setSelectedChapterId(Some(chapterId)),
     onChapterDoubleClick: () => {}

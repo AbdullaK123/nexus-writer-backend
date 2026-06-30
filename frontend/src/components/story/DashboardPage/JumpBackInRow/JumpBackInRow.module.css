@@ -11,3 +11,10 @@
     gap: var(--space-4);
     padding: var(--space-3);
 }
+
+.main-content {
+    display: flex;
+    flex-direction: column;
+    width: 90%;
+    margin: 0 auto;
+}

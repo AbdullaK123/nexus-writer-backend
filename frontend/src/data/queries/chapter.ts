@@ -74,6 +74,8 @@ export function useDeleteChapter(chapterId: string, storyId: string) {
 }
 
 export function useChapterSummary(chapterId: Option<string>) {
+   
+
   const api = useApi()
 
   const enabled = chapterId.isSome()

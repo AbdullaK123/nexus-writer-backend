@@ -65,7 +65,10 @@ export function fromNullable<T>(value: T | null | undefined): Option<T> {
 export async function unwrapResultAsync<T, E>(
     promise: Promise<Result<T, E>>,
 ): Promise<T> {
-    return (await promise).unwrap();
+    const result = await promise
+    if (result.isErr()) 
+        throw result.unwrapErr()
+    return result.unwrap()
 }
 
 // ─── ApiError ────────────────────────────────────────────────

@@ -1,23 +1,30 @@
-import { useState } from "react";
-import { Button,  Modal } from "../../../common";
+import { Button,  Modal } from "../../../../common";
 import styles from "./BeginNewStoryCard.module.css"
+import { None } from "oxide.ts";
 
 type BeginNewStoryCardProps = {
+    storyTitle: string,
+    onStoryTitleChange: (title: string) => void
     modalOpen: boolean
     onModalOpenChange: (e: boolean) => void
     onNewStory: (title: string) => void
 }
 
 
-export function BeginNewStoryCard({ modalOpen, onModalOpenChange, onNewStory }: BeginNewStoryCardProps ) {
-
-    const [storyTitle, setStoryTitle] = useState("")
-
-
+export function BeginNewStoryCard({ 
+    storyTitle,
+    onStoryTitleChange,
+    modalOpen, 
+    onModalOpenChange, 
+    onNewStory
+ }: BeginNewStoryCardProps ) {
     return (
         <div className={styles['new-card-container']}>
             <Modal
                 open={modalOpen}
+                closeTrigger={None}
+                title={None}
+                description={None}
                 onOpenChange={onModalOpenChange}
                 content={
                     <div className={styles['form-container']}>
@@ -28,7 +35,7 @@ export function BeginNewStoryCard({ modalOpen, onModalOpenChange, onNewStory }: 
                                 value={storyTitle}
                                 className="field__input"
                                 placeholder="Give it a nice title..."
-                                onChange={(e) => setStoryTitle(e.target.value)}
+                                onChange={(e) => onStoryTitleChange(e.target.value)}
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter") 
                                         onNewStory(storyTitle)

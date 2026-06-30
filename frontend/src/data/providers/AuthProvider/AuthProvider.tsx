@@ -1,39 +1,52 @@
 import { type ReactNode } from "react"
 import { useCurrentUser } from "../../queries"
 import {
-    fromNullable,
     None,
     Some,
-    type Option,
 } from "../../../shared/types"
 import {
     AuthContext,
     type AuthContextValue,
-    type AuthStatus,
 } from "./AuthContext"
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const { data, isPending, isError, error } = useCurrentUser()
+    const authState = useCurrentUser()
 
-    const user = fromNullable(data)
+    let ctx = {} as AuthContextValue
 
-    const status: AuthStatus = isPending
-        ? "loading"
-        : isError
-        ? "error"
-        : user.isSome()
-        ? "authenticated"
-        : "unauthenticated"
+    switch (authState.status) {
+        case "empty":
+            ctx = {
+                user: None,
+                status: Some("unauthenticated"),
+                error: None
+            }
+            break;
+        case "error":
+            ctx = {
+                user: None,
+                status: Some("error"),
+                error: Some(authState.data.unwrap().unwrapErr())
+            }
+            break;
+        case "idle":
+        case "loading":
+            ctx = {
+                user: None,
+                status: Some("loading"),
+                error: None
+            }
+            break;
+        case "success":
+            ctx = {
+                user: Some(authState.data.unwrap().unwrap()),
+                status: Some("authenticated"),
+                error: None
+            }
+            break;
 
-    const errorOpt: Option<Error> =
-        isError && error instanceof Error ? Some(error) : None
-
-    const value: AuthContextValue = {
-        user,
-        status: Some(status),
-        error: errorOpt,
     }
 
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+    return <AuthContext.Provider value={ctx}>{children}</AuthContext.Provider>
 }
 

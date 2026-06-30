@@ -98,7 +98,7 @@ export function resolveAsyncStates<T extends Record<string, unknown>, E>(
         hasEmpty = true
         break;
       case "error":
-        errors.push(state.data.unwrap().unwrap())
+        errors.push(state.data.unwrap().unwrapErr())
         break;
       case "success":
         data[key] = state.data.unwrap().unwrap()

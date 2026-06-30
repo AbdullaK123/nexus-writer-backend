@@ -14,7 +14,6 @@ import { Background } from "./components/common/Background/Background";
 import { SignupPage } from "./components/auth/SignupPage";
 import { AppShell, KitchenSink } from "./components";
 import { StoryDetailPage } from "./components/story/StoryDetailPage/StoryDetailPage";
-import { z } from "zod";
 
 interface RouterContext {
     auth: AuthContextValue
@@ -96,9 +95,6 @@ const dashboardRoute = createRoute({
 const storyDetailRoute = createRoute({
     getParentRoute: () => appRoute,
     path: "/stories/$storyId",
-    validateSearch: z.object({
-        storyId: z.string()
-    }),
     component: StoryDetailPage
 })
 

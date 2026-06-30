@@ -2,7 +2,7 @@ import { useRouteContext } from "@tanstack/react-router";
 import { useDashboard, useStories } from "../../../data/queries";
 import type { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
 import type { DashboardResponse, StoryGridResponse } from "../../../infrastructure/api/types";
-import type { ApiError } from "../../../shared/types";
+import { None, type ApiError } from "../../../shared/types";
 import type { WelcomeHeaderProps } from "./WelcomeHeader";
 import type { KpisRowProps } from "./KpisRow";
 import type { JumpBackInRowProps } from "./JumpBackInRow";
@@ -32,7 +32,7 @@ export function useDashboardPage(): DashboardPageProps {
 
   const welcomeHeader = useWelcomeHeaderProps({
     username: ctx.auth.user.unwrap().username,
-    profileImageUrl: ctx.auth.user.unwrap().profileImg,
+    profileImageUrl: None,
   });
 
   const kpisRow = useKpisRowProps({

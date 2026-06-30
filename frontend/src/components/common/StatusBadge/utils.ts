@@ -1,3 +1,4 @@
+import type { StatusBadgeVariant } from "./StatusBadge";
 
 export const getVariantStyle = (variant: StatusBadgeVariant)  => {
     switch (variant) {

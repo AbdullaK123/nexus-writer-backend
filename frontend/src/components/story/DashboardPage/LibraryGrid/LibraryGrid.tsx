@@ -26,6 +26,8 @@ export type LibraryGridProps =
       onSelect: (label: 'all' | 'ongoing' | 'hiatus' | 'complete') => void
       modalOpen: boolean
       onModalOpenChange: (e: boolean) => void
+      storyTitle: string
+      onStoryTitleChange: (v: string) => void
       onNewStory: (title: string) => void
     }
 
@@ -62,7 +64,7 @@ export function LibraryGrid(props: LibraryGridProps) {
               title={None}
               description={None}
               content={
-                <div>
+                <div className={styles['vstack']}>
                   <h2>Create a new Story</h2>
                   <div className="hstack">
                     <input
@@ -128,6 +130,8 @@ export function LibraryGrid(props: LibraryGridProps) {
                 <StoryCard key={idx} {...story} />
               ))}
             <BeginNewStoryCard
+              storyTitle={props.storyTitle}
+              onStoryTitleChange={props.onStoryTitleChange}
               modalOpen={props.modalOpen}
               onModalOpenChange={props.onModalOpenChange}
               onNewStory={props.onNewStory}

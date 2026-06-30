@@ -23,6 +23,8 @@ export function useStoryOverviewProps({
     onRetrySummary
 }: UseStoryOverviewArgs): StoryOverviewProps {
 
+
+    console.log(JSON.stringify({storyState, summaryState, statsState}, null, 2))
     const resolvedState = resolveAsyncStates({
         story: storyState,
         summary: summaryState,
@@ -56,7 +58,7 @@ export function useStoryOverviewProps({
                 badge: toStatusBadgeVariant(resolvedState.data.story.storyStatus),
                 startedText: `STARTED ${formatDistanceToNow(resolvedState.data.story.storyLastUpdated, { addSuffix: true })}`,
                 titleText: resolvedState.data.story.storyTitle,
-                summaryText: resolvedState.data.summary.summary,
+                summaryText: resolvedState.data?.summary?.summary,
                 stats: resolvedState.data.stats
             }
     }

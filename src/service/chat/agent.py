@@ -3,12 +3,15 @@ from functools import wraps
 from typing import Awaitable, Callable, Literal
 
 from pydantic_ai import Agent, RunContext
+from pydantic_ai.models.openrouter import OpenRouterModel
+from pydantic_ai.providers.openrouter import OpenRouterProvider
 
 from src.data.schemas.chapter import ChapterContentResponse, ChapterListItem
 from src.data.schemas.scene import SceneSearchResponse
 from src.service.chapter import ChapterService
 from src.service.exceptions import ServiceError
 from src.service.story import StoryService
+from src.infrastructure.config import settings
 from src.shared.utils.html import html_to_plain_text
 
 
@@ -68,13 +71,18 @@ def _format_chapter(response: ChapterContentResponse, content: str) -> str:
 
 
 def _format_chapter_item(item: ChapterListItem) -> str:
-    return f"TITLE: {item.title} (chapter_id={item.id})"
+    return f"TITLE: {item.chapter_title} (chapter_id={item.chapter_id})"
 
 
 def build_agent(model_name: str) -> Agent[ChatDeps, str]:
 
+    model = OpenRouterModel(
+        model_name,
+        provider=OpenRouterProvider(api_key=settings.open_router_api_key)
+    )
+
     agent = Agent(
-        model=model_name,
+        model=model,
         deps_type=ChatDeps,
         system_prompt=(
             "You are a writing assistant helping the author explore their "
@@ -189,7 +197,7 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
             story_id=ctx.deps.story_id,
             user_id=ctx.deps.user_id,
         )
-        title_by_id = {c.id: c.title for c in chapters.chapters}
+        title_by_id = {c.chapter_id: c.chapter_title for c in chapters.chapters}
         return "\n\n".join(_format_scene(scene, title_by_id) for scene in scenes)
 
     @agent.tool

@@ -124,7 +124,7 @@ export function StoryHeader(props: StoryHeaderProps) {
                 title={None}
                 description={None}
                 content={
-                  <div>
+                  <div className={styles['form-container']}>
                     <h2>Create a new chapter</h2>
                     <div className="hstack">
                       <input

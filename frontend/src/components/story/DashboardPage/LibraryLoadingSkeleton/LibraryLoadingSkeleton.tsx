@@ -1,4 +1,4 @@
-import { CardLoadingSkeleton } from "../CardLoadingSkeleton"
+import { CardLoadingSkeleton } from "../../CardLoadingSkeleton"
 import styles from "./LibraryLoadingSkeleton.module.css"
 
 export function LibraryLoadingSkeleton() {

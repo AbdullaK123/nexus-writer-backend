@@ -82,12 +82,26 @@ class ChapterService:
             return ChapterListResponse.from_story(story, [])
 
         lookup = {c.id: c for c in chapters}
-        items = [
-            ChapterListItem.model_validate(lookup[cid])
-            for cid in story.path_array
-            if cid in lookup
-        ]
+        
+        # Explicit mapping loop: reading direct properties from the database object
+        items = []
+        for i, cid in enumerate(story.path_array):
+            if cid in lookup:
+                row = lookup[cid]
+                item = ChapterListItem(
+                    story_id=row.story_id,
+                    chapter_id=row.id,  # Manually mapping 'id' to 'chapter_id'
+                    chapter_number=i+1,
+                    word_count=row.word_count,
+                    story_title=story.title,
+                    chapter_title=row.title,
+                    published=row.published,
+                    updated_at=row.updated_at
+                )
+                items.append(item)
+
         return ChapterListResponse.from_story(story, items)
+
 
     # ─── writes (transactional) ────────────────────────────────────────────
 
@@ -438,6 +452,9 @@ class ChapterService:
         if chapter_to_summarize is None:
             raise NotFoundError("Chapter not found")
         
+        if get_word_count(chapter_to_summarize.content) <= 500:
+            return ChapterSummaryResponse(summary="")
+        
         ctx = await self.get_story_context(
             user_id=user_id,
             story_id=chapter_to_summarize.story_id,
@@ -457,6 +474,8 @@ class ChapterService:
             """,
             max_tokens=config.ai.summarization_max_tokens
         )
+
+        logger.info("chapter.summary", chapter_id=chapter_id, user_id=user_id)
 
         return ChapterSummaryResponse(summary=summary)
 

@@ -88,8 +88,9 @@ def get_chapter_service(
     story_repo: StoryRepository = Depends(get_story_repository),
     chapter_repo: ChapterRepository = Depends(get_chapter_repository),
     scene_repo: SceneRepository = Depends(get_scene_repository),
+    provider: AIProvider = Depends(get_ai_provider)
 ) -> ChapterService:
-    return ChapterService(story_repo, chapter_repo, scene_repo)
+    return ChapterService(story_repo, chapter_repo, scene_repo, provider)
 
 
 def get_extraction_service(

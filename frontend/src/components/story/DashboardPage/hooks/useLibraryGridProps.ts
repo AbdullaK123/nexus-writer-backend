@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import type { LibraryGridProps } from "../LibraryGrid/LibraryGrid";
 import type { AsyncState, StoryGridResponse } from "../../../../infrastructure/api/types";
 import type { ApiError } from "../../../../shared/types";
@@ -24,7 +24,7 @@ export function useLibraryGridProps(args: { storiesState: AsyncState<StoryGridRe
     if (storiesState.status === 'error') onStoriesError();
   }, [storiesState.status]);
 
-  const onNewStory = useMemo(() => (title: string) => {
+  const onNewStory = (title: string) => 
     createStory({ title }, {
       onSuccess: () => {
         success("Success!", "Your story has been successfully created! Happy writing!");
@@ -35,8 +35,7 @@ export function useLibraryGridProps(args: { storiesState: AsyncState<StoryGridRe
         error("Failed to create your story.", "Something went wrong. If the problem persists, please contact support.");
         setModalOpen(false);
       }
-    });
-  }, [createStory, success, error]);
+    })
 
   switch (storiesState.status) {
     case 'idle':
@@ -92,6 +91,8 @@ export function useLibraryGridProps(args: { storiesState: AsyncState<StoryGridRe
         onSelect: setLibraryFilter,
         modalOpen,
         onModalOpenChange: (e: boolean) => setModalOpen(e),
+        storyTitle,
+        onStoryTitleChange: (v: string) => setStoryTitle(v),
         onNewStory,
       };
     }

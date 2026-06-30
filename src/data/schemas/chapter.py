@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 from typing import List, Optional
 from datetime import datetime
 from src.data.schemas._base import ApiModel
@@ -50,6 +51,11 @@ class ChapterListItem(ApiModel):
     published: bool
     updated_at: datetime
 
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,  # Allows using both snake_case and camelCase
+    )
+
 
 class ChapterContentResponse(ApiModel):
     id: str
@@ -62,6 +68,11 @@ class ChapterContentResponse(ApiModel):
     updated_at: datetime
     previous_chapter_id: Optional[str] = None
     next_chapter_id: Optional[str] = None
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,  # Allows using both snake_case and camelCase
+    )
 
     @classmethod
     def from_chapter(

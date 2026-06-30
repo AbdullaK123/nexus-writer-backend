@@ -146,3 +146,41 @@ class BookPulseResponse(ApiModel):
     plot: PulseDimension
     structure: PulseDimension
     world: PulseDimension
+
+INSUFFICIENT_CONTEXT = BookPulseResponse(
+    characters=PulseDimension(
+        label="unavailable",
+        headline="Characters pulse is unavailable.",
+        report=(
+            "The supplied scenes do not contain enough character activity "
+            "to support a meaningful assessment. More narrative content "
+            "is needed before character health can be evaluated."
+        ),
+    ),
+    plot=PulseDimension(
+        label="unavailable",
+        headline="Plot pulse is unavailable.",
+        report=(
+            "There are too few scenes to identify plot-level patterns. "
+            "A responsible assessment requires enough material to observe "
+            "cause-and-effect progression across the manuscript."
+        ),
+    ),
+    structure=PulseDimension(
+        label="unavailable",
+        headline="Structure pulse is unavailable.",
+        report=(
+            "Structural assessment requires a sequence of scenes long enough "
+            "to exhibit pacing, rhythm, and arc shape. The current input "
+            "is too sparse for that analysis."
+        ),
+    ),
+    world=PulseDimension(
+        label="unavailable",
+        headline="World pulse is unavailable.",
+        report=(
+            "The supplied context does not contain enough setting detail "
+            "or world-building to support an assessment of this dimension."
+        ),
+    ),
+)

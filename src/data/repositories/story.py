@@ -184,5 +184,8 @@ class StoryRepository:
             GROUP BY a.current_streak_days
         """
         result = await self._exe(executor).fetch(sql, user_id, story_id)
+
+        if len(result) == 0:
+            return {}
         
-        return dict(result) if result else {}
+        return result[0]

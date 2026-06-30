@@ -6,7 +6,7 @@ from loguru import logger
 from src.data.repositories import StoryRepository, ChapterRepository, SceneRepository
 from src.data.schemas.chapter import ChapterListItem
 from src.data.schemas.enums import StoryStatus
-from src.data.schemas.extraction import BookPulseResponse, PulseDimension
+from src.data.schemas.extraction import INSUFFICIENT_CONTEXT, BookPulseResponse, PulseDimension
 from src.data.schemas.scene import (
     SceneRow,
     SceneSearchResponse,
@@ -287,6 +287,9 @@ class StoryService:
             user_id=user_id, 
             chapter_id=chapter_id
         )
+
+        if len(scenes) < 3:
+            return "NOT_ENOUGH_CONTEXT"
             
         story_ctx = self._format_scenes(scenes)
 
@@ -299,6 +302,9 @@ class StoryService:
         
         # get story_context
         story_ctx = await self.get_story_context(user_id, story_id)
+
+        if story_ctx == "NOT_ENOUGH_CONTEXT":
+            return INSUFFICIENT_CONTEXT
 
         character_pulse_task = self._provider.extract(
             system_prompt=CHARACTER_PULSE_PROMPT,
