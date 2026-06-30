@@ -23,6 +23,7 @@ import {
 import { chapterKeys } from "./chapter"
 import { ApiError, unwrapResultAsync } from "../../shared/types"
 import { toAsyncState } from "../../infrastructure/api/utils";
+import { authKeys } from "./auth";
 
 // ─── Keys ──────────────────────────────────────────────────────────────────
 // Hierarchy mirrors URL paths so a partial-prefix invalidation cascades
@@ -139,6 +140,7 @@ export function useCreateStory() {
             unwrapResultAsync(api.story.createStory(payload)),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: storyKeys.list() })
+            qc.invalidateQueries({ queryKey: authKeys.dashboard()})
         },
     })
 }
@@ -152,6 +154,8 @@ export function useUpdateStory() {
         // Title / metadata change — list cards reflect it, detail too.
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: storyKeys.all })
+            qc.invalidateQueries({ queryKey: authKeys.dashboard()})
+            qc.invalidateQueries({ queryKey: authKeys.dashboard()})
         },
     })
 }
@@ -164,6 +168,7 @@ export function useDeleteStory() {
         onSuccess: (_data, storyId) => {
             qc.removeQueries({ queryKey: storyKeys.detail(storyId) })
             qc.invalidateQueries({ queryKey: storyKeys.list() })
+            qc.invalidateQueries({ queryKey: authKeys.dashboard()})
         },
     })
 }
@@ -177,6 +182,7 @@ export function useCreateChapter(storyId: string) {
         onSuccess: () => {
             // New chapter affects story detail (chapter list).
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
+            qc.invalidateQueries({ queryKey: authKeys.dashboard()})
         },
     })
 }
@@ -191,6 +197,7 @@ export function useReorderChapters(storyId: string) {
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
             // Per-chapter prev/next pointers shift on reorder.
             qc.invalidateQueries({ queryKey: chapterKeys.all })
+            qc.invalidateQueries({ queryKey: authKeys.dashboard()})
         },
     })
 }

@@ -180,7 +180,7 @@ class StoryRepository:
             LEFT JOIN chapter c ON s.id = c.story_id
             LEFT JOIN scene sc ON s.id = sc.story_id
             CROSS JOIN active_streak a
-            WHERE s.user_id = $1
+            WHERE s.user_id = $1 AND s.id = $2
             GROUP BY a.current_streak_days
         """
         result = await self._exe(executor).fetch(sql, user_id, story_id)

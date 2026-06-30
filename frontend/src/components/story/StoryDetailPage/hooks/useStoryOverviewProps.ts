@@ -1,9 +1,10 @@
 import { formatDistanceToNow } from "date-fns";
 import type { AsyncState, ChapterListResponse, ChapterSummaryResponse, StoryStatsResponse } from "../../../../infrastructure/api/types";
-import type { ApiError } from "../../../../shared/types";
+import {  type ApiError } from "../../../../shared/types";
 import { toStatusBadgeVariant } from "../../DashboardPage/LibraryGrid/StoryCard";
 import type { StoryOverviewProps } from "../StoryOverview/StoryOverview";
 import { resolveAsyncStates } from "../../../../infrastructure/api/utils";
+import { None, Some} from 'oxide.ts'
 
 
 
@@ -24,14 +25,14 @@ export function useStoryOverviewProps({
 }: UseStoryOverviewArgs): StoryOverviewProps {
 
 
-    console.log(JSON.stringify({storyState, summaryState, statsState}, null, 2))
+  
     const resolvedState = resolveAsyncStates({
         story: storyState,
-        summary: summaryState,
         stats: statsState
     })
     
     switch (resolvedState.status) {
+        case  "idle":
         case "loading":
             return {
                 status: "loading"
@@ -58,7 +59,9 @@ export function useStoryOverviewProps({
                 badge: toStatusBadgeVariant(resolvedState.data.story.storyStatus),
                 startedText: `STARTED ${formatDistanceToNow(resolvedState.data.story.storyLastUpdated, { addSuffix: true })}`,
                 titleText: resolvedState.data.story.storyTitle,
-                summaryText: resolvedState.data?.summary?.summary,
+                summaryText: summaryState.status === "success"
+                    ? Some(summaryState.data.unwrap().unwrap().summary)
+                    : None,
                 stats: resolvedState.data.stats
             }
     }

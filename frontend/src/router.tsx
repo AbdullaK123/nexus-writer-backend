@@ -9,7 +9,6 @@ import {
 import { DashboardPage } from "./components/story";
 import { LoginPage } from "./components/auth";
 import type { AuthContextValue } from "./data/providers/AuthProvider/AuthContext"
-import { None } from "oxide.ts";
 import { Background } from "./components/common/Background/Background";
 import { SignupPage } from "./components/auth/SignupPage";
 import { AppShell, KitchenSink } from "./components";
@@ -58,13 +57,16 @@ const appRoute = createRoute({
     getParentRoute: () => rootRoute,
     id: "app",
     beforeLoad: ({ context, location}) => {
-        const { status, user } = context.auth 
-        if (status.isSome() && status.unwrap() === "loading") return 
-        if (status.isSome() && status.unwrap() === "authenticated" && user.isSome()) return 
-        throw redirect({
-            to: "/login",
-            search: {redirect: location.href}
-        })
+        const ctx = context.auth 
+        switch (ctx.status) {
+            case "loading": return 
+            case "authenticated": return
+            default:
+                throw redirect({
+                    to: "/login",
+                    search: {redirect: location.href}
+                })
+        } 
     },
     component: () => {
         // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -111,11 +113,7 @@ const routeTree = rootRoute.addChildren([
 export const router = createRouter({
     routeTree,
     context: {
-        auth: {
-            user: None,
-            status: None,
-            error: None
-        }
+        auth: {status: "unauthenticated"}
     }
 })
 

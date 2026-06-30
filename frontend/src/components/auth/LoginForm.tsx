@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Field } from "@ark-ui/react/field"
 import { useLogin } from "../../data/queries";
-import { useNavigate, useSearch } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
 import { Button, useToast } from "../common";
 
 const loginFormSchema = z.object({
@@ -31,8 +31,6 @@ export function LoginForm() {
 
     const navigate = useNavigate()
 
-    const search = useSearch({ from: "/login" })
-
     
     const { error, success } = useToast()
 
@@ -44,7 +42,7 @@ export function LoginForm() {
         }, {
             onSuccess: () => {
                 success("Login Successful!", "Taking you to your dashboard...")
-                navigate({ to: search.redirect ?? "/"})
+                navigate({ to: "/"})
             },
             onError: (err) => {
                 error("Login failed!", err.message)

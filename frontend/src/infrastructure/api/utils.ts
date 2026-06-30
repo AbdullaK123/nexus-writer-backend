@@ -42,6 +42,7 @@ export function isEmpty(value: unknown): value is null | undefined | '' | Record
 }
 
 export function toAsyncState<T>(query: UseQueryResult<T, ApiError>): AsyncState<T, ApiError> {
+    if (query.isPending) return {status: "idle", data: None}
     if (query.isLoading) return {status: "loading", data: None}
     if (query.isError) return {status: "error", data: Some(Err(query.error))}
     if (query.data && isEmpty(query.data)) return {status: "empty", data: Some(Ok(query.data as []))}
@@ -72,6 +73,7 @@ export const toOption = <T>(val: T | undefined | null): Option<T> =>
 
 
 export type ResolvedAsyncState<T, E> = 
+  | { status: "idle"}
   | { status: "loading" }
   | { status: "error", errors: E[] }
   | { status: "empty"}
@@ -86,12 +88,15 @@ export function resolveAsyncStates<T extends Record<string, unknown>, E>(
   const errors: E[] = []
   const data = {} as Partial<T>
   let hasEmpty = false
+  let hasIdle = false
 
   for (const key in states) {
     const state = states[key]
 
     switch (state.status) {
       case "idle":
+        hasIdle=true
+        break;
       case "loading":
         return { status: "loading" }
       case "empty":
@@ -112,6 +117,10 @@ export function resolveAsyncStates<T extends Record<string, unknown>, E>(
 
   if (hasEmpty) {
     return { status: "empty" }
+  }
+
+  if (hasIdle) {
+    return { status: "idle"}
   }
 
   return {

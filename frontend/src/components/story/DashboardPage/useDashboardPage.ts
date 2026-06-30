@@ -31,7 +31,7 @@ export function useDashboardPage(): DashboardPageProps {
   const [dashboardState, refetchDashboard] = useDashboard();
 
   const welcomeHeader = useWelcomeHeaderProps({
-    username: ctx.auth.user.unwrap().username,
+    username: (ctx.auth.status === "authenticated") ? ctx.auth.user.username : "",
     profileImageUrl: None,
   });
 

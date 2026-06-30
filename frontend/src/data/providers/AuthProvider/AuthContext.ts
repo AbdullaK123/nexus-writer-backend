@@ -4,7 +4,6 @@ import {
     Err,
     Ok,
     fromNullable,
-    type Option,
     type Result,
 } from "../../../shared/types"
 
@@ -14,11 +13,11 @@ export type AuthStatus =
     | "unauthenticated"
     | "error"
 
-export type AuthContextValue = {
-    user: Option<UserResponse>
-    status: Option<AuthStatus>
-    error: Option<Error>
-}
+export type AuthContextValue =
+    | { status: "loading" }
+    | { status: "unauthenticated" }
+    | { status: "error"; error: Error }
+    | { status: "authenticated"; user: UserResponse }
 
 export class AuthContextMissingError extends Error {
     readonly _tag = "AuthContextMissingError" as const
