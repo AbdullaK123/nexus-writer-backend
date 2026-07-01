@@ -18,7 +18,7 @@ from loguru import logger
 from src.shared.utils.logging import configure_logger
 from src.infrastructure.telemetry import init_tracing
 from dotenv import load_dotenv
-from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
+# from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
 from opentelemetry import trace
 
 load_dotenv()
@@ -30,7 +30,7 @@ HEARTBEAT_INTERVAL_SECONDS = 30
 
 shutdown_event = asyncio.Event()
 
-AsyncPGInstrumentor().instrument()
+# AsyncPGInstrumentor().instrument()
 
 tracer = trace.get_tracer(__name__)
 

@@ -116,6 +116,7 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
         tension: Literal["low", "medium", "high"] | None = None,
         pacing: Literal["slow", "steady", "fast"] | None = None,
         tags: list[str] | None = None,
+        pov: str | None = None,
         mentioned_entities: list[str] | None = None,
         chapter_ids: list[str] | None = None,
         k: int = 8,
@@ -187,6 +188,7 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
             k=k,
             tension=tension,
             pacing=pacing,
+            pov=pov,
             tags=tags,
             mentioned_entities=mentioned_entities,
             chapter_ids=chapter_ids,
@@ -308,6 +310,25 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
         )
         if not result.items:
             return "This story has no entities extracted yet."
+        return "\n".join(f"{i.value} ({i.count} scenes)" for i in result.items)
+    
+    @agent.tool
+    @_service_errors_as_text
+    async def list_povs(ctx: RunContext[ChatDeps]) -> str:
+        """List every distinct pov mentioned in this story's scenes, with how many scenes
+        each appears in, sorted most-frequent first.
+
+        Use this to discover a story's pov characters BEFORE 
+        filtering 'search_scenes_semantic' by 'pov=...'. Povs
+        are case- and form-sensitive (e.g. 'Captain Vale' vs 'Vale'
+        are distinct). Guessed values will silently return no results.
+
+        Returns one line per povs: `entity_value (N scenes)`."""
+        result = await ctx.deps.story_service.list_povs(
+            user_id=ctx.deps.user_id, story_id=ctx.deps.story_id,
+        )
+        if not result.items:
+            return "This story has no pov characters extracted yet."
         return "\n".join(f"{i.value} ({i.count} scenes)" for i in result.items)
 
     return agent

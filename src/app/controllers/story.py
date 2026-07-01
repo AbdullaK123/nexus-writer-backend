@@ -174,6 +174,17 @@ async def list_story_entities(
 ) -> VocabularyListResponse:
     return await story_service.list_story_entities(current_user.id, story_id)
 
+@story_controller.get(
+    "/{story_id}/povs",
+    response_model=VocabularyListResponse,
+)
+async def list_povs(
+    story_id: str,
+    current_user: UserRow = Depends(get_current_user),
+    story_service: StoryService = Depends(get_story_service),
+) -> VocabularyListResponse:
+    return await story_service.list_povs(current_user.id, story_id)
+
 
 @story_controller.get(
     "/{story_id}/pulse",

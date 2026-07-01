@@ -26,6 +26,7 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.60b1",
     "opentelemetry-instrumentation-asyncpg>=0.60b1",
     "logfire>=4.32.1",
+    "opentelemetry-instrumentation-system-metrics>=0.60b1",
 ]
 
 [tool.mypy]

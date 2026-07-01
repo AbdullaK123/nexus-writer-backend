@@ -22,7 +22,7 @@ from src.data.schemas.scene import SceneSearchResult
 
 _SCENE_COLUMNS = """
     id, chapter_id, story_id, user_id, position,
-    title, start_quote, end_quote, description,
+    title, start_quote, end_quote, description, pov,
     tension, pacing, mentioned_entities, tags, questions_raised,
     embedding_model, embedded_at, created_at, updated_at
 """
@@ -145,7 +145,7 @@ class SceneRepository:
             (
                 uuid7str(),
                 chapter_id, story_id, user_id, position,
-                scene.title, scene.start_quote, scene.end_quote, scene.description,
+                scene.title, scene.start_quote, scene.end_quote, scene.description, scene.pov,
                 scene.tension, scene.pacing,
                 scene.mentioned_entities, scene.tags, scene.questions_raised,
             )
@@ -158,7 +158,7 @@ class SceneRepository:
             records=rows,
             columns=[
                 "id", "chapter_id", "story_id", "user_id", "position",
-                "title", "start_quote", "end_quote", "description",
+                "title", "start_quote", "end_quote", "description", "pov",
                 "tension", "pacing", "mentioned_entities", "tags",
                 "questions_raised",
             ],
@@ -254,6 +254,7 @@ class SceneRepository:
         tension: Literal["low", "medium", "high"] | None = None,
         pacing: Literal["slow", "steady", "fast"] | None = None,
         tags: list[str] | None = None,
+        pov: str | None = None,
         mentioned_entities: list[str] | None = None,
         chapter_ids: list[str] | None = None,
         executor: Executor | None = None,
@@ -292,6 +293,7 @@ class SceneRepository:
                 AND ($9::text[] IS NULL OR tags && $9::text[])
                 AND ($10::text[] IS NULL OR mentioned_entities && $10::text[])
                 AND ($11::text[] IS NULL OR chapter_id = ANY($11::text[]))
+                AND ($12::text IS NULL OR pov = $12)
                 AND to_tsvector(
                         'english'::regconfig,
                         coalesce(title, '') || ' ' || coalesce(description, '')
@@ -315,6 +317,7 @@ class SceneRepository:
                 AND ($9::text[] IS NULL OR tags && $9::text[])
                 AND ($10::text[] IS NULL OR mentioned_entities && $10::text[])
                 AND ($11::text[] IS NULL OR chapter_id = ANY($11::text[]))
+                AND ($12::text IS NULL OR pov = $12)
                 AND ($2::text IS NULL OR story_id = $2)
                 AND embedding IS NOT NULL
                 ORDER BY embedding <=> $4::vector
@@ -347,6 +350,7 @@ class SceneRepository:
             tags,
             mentioned_entities,
             chapter_ids,
+            pov
         )
         logger.info(
             "scene_repo.search_scenes.done",
@@ -399,3 +403,20 @@ class SceneRepository:
         """
         rows = await self._exe(executor).fetch(sql, user_id, story_id)
         return [(r["entity"], r["n"]) for r in rows]
+    
+    async def list_povs(
+        self,
+        *,
+        user_id: str,
+        story_id: str,
+        executor: Executor | None = None
+    ) -> list[tuple[str, int]]:
+        sql = """\
+        SELECT pov, COUNT(*) AS n
+        FROM "scene"
+        WHERE user_id = $1 AND story_id = $2
+        GROUP BY pov
+        ORDER BY n DESC
+        """
+        rows = await self._exe(executor).fetch(sql, user_id, story_id)
+        return [(r["pov"], r["n"]) for r in rows]

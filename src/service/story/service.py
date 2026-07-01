@@ -158,6 +158,7 @@ class StoryService:
         tension: Literal["low", "medium", "high"] | None = None,
         pacing: Literal["slow", "steady", "fast"] | None = None,
         tags: list[str] | None = None,
+        pov: str | None = None,
         mentioned_entities: list[str] | None = None,
         chapter_ids: list[str] | None = None,
     ) -> List[SceneSearchResponse]:
@@ -205,6 +206,7 @@ class StoryService:
             tension=tension,
             tags=tags,
             mentioned_entities=mentioned_entities,
+            pov=pov,
             chapter_ids=chapter_ids,
             candidate_pool=candidate_pool,
         )
@@ -249,6 +251,21 @@ class StoryService:
         return VocabularyListResponse(
             items=[VocabularyItem(value=v, count=n) for v, n in rows],
         )
+    
+    @handle_service_errors
+    async def list_povs(
+        self, user_id: str, story_id: str
+    ) -> VocabularyListResponse:
+        """Return every distinct pov in this story's scenes
+        with its count, sorted by frequency desc. Same auth model as
+        `list_story_tags`."""
+        rows = await self._scene_repo.list_povs(
+            user_id=user_id, story_id=story_id,
+        )
+        return VocabularyListResponse(
+            items=[VocabularyItem(value=v, count=n) for v, n in rows],
+        )
+        
     
     def _format_scenes(self, scenes: List[SceneRow]) -> str:
 
@@ -353,7 +370,8 @@ class StoryService:
                 character_pulse_task,
                 plot_pulse_task,
                 structure_pulse_task,
-                world_pulse_task
+                world_pulse_task,
+                return_exceptions=False
             )
 
         return BookPulseResponse(

@@ -27,35 +27,60 @@ from src.data.repositories import ChapterRepository, SceneRepository
 from src.data.schemas import SceneExtraction
 from src.infrastructure.ai import AIProvider, SCENE_EXTRACTION_PROMPT
 from src.infrastructure.config import config
-from src.infrastructure.utils.decorators import retry_extraction
-from src.service.exceptions import NotFoundError, ValidationError
+from src.service.exceptions import InternalError, NotFoundError
 from src.service.utils.decorators import handle_service_errors
 from src.shared.utils.html import html_to_plain_text
 
 
-@retry_extraction(ValidationError)
-async def _extract_and_validate(
-    provider: AIProvider,
-    chapter_content: str,
-) -> SceneExtraction:
-    extraction = await provider.extract(
-        system_prompt=SCENE_EXTRACTION_PROMPT,
-        text=chapter_content,
-        max_tokens=config.ai.scene_extraction_max_tokens,
-        schema=SceneExtraction,
-    )
+def _validate_extraction(
+    extraction: SceneExtraction, 
+    content: str,
+) -> list[str]:
+    errors = []
     for scene in extraction.scenes:
-        if scene.start_quote not in chapter_content:
-            raise ValidationError(
-                fields={"start_quote": scene.start_quote},
-                message="Extraction must contain verbatim start quote!",
+        if scene.start_quote not in content:
+            errors.append(f"start_quote not found verbatim: {scene.start_quote!r}")
+        if scene.end_quote not in content:
+            errors.append(f"end_quote not found verbatim: {scene.end_quote!r}")
+        if scene.pov not in scene.mentioned_entities:
+            errors.append(f"pov '{scene.pov}' not in mentioned_entities")
+    return errors
+
+
+async def _extract_with_feedback(
+    provider: AIProvider,
+    chapter_content: str
+) -> SceneExtraction:
+    
+    feedback: list[str] = []
+    
+    for _ in range(config.ai.max_retries):
+        prompt = chapter_content
+        if feedback:
+            corrections = "\n".join(f"- {f}" for f in feedback)
+            prompt = (
+                f"{chapter_content}\n\n"
+                f"<previous_extraction_errors>\n"
+                f"Your previous extraction had these problems:\n"
+                f"{corrections}\n"
+                f"Fix them in this attempt.\n"
+                f"</previous_extraction_errors>"
             )
-        if scene.end_quote not in chapter_content:
-            raise ValidationError(
-                fields={"end_quote": scene.end_quote},
-                message="Extraction must contain verbatim end quote!",
-            )
-    return extraction
+        
+        extraction = await provider.extract(
+            system_prompt=SCENE_EXTRACTION_PROMPT,
+            text=prompt,
+            max_tokens=config.ai.scene_extraction_max_tokens,
+            schema=SceneExtraction,
+        )
+        
+        errors = _validate_extraction(extraction, chapter_content)
+        if not errors:
+            return extraction
+        
+        feedback.extend(errors)
+    
+    raise InternalError(f"Failed after {config.ai.max_retries} attempts: {feedback}")
 
 
 def scenes_are_stale(scenes: Iterable[Any], chapter_content: str) -> bool:
@@ -89,7 +114,7 @@ class ExtractionService:
 
         plain_text = html_to_plain_text(chapter.content)
 
-        extraction = await _extract_and_validate(
+        extraction = await _extract_with_feedback(
             provider=self._provider, chapter_content=plain_text,
         )
 

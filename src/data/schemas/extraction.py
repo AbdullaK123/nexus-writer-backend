@@ -10,6 +10,7 @@ class Scene(BaseModel):
     start_quote: str = Field(description="A short VERBATIM quote from the chapter marking where the scene begins.")
     end_quote: str = Field(description="A short VERBATIM quote from the chapter marking where the scene ends.")
     description: str = Field(description="A 3-4 sentence synopsis of what happened in the scene")
+    pov: str = Field(description="The POV character of the scene. It MUST correspond to an entity in the mentioned_entities field.")
     tension: Literal["low", "medium", "high"] = Field(
         description="""
         The dramatic tension of the scene. 
@@ -65,11 +66,6 @@ class ExtractionRow(BaseModel):
     data: SceneExtraction
     created_at: datetime
     updated_at: datetime
-
-from typing import Literal
-
-from pydantic import BaseModel, Field
-
 
 class PulseDimension(BaseModel):
     """
