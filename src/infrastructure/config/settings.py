@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     open_router_api_key: str
     open_router_api_url: str
 
+    #jaegar url
+    jaegar_url: str = "http://localhost:4318/v1/traces"
+
     # CORS
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
     cors_allow_credentials: bool = True

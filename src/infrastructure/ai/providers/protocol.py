@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 
 class AIProvider(Protocol):
-
     model: str
     embedding_model: str
 
@@ -15,4 +14,4 @@ class AIProvider(Protocol):
 
     async def embed(self, text: str) -> List[float]: ...
         
-    async def embed_many(self, texts: List[str], with_batching=False) -> List[List[float]]: ...
+    async def embed_many(self, texts: List[str], with_batching: bool = False) -> List[List[float]]: ...

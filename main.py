@@ -16,11 +16,15 @@ from src.data.exceptions import (
 )
 from src.infrastructure.exceptions import InfrastructureError
 from src.infrastructure.config import settings
+from src.infrastructure.telemetry import init_tracing
 from dotenv import load_dotenv
 from loguru import logger
+# from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+import logfire
 
 load_dotenv()
 configure_logger()
+init_tracing("nexus-writer-api")
 
 
 api = FastAPI(
@@ -153,6 +157,9 @@ api.include_router(main_router)
 @api.get("/health")
 async def get_health() -> dict:
     return {"message": "Everything is healthy!"}
+
+# FastAPIInstrumentor.instrument_app(api)
+logfire.instrument_fastapi(api)
 
 app = CORSMiddleware(
     app=api,

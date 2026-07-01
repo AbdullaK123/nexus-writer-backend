@@ -35,9 +35,16 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://nexus_user:password@postgres-nexus:5432/nexus_writer
+      # JAEGAR_URL: http://nexus-telemetry:4318/v1/traces
     depends_on:
       postgres-nexus:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - nexus-network
 
@@ -47,6 +54,7 @@ services:
     env_file: .env
     environment: 
       DATABASE_URL: postgresql://nexus_user:password@postgres-nexus:5432/nexus_writer
+      # JAEGAR_URL: http://nexus-telemetry:4318/v1/traces
     depends_on:
       postgres-nexus:
         condition: service_healthy
@@ -58,6 +66,20 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
+
+  # nexus-telemetry:
+  #   image: jaegertracing/all-in-one:latest
+  #   environment:
+  #     COLLECTOR_OTLP_ENABLED: true
+  #   ports:
+  #     - 16686:16686
+  #     - 4317:4317
+  #     - 4318:4318
+  #   depends_on:
+  #     postgres-nexus:
+  #       condition: service_healthy
+  #   networks:
+  #     - nexus-network
 
 networks:
   nexus-network:

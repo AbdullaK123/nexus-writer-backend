@@ -51,10 +51,7 @@ class ChapterListItem(ApiModel):
     published: bool
     updated_at: datetime
 
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,  # Allows using both snake_case and camelCase
-    )
+  
 
 
 class ChapterContentResponse(ApiModel):

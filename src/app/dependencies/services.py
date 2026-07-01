@@ -29,9 +29,11 @@ from src.service.chat import ChatService
 from src.service.chat.agent import ChatDeps, build_agent
 from src.service.extraction import ExtractionService
 from src.service.story import StoryService
+# from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
 
 
 async def init_infrastructure() -> None:
+    # AsyncPGInstrumentor().instrument()
     await init_pool()
     logger.info("infra.db.connected")
 
