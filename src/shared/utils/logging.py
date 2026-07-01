@@ -1,6 +1,7 @@
 from typing import Optional, TYPE_CHECKING
 from loguru import logger
 import sys
+import logfire
 
 if TYPE_CHECKING:
     from loguru import Record
@@ -83,7 +84,7 @@ def _add_layer_sinks(layer: str) -> None:
         level="INFO",
         rotation="20 MB",
         retention="14 days",
-        **base,
+        **base, # type: ignore
     )
     logger.add(
         f"logs/{layer}/errors.log",
@@ -92,7 +93,7 @@ def _add_layer_sinks(layer: str) -> None:
         retention="90 days",
         backtrace=True,
         diagnose=False,
-        **base,
+        **base, # type: ignore
     )
 
 
@@ -113,3 +114,5 @@ def configure_logger() -> None:
         compression="gz",
         enqueue=True,
     )
+
+    logger.configure(handlers=[logfire.loguru_handler()])

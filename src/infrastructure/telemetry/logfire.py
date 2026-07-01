@@ -15,6 +15,7 @@ def init_tracing(service_name: str):
     )
     logfire.instrument_pydantic_ai()
     logfire.instrument_asyncpg()
+    logfire.instrument_system_metrics(base='full')
 
     # resource = Resource(attributes={
     #     "service.name": service_name,
