@@ -2,7 +2,7 @@ import { Button, Kbd } from "../../../../common";
 import styles from "./SceneSearchPaletteFooter.module.css"
 
 
-type SceneSearchPaletteFooterProps = {
+export type SceneSearchPaletteFooterProps = {
     query: string 
     onAskAgent: (query: string) => void;
 }

@@ -1,0 +1,26 @@
+.loading {
+    height: 100%;
+}
+
+.content {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-3);
+}
+
+.pill {
+    display: inline-block;
+    padding: var(--space-3);
+    text-align: center;
+    background: var(--surface-2);
+    border: 1px solid var(--color-cyan);
+    border-radius: var(--radius-pill)
+}
+
+.loading-pill {
+    display: inline-block;
+    padding: var(--space-3);
+    text-align: center;
+    border: 1px solid var(--color-cyan);
+    border-radius: var(--radius-pill)
+}

@@ -1,0 +1,28 @@
+.content {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+}
+
+
+.selected {
+    background: var(--fill-cyan);
+    border-radius: var(--radius-md);
+}
+
+.draft {
+    text-transform: uppercase;
+    color: var(--color-warning);
+}  
+
+.editing {
+    text-transform: uppercase;
+    color: var(--color-cyan);
+} 
+
+.published {
+    text-transform: uppercase;
+    color: var(--text-muted)
+}

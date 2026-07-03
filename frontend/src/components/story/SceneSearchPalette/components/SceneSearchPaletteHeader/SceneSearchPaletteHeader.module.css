@@ -1,10 +1,12 @@
 .icon-input {
     display: flex;
-    gap: var(--space-1);
-    padding: var(--space-1)
+    width: 100%;
+    gap: var(--space-3);
+    padding: var(--space-3)
 }
 
 .header-container {
     display: flex;
     justify-content: space-between;
+    padding: var(--space-3)
 }

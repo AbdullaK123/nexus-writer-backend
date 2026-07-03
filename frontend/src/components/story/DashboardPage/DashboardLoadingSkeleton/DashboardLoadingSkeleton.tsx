@@ -1,4 +1,4 @@
-import { CardLoadingSkeleton } from "../CardLoadingSkeleton";
+import { CardLoadingSkeleton } from "../../CardLoadingSkeleton";
 import styles from "./DashboardLoadingSkeleton.module.css"
 
 export function DashboardLoadingSkeleton() {
@@ -14,6 +14,9 @@ export function DashboardLoadingSkeleton() {
                 <CardLoadingSkeleton />
                 <CardLoadingSkeleton />
                 <CardLoadingSkeleton />
+            </div>
+            <div>
+                
             </div>
         </div>
     )

@@ -3,13 +3,15 @@ import { Kbd } from "../../../../common";
 import styles from "./SceneSearchPaletteHeader.module.css"
 
 
-type SceneSearchPaletteHeaderProps = {
+export type SceneSearchPaletteHeaderProps = {
+    modalInputId: string
     query: string;
     onQueryChange: (query: string) => void;
 }
 
 
 export function SceneSearchPaletteHeader({
+    modalInputId,
     query,
     onQueryChange
 }: SceneSearchPaletteHeaderProps) {
@@ -21,7 +23,9 @@ export function SceneSearchPaletteHeader({
                     color="#0ff"
                 />
                 <input
+                    id={modalInputId}
                     type="text" 
+                    className="field__input"
                     value={query}
                     onChange={(e) => onQueryChange(e.target.value)}
                 />

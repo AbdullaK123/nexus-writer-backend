@@ -1,8 +1,9 @@
 .content-container {
     display: flex;
     flex-direction: column;
-    width: 90%;
+    padding: var(--space-5);
     margin: 0 auto;
+    overflow-y: scroll;
 }
 
 .list-and-pulse-container {

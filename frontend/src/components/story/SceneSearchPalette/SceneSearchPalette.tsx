@@ -1,75 +1,118 @@
-import type { ReactNode } from "react";
-import { SceneSearchPaletteFooter, SceneSearchPaletteHeader, SceneSearchResultList, type SceneSearchResultItemProps } from "./components";
-import { Modal } from "../../common";
+import { SceneSearchPaletteFooter, SceneSearchPaletteHeader, SceneSearchResultList, type SceneSearchPaletteFooterProps, type SceneSearchPaletteHeaderProps, type SceneSearchResultListProps } from "./components";
+import { TriggerlessModal, type FocusGetter } from "../../common";
 import styles from "./SceneSearchPalette.module.css"
+import { None, Option, Some } from "oxide.ts";
+import { useId, useState } from "react";
 
 
-type SceneSearchPaletteProps = {
-    children: ReactNode
-    open: boolean
-    query: string 
-    results: SceneSearchResultItemProps[]
-    isLoading: boolean
-    onOpenChange: (open: boolean) => void
+export type SceneSearchPaletteProps =
+{
+    query: string
     onQueryChange: (query: string) => void
-    onSelectResult: (result: SceneSearchResultItemProps) => void;
-    onAskAgent: (query: string) => void;
+    content: SceneSearchPaletteContentProps
 }
 
-type SceneSearchPaletteContentProps = Omit<SceneSearchPaletteProps, 'children' | 'open' | 'onOpenChange'>
+ type SceneSearchPaletteModalProps =
+ {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    content: SceneSearchPaletteContentProps
+    initialFocusEl: Option<FocusGetter>
+    finalFocusEl: Option<FocusGetter>
+    modalInputId: string
+ }
 
-const SceneSearchPaletteContent = ({
-    query,
-    results,
-    isLoading,
-    onQueryChange,
-    onSelectResult,
-    onAskAgent,
-}: SceneSearchPaletteContentProps) => (
-    <div className={styles['palette-container']}>
-        <SceneSearchPaletteHeader 
-            query={query}
-            onQueryChange={onQueryChange}
-        />
-        <SceneSearchResultList 
-            isLoading={isLoading}
-            onSelectResult={onSelectResult}
-            results={results}
-        />
-        <SceneSearchPaletteFooter 
-            query={query}
-            onAskAgent={onAskAgent}
-        />
-    </div>
-)
+type SceneSearchPaletteContentProps = 
+{
+    header: Omit<SceneSearchPaletteHeaderProps, "modalInputId">
+    list: SceneSearchResultListProps
+    footer: SceneSearchPaletteFooterProps
+}
 
-export function SceneSearchPalette({
-    children,
-    open,
-    query,
-    results,
-    isLoading,
-    onOpenChange,
-    onQueryChange,
-    onSelectResult,
-    onAskAgent
-}: SceneSearchPaletteProps) {
+type SceneSearchPaletteContentInternalProps =
+    SceneSearchPaletteContentProps & {
+        modalInputId: string
+    }
+
+function SceneSearchPaletteContent (props: SceneSearchPaletteContentInternalProps) {
+     return (
+        <div className={styles['palette-container']}>
+            <SceneSearchPaletteHeader 
+                {...props.header}
+                modalInputId={props.modalInputId}
+            />
+            <SceneSearchResultList {...props.list} />
+            <SceneSearchPaletteFooter 
+                {...props.footer}
+            />
+        </div>
+    )
+}
+
+
+function SceneSearchPaletteModal(props: SceneSearchPaletteModalProps) {
     return (
-        <Modal
-            open={open}
-            onOpenChange={onOpenChange}
+        <TriggerlessModal
+            closeTrigger={None}
+            title={None}
+            description={None}
+            open={props.open}
+            onOpenChange={props.onOpenChange}
             content={
-                <SceneSearchPaletteContent 
-                    query={query}
-                    results={results}
-                    isLoading={isLoading}
-                    onQueryChange={onQueryChange}
-                    onSelectResult={onSelectResult}
-                    onAskAgent={onAskAgent}
+                <SceneSearchPaletteContent  
+                    {...props.content}
+                    modalInputId={props.modalInputId}
                 />
             }
-        >
-            {children}
-        </Modal>
+            initialFocusEl={props.initialFocusEl}
+            finalFocusEl={props.finalFocusEl}
+        />
     )
+}
+
+function getElementById(id: string): () => HTMLElement | null {
+    return () => {
+        if (typeof document === "undefined") {
+            return null
+        }
+
+        return document.getElementById(id)
+    }
+}
+
+export function SceneSearchPalette(props: SceneSearchPaletteProps) {
+
+    const launcherInputId = useId()
+    const modalInputId = useId()
+    const [open, setOpen] = useState(false)
+    const initialFocusEl = Some(getElementById(modalInputId))
+    const finalFocusEl = Some(getElementById(launcherInputId))
+
+    return (
+        <>
+            <input 
+                id={launcherInputId}
+                type="text"
+                className="field__input"
+                placeholder="Search any moment..."
+                value={props.query}
+                onChange={(e) => {
+                    const nextQuery = e.currentTarget.value
+                    props.onQueryChange(nextQuery)
+                    if (nextQuery.length > 0) {
+                        setOpen(true)
+                    }
+                }}
+            />
+            <SceneSearchPaletteModal 
+                content={props.content}
+                open={open}
+                onOpenChange={setOpen}
+                initialFocusEl={initialFocusEl}
+                finalFocusEl={finalFocusEl}
+                modalInputId={modalInputId}
+            />
+       </>
+    )
+    
 }

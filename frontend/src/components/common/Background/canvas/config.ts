@@ -26,7 +26,7 @@ export const EdgeAnimConfigSchema = z.object({
 
 export const PacketAnimConfigSchema = z.object({
     color: cssColor.default("#8bd7f5"),
-    radius: positive.default(3.5),
+    radius: positive.default(2.5),
     speedPxPerSec: positive.default(40000),
     trailLength: z.number().int().min(0).default(400),
     fadeInMs: z.number().min(0).default(250),
@@ -43,7 +43,7 @@ export const PathAnimConfigSchema = z.object({
 
 export const SamplerConfigSchema = z.object({
     minDistancePx: positive.default(4),
-    maxNodes: positiveInt.default(1000),
+    maxNodes: positiveInt.default(2000),
     seed: z.number().int().nonnegative().default(0xdecafbad)
 }).strict()
 
