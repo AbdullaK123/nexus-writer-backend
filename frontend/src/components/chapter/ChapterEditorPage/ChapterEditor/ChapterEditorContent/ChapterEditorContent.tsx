@@ -1,16 +1,19 @@
 import { Tiptap, type Editor } from "@tiptap/react";
 import { ChapterEditorContentLoadingSkeleton } from "./ChapterEditorContentLoadingSkeleton";
-import { Button, ErrorState } from "../../../../common";
+import { Button, ErrorState, Nothing } from "../../../../common";
 import { Some, Option } from "oxide.ts";
 import styles from "./ChapterEditorContent.module.css"
 
 export type ChapterEditorContentProps = 
+| { status: "empty" }
 | { status: "loading" }
-| { status: "error", onRetry: () => void }
-| { status: "ready", editor: Option<Editor>, content: string }
+| { status: "error", onRetryChapter: () => void, onRetryStory: () => void }
+| { status: "ready", editor: Option<Editor>}
 
 export function ChapterEditorContent(props: ChapterEditorContentProps) {
     switch (props.status) {
+        case "empty":
+            return <Nothing />
         case "loading": {
             return <ChapterEditorContentLoadingSkeleton />
         }
@@ -18,16 +21,24 @@ export function ChapterEditorContent(props: ChapterEditorContentProps) {
             return (
                 <ErrorState 
                     headline="Error"
-                    title="Failed to load your chapter"
+                    title="Failed to load your story data"
                     description={Some("Something went wrong. The server might be experiencing issues.")}
                     action={
                         Some(
-                            <Button
-                                variant="primary"
-                                onClick={props.onRetry}
-                            >
-                                Retry
-                            </Button>
+                            <div className={styles['error-action']}>
+                                <Button
+                                    variant="primary"
+                                    onClick={props.onRetryChapter}
+                                >
+                                    Retry fetching chapter
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    onClick={props.onRetryStory}
+                                >
+                                    Retry fetching story
+                                </Button>
+                            </div>
                         )
                     }
                 />

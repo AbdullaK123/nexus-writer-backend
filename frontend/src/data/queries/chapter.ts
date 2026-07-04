@@ -28,12 +28,13 @@ export const chapterKeys = {
 
 export function useChapter(chapterId: string, asHtml: boolean = true) {
     const api = useApi()
-    return toAsyncState<ChapterContentResponse>(useQuery({
+    const result = useQuery<ChapterContentResponse, ApiError>({
         queryKey: chapterKeys.detail(chapterId, asHtml),
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.chapter.getChapter(chapterId, asHtml, requestOptions({ signal }))),
         enabled: Boolean(chapterId),
-    }))
+    })
+    return [toAsyncState<ChapterContentResponse>(result), result.refetch] as const
 }
 
 // ─── Mutations ─────────────────────────────────────────────────────────────

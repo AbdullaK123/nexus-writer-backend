@@ -3,7 +3,7 @@ import { FilterChip } from "./FilterChip/FilterChip";
 import { StoryCard, type StoryCardProps } from "./StoryCard/StoryCard";
 import styles from './LibraryGrid.module.css'
 
-import { Button, EmptyState, ErrorState, Modal } from "../../../common";
+import { Button, EmptyState, ErrorState, ModalWithTrigger } from "../../../common";
 import { None, Some } from "oxide.ts";
 import { LibraryLoadingSkeleton } from "../LibraryLoadingSkeleton";
 
@@ -57,7 +57,7 @@ export function LibraryGrid(props: LibraryGridProps) {
             "Start with one story. Even a working title. The agent will read what you write as you write it, and the analytics fill in by themselves."
           )}
           action={Some(
-            <Modal
+            <ModalWithTrigger
               open={props.modalOpen}
               onOpenChange={props.onModalOpenChange}
               closeTrigger={None}
@@ -85,7 +85,7 @@ export function LibraryGrid(props: LibraryGridProps) {
               }
             >
               <Button variant="primary">Begin a new story →</Button>
-            </Modal>
+            </ModalWithTrigger>
           )}
         />
       )

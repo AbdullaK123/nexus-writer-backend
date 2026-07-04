@@ -1,4 +1,4 @@
-import { Button, LoadingSkeleton, Modal } from "../../../common";
+import { Button, LoadingSkeleton, ModalWithTrigger } from "../../../common";
 import styles from "./StoryHeader.module.css"
 import { None } from "oxide.ts"
 
@@ -54,7 +54,7 @@ export function StoryHeader(props: StoryHeaderProps) {
           <div className={styles['btn-container']}>
             <Button variant="secondary" onClick={props.onClickSettings}>Settings</Button>
             <Button variant="primary" onClick={props.onAskNexus}>Ask Nexus</Button>
-            <Modal
+            <ModalWithTrigger
                 open={props.modalOpen}
                 onOpenChange={props.onModalOpenChange}
                 closeTrigger={None}
@@ -82,7 +82,7 @@ export function StoryHeader(props: StoryHeaderProps) {
                 }
             >
               <Button variant="primary">+ New Chapter</Button>
-            </Modal>
+            </ModalWithTrigger>
           </div>
         </div>
       )
@@ -117,7 +117,7 @@ export function StoryHeader(props: StoryHeaderProps) {
           <div className={styles['btn-container']}>
             <Button variant="secondary" onClick={props.onClickSettings}>Settings</Button>
             <Button variant="primary" onClick={props.onAskNexus}>Ask Nexus</Button>
-            <Modal
+            <ModalWithTrigger
                 open={props.modalOpen}
                 onOpenChange={props.onModalOpenChange}
                 closeTrigger={None}
@@ -145,7 +145,7 @@ export function StoryHeader(props: StoryHeaderProps) {
                 }
             >
               <Button variant="primary">+ New Chapter</Button>
-            </Modal>
+            </ModalWithTrigger>
           </div>
         </div>
       )

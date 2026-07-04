@@ -120,14 +120,15 @@ export function useStorySceneSearch(
     request: SceneSearchRequest,
 ) {
     const api = useApi()
-    return toAsyncState<SceneSearchListResponse>(useQuery({
+    const result = useQuery<SceneSearchListResponse, ApiError>({
         queryKey: storyKeys.sceneSearch(storyId, request),
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.story.searchStoryScenes(storyId, request, requestOptions({ signal }))),
         enabled: Boolean(storyId) && request.query.trim().length > 0,
         placeholderData: keepPreviousData,
         staleTime: 60 * 1000,
-    }))
+    })
+    return [toAsyncState<SceneSearchListResponse>(result), result.refetch] as const
 }
 
 // ─── Mutations ─────────────────────────────────────────────────────────────

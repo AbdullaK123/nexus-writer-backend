@@ -1,8 +1,9 @@
 import { None, Some } from "oxide.ts";
 import { Button, EmptyState, ErrorState } from "../../../../common";
 import { SceneSearchLoadingSkeleton } from "../SceneSearchLoadingSkeleton";
-import { SceneSearchResultItem, type SceneSearchResultItemProps } from "../SceneSearchResultItem"
+import { SceneSearchResultItem } from "../SceneSearchResultItem"
 import styles from "./SceneSearchResultList.module.css"
+import type { SceneSearchResponse } from "../../../../../infrastructure/api/types";
 
 export type SceneSearchResultListProps = 
 | { status: "loading" }
@@ -10,8 +11,8 @@ export type SceneSearchResultListProps =
 | { status: "empty" }
 | {
     status: "ready"
-    onSelectResult: (result: SceneSearchResultItemProps) => void
-    results: SceneSearchResultItemProps[]
+    results: SceneSearchResponse[]
+    onSelectResult: (chapterId: string) => void
   }
 
 export function SceneSearchResultList(props: SceneSearchResultListProps) {
@@ -55,8 +56,13 @@ export function SceneSearchResultList(props: SceneSearchResultListProps) {
                     {props.results.map((result, idx) => (
                         <SceneSearchResultItem 
                             key={idx}
-                            {...result} 
-                            onSelect={() => props.onSelectResult(result)}
+                            sceneTitle={result.title}
+                            scenePacing={result.pacing}
+                            sceneScore={result.score}
+                            sceneTension={result.tension}
+                            chapterNumber={result.chapterNumber}
+                            chapterTitle={result.chapterTitle}
+                            onSelect={() => props.onSelectResult(result.chapterId)}
                         />
                     ))}
                 </div>

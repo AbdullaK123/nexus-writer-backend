@@ -13,6 +13,7 @@ import { Background } from "./components/common/Background/Background";
 import { SignupPage } from "./components/auth/SignupPage";
 import { AppShell, KitchenSink } from "./components";
 import { StoryDetailPage } from "./components/story/StoryDetailPage/StoryDetailPage";
+import { ChapterEditorPage } from "./components/chapter/ChapterEditorPage";
 
 interface RouterContext {
     auth: AuthContextValue
@@ -100,13 +101,20 @@ const storyDetailRoute = createRoute({
     component: StoryDetailPage
 })
 
+const chapterEditorRoute = createRoute({
+    getParentRoute: () => storyDetailRoute,
+    path: "/$chapterId",
+    component: ChapterEditorPage
+})
+
 const routeTree = rootRoute.addChildren([
     loginRoute,
     signupRoute,
     devRoute,
     appRoute.addChildren([
         dashboardRoute, 
-        storyDetailRoute
+        storyDetailRoute,
+        chapterEditorRoute
     ])
 ])
 

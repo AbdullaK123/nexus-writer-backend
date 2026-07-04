@@ -56,13 +56,15 @@ export function SceneSearchResultItem({
         >
             <div className={styles['content-container']}>
                 <h3>{sceneTitle}</h3>
-                <div>
+                <div className={styles['row']}>
                     <p className={styles['muted-text']}>
                         {`CH ${chapterNumber} - ${chapterTitle}`}
                     </p>
-                    <TensionChip sceneTension={sceneTension} />
-                    <PacingChip scenePacing={scenePacing} />
-                    <p className={styles['cyan-text']}>↵</p>
+                    <div className={styles['space-evenly']}>
+                        <TensionChip sceneTension={sceneTension} />
+                        <PacingChip scenePacing={scenePacing} />
+                        <p className={styles['cyan-text']}>↵</p>
+                    </div>
                 </div>
             </div>
             <div className={styles['cyan-text']}>

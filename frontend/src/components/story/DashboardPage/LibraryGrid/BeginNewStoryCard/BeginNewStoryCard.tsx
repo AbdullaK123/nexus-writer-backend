@@ -1,4 +1,4 @@
-import { Button,  Modal } from "../../../../common";
+import { Button,  ModalWithTrigger } from "../../../../common";
 import styles from "./BeginNewStoryCard.module.css"
 import { None } from "oxide.ts";
 
@@ -20,7 +20,7 @@ export function BeginNewStoryCard({
  }: BeginNewStoryCardProps ) {
     return (
         <div className={styles['new-card-container']}>
-            <Modal
+            <ModalWithTrigger
                 open={modalOpen}
                 closeTrigger={None}
                 title={None}
@@ -57,7 +57,7 @@ export function BeginNewStoryCard({
                 >
                     +
                 </span>
-            </Modal>
+            </ModalWithTrigger>
             <h2>Begin a new story</h2>
             <p>Click to expand in place</p>
         </div>

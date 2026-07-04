@@ -1,20 +1,15 @@
 import { Some } from "oxide.ts";
-import { LoadingSkeleton } from "../../../../common";
+import { LoadingSkeleton, Nothing } from "../../../../common";
 import styles from "./ChapterEditorHeader.module.css"
 
 
 export type ChapterEditorHeaderProps =
-| {
-    status: "loading"
-  }
+| { status: "loading" }
+| { status: "empty" }
+| { status: "error" }
 | {
     status: "ready"
-    chapterNumber: number
-    chapterTitle: string
-    wordCount: number
-  }
-| {
-    status: "saving"
+    saving: boolean
     chapterNumber: number
     chapterTitle: string
     wordCount: number
@@ -22,6 +17,10 @@ export type ChapterEditorHeaderProps =
 
 export function ChapterEditorHeader(props: ChapterEditorHeaderProps) {
     switch (props.status) {
+        case "empty":
+        case "error": {
+            return <Nothing />
+        }
         case "loading": {
             return (
                 <div className={styles['content']}>
@@ -37,19 +36,7 @@ export function ChapterEditorHeader(props: ChapterEditorHeaderProps) {
                         {`CH ${props.chapterNumber} - ${props.chapterTitle}`}
                     </span>
                     <span className={styles['pill']}>
-                        {`${props.wordCount} words - saved`}
-                    </span>
-                </div>
-            )
-        }
-        case "saving": {
-            return (
-                <div className={styles['content']}>
-                     <span className={styles['pill']}>
-                        {`CH ${props.chapterNumber} - ${props.chapterTitle}`}
-                    </span>
-                    <span className={styles['pill']}>
-                        {`${props.wordCount} words - saving...`}
+                        {`${props.wordCount} words - ${props.saving ? "saving..." : "saved"}`}
                     </span>
                 </div>
             )

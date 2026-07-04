@@ -20,6 +20,8 @@ export type SceneSearchRequest = z.infer<typeof SceneSearchRequestSchema>
 export const SceneSearchResponseSchema = z.object({
     id: z.string(),
     chapterId: z.string(),
+    chapterNumber: z.number(),
+    chapterTitle: z.string(),
     storyId: z.string(),
     title: z.string(),
     description: z.string(),

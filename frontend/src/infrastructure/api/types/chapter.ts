@@ -43,6 +43,8 @@ export const ChapterContentResponseSchema = z.object({
     content: z.string(),
     storyId: z.string(),
     storyTitle: z.string(),
+    chapterNumber: z.int(),
+    wordCount: z.int(),
     createdAt: DateTimeSchema,
     updatedAt: DateTimeSchema,
     previousChapterId: z.string().nullable(),
