@@ -34,16 +34,20 @@ export function StoryCard({
             cardTitle={None}
             subtitle={None}
             header={(
-                Some(<div className={styles['header-container']}>
-                    <StatusBadge variant={toStatusBadgeVariant(status)} />
-                    <p className={styles['all-caps']}>{`${chapterNumber} chapters`}</p>
-                </div>)
+                Some(
+                    <div className={styles['header-container']}>
+                        <StatusBadge variant={toStatusBadgeVariant(status)} />
+                        <p className={styles['all-caps']}>{`${chapterNumber} chapters`}</p>
+                    </div>
+                )
             )}
             footer={(
-                Some(<div className={styles['footer-container']}>
-                    <p className={styles['color-cyan']}>{`${wordCount} words`}</p>
-                    <p className={styles['all-caps']}>{`updated ${formatDistanceToNowStrict(updatedAt, { addSuffix: true })}`}</p>
-                </div>)
+                Some(
+                    <div className={styles['footer-container']}>
+                        <p className={styles['color-cyan']}>{`${wordCount} words`}</p>
+                        <p className={styles['all-caps']}>{`updated ${formatDistanceToNowStrict(updatedAt, { addSuffix: true })}`}</p>
+                    </div>
+                )
             )}
         >
             {<h3 className={styles['text-left']}>{title}</h3>}

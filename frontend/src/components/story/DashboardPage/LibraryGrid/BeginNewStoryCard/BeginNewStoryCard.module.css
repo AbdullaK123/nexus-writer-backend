@@ -11,6 +11,10 @@
     border-radius: var(--radius-pill);
 }
 
+.new-btn:hover {
+    cursor: pointer
+}
+
 .new-card-container {
     display: flex;
     flex-direction: column;

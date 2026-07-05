@@ -55,7 +55,6 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
         if (editor && chapterState.status === "success") {
             const data = chapterState.data.unwrap().unwrap()
             
-
             if (editor.getHTML() !== data.content) {
                 editor.commands.setContent(data.content)
             }

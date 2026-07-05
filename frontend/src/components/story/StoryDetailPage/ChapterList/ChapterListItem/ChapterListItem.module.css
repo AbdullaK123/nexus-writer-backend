@@ -12,6 +12,10 @@
     border-radius: var(--radius-md)
 }
 
+.selected:hover {
+    cursor: pointer
+}
+
 .chapter-info-container {
     display: flex;
     width: fit-content;

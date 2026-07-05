@@ -23,7 +23,6 @@ export function ChapterListItem(props: ChapterListItemProps) {
         <div
           className={`${styles['content']}`}
           onClick={props.onClick}
-          onDoubleClick={() => props.onDoubleClick(props.chapterId)}
         >
           <div className={styles['chapter-info-container']}>
             <p className={styles['chapter-number']}>{props.chapterNumber}</p>
@@ -45,8 +44,7 @@ export function ChapterListItem(props: ChapterListItemProps) {
       return (
         <div
           className={`${styles['content']} ${styles['selected']}`}
-          onClick={props.onClick}
-          onDoubleClick={() => props.onDoubleClick(props.chapterId)}
+          onClick={() => props.onDoubleClick(props.chapterId)}
         >
           <div className={styles['chapter-info-container']}>
             <p className={styles['chapter-number']}>{props.chapterNumber}</p>
