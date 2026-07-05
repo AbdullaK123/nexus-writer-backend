@@ -4,7 +4,7 @@ import type { AsyncState, ChapterContentResponse } from "../../../../infrastruct
 import type { ApiError } from "../../../../shared/types";
 import { useSceneSearchPaletteProps } from "../../../story/SceneSearchPalette/useSceneSearchPaletteProps";
 import type { ChapterEditorProps } from "./ChapterEditor";
-import type { Editor } from "@tiptap/react";
+import { type Editor } from "@tiptap/react";
 import { None, Option, Some } from "oxide.ts"
 import { useState } from "react";
 import { useToast } from "../../../common";
@@ -49,7 +49,6 @@ export function useChapterEditorProps({
     const { success, error } = useToast()
     const navigate = useNavigate()
 
-
     switch (state.status) {
         case "idle":
         case "loading": {
@@ -73,7 +72,7 @@ export function useChapterEditorProps({
                     status: "empty"
                 },
                 content: {
-                    status: "empty"
+                    status: "empty",
                 },
                 footer: {
                     status: "empty"  
@@ -103,8 +102,7 @@ export function useChapterEditorProps({
                     status: "ready",
                     saving: updating,
                     chapterNumber: data.chapterNumber,
-                    chapterTitle: data.title,
-                    wordCount: data.wordCount
+                    chapterTitle: data.title
                 },
                 content: {
                     status: "ready",
@@ -116,38 +114,60 @@ export function useChapterEditorProps({
                     chapterNumber: data.chapterNumber,
                     prevChapterId: data.previousChapterId ? Some(data.previousChapterId) : None,
                     nextChapterId: data.nextChapterId ? Some(data.nextChapterId) : None,
-                    onClickNextChapter: data.nextChapterId ? Some(() => navigate({ to: `/stories/${data.storyId}/${data.nextChapterId}`})) : None,
-                    onClickPreviousChapter: data.previousChapterId ? Some(() => navigate({ to: `/stories/${data.storyId}/${data.previousChapterId}`})) : None,
-                    newChapterTitle: newChapterTitle,
-                    onNewChapterTitleChange: (title: string) => setNewChapterTitle(title),
-                    modalOpen: modalOpen,
-                    onModalOpenChange: (e: boolean) => setModalOpen(e),
-                    onNewChapter: (title: string) => {
-                        createChapterMutation.mutate(
-                            {title: title, content: ""},
-                            {
-                                onSuccess: () => {
-                                    success(
-                                        "New chapter",
-                                        "Successfully created a new chapter"
-                                    )
-                                },
-                                onError: () => {
-                                    error(
-                                        "Failed to create new chapter",
-                                        "Something went wrong. The server might be experiencing issues"
-                                    )
-                                },
-                                onSettled: () => {
-                                    setNewChapterTitle("")
-                                    setModalOpen(false)
-                                }
+                    
+                    // 💡 FIXED: Explicitly provide the route matching string and BOTH parameter variables
+                    onClickNextChapter: data.nextChapterId ? Some(() => {
+                        navigate({
+                            to: "/stories/$storyId/$chapterId", // Or whatever matches your actual flat/nested route path
+                            params: {
+                                storyId: storyId,
+                                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                                chapterId: data.nextChapterId! 
                             }
-                        )
+                        })
+                    }) : None,
+
+                    onClickPreviousChapter: data.previousChapterId ? Some(() => {
+                        navigate({
+                            to: "/stories/$storyId/$chapterId",
+                            params: {
+                                storyId: storyId,
+                                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                                chapterId: data.previousChapterId!
+                            }
+                        })
+                    }) : None,
+
+                    modalOpen: modalOpen,
+                    onModalOpenChange: setModalOpen,
+                    newChapterTitle: newChapterTitle,
+                    onNewChapterTitleChange: setNewChapterTitle,
+                    onNewChapter: (title) => {
+                        createChapterMutation.mutate(
+                        {
+                            title: title,
+                            content: ""
+                        }, 
+                        {
+                            onSuccess: (newChapter) => {
+                                success("Chapter created successfully!", "");
+                                // Navigate to the brand new chapter
+                                navigate({
+                                    to: "/stories/$storyId/$chapterId",
+                                    params: { storyId, chapterId: newChapter.id }
+                                });
+                            },
+                            onError: () => {
+                                error("Error", "Failed to create your chapter. The server might be experiencing issues.")
+                            },
+                            onSettled: () => {
+                                setModalOpen(false)
+                                setNewChapterTitle("")
+                            }
+                        });
                     }
                 }
             }
-
         }
     }
 

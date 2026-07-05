@@ -10,6 +10,7 @@ from src.data.schemas.extraction import INSUFFICIENT_CONTEXT, BookPulseResponse,
 from src.data.schemas.scene import (
     SceneRow,
     SceneSearchResponse,
+    SceneSearchResult,
     VocabularyItem,
     VocabularyListResponse,
 )
@@ -170,6 +171,11 @@ class StoryService:
                 user_id=user_id, story_id=story_id,
             )
             return []
+        
+        story_path_array = await self._story_repo.get_path_array(story_id)
+
+        if story_path_array is None:
+            raise NotFoundError("Story not found")
 
         # Per-call overrides win; otherwise fall back to config so ops can
         # tune without a code change.
@@ -196,7 +202,7 @@ class StoryService:
 
         query_embedding = await self._provider.embed(query_text)
 
-        search_results = await self._scene_repo.search_scenes(
+        search_results: List[SceneSearchResult] = await self._scene_repo.search_scenes(
             user_id=user_id,
             story_id=story_id,
             query_text=query_text,
@@ -220,7 +226,25 @@ class StoryService:
         )
 
         return [
-            SceneSearchResponse.from_result(result)
+            SceneSearchResponse(
+                id=result.id,
+                chapter_id=result.chapter_id,
+                chapter_number=story_path_array.index(result.chapter_id) + 1,
+                story_id=result.story_id,
+                title=result.title,
+                description=result.description,
+                start_quote=result.start_quote,
+                end_quote=result.end_quote,
+                tension=result.tension,
+                pacing=result.pacing,
+                mentioned_entities=result.mentioned_entities,
+                tags=result.tags,
+                questions_raised=result.questions_raised,
+                score=result.score,
+                created_at=result.created_at,
+                updated_at=result.updated_at,
+                chapter_title=result.chapter_title
+            )
             for result in search_results
         ]
 

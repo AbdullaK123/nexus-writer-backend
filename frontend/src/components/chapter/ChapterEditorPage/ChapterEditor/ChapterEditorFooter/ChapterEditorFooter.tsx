@@ -1,7 +1,7 @@
 import {None, Option, Some} from "oxide.ts"
 import { Button, LoadingSkeleton, ModalWithTrigger, Nothing } from "../../../../common";
 import { SceneSearchPalette, type SceneSearchPaletteProps } from "../../../../story/SceneSearchPalette";
-
+import styles from "./ChapterEditorFooter.module.css"
 export type ChapterEditorFooterProps = 
 | { status: "error" }
 | { status: "empty" }
@@ -33,7 +33,7 @@ export function ChapterEditorFooter(props: ChapterEditorFooterProps) {
         }
         case "loading": {
             return (
-                <div>
+                <div className={styles['content']}>
                     <LoadingSkeleton className={Some("btn btn--secondary")} />
                     <SceneSearchPalette
                         {...props.searchPalette}
@@ -44,14 +44,16 @@ export function ChapterEditorFooter(props: ChapterEditorFooterProps) {
         }
         case "ready": {
             return (
-                <div>
-                    {props.prevChapterId.isSome() && (
+                <div className={styles['content']}>
+                    {props.prevChapterId.isSome() ? (
                         <Button
                             onClick={props.onClickPreviousChapter.isSome() ? props.onClickPreviousChapter.unwrap() : () => {}}
                             variant="secondary"
                         >
                            { `← CH ${props.chapterNumber - 1}`}
                         </Button>
+                    ) : (
+                        <div />
                     )}
                     <SceneSearchPalette
                         {...props.searchPalette}

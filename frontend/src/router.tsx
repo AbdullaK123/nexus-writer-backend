@@ -102,8 +102,8 @@ const storyDetailRoute = createRoute({
 })
 
 const chapterEditorRoute = createRoute({
-    getParentRoute: () => storyDetailRoute,
-    path: "/$chapterId",
+    getParentRoute: () => appRoute, 
+    path: "/stories/$storyId/$chapterId", // 2. Provide the full absolute path
     component: ChapterEditorPage
 })
 

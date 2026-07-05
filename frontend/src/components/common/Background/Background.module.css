@@ -5,6 +5,7 @@
     height: 100%;
     pointer-events: none;
     user-select: none;
+    filter: blur(1.5px) brightness(0.8);
     z-index: 0;
     background: #000000;
 }

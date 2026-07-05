@@ -917,3 +917,32 @@ samp {
     animation-duration: 0.001ms !important;
   }
 }
+
+.tiptap {
+  padding: var(--space-6);
+  min-height: 500px;
+  width: 1400px;
+  word-break: break;
+  margin: 0 auto;
+  outline: none;
+  font-size: var(--fs-3xl);
+  caret-color: var(--color-cyan)
+}
+
+.tiptap p {
+    margin-bottom: var(--space-3);
+    line-height: 1.6;
+    text-indent: var(--space-6, 1.5rem); 
+}
+
+.tiptap h1 + p,
+.tiptap h2 + p,
+.tiptap h3 + p {
+    text-indent: 0;
+}
+
+.tiptap h1, .tiptap h2, .tiptap h3 {
+    margin-top: var(--space-6);
+    margin-bottom: var(--space-2);
+    font-weight: 700;
+}

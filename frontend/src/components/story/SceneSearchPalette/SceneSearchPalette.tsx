@@ -12,7 +12,7 @@ export type SceneSearchPaletteProps =
     content: SceneSearchPaletteContentProps
 }
 
- type SceneSearchPaletteModalProps =
+type SceneSearchPaletteModalProps =
  {
     open: boolean
     onOpenChange: (open: boolean) => void
@@ -93,7 +93,7 @@ export function SceneSearchPalette(props: SceneSearchPaletteProps) {
             <input 
                 id={launcherInputId}
                 type="text"
-                className="field__input"
+                className={`field__input ${styles['full-height']}`}
                 placeholder="Search any moment..."
                 value={props.query}
                 onChange={(e) => {

@@ -19,7 +19,7 @@ export function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
         }
         case "loading": {
             return (
-                <aside className={`${styles['content']} ${props.open ? styles['closed'] : ""}`}>
+                <aside className={`${styles['content']} ${props.open ? "": styles['closed']}`}>
                     <div className={styles['header']}>
                         <div className={styles['header__label']}>
                             <LoadingSkeleton className={Some(styles['full-height'])} />
@@ -31,14 +31,14 @@ export function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
                             {props.open ? (
                                 <PanelLeftOpen 
                                     color={"#ffffff"}
-                                    width={48}
-                                    height={48}
+                                    width={24}
+                                    height={24}
                                 />
                             ): (
                                 <PanelLeftClose
                                     color={"#ffffff"}
-                                    width={48}
-                                    height={48}
+                                    width={24}
+                                    height={24}
                                 />
                             )}
                         </Button>
@@ -54,30 +54,30 @@ export function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
         }
         case "ready":{
             return (
-                <aside className={`${styles['content']} ${styles['closed']}`}>
+                <aside className={`${styles['content']} ${props.open ? "": styles['closed']}`}>
                     <div className={styles['header']}>
                         <div className={styles['header__label']}>
                             <span className="system-badge system-badge__nobg">[Chapters]</span>
                             <h4>{props.storyTitle}</h4>
                         </div>
-                        <Button
-                            variant="ghost"
+                        <span
+                            className={styles['icon-btn']}
                             onClick={() => props.onOpenChange(props.open)}
                         >
                             {props.open ? (
-                                <PanelLeftOpen 
-                                    color={"#ffffff"}
-                                    width={48}
-                                    height={48}
-                                />
-                            ): (
                                 <PanelLeftClose
                                     color={"#ffffff"}
-                                    width={48}
-                                    height={48}
+                                    width={24}
+                                    height={24}
+                                />
+                            ): (
+                                <PanelLeftOpen
+                                    color={"#ffffff"}
+                                    width={24}
+                                    height={24}
                                 />
                             )}
-                        </Button>
+                        </span>
                     </div>
                     <div className={styles['items-container']}>
                         {props.items.map((item, idx) => (

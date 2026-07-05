@@ -1,28 +1,29 @@
-import { useParams } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useChapter, useStoryChapters, useUpdateChapter } from "../../../data/queries";
 import type { ChapterEditorProps } from "./ChapterEditor";
 import { useChapterEditorSidebarProps, type ChapterEditorSidebarProps } from "./ChapterEditorSidebar";
 import { useEffect, useMemo, useState } from "react";
-import { useEditor } from "@tiptap/react";
+import { Editor, useEditor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { debounce } from "lodash"
 import { useChapterEditorProps } from "./ChapterEditor"
 import { None, Some } from "oxide.ts";
 export type ChapterEditorPageProps = {
     sidebar: ChapterEditorSidebarProps
-    editor: ChapterEditorProps
+    editorProps: ChapterEditorProps
+    tipTapEditor: Editor
 }
 
 export function useChapterEditorPage(): ChapterEditorPageProps {
 
     const params = useParams({ from: "/app/stories/$storyId/$chapterId" })
 
-    const [selectedChapterId, setSelectedChapterId] = useState(() => params.chapterId)
     const [storyChaptersState, refetchChapterList] = useStoryChapters(params.storyId)
-    const [chapterState, refetchChapter] = useChapter(selectedChapterId)
-    const updateChapterMutation = useUpdateChapter(selectedChapterId)
+    const [chapterState, refetchChapter] = useChapter(params.chapterId)
+    const updateChapterMutation = useUpdateChapter(params.chapterId)
     const [updating, setUpdating] = useState(false)
     const [query, setQuery] = useState("")
+    const navigate = useNavigate()
 
     const debouncedUpdate = useMemo(
         () => debounce((htmlContent: string) => {
@@ -33,7 +34,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
                     onSettled: () => setUpdating(false)
                 }
             );
-        }, 2000),
+        }, 500),
         [updateChapterMutation] // Re-create only if the mutation reference changes
     );
     
@@ -43,24 +44,34 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
 
     const editor = useEditor({
         extensions: [StarterKit],
-        content: (() => {
-            if (chapterState.status === "success") {
-                const data = chapterState.data.unwrap().unwrap()
-                return data.content
-            } else {
-                return ""
-            }
-        })(),
+        content: "", // Start clean or let the hook handle it
         onUpdate: ({ editor }) => {
             const html = editor.getHTML()
             debouncedUpdate(html)
         }
     })
 
+    useEffect(() => {
+        if (editor && chapterState.status === "success") {
+            const data = chapterState.data.unwrap().unwrap()
+            
+
+            if (editor.getHTML() !== data.content) {
+                editor.commands.setContent(data.content)
+            }
+        }
+    }, [editor, chapterState, params.chapterId]) 
+
+
     const sidebarProps = useChapterEditorSidebarProps({
         state: storyChaptersState,
-        selectedChapterId: selectedChapterId,
-        onSelectChapter: (chapterId: string) => setSelectedChapterId(chapterId)
+        selectedChapterId: params.chapterId,
+         onSelectChapter: (chapterId: string) => {
+            navigate({
+                to: "/stories/$storyId/$chapterId",
+                params: { storyId: params.storyId, chapterId }
+            })
+        }
     })
 
     const editorProps = useChapterEditorProps({
@@ -77,6 +88,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
 
     return {
         sidebar: sidebarProps,
-        editor: editorProps
+        editorProps: editorProps,
+        tipTapEditor: editor
     }
 }

@@ -3,6 +3,7 @@ import type { JumpBackInRowProps } from "../JumpBackInRow";
 import type { AsyncState, DashboardResponse } from "../../../../infrastructure/api/types";
 import type { ApiError } from "../../../../shared/types";
 import { useToast } from "../../../common";
+import { useNavigate } from "@tanstack/react-router";
 
 export function useJumpBackInRowProps(args: { dashboardState: AsyncState<DashboardResponse, ApiError>; onRetry: () => void }): JumpBackInRowProps {
   const { dashboardState, onRetry } = args;
@@ -10,6 +11,8 @@ export function useJumpBackInRowProps(args: { dashboardState: AsyncState<Dashboa
   const onDashboardError = useEffectEvent(() => {
     error("Failed to load recent chapters.", "Something went wrong. If the problem persists, please contact support.");
   });
+
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (dashboardState.status === 'error') onDashboardError();
@@ -28,7 +31,7 @@ export function useJumpBackInRowProps(args: { dashboardState: AsyncState<Dashboa
       if (d.jumpBackIn.length === 0) return { status: 'empty' };
       return {
         status: 'ready',
-        chapterCards: d.jumpBackIn.map(card => ({ ...card, onClick: () => {} }))
+        chapterCards: d.jumpBackIn.map(card => ({ ...card, onClick: () => navigate({ to: "/stories/$storyId/$chapterId", params: { storyId: card.storyId, chapterId: card.chapterId } }) }))
       };
     }
   }

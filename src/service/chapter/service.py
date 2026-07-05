@@ -54,17 +54,17 @@ class ChapterService:
         user_id: str,
         as_html: bool = True,
     ) -> ChapterContentResponse:
-        pair = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
-        if pair is None:
+        triple = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
+        if triple is None:
             raise NotFoundError(
                 "We couldn't find this chapter. It may have been deleted."
             )
-        chapter, story_title = pair
-
+        chapter, story_title, chapter_number = triple
         return ChapterContentResponse.from_chapter(
             chapter,
             content=chapter.content if as_html else get_preview_content(chapter.content),
             story_title=story_title,
+            chapter_number=chapter_number
         )
 
     @handle_service_errors
@@ -158,12 +158,12 @@ class ChapterService:
         user_id: str,
         data: UpdateChapterRequest,
     ) -> ChapterContentResponse:
-        pair = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
-        if pair is None:
+        triple = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
+        if triple is None:
             raise NotFoundError(
                 "We couldn't find this chapter. It may have been deleted."
             )
-        chapter, story_title = pair
+        chapter, story_title, chapter_number = triple
 
         fields = data.model_dump(exclude_unset=True)
         if "content" in fields:
@@ -196,7 +196,7 @@ class ChapterService:
             "chapter.update.done",
             chapter_id=chapter_id, user_id=user_id, fields=list(fields.keys()),
         )
-        return ChapterContentResponse.from_chapter(updated, story_title=story_title)
+        return ChapterContentResponse.from_chapter(updated, story_title=story_title, chapter_number=chapter_number)
 
     @handle_service_errors
     async def delete_chapter(

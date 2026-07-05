@@ -331,9 +331,31 @@ class SceneRepository:
                 ORDER BY score DESC
                 LIMIT $6
             )
-            SELECT {_SCENE_COLUMNS}, r.score
+            SELECT 
+                s.id AS id, 
+                s.chapter_id AS chapter_id, 
+                s.story_id AS story_id, 
+                s.user_id AS user_id, 
+                s.position AS position, 
+                s.title AS title, 
+                s.start_quote AS start_quote, 
+                s.end_quote AS end_quote, 
+                s.description AS description, 
+                s.pov AS pov,
+                s.tension AS tension, 
+                s.pacing AS pacing, 
+                s.mentioned_entities AS mentioned_entities, 
+                s.tags AS tags, 
+                s.questions_raised AS questions_raised, 
+                s.embedding_model AS embedding_model, 
+                s.embedded_at AS embedded_at, 
+                s.created_at AS created_at, 
+                s.updated_at AS updated_at, 
+                c.title AS chapter_title,
+                r.score AS score
             FROM "scene" s
-            JOIN ranked r USING (id)
+            INNER JOIN "chapter" c ON (s.chapter_id = c.id)
+            JOIN ranked r ON (s.id = r.id) 
             ORDER BY r.score DESC
         """
         t0 = perf_counter()
@@ -362,7 +384,32 @@ class SceneRepository:
             results=len(rows),
             ms=round((perf_counter() - t0) * 1000, 1),
         )
-        return [SceneSearchResult.model_validate(dict(r)) for r in rows]
+        return [
+            SceneSearchResult(
+                id=r["id"],
+                chapter_id=r["chapter_id"],
+                story_id=r["story_id"],
+                user_id=r["user_id"],
+                position=r["position"],
+                title=r["title"],
+                start_quote=r["start_quote"],
+                end_quote=r["end_quote"],
+                description=r["description"],
+                pov=r["pov"],
+                tension=r["tension"],
+                pacing=r["pacing"],
+                mentioned_entities=r["mentioned_entities"],
+                tags=r["tags"],
+                questions_raised=r["questions_raised"],
+                embedding_model=r["embedding_model"],
+                embedded_at=r["embedded_at"],
+                created_at=r["created_at"],
+                updated_at=r["updated_at"],
+                chapter_title=r["chapter_title"],
+                score=r["score"]
+            )
+            for r in rows
+        ]
 
     # ─── vocabulary listing ───────────────────────────────────────────────
     # Used by the agent to discover what tag / entity strings actually exist

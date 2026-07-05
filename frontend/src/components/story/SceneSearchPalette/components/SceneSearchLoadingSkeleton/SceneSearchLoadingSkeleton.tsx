@@ -1,3 +1,4 @@
+import { Some } from "oxide.ts";
 import { LoadingSkeleton } from "../../../../common"
 import styles from "./SceneSearchLoadingSkeleton.module.css"
 
@@ -7,14 +8,14 @@ export function SceneSearchLoadingSkeleton() {
             {Array.from({ length: 4 }).map((_, index) => (
                 <div key={index} className={styles.row}>
                     <div className={styles.main}>
-                        <LoadingSkeleton className={styles.title} />
+                        <LoadingSkeleton className={Some(styles.title)} />
                         <div className={styles.metaRow}>
-                            <LoadingSkeleton className={styles.meta} />
-                            <LoadingSkeleton className={styles.chip} />
-                            <LoadingSkeleton className={styles.chip} />
+                            <LoadingSkeleton className={Some(styles.meta)} />
+                            <LoadingSkeleton className={Some(styles.chip)} />
+                            <LoadingSkeleton className={Some(styles.chip)} />
                         </div>
                     </div>
-                    <LoadingSkeleton className={styles.score} />
+                    <LoadingSkeleton className={Some(styles.score)} />
                 </div>
             ))}
         </div>

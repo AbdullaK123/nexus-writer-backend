@@ -3,7 +3,13 @@
     justify-content: space-evenly;
     align-items: center;
     gap: var(--space-3);
-    padding: var(--space-3);
+    padding: var(--space-1);
+    transition: transform 0.3s ease-in-out
+}
+
+.content:hover {
+    cursor: pointer;
+    transform: translateY(-4px);
 }
 
 

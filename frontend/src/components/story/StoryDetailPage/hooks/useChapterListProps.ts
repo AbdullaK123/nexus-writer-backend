@@ -10,7 +10,7 @@ export function useChapterListProps(args: {
   onFilterChange: (filter: 'all' | 'draft' | 'published') => void,
   onRetry: () => void,
   onChapterClick: (chapterId: string) => void,
-  onChapterDoubleClick: () => void
+  onChapterDoubleClick: (chapterId: string) => void
 }): ChapterListProps {
   const { 
     chaptersState, 
@@ -58,6 +58,7 @@ export function useChapterListProps(args: {
           onClickFilterChip: onFilterChange
         },
         items: chapters.map((chapter) => ({
+          chapterId: chapter.chapterId,
           status: (selectedChapterId.isSome() && selectedChapterId.unwrap() === chapter.chapterId) ? "selected" : "idle",
           chapterNumber: chapter.chapterNumber,
           chapterTitle: chapter.chapterTitle,

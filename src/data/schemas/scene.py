@@ -102,6 +102,7 @@ class SceneSearchResult(SceneRow):
     relevant). Values are not comparable across queries — they're only
     meaningful for ordering within one result set.
     """
+    chapter_title: str
     score: float
 
 class SceneSearchRequest(ApiModel):
@@ -146,6 +147,8 @@ class SceneSearchResponse(ApiModel):
 
     id: str
     chapter_id: str
+    chapter_number: int
+    chapter_title: str
     story_id: str
     title: str
     description: str

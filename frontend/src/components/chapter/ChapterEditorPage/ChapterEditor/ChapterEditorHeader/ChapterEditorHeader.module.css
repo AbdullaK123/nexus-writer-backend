@@ -5,21 +5,22 @@
 .content {
     display: flex;
     justify-content: space-between;
-    padding: var(--space-3);
+    padding: var(--space-4);
 }
 
 .pill {
     display: inline-block;
-    padding: var(--space-3);
+    padding: var(--space-4);
     text-align: center;
     background: var(--surface-2);
     border: 1px solid var(--color-cyan);
-    border-radius: var(--radius-pill)
+    border-radius: var(--radius-pill);
+    text-transform: uppercase
 }
 
 .loading-pill {
     display: inline-block;
-    padding: var(--space-3);
+    padding: var(--space-4);
     text-align: center;
     border: 1px solid var(--color-cyan);
     border-radius: var(--radius-pill)

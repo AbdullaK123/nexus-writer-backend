@@ -56,11 +56,13 @@ class ChapterListItem(ApiModel):
 
 class ChapterContentResponse(ApiModel):
     id: str
+    chapter_number: int
     title: str
     published: bool
     content: str
     story_id: str
     story_title: str
+    word_count: int
     created_at: datetime
     updated_at: datetime
     previous_chapter_id: Optional[str] = None
@@ -74,23 +76,21 @@ class ChapterContentResponse(ApiModel):
     @classmethod
     def from_chapter(
         cls,
-        chapter,
+        chapter: ChapterRow,
+        chapter_number: int,
+        story_title: str,
         *,
-        content: Optional[str] = None,
-        story_title: Optional[str] = None,
+        content: Optional[str] = None
     ) -> "ChapterContentResponse":
-        # `story_title` is required when `chapter` is a ChapterRow (no relation
-        # attribute). Tortoise Chapter still works via `chapter.story.title`.
-        resolved_story_title = (
-            story_title if story_title is not None else chapter.story.title
-        )
         return cls(
             id=chapter.id,
+            chapter_number=chapter_number,
             title=chapter.title,
             published=chapter.published,
             content=chapter.content if content is None else content,
             story_id=chapter.story_id,
-            story_title=resolved_story_title,
+            word_count=chapter.word_count,
+            story_title=story_title,
             created_at=chapter.created_at,
             updated_at=chapter.updated_at,
             previous_chapter_id=chapter.prev_chapter_id,

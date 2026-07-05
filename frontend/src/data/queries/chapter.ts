@@ -10,6 +10,7 @@ import { storyKeys } from "./story"
 import { ApiError, unwrapResultAsync } from "../../shared/types"
 import { toAsyncState } from "../../infrastructure/api/utils";
 import { Option } from "oxide.ts"
+import { authKeys } from "./auth";
 
 // ─── Keys ──────────────────────────────────────────────────────────────────
 // Chapter cache lives under its own root because chapters are also
@@ -45,18 +46,50 @@ export function useUpdateChapter(chapterId: string) {
     return useMutation({
         mutationFn: (payload: UpdateChapterRequest) =>
             unwrapResultAsync(api.chapter.updateChapter(chapterId, payload)),
+        onMutate: async (updatedContent) => {
+            await qc.cancelQueries({ queryKey: chapterKeys.detail(chapterId, true) })
+            const prevContent = qc.getQueryData<ChapterContentResponse>(chapterKeys.detail(chapterId, true))
+             qc.setQueryData<ChapterContentResponse>(
+                chapterKeys.detail(chapterId, true), 
+                {
+                    // Provide hardcoded or empty fallbacks for required fields
+                    id: prevContent?.id ?? chapterId,
+                    title: prevContent?.title ?? "",
+                    published: prevContent?.published ?? false,
+                    storyId: prevContent?.storyId ?? "",
+                    storyTitle: prevContent?.storyTitle ?? "",
+                    chapterNumber: prevContent?.chapterNumber ?? 0,
+                    wordCount: prevContent?.wordCount ?? 0,
+                    createdAt: prevContent?.createdAt ?? new Date(),
+                    updatedAt: prevContent?.updatedAt ?? new Date(),
+                    previousChapterId: prevContent?.previousChapterId ?? null,
+                    nextChapterId: prevContent?.nextChapterId ?? null,
+                    // Your dynamic update
+                    content: updatedContent.content ?? ""
+                }
+            )
+            return {
+                prevContent,
+                updatedContent
+            }
+        },
+        onError: (_, __, context ) => {
+            qc.setQueryData(chapterKeys.detail(chapterId, true), context?.prevContent)
+        },
         onSuccess: (chapter) => {
-            // Wipe cached detail entries for this chapter (both html
-            // representations).
             qc.invalidateQueries({
                 queryKey: [...chapterKeys.all, "detail", chapterId],
             })
-            // Title / order may have changed — parent story view shows
-            // them in its chapter list.
             qc.invalidateQueries({
                 queryKey: storyKeys.detail(chapter.storyId),
             })
+            qc.invalidateQueries({
+                queryKey: authKeys.dashboard()
+            })
         },
+        onSettled: (_) => {
+            qc.invalidateQueries({ queryKey: chapterKeys.detail(chapterId, true) })
+        }
     })
 }
 
@@ -70,6 +103,9 @@ export function useDeleteChapter(chapterId: string, storyId: string) {
                 queryKey: [...chapterKeys.all, "detail", chapterId],
             })
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
+            qc.invalidateQueries({
+                queryKey: authKeys.dashboard()
+            })
         },
     })
 }

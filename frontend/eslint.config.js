@@ -91,6 +91,12 @@ export default defineConfig([
                         'Do not branch on Option/Result `_tag`. Use `.isSome()` / `.isNone()` / `.isOk()` / `.isErr()`.',
                 },
             ],
+            "@typescript-eslint/no-unused-vars": ["warn", { 
+                "vars": "all", 
+                "args": "after-used", 
+                "varsIgnorePattern": "^_", 
+                "argsIgnorePattern": "^_" 
+            }]
         },
     },
     {

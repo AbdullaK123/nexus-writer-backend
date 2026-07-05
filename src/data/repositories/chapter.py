@@ -66,15 +66,9 @@ class ChapterRepository:
 
     async def get_with_story_title(
         self, chapter_id: str, user_id: str,
-    ) -> tuple[ChapterRow, str] | None:
+    ) -> tuple[ChapterRow, str, int] | None:
         """Returns the chapter plus its parent story's title in one round-trip.
         Lets callers build ChapterContentResponse without a second fetch."""
-        sql = f"""
-            SELECT {_CHAPTER_COLUMNS}, s.title AS story_title
-              FROM "chapter" c
-              JOIN "story" s ON s.id = c.story_id
-             WHERE c.id = $1 AND c.user_id = $2
-        """
         # qualified column names — the SELECT above is sloppy because
         # _CHAPTER_COLUMNS isn't aliased; expand it.
         sql = f"""
@@ -82,7 +76,8 @@ class ChapterRepository:
                 c.id, c.story_id, c.user_id, c.title, c.content, c.published,
                 c.word_count, c.next_chapter_id, c.prev_chapter_id,
                 c.created_at, c.updated_at,
-                s.title AS story_title
+                s.title AS story_title,
+                ARRAY_POSITION(s.path_array, c.id) AS chapter_number
               FROM "chapter" c
               JOIN "story" s ON s.id = c.story_id
              WHERE c.id = $1 AND c.user_id = $2
@@ -92,7 +87,8 @@ class ChapterRepository:
             return None
         d = dict(row)
         story_title = d.pop("story_title")
-        return ChapterRow.model_validate(d), story_title
+        chapter_number = d.pop("chapter_number")
+        return ChapterRow.model_validate(d), story_title, chapter_number
 
     async def list_by_story(
         self,

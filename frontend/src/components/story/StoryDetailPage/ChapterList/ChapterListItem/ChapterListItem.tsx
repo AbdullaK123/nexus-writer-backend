@@ -2,13 +2,14 @@ import { formatDistanceToNow } from "date-fns"
 import styles from "./ChapterListItem.module.css"
 
 export type ChapterListItemBase = {
+  chapterId: string
   chapterNumber: number
   chapterTitle: string
   chapterStatus: "draft" | "published"
   updatedAt: Date
   wordCount: number
   onClick: () => void
-  onDoubleClick: () => void
+  onDoubleClick: (chapterId: string) => void
 }
 
 export type ChapterListItemProps =
@@ -22,7 +23,7 @@ export function ChapterListItem(props: ChapterListItemProps) {
         <div
           className={`${styles['content']}`}
           onClick={props.onClick}
-          onDoubleClick={props.onDoubleClick}
+          onDoubleClick={() => props.onDoubleClick(props.chapterId)}
         >
           <div className={styles['chapter-info-container']}>
             <p className={styles['chapter-number']}>{props.chapterNumber}</p>
@@ -45,7 +46,7 @@ export function ChapterListItem(props: ChapterListItemProps) {
         <div
           className={`${styles['content']} ${styles['selected']}`}
           onClick={props.onClick}
-          onDoubleClick={props.onDoubleClick}
+          onDoubleClick={() => props.onDoubleClick(props.chapterId)}
         >
           <div className={styles['chapter-info-container']}>
             <p className={styles['chapter-number']}>{props.chapterNumber}</p>

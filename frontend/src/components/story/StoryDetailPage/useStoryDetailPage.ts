@@ -106,7 +106,7 @@ export function useStoryDetailPage(): StoryDetailPageProps {
     onFilterChange: (filter: 'all' | 'draft' | 'published') => setSelectedFilter(filter),
     onRetry: refetchStory,
     onChapterClick: (chapterId: string) => setSelectedChapterId(Some(chapterId)),
-    onChapterDoubleClick: () => {}
+    onChapterDoubleClick: (chapterId: string) => navigate({ to: `/stories/${storyId}/${chapterId}` })
   })
 
   const bookPulse: BookPulseProps = useBookPulse(storyId)

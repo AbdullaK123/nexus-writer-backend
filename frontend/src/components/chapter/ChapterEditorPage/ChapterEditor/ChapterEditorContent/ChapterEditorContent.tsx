@@ -5,10 +5,10 @@ import { Some, Option } from "oxide.ts";
 import styles from "./ChapterEditorContent.module.css"
 
 export type ChapterEditorContentProps = 
-| { status: "empty" }
+| { status: "empty", }
 | { status: "loading" }
 | { status: "error", onRetryChapter: () => void, onRetryStory: () => void }
-| { status: "ready", editor: Option<Editor>}
+| { status: "ready", editor: Option<Editor> }
 
 export function ChapterEditorContent(props: ChapterEditorContentProps) {
     switch (props.status) {
@@ -48,9 +48,7 @@ export function ChapterEditorContent(props: ChapterEditorContentProps) {
             if (props.editor.isNone()) return
             return (
                 <div className={styles['editor-shell']}>
-                    <Tiptap editor={props.editor.unwrap()}>
-                        <Tiptap.Content/>
-                    </Tiptap>
+                    <Tiptap.Content/>
                 </div>
             )
         }
