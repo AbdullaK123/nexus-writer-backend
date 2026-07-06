@@ -19,5 +19,6 @@
     background: var(--surface-2);
     border: 1px solid var(--border-default);
     border-radius: 20px;
+    overflow-y: auto;
     box-shadow: var(--elevation-modal);
 }

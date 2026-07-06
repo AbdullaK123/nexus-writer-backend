@@ -6,7 +6,7 @@ import { useSceneSearchPaletteProps } from "../../../story/SceneSearchPalette/us
 import type { ChapterEditorProps } from "./ChapterEditor";
 import { type Editor } from "@tiptap/react";
 import { None, Option, Some } from "oxide.ts"
-import { useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { useToast } from "../../../common";
 export type UseChapterEditorPropsArgs = 
 {
@@ -42,12 +42,21 @@ export function useChapterEditorProps({
         onAskAgent: onAskAgent,
         storyId: storyId,
         query: query,
-        onQueryChange: onQueryChange
+        onQueryChange: onQueryChange,
+        editor: editor.unwrap()
     })
     const [newChapterTitle, setNewChapterTitle] = useState("")
     const [modalOpen, setModalOpen] = useState(false)
     const { success, error } = useToast()
     const navigate = useNavigate()
+
+    const onSearchError = useEffectEvent(() => {
+        error("Failed to search your story", "Something went wrong. The server might be experiencing issues.")
+    })
+
+    useEffect(() => {   
+        if (sceneSearchState.status === "error") onSearchError()
+    }, [sceneSearchState.status])
 
     switch (state.status) {
         case "idle":

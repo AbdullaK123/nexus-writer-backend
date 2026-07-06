@@ -15,19 +15,19 @@ export function SceneSearchPaletteFooter({
     return (
         <div className={styles['footer-container']}>
             <div className={styles['kbd-container']}>
-                <div>   
+                <div className={styles['kdb']}>   
                     <Kbd>
                         ↑ ↓
                     </Kbd>
                     <p>navigate</p>
                 </div>
-                <div>
+                <div className={styles['kdb']}>
                     <Kbd>
                         ↵
                     </Kbd>
                     <p>open</p>
                 </div>
-                <div>
+                <div className={styles['kdb']}>
                     <Kbd>
                         ⇧ ↵
                     </Kbd>

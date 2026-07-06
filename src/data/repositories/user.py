@@ -85,21 +85,25 @@ class UserRepository:
                     COALESCE(MAX(streak_days), 0) AS current_streak_days
                 FROM all_streaks
                 WHERE streak_end >= CURRENT_DATE - INTERVAL '1 day'
+            ),
+            user_metrics AS (
+                SELECT
+                    $1 AS user_id,
+                    COALESCE((SELECT COUNT(*) FROM story WHERE user_id = $1), 0) AS total_stories,
+                    COALESCE((SELECT COUNT(*) FROM scene WHERE user_id = $1), 0) AS scenes_tracked,
+                    COALESCE((SELECT COUNT(*) FROM chapter WHERE user_id = $1), 0) AS chapters_total,
+                    COALESCE((SELECT COUNT(*) FROM chapter WHERE user_id = $1 AND published = true), 0) AS chapters_published,
+                    COALESCE((SELECT SUM(word_count) FROM chapter WHERE user_id = $1), 0) AS raw_word_count
             )
             SELECT
-                COALESCE(SUM(c.word_count), 0) AS total_words,
-                COUNT(DISTINCT s.id) AS total_stories,
-                COUNT(DISTINCT c.id) AS chapters_total,
-                COUNT(DISTINCT CASE WHEN c.published THEN c.id END) AS chapters_published,
-                COUNT(DISTINCT sc.id) AS scenes_tracked,
+                m.raw_word_count AS total_words,
+                m.total_stories,
+                m.chapters_total,
+                m.chapters_published,
+                m.scenes_tracked,
                 a.current_streak_days AS streak_days
-            FROM "user" u
-            LEFT JOIN story s ON u.id = s.user_id
-            LEFT JOIN chapter c ON u.id = c.user_id
-            LEFT JOIN scene sc ON u.id = sc.user_id
-            CROSS JOIN active_streak a
-            WHERE u.id = $1
-            GROUP BY a.current_streak_days
+            FROM user_metrics m
+            CROSS JOIN active_streak a;
             """
 
             agg_result = await conn.fetchrow(agg_sql, user_id)

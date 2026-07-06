@@ -208,7 +208,8 @@ export function useStoryPulse(storyId: string) {
     const result = useQuery<BookPulseResponse, ApiError>({
         queryKey: storyKeys.pulse(storyId),
         queryFn: ({ signal }) => unwrapResultAsync(api.story.getPulse(storyId, requestOptions({ signal }))),
-        enabled: Boolean(storyId)
+        enabled: Boolean(storyId),
+        staleTime: 10*1000
     })
     return [toAsyncState<BookPulseResponse>(result), result.refetch] as const
 }

@@ -2,6 +2,7 @@
 
 from bs4 import BeautifulSoup
 from typing import List
+import difflib
 
 
 def get_word_count(html: str) -> int:
@@ -20,6 +21,23 @@ def get_word_count(html: str) -> int:
     # Clean whitespace and count
     words = plain_text.split()
     return len(words)
+
+def get_html_similarity_ratio(html_a: str, html_b: str) -> float:
+    """
+    Returns a similarity ratio between 0.0 and 1.0.
+    Trigger your AI re-extraction if this value drops BELOW your threshold.
+    """
+    def normalize(html_str):
+        # Pretty-print to ignore raw indentation and attribute order variations
+        soup = BeautifulSoup(html_str, 'html.parser')
+        return soup.prettify()
+
+    clean_a = normalize(html_a)
+    clean_b = normalize(html_b)
+    
+    # Calculate the Levenshtein-like distance ratio
+    matcher = difflib.SequenceMatcher(None, clean_a, clean_b, autojunk=False)
+    return matcher.ratio()
 
 
 def get_preview_content(html: str) -> str:

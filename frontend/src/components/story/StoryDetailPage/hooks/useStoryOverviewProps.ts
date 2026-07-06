@@ -4,7 +4,7 @@ import {  type ApiError } from "../../../../shared/types";
 import { toStatusBadgeVariant } from "../../DashboardPage/LibraryGrid/StoryCard";
 import type { StoryOverviewProps } from "../StoryOverview/StoryOverview";
 import { resolveAsyncStates } from "../../../../infrastructure/api/utils";
-import { None, Some} from 'oxide.ts'
+import {None, Some} from 'oxide.ts'
 
 
 
@@ -59,9 +59,18 @@ export function useStoryOverviewProps({
                 badge: toStatusBadgeVariant(resolvedState.data.story.storyStatus),
                 startedText: `STARTED ${formatDistanceToNow(resolvedState.data.story.storyLastUpdated, { addSuffix: true })}`,
                 titleText: resolvedState.data.story.storyTitle,
-                summaryText: summaryState.status === "success"
-                    ? Some(summaryState.data.unwrap().unwrap().summary)
-                    : None,
+                summaryText: (() => {
+                    switch (summaryState.status) {
+                        case "idle":
+                        case "error":
+                        case "empty": 
+                            return None
+                        case "loading": 
+                            return Some("Summarizing...")
+                        case "success":
+                            return Some(summaryState.data.unwrap().unwrap().summary)
+                    }
+                })(),
                 stats: resolvedState.data.stats
             }
     }

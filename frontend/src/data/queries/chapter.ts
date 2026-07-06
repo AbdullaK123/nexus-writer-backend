@@ -125,6 +125,7 @@ export function useChapterSummary(chapterId: Option<string>) {
         api.chapter.summarizeChapter(id, requestOptions({ signal }))
       ),
     enabled,
+    staleTime: 1000*10
   })
 
   return [toAsyncState<ChapterSummaryResponse>(result), result.refetch] as const

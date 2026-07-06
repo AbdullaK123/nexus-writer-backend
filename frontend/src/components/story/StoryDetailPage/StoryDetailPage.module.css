@@ -1,14 +1,16 @@
 .content-container {
     display: flex;
     flex-direction: column;
-    padding: var(--space-5);
+    min-width: 100%;
+    padding: var(--space-8);
     margin: 0 auto;
     overflow-y: scroll;
 }
 
 .list-and-pulse-container {
     display: grid;
-    grid-template-columns: 70% 30%;
-    gap: var(--space-5);
+    grid-template-columns: 60% 40%;
+    height: 100vh;
+    gap: var(--space-6);
     padding: var(--space-5);
 }

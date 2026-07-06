@@ -2,12 +2,13 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { useChapter, useStoryChapters, useUpdateChapter } from "../../../data/queries";
 import type { ChapterEditorProps } from "./ChapterEditor";
 import { useChapterEditorSidebarProps, type ChapterEditorSidebarProps } from "./ChapterEditorSidebar";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { Editor, useEditor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { debounce } from "lodash"
 import { useChapterEditorProps } from "./ChapterEditor"
 import { None, Some } from "oxide.ts";
+import { useToast } from "../../common";
 export type ChapterEditorPageProps = {
     sidebar: ChapterEditorSidebarProps
     editorProps: ChapterEditorProps
@@ -24,6 +25,24 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     const [updating, setUpdating] = useState(false)
     const [query, setQuery] = useState("")
     const navigate = useNavigate()
+
+    const { error } = useToast()
+
+    const onStoryChaptersError = useEffectEvent(() => {
+        error("Failed to fetch your chapters", "Somthing went wrong. The server might be experiencing issues.")
+    })
+
+    const onChapterError = useEffectEvent(() => {
+        error("Failed to load your chapter", "Something went wrong. The server might be experiencing issues.")
+    })
+
+    useEffect(() => {
+        if (storyChaptersState.status === "error") onStoryChaptersError()
+    }, [storyChaptersState.status])
+
+    useEffect(() => {
+        if (chapterState.status === "error") onChapterError()
+    }, [chapterState.status])
 
     const debouncedUpdate = useMemo(
         () => debounce((htmlContent: string) => {

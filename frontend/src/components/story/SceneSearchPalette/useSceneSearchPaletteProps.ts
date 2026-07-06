@@ -2,6 +2,8 @@ import { useNavigate } from "@tanstack/react-router";
 import type { AsyncState, SceneSearchListResponse } from "../../../infrastructure/api/types";
 import type { ApiError } from "../../../shared/types";
 import type { SceneSearchPaletteProps } from "./SceneSearchPalette";
+import { triggerPaletteClose } from "./eventbus";
+import { Editor} from "@tiptap/react";
 
 export type UseSceneSearchPalettePropsArgs = 
 {
@@ -10,7 +12,8 @@ export type UseSceneSearchPalettePropsArgs =
     onQueryChange: (query: string) => void
     onAskAgent: (query: string) => void
     onRetry: () => void
-    state: AsyncState<SceneSearchListResponse, ApiError>
+    state: AsyncState<SceneSearchListResponse, ApiError>,
+    editor: Editor
 }
 
 
@@ -20,10 +23,10 @@ export function useSceneSearchPaletteProps({
     onQueryChange,
     onAskAgent,
     onRetry,
-    state
+    state,
 }: UseSceneSearchPalettePropsArgs): SceneSearchPaletteProps {
     
-    const navigate = useNavigate( )
+    const navigate = useNavigate()
 
     switch (state.status) {
         case "idle":
@@ -103,6 +106,7 @@ export function useSceneSearchPaletteProps({
                         onSelectResult: (chapterId: string) => {
                             navigate({ to: `/stories/${storyId}/${chapterId}`})
                             // handle selecting text between startQuote and endQuote
+                            triggerPaletteClose()
                         }
                     },
                     footer: {

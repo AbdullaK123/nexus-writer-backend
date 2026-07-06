@@ -55,7 +55,7 @@ export function SceneSearchResultItem({
             onClick={onSelect}
         >
             <div className={styles['content-container']}>
-                <h3>{sceneTitle}</h3>
+                <h4>{sceneTitle}</h4>
                 <div className={styles['row']}>
                     <p className={styles['muted-text']}>
                         {`CH ${chapterNumber} - ${chapterTitle}`}
@@ -68,7 +68,7 @@ export function SceneSearchResultItem({
                 </div>
             </div>
             <div className={styles['cyan-text']}>
-                {sceneScore}
+                {sceneScore.toFixed(2)}
             </div>
         </div>
     )

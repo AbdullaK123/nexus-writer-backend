@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import List, Optional
+import asyncio
+from typing import TYPE_CHECKING, List, Optional
 
 import asyncpg
 from loguru import logger
@@ -25,14 +26,22 @@ from src.infrastructure.ai.providers.protocol import AIProvider
 from src.service.exceptions import NotFoundError, ValidationError, InternalError
 from src.service.extraction import scenes_are_stale
 from src.service.utils.decorators import handle_service_errors
+from functools import cached_property
 from src.shared.utils.html import (
+    get_html_similarity_ratio,
     get_preview_content,
     get_word_count,
     html_to_plain_text,
 )
 
+if TYPE_CHECKING:
+    from src.service.extraction.service import ExtractionService
+    from src.service.embedding.service import EmbeddingService
 
 class ChapterService:
+
+    REEXTRACTION_THRESHOLD = 0.95
+
     def __init__(
         self,
         story_repo: StoryRepository,
@@ -44,8 +53,19 @@ class ChapterService:
         self._chapter_repo = chapter_repo
         self._scene_repo = scene_repo
         self._provider = provider
+        self._background_tasks: set[asyncio.Task] = set()
 
     # ─── reads ─────────────────────────────────────────────────────────────
+    @cached_property
+    def extraction_service(self) -> "ExtractionService":
+        from src.service.extraction.service import ExtractionService
+        return ExtractionService(self._provider, self._chapter_repo, self._scene_repo)
+    
+    @cached_property
+    def embedding_service(self) -> "EmbeddingService":
+        from src.service.embedding.service import EmbeddingService
+        return EmbeddingService(self._scene_repo, self._provider)
+        
 
     @handle_service_errors
     async def get_chapter_with_navigation(
@@ -150,6 +170,21 @@ class ChapterService:
         return await self.get_chapter_with_navigation(
             chapter.id, user_id, as_html=True,
         )
+    
+    @handle_service_errors
+    async def _scene_and_embedding_job(self, chapter_id: str) -> None:
+        await self.extraction_service.extract_scenes(chapter_id)
+        await self.embedding_service.embed_scenes(chapter_id)
+
+    def _discard_background_task(self, task: asyncio.Task) -> None:
+        self._background_tasks.discard(task)
+
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            logger.exception("chapter.scene_and_embedding_job.failed")
 
     @handle_service_errors
     async def update_chapter(
@@ -186,11 +221,18 @@ class ChapterService:
                     fields=fields,
                     executor=conn,
                 )
+
         if updated is None:
             # disappeared between the read above and the update — treat as gone
             raise NotFoundError(
                 "We couldn't find this chapter. It may have been deleted."
             )
+    
+        
+        if  "content" in fields and get_html_similarity_ratio(chapter.content, updated.content) < self.REEXTRACTION_THRESHOLD: 
+            task = asyncio.create_task(self._scene_and_embedding_job(chapter_id))
+            self._background_tasks.add(task)
+            task.add_done_callback(self._discard_background_task)
 
         logger.info(
             "chapter.update.done",

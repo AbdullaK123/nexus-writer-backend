@@ -52,12 +52,12 @@ export function SignupForm() {
             password: values.password
        }, {
             onSuccess: () => {
+                success("Registration Successful!", "Logging you in...")
                 login.mutate({
                     email: values.email,
                     password: values.password
                 }, {
                     onSuccess: () => {
-                        success("Registration Successful!", "Logging you in...")
                         navigate({ to: (search.redirect as string) ?? "/" })
                     },
                     onError: (err) => {

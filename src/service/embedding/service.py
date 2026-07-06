@@ -27,6 +27,45 @@ class EmbeddingService:
         {" ".join(row.tags)}
         """
 
+    async def embed_scenes(self, chapter_id: str) -> None:
+
+        scenes: List[SceneRow] = await self._scene_repo.list_by_chapter(chapter_id)
+
+        texts = [self._format_scene(scene) for scene in scenes]
+
+        embeddings = await self._provider.embed_many(texts, with_batching=True)
+
+        if len(embeddings) != len(scenes):
+            logger.error(
+                "embed_pending_batched.malformed_response",
+                requested=len(scenes),
+                received=len(embeddings),
+            )
+            raise ServiceError("AI provider returned malformed embedding batch.")
+        
+            # update embeddings
+        updated = 0
+        for scene, embedding in zip(scenes, embeddings):
+            try:
+                await self._scene_repo.update_embedding(
+                    scene_id=scene.id, 
+                    embedding=embedding,
+                    embedding_model=self._provider.embedding_model
+                )
+                updated += 1
+            except Exception as e:
+                logger.warning(
+                    "update_embedding.failed",
+                    scene_id=scene.id,
+                    error=str(e),
+                )
+
+        logger.info(
+            "embed_pending_batched.complete",
+            scenes_embedded=updated,
+            scenes_failed=len(scenes) - updated,
+        )
+
 
     async def embed_pending_batched(self) -> None:
 

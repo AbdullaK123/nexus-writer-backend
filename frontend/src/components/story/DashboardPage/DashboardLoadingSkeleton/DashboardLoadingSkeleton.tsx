@@ -15,9 +15,6 @@ export function DashboardLoadingSkeleton() {
                 <CardLoadingSkeleton />
                 <CardLoadingSkeleton />
             </div>
-            <div>
-                
-            </div>
         </div>
     )
 }

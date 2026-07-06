@@ -2,7 +2,8 @@ import { SceneSearchPaletteFooter, SceneSearchPaletteHeader, SceneSearchResultLi
 import { TriggerlessModal, type FocusGetter } from "../../common";
 import styles from "./SceneSearchPalette.module.css"
 import { None, Option, Some } from "oxide.ts";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import { paletteBus } from "./eventbus";
 
 
 export type SceneSearchPaletteProps =
@@ -70,6 +71,8 @@ function SceneSearchPaletteModal(props: SceneSearchPaletteModalProps) {
     )
 }
 
+
+
 function getElementById(id: string): () => HTMLElement | null {
     return () => {
         if (typeof document === "undefined") {
@@ -80,6 +83,8 @@ function getElementById(id: string): () => HTMLElement | null {
     }
 }
 
+
+
 export function SceneSearchPalette(props: SceneSearchPaletteProps) {
 
     const launcherInputId = useId()
@@ -87,6 +92,17 @@ export function SceneSearchPalette(props: SceneSearchPaletteProps) {
     const [open, setOpen] = useState(false)
     const initialFocusEl = Some(getElementById(modalInputId))
     const finalFocusEl = Some(getElementById(launcherInputId))
+
+     useEffect(() => {
+        const handleBusClose = () => {
+            setOpen(false);
+        };
+
+        paletteBus.addEventListener('close', handleBusClose);
+        return () => {
+            paletteBus.removeEventListener('close', handleBusClose);
+        };
+    }, []);
 
     return (
         <>

@@ -172,7 +172,7 @@ class StoryRepository:
                 WHERE streak_end >= CURRENT_DATE - INTERVAL '1 day'
             )
             SELECT
-                COALESCE(SUM(c.word_count), 0) AS total_words,
+                COALESCE(SUM(c.word_count) / COALESCE(NULLIF(COUNT(DISTINCT sc.id), 0), 1), 0) AS total_words,
                 COUNT(DISTINCT c.id) AS chapters_total,
                 COUNT(DISTINCT sc.id) AS scenes_tracked,
                 a.current_streak_days AS streak_days

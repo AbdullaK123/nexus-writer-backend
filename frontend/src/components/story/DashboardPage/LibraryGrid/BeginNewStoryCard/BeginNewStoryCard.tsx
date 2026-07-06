@@ -28,7 +28,7 @@ export function BeginNewStoryCard({
                 onOpenChange={onModalOpenChange}
                 content={
                     <div className={styles['form-container']}>
-                        <h2>Create a new Story</h2>
+                        <h2>Create a new story</h2>
                         <div className="hstack">
                             <input 
                                 type="text"

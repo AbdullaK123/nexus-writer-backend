@@ -1,6 +1,7 @@
 .palette-container {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: 20% 60% 20%;
+    max-height: min(768px, calc(100vw - 32px));;
     gap: var(--space-1);
     padding: var(--space-1);
 }

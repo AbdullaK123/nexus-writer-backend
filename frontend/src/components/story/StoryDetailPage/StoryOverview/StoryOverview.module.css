@@ -3,6 +3,7 @@
     grid-template-columns: 80% 20%;
     align-items: center;
     width: 100%;
+    padding: var(--space-3);
     gap: var(--space-3)
 }
 
