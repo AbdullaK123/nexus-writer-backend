@@ -2,6 +2,7 @@ import { None, Some } from "oxide.ts";
 import { Button, EmptyState, ErrorState } from "../../../common";
 import { ChapterCard, type ChapterCardProps } from "./ChapterCard/ChapterCard";
 import styles from "./JumpBackInRow.module.css"
+import { JumpBackInRowLoadingSkeleton } from "./JumpBackInRowLoadingSkeleton";
 
 export type JumpBackInRowProps =
   | { status: 'loading' }
@@ -12,14 +13,7 @@ export type JumpBackInRowProps =
 export function JumpBackInRow(props: JumpBackInRowProps) {
   switch (props.status) {
     case 'loading':
-      return (
-        <div className={styles['main-content']}>
-          <div className={styles['header']}>
-            <span className="system-badge system-badge__nobg">[JUMP BACK IN]</span>
-            <p>Loading…</p>
-          </div>
-        </div>
-      )
+      return <JumpBackInRowLoadingSkeleton />
     case 'error':
       return (
         <ErrorState
