@@ -27,7 +27,7 @@ search:
 
 ai:
   default_model: openai/gpt-5.5
-  embedding_model: openai/text-embedding-3-large
+  embedding_model: openai/text-embedding-3-small
   embedding_batch_size: 32  # scenes per cron tick; capped at 128 in settings
   temperature: 1
   max_retries: 3

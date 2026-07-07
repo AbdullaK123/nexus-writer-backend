@@ -59,7 +59,6 @@ export class ChapterClient {
         chapterId: string,
         options: RequestOptions = noRequestOptions,
     ): Promise<Result<ChapterSummaryResponse, ApiError>> {
-        console.log("GOTCHA")
         return this.api.getJson(
             `chapters/${chapterId}/summary`,
             ChapterSummaryResponseSchema,
