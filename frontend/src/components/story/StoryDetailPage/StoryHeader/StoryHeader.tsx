@@ -1,4 +1,4 @@
-import { Button, LoadingSkeleton, ModalWithTrigger } from "../../../common";
+import { Button, ModalWithTrigger } from "../../../common";
 import styles from "./StoryHeader.module.css"
 import { None } from "oxide.ts"
 
@@ -45,47 +45,12 @@ export type StoryHeaderProps =
       onNewChapter: (title: string) => void
     } 
 
+import { StoryHeaderLoadingSkeleton } from "./StoryHeaderLoadingSkeleton";
+
 export function StoryHeader(props: StoryHeaderProps) {
   switch (props.status) {
     case 'loading':
-      return (
-        <div className={styles['header-container']}>
-          <LoadingSkeleton className={None} />
-          <div className={styles['btn-container']}>
-            <Button variant="secondary" onClick={props.onClickSettings}>Settings</Button>
-            <Button variant="primary" onClick={props.onAskNexus}>Ask Nexus</Button>
-            <ModalWithTrigger
-                open={props.modalOpen}
-                onOpenChange={props.onModalOpenChange}
-                closeTrigger={None}
-                title={None}
-                description={None}
-                content={
-                  <div>
-                    <h2>Create a new chapter</h2>
-                    <div className="hstack">
-                      <input
-                        type="text"
-                        value={props.chapterTitle}
-                        className="field__input"
-                        placeholder="Give it a nice title..."
-                        onChange={(e) => props.onChapterTitleChange(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') props.onNewChapter(props.chapterTitle)
-                        }}
-                      />
-                      <Button variant="primary" onClick={() => props.onNewChapter(props.chapterTitle)}>
-                        Submit
-                      </Button>
-                    </div>
-                  </div>
-                }
-            >
-              <Button variant="primary">+ New Chapter</Button>
-            </ModalWithTrigger>
-          </div>
-        </div>
-      )
+      return <StoryHeaderLoadingSkeleton />
     case 'error':
       return (
         <div className={styles['header-container']}>

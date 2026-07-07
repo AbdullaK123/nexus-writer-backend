@@ -3,6 +3,7 @@ import { ChapterListFilterBar, type ChapterListFilterBarProps } from "./ChapterL
 import { ChapterListItem, type ChapterListItemProps } from "./ChapterListItem/ChapterListItem";
 import styles from "./ChapterList.module.css"
 import { None, Some } from "oxide.ts";
+import { ChapterListLoadingSkeleton } from "./ChapterListLoadingSkeleton";
 
 export type ChapterListProps =
   | { status: 'loading' }
@@ -14,9 +15,7 @@ export function ChapterList(props: ChapterListProps) {
   switch (props.status) {
     case 'loading':
       return (
-        <div className={styles['content']}>
-          {/* Could add a list skeleton here if desired */}
-        </div>
+        <ChapterListLoadingSkeleton />
       )
     case 'error':
       return (
