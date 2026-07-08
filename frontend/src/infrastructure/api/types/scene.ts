@@ -55,3 +55,9 @@ export const VocabularyListResponseSchema = z.object({
     items: z.array(VocabularyItemSchema),
 })
 export type VocabularyListResponse = z.infer<typeof VocabularyListResponseSchema>
+
+
+export const StoryPathArrayResponseSchema = z.object({
+    pathArray: z.array(z.string().optional().nullable()).default([])
+})
+export type StoryPathArrayResponse = z.infer<typeof StoryPathArrayResponseSchema>

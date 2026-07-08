@@ -13,6 +13,11 @@
     z-index: 50;
 }
 
+.modal__title {
+    text-align: center;
+    width: 100%;
+}
+
 .modal__content {
     width: min(768px, calc(100vw - 32px));
     padding: var(--space-7);

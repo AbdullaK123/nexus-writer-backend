@@ -11,6 +11,7 @@ import { ApiError, unwrapResultAsync } from "../../shared/types"
 import { toAsyncState } from "../../infrastructure/api/utils";
 import { Option } from "oxide.ts"
 import { authKeys } from "./auth";
+import { useMatchRoute, useNavigate } from "@tanstack/react-router";
 
 // ─── Keys ──────────────────────────────────────────────────────────────────
 // Chapter cache lives under its own root because chapters are also
@@ -96,19 +97,61 @@ export function useUpdateChapter(chapterId: string) {
 export function useDeleteChapter(chapterId: string, storyId: string) {
     const api = useApi()
     const qc = useQueryClient()
+    const navigate = useNavigate()
+    const matchRoute = useMatchRoute()
+
     return useMutation({
+        onMutate: async () => {
+
+            const isViewingChapter = matchRoute({ 
+                to: "/stories/$storyId/$chapterId", 
+                params: { storyId, chapterId } 
+            })
+
+            // 2. If they are deleting from the story root page, do not change their page
+            if (!isViewingChapter) {
+                return
+            }
+
+            const pathKey = [storyKeys.path(storyId)]
+            
+            // 1. Cancel any outgoing refetches so they don't clash with our read
+            await qc.cancelQueries({ queryKey: pathKey })
+
+            const pathArray = await qc.fetchQuery({
+                queryKey: pathKey,
+                queryFn: () => unwrapResultAsync(api.story.getPathArray(storyId))
+            })
+            
+            const targetId = chapterId
+            const chapterIdx = pathArray.pathArray.findIndex((id) => id === targetId)
+
+            if (chapterIdx === -1) {
+                return
+            }
+
+            // 2. Await the navigation so the UI unmounts the old page BEFORE the data vanishes
+            if (chapterIdx === 0) {
+                await navigate({ to: "/stories/$storyId", params: { storyId: storyId } })
+            } else {
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                const prevChapterId = pathArray.pathArray[chapterIdx - 1]!
+                await navigate({ to: "/stories/$storyId/$chapterId", params: { storyId: storyId, chapterId: prevChapterId } })
+            }
+        },
         mutationFn: () => unwrapResultAsync(api.chapter.deleteChapter(chapterId)),
         onSuccess: () => {
             qc.removeQueries({
                 queryKey: [...chapterKeys.all, "detail", chapterId],
             })
+            // 3. Crucial: Invalidate the path array so the system knows the order changed
+            qc.invalidateQueries({ queryKey: [storyKeys.path(storyId)] })
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
-            qc.invalidateQueries({
-                queryKey: authKeys.dashboard()
-            })
+            qc.invalidateQueries({ queryKey: authKeys.dashboard() })
         },
     })
 }
+
 
 export function useChapterSummary(chapterId: Option<string>) {
    

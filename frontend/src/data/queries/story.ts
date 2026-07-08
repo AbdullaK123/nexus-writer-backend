@@ -46,7 +46,9 @@ export const storyKeys = {
     pulse: (storyId: string) =>
         [...storyKeys.detail(storyId), "pulse"],
     stats: (storyId: string) =>
-        [...storyKeys.detail(storyId), "stats"]
+        [...storyKeys.detail(storyId), "stats"],
+    path: (storyId: string) => 
+        [...storyKeys.detail(storyId), "path"]
 }
 
 // ─── Queries ───────────────────────────────────────────────────────────────

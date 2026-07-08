@@ -43,6 +43,7 @@ export function useChapterEditorSidebarProps({
                 status: "ready",
                 open: sidebarOpen,
                 onOpenChange: (prev: boolean) => setSidebarOpen(!prev),
+                storyId: data.storyId,
                 storyTitle: data.storyTitle,
                 items: data.chapters.map((chapter) => {
                     if (chapter.chapterId === selectedChapterId) 
@@ -52,6 +53,7 @@ export function useChapterEditorSidebarProps({
                             storyId: chapter.storyId,
                             chapterTitle: chapter.chapterTitle,
                             chapterNumber: chapter.chapterNumber,
+                            chapterStatus: chapter.published ? "published" : "draft",
                             onClick: () => onSelectChapter(chapter.chapterId)
                         }
                     else

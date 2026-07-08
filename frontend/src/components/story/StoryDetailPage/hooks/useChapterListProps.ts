@@ -58,6 +58,7 @@ export function useChapterListProps(args: {
           onClickFilterChip: onFilterChange
         },
         items: chapters.map((chapter) => ({
+          storyId: chapter.storyId,
           chapterId: chapter.chapterId,
           status: (selectedChapterId.isSome() && selectedChapterId.unwrap() === chapter.chapterId) ? "selected" : "idle",
           chapterNumber: chapter.chapterNumber,

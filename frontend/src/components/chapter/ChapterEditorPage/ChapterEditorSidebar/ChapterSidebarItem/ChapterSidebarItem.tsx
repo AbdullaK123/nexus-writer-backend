@@ -1,3 +1,4 @@
+import { ChapterListItemMenu } from "../../../../story/StoryDetailPage/ChapterList/ChapterListItem/ChapterListItemMenu";
 import styles from "./ChapterSidebarItem.module.css"
 
 export type ChapterSidebarItemProps = 
@@ -16,6 +17,7 @@ export type ChapterSidebarItemProps =
         storyId: string
         chapterTitle: string
         chapterNumber: number
+        chapterStatus: "draft" | "published"
         onClick: () => void
   }
 
@@ -39,11 +41,18 @@ export function ChapterSidebarItem(props: ChapterSidebarItemProps) {
                     <span className={getStyles(props.chapterStatus)}>
                         {props.chapterNumber}
                     </span>
-                    <h4>{props.chapterTitle}</h4>
+                    <h4 className={styles['chapter-title']}>{props.chapterTitle}</h4>
                     {(props.chapterStatus === "draft") && (
-                        <span className={getStyles(props.chapterStatus)}>
-                            {props.chapterStatus}
-                        </span>
+                        <div className={styles['flex-row']}>
+                            <span className={getStyles(props.chapterStatus)}>
+                                {props.chapterStatus}
+                            </span>
+                            <ChapterListItemMenu 
+                                storyId={props.storyId}
+                                chapterId={props.chapterId}
+                                chapterStatus={props.chapterStatus}
+                            />
+                        </div>
                     )}
                 </div>
             )
@@ -57,10 +66,17 @@ export function ChapterSidebarItem(props: ChapterSidebarItemProps) {
                     <span className={styles['editing']}>
                         {props.chapterNumber}
                     </span>
-                    <h4>{props.chapterTitle}</h4>
-                    <span className={styles['editing']}>
-                        editing
-                    </span>
+                    <h4 className={styles['chapter-title']}>{props.chapterTitle}</h4>
+                    <div className={styles['flex-row']}>
+                        <span className={styles['editing']}>
+                            editing
+                        </span>
+                         <ChapterListItemMenu 
+                            storyId={props.storyId}
+                            chapterId={props.chapterId}
+                            chapterStatus={props.chapterStatus}
+                        />
+                    </div>
                 </div>
             )
         }

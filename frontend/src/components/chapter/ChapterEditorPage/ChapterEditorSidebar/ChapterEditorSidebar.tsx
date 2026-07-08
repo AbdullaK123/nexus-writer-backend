@@ -3,15 +3,19 @@ import { ChapterSidebarItem, type ChapterSidebarItemProps } from "./ChapterSideb
 import { PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import styles from "./ChapterEditorSidebar.module.css"
 import { Some } from "oxide.ts";
+import { useNavigate } from "@tanstack/react-router"
 
 export type ChapterEditorSidebarProps = 
 | { status: "error" }
 | { status: "empty" }
 | { status: "loading", open: boolean, onOpenChange: (e: boolean) => void }
-| { status: "ready", open: boolean, storyTitle: string; items: ChapterSidebarItemProps[], onOpenChange: (e: boolean) => void}
+| { status: "ready", open: boolean, storyId: string; storyTitle: string; items: ChapterSidebarItemProps[], onOpenChange: (e: boolean) => void}
 
 
 export function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
+
+    const navigate = useNavigate()
+
     switch (props.status) {
         case "error":
         case "empty": {
@@ -58,7 +62,13 @@ export function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
                     <div className={styles['header']}>
                         <div className={styles['header__label']}>
                             <span className="system-badge system-badge__nobg">[Chapters]</span>
-                            <h4>{props.storyTitle}</h4>
+                            <h4 
+                                role="button"
+                                className={styles['back-btn']}
+                                onClick={() => navigate({ to: "/stories/$storyId", params: {storyId: props.storyId} }) }
+                            >
+                                ← {props.storyTitle}
+                            </h4>
                         </div>
                         <span
                             className={styles['icon-btn']}

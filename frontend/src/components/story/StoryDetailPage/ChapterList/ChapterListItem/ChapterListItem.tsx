@@ -1,7 +1,9 @@
 import { formatDistanceToNow } from "date-fns"
 import styles from "./ChapterListItem.module.css"
+import { ChapterListItemMenu } from "./ChapterListItemMenu";
 
 export type ChapterListItemBase = {
+  storyId: string
   chapterId: string
   chapterNumber: number
   chapterTitle: string
@@ -35,8 +37,13 @@ export function ChapterListItem(props: ChapterListItemProps) {
               </p>
             </div>
           </div>
-          <div className={styles['all-caps']}>
+          <div className={`${styles['all-caps']} ${styles['flex-row']}`}>
             <p>{`${props.wordCount} WORDS`}</p>
+            <ChapterListItemMenu 
+              storyId={props.storyId}
+              chapterId={props.chapterId} 
+              chapterStatus={props.chapterStatus} 
+            />
           </div>
         </div>
       )
@@ -57,7 +64,7 @@ export function ChapterListItem(props: ChapterListItemProps) {
               </p>
             </div>
           </div>
-          <div className={styles['all-caps']}>
+          <div className={`${styles['all-caps']} ${styles['flex-row']}`}>
             <p>{`${props.wordCount} WORDS`}</p>
           </div>
         </div>

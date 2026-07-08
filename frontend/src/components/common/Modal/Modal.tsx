@@ -57,7 +57,7 @@ export function ModalWithTrigger({
                         )}
 
                         {title.isSome() && (
-                            <Dialog.Title>{title.unwrap()}</Dialog.Title>
+                            <Dialog.Title className={styles['modal__title']}>{title.unwrap()}</Dialog.Title>
                         )}
 
                         {description.isSome() && (

@@ -25,7 +25,7 @@ export function ChapterEditorContent(props: ChapterEditorContentProps) {
                     description={Some("Something went wrong. The server might be experiencing issues.")}
                     action={
                         Some(
-                            <div className={styles['error-action']}>
+                            <div className={styles['error-actions']}>
                                 <Button
                                     variant="primary"
                                     onClick={props.onRetryChapter}

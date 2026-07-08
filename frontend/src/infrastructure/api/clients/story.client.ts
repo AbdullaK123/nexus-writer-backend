@@ -25,6 +25,8 @@ import {
     BookPulseResponseSchema,
     type StoryStatsResponse,
     StoryStatsResponseSchema,
+    type StoryPathArrayResponse,
+    StoryPathArrayResponseSchema,
  } from "../types"
 import type { Result, ApiError } from "../../../shared/types"
 
@@ -33,6 +35,17 @@ export class StoryClient {
     private readonly api: ApiClient
     constructor(api: ApiClient) {
         this.api = api
+    }
+
+    public getPathArray(
+        storyId: string,
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<StoryPathArrayResponse, ApiError>> {
+        return this.api.getJson(
+            `stories/${storyId}/path`,
+            StoryPathArrayResponseSchema,
+            options
+        )
     }
 
     public createStory(
