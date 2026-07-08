@@ -4,6 +4,7 @@ import { Card, StatusBadge } from "../../../../common"
 import styles from "./StoryCard.module.css"
 import { toStatusBadgeVariant } from "./utils";
 import { None, Some } from "oxide.ts";
+import { StoryCardMenu } from "./StoryCardMenu";
 
 
 export type StoryCardProps = {
@@ -37,7 +38,14 @@ export function StoryCard({
                 Some(
                     <div className={styles['header-container']}>
                         <StatusBadge variant={toStatusBadgeVariant(status)} />
-                        <p className={styles['all-caps']}>{`${chapterNumber} chapters`}</p>
+                        <div
+                            className={styles['flex-row']}
+                            onClick={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => e.stopPropagation()}
+                        >
+                             <p className={styles['all-caps']}>{`${chapterNumber} chapters`}</p>
+                            <StoryCardMenu storyId={storyId} />
+                        </div>
                     </div>
                 )
             )}

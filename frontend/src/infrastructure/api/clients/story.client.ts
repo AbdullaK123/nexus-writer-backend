@@ -49,10 +49,11 @@ export class StoryClient {
 
     public updateStory(
         payload: UpdateStoryRequest,
+        storyId: string,
         options: RequestOptions = noRequestOptions
     ): Promise<Result<ApiMessage, ApiError>> {
         return this.api.putJson(
-            "stories",
+            `stories/${storyId}`,
             payload,
             ApiMessageSchema,
             options

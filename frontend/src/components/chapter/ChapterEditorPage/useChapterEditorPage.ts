@@ -9,6 +9,7 @@ import { debounce } from "lodash"
 import { useChapterEditorProps } from "./ChapterEditor"
 import { None, Some } from "oxide.ts";
 import { useToast } from "../../common";
+import { Highlight } from "./utils"
 export type ChapterEditorPageProps = {
     sidebar: ChapterEditorSidebarProps
     editorProps: ChapterEditorProps
@@ -54,7 +55,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
                 }
             );
         }, 500),
-        [updateChapterMutation] // Re-create only if the mutation reference changes
+        [updateChapterMutation] 
     );
     
     useEffect(() => {
@@ -62,23 +63,28 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     }, [debouncedUpdate]);
 
     const editor = useEditor({
-        extensions: [StarterKit],
-        content: "", // Start clean or let the hook handle it
+        extensions: [StarterKit, Highlight],
+        content: "",
         onUpdate: ({ editor }) => {
             const html = editor.getHTML()
             debouncedUpdate(html)
         }
     })
 
-    useEffect(() => {
-        if (editor && chapterState.status === "success") {
-            const data = chapterState.data.unwrap().unwrap()
-            
-            if (editor.getHTML() !== data.content) {
-                editor.commands.setContent(data.content)
-            }
+   useEffect(() => {
+        // 1. Guard check: Ensure editor and data are fully loaded
+        if (!editor || chapterState.status !== "success") return;
+        
+        const data = chapterState.data.unwrap().unwrap();
+        
+        // 2. Update editor content if it doesn't match the database content
+        if (editor.getHTML() !== data.content) {
+            // We use a transaction fallback callback or queue to ensure order
+            editor.commands.setContent(data.content);
         }
-    }, [editor, chapterState, params.chapterId]) 
+
+    }, [editor, chapterState]);
+
 
 
     const sidebarProps = useChapterEditorSidebarProps({

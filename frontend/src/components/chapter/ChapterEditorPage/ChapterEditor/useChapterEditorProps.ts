@@ -42,8 +42,7 @@ export function useChapterEditorProps({
         onAskAgent: onAskAgent,
         storyId: storyId,
         query: query,
-        onQueryChange: onQueryChange,
-        editor: editor.unwrap()
+        onQueryChange: onQueryChange
     })
     const [newChapterTitle, setNewChapterTitle] = useState("")
     const [modalOpen, setModalOpen] = useState(false)
@@ -123,11 +122,9 @@ export function useChapterEditorProps({
                     chapterNumber: data.chapterNumber,
                     prevChapterId: data.previousChapterId ? Some(data.previousChapterId) : None,
                     nextChapterId: data.nextChapterId ? Some(data.nextChapterId) : None,
-                    
-                    // 💡 FIXED: Explicitly provide the route matching string and BOTH parameter variables
                     onClickNextChapter: data.nextChapterId ? Some(() => {
                         navigate({
-                            to: "/stories/$storyId/$chapterId", // Or whatever matches your actual flat/nested route path
+                            to: "/stories/$storyId/$chapterId",
                             params: {
                                 storyId: storyId,
                                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

@@ -1,5 +1,7 @@
 .header-container {
     display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
     width: 100%;
     justify-content: space-between;
 }
@@ -38,4 +40,45 @@
 
 .raise-card:active {
     transform: scale(0.95);
+}
+
+.flex-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+}
+
+.menu-container {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-2);
+    padding: var(--space-5);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    z-index: 1000;
+}
+
+.menu-separator {
+    width: 100%;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+}
+
+.menu-item:hover {
+    background: var(--fill-cyan-soft);
+    padding: var(--space-3);
+    border-radius: var(--radius-md)
+}
+
+
+.form-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-2)
 }

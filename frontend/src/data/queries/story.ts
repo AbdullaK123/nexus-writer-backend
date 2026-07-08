@@ -146,12 +146,12 @@ export function useCreateStory() {
     })
 }
 
-export function useUpdateStory() {
+export function useUpdateStory(storyId: string) {
     const api = useApi()
     const qc = useQueryClient()
     return useMutation({
         mutationFn: (payload: UpdateStoryRequest) =>
-            unwrapResultAsync(api.story.updateStory(payload)),
+            unwrapResultAsync(api.story.updateStory(payload, storyId)),
         // Title / metadata change — list cards reflect it, detail too.
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: storyKeys.all })
