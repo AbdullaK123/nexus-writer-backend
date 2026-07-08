@@ -16,6 +16,7 @@ from src.data.schemas.scene import (
 )
 from src.data.schemas.story import (
     CreateStoryRequest,
+    StoryPathArrayResponse,
     StoryStatsResponse,
     UpdateStoryRequest,
     StoryCardResponse,
@@ -404,6 +405,22 @@ class StoryService:
             structure=structure_result,
             world=world_result
         )
+    
+    @handle_service_errors
+    async def get_path_array(
+        self,
+        story_id: str,
+        user_id: str
+    ) -> StoryPathArrayResponse:
+        
+        story = await self._story_repo.get(story_id, user_id)
+
+        if story is None:
+            raise NotFoundError("Story not found")
+        
+        path_array =  await self._story_repo.get_path_array(story_id)
+
+        return StoryPathArrayResponse(path_array=path_array)
     
     @handle_service_errors
     async def get_story_stats(

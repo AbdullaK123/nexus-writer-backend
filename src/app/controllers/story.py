@@ -13,6 +13,7 @@ from src.data.schemas.enums import StoryStatus
 from src.data.schemas.extraction import BookPulseResponse
 from src.data.schemas.story import (
     CreateStoryRequest,
+    StoryPathArrayResponse,
     StoryStatsResponse,
     UpdateStoryRequest,
     StoryGridResponse,
@@ -38,6 +39,14 @@ from src.app.controllers.story_chat import chat_controller
 story_controller = APIRouter(prefix="/stories")
 story_controller.include_router(chat_controller)
 
+
+@story_controller.get("/{story_id}/path")
+async def get_path_array(
+    story_id: str,
+    current_user: UserRow = Depends(get_current_user),
+    story_service: StoryService = Depends(get_story_service),
+) -> StoryPathArrayResponse:
+    return await story_service.get_path_array(story_id, current_user.id)
 
 @story_controller.post("")
 async def create_story(

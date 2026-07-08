@@ -29,6 +29,9 @@ class StoryRow(BaseModel):
     updated_at: datetime
 
 
+class StoryPathArrayResponse(ApiModel):
+    path_array: Optional[List[str]] = []
+
 class StoryCardResponse(ApiModel):
     story_id: str
     status: StoryStatus
