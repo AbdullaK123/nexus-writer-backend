@@ -9,7 +9,6 @@ import { debounce } from "lodash"
 import { useChapterEditorProps } from "./ChapterEditor"
 import { None, Some } from "oxide.ts";
 import { useToast } from "../../common";
-import { Highlight } from "./utils"
 export type ChapterEditorPageProps = {
     sidebar: ChapterEditorSidebarProps
     editorProps: ChapterEditorProps
@@ -63,7 +62,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     }, [debouncedUpdate]);
 
     const editor = useEditor({
-        extensions: [StarterKit, Highlight],
+        extensions: [StarterKit],
         content: "",
         onUpdate: ({ editor }) => {
             const html = editor.getHTML()

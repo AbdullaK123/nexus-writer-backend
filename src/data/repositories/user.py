@@ -103,7 +103,7 @@ class UserRepository:
                 m.scenes_tracked,
                 a.current_streak_days AS streak_days
             FROM user_metrics m
-            CROSS JOIN active_streak a;
+        CROSS JOIN active_streak a;
             """
 
             agg_result = await conn.fetchrow(agg_sql, user_id)
