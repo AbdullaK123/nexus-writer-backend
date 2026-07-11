@@ -1,15 +1,12 @@
 import { None } from "oxide.ts";
 import { AvatarBadge } from "../../../../common";
-import { format } from "date-fns"
 
 
 
 export type AssistantMessageProps = 
-| { status: "streaming", content: string }
+| { status: "streaming", message: string }
 | {
     status: "done"
-    createdAt: Date
-    latency: number
     message: string
   }
 
@@ -28,7 +25,7 @@ export function AssistantMessage(props: AssistantMessageProps) {
                             NEXUS
                         </span>
                         <p>
-                            {props.content}
+                            {props.message}
                         </p>
                     </div>
                 </div>
@@ -43,7 +40,7 @@ export function AssistantMessage(props: AssistantMessageProps) {
                     />
                     <div>
                         <span>
-                            {`NEXUS · ${format(props.createdAt, "HH:mm")} · ${(props.latency / 1000).toFixed(2)}s`}
+                            NEXUS
                         </span>
                         <p>
                             {props.message}

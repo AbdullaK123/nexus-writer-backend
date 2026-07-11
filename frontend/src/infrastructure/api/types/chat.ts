@@ -1,10 +1,11 @@
 import { z } from "zod"
 import { DateTimeSchema } from "./common"
+import { ModelMessageSchema } from "./pydantic_ai";
 
 /** Stored pydantic-ai ModelMessage dict — opaque to the frontend.
  * Render based on `kind` and `message.parts`. Keep as `unknown` until
  * a renderer is built that needs the structure. */
-export const ChatMessagePayloadSchema = z.record(z.string(), z.unknown())
+export const ChatMessagePayloadSchema = ModelMessageSchema
 export type ChatMessagePayload = z.infer<typeof ChatMessagePayloadSchema>
 
 export const ChatMessageKindSchema = z.enum(["request", "response"])
@@ -51,6 +52,6 @@ export const ChatMessageResponseSchema = z.object({
 export type ChatMessageResponse = z.infer<typeof ChatMessageResponseSchema>
 
 export const ChatMessageListResponseSchema = z.object({
-    messages: z.array(ChatMessageResponseSchema).nullable().default([]),
+    messages: z.array(ChatMessageResponseSchema).default([]),
 })
 export type ChatMessageListResponse = z.infer<typeof ChatMessageListResponseSchema>

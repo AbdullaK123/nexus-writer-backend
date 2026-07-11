@@ -73,7 +73,7 @@ export async function streamSse(
                 ...extraHeaders,
             },
             body,
-            credentials: "same-origin",
+            credentials: "include",
             signal,
         }),
     )
