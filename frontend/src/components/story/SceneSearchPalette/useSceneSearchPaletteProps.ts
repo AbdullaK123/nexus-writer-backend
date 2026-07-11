@@ -102,14 +102,15 @@ export function useSceneSearchPaletteProps({
                         status: "ready",
                         results: data,
                         onSelectResult: (chapterId: string) => {
-                            navigate({ 
-                                to: "/stories/$storyId/$chapterId", // Use the full matching route path
-                                params: { 
-                                    storyId: storyId, 
-                                    chapterId: chapterId 
-                                }
+
+                            navigate({
+                                to: "/stories/$storyId/$chapterId",
+                                params: {
+                                    storyId,
+                                    chapterId: chapterId,
+                                },
                             })
-                            // handle selecting text between startQuote and endQuote
+
                             triggerPaletteClose()
                         }
                     },

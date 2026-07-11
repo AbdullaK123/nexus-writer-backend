@@ -11,6 +11,7 @@ import type { StoryStatus } from "../../../../../infrastructure/api/types";
 
 
 export function StoryCardMenu({ storyId }: { storyId: string }) {
+    
     const [open, setOpen] = useState(false)
     const [modalOpen, setModalOpen] = useState(false)
     const [newTitle, setNewTitle] = useState("")
