@@ -148,6 +148,8 @@ class ChatService:
         messages = await self._chat_repo.list_messages(thread_id, user_id)
 
         return ChatMessageListResponse(
+            thread_id=thread.id,
+            thread_title=thread.title,
             messages=[
                 ChatMessageResponse(
                     sequence=message.sequence,

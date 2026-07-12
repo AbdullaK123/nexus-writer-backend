@@ -65,6 +65,8 @@ class ChatMessageResponse(ApiModel):
 
 
 class ChatMessageListResponse(ApiModel):
+    thread_id: str
+    thread_title: str
     messages: Optional[List[ChatMessageResponse]] = []
 
 
