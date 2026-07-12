@@ -14,6 +14,8 @@ import { SignupPage } from "./components/auth/SignupPage";
 import { AppShell, KitchenSink } from "./components";
 import { StoryDetailPage } from "./components/story/StoryDetailPage/StoryDetailPage";
 import { ChapterEditorPage } from "./components/chapter/ChapterEditorPage";
+import { StoryChatPage } from "./components/chat";
+import { NewStoryChatPage } from "./components/chat/StoryChatPage/NewStoryChatPage";
 
 interface RouterContext {
     auth: AuthContextValue
@@ -107,6 +109,18 @@ const chapterEditorRoute = createRoute({
     component: ChapterEditorPage
 })
 
+const storyChatRoute = createRoute({
+    getParentRoute: () => appRoute,
+    path: "/stories/$storyId/chat/$threadId",
+    component: StoryChatPage
+})
+
+const newStoryChatRoute = createRoute({
+    getParentRoute: () => appRoute,
+    path: "/stories/$storyId/chat/new",
+    component: NewStoryChatPage
+})
+
 const routeTree = rootRoute.addChildren([
     loginRoute,
     signupRoute,
@@ -114,7 +128,9 @@ const routeTree = rootRoute.addChildren([
     appRoute.addChildren([
         dashboardRoute, 
         storyDetailRoute,
-        chapterEditorRoute
+        chapterEditorRoute,
+        storyChatRoute,
+        newStoryChatRoute
     ])
 ])
 

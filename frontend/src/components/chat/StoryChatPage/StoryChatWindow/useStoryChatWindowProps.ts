@@ -6,6 +6,8 @@ import { streamSse } from "../../../../infrastructure/sse";
 import { loadConfig } from "../../../../infrastructure/config";
 import { None, Some } from "oxide.ts";
 import type { EventSourceMessage } from "eventsource-parser";
+import { useCreateThread } from "../../../../data/queries";
+import { useNavigate } from "@tanstack/react-router";
 
 const config = loadConfig().unwrap();
 
@@ -26,6 +28,12 @@ export function useStoryChatWindowProps({
 }: UseStoryChatWindowPropsArgs): StoryChatWindowProps {
 
     const [query, setQuery] = useState("");
+
+    const {
+        mutate: createThread
+    } = useCreateThread(storyId)
+
+    const navigate = useNavigate()
 
     const [streamingMessages, setStreamingMessages] = useState<ConversationMessage[]>([]);
     
@@ -86,7 +94,7 @@ export function useStoryChatWindowProps({
         return () => streamCancellerRef.current.abort();
     }, []);
 
-    const onUserPromptSubmitted = (query: string) => {
+    const onNewThreadCreated = (query: string) => {
 
         streamCancellerRef.current.abort();
         streamCancellerRef.current = new AbortController();
@@ -173,6 +181,26 @@ export function useStoryChatWindowProps({
             }
         });
     };
+
+    const onUserPromptSubmitted = (query: string) => {
+        createThread(
+            {
+                firstMessage: query
+            },
+            {
+                onSuccess: async (newThread) => {
+                    await navigate({
+                        to: "/stories/$storyId/chat/$threadId",
+                        params: {
+                            storyId: storyId,
+                            threadId: newThread.threadId
+                        }
+                    })
+                    onNewThreadCreated(query)
+                }
+            }
+        )
+    }
 
     switch (conversationState.status) {
         case "empty": {

@@ -39,7 +39,7 @@ export const ThreadResponseSchema = z.object({
 export type ThreadResponse = z.infer<typeof ThreadResponseSchema>
 
 export const ThreadListResponseSchema = z.object({
-    threads: z.array(ThreadResponseSchema).nullable().default([]),
+    threads: z.array(ThreadResponseSchema).default([]),
 })
 export type ThreadListResponse = z.infer<typeof ThreadListResponseSchema>
 

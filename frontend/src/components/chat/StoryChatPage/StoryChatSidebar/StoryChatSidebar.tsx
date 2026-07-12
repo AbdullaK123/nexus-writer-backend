@@ -59,17 +59,14 @@ export function StoryChatSidebar(props: StoryChatSidebarProps) {
                             />
                         )}
                     </div>
-                    <aside>
-                        <span>
-                            [ RECENT ]
-                        </span>
+                    <div>
                         {props.items.map((item, idx) => (
                             <StoryChatSidebarItem 
                                 key={idx}
                                 {...item}
                             />
                         ))}
-                    </aside>
+                    </div>
                 </div>
             )
         }

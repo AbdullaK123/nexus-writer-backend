@@ -7,7 +7,7 @@ import {
     requestOptions,
     type ThreadListResponse,
 } from "../../infrastructure/api/types"
-import { unwrapResultAsync } from "../../shared/types"
+import { ApiError, unwrapResultAsync } from "../../shared/types"
 import { toAsyncState } from "../../infrastructure/api/utils";
 
 // ─── Keys ──────────────────────────────────────────────────────────────────
@@ -27,21 +27,23 @@ export const chatKeys = {
 
 export function useThreads(storyId: string) {
     const api = useApi()
-    return toAsyncState<ThreadListResponse>(useQuery({
+    const response = useQuery<ThreadListResponse, ApiError>({
         queryKey: chatKeys.threads(storyId),
         queryFn: ({ signal }) => unwrapResultAsync(api.chat.getThreads(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
-    }))
+    })
+    return [toAsyncState<ThreadListResponse>(response), response.refetch] as const
 }
 
 export function useThreadMessages(storyId: string, threadId: string) {
     const api = useApi()
-    return toAsyncState<ChatMessageListResponse>(useQuery({
+    const response = useQuery<ChatMessageListResponse, ApiError>({
         queryKey: chatKeys.messages(storyId, threadId),
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.chat.getThreadMessages(storyId, threadId, requestOptions({ signal }))),
         enabled: Boolean(storyId) && Boolean(threadId),
-    }))
+    })
+    return [toAsyncState<ChatMessageListResponse>(response), response.refetch] as const
 }
 
 // ─── Mutations ─────────────────────────────────────────────────────────────
