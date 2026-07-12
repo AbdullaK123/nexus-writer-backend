@@ -4,7 +4,7 @@ import type { ApiError } from "../../../../shared/types";
 import type { StoryChatWindowProps, ConversationMessage } from "./StoryChatWindow";
 import { streamSse } from "../../../../infrastructure/sse";
 import { loadConfig } from "../../../../infrastructure/config";
-import { None, Some } from "oxide.ts";
+import { None, Some, Option } from "oxide.ts";
 import type { EventSourceMessage } from "eventsource-parser";
 import { useCreateThread } from "../../../../data/queries";
 import { useNavigate } from "@tanstack/react-router";
@@ -15,7 +15,7 @@ export type UseStoryChatWindowPropsArgs = {
     storyId: string;
     threadId: string;
     conversationState: AsyncState<ChatMessageListResponse, ApiError>;
-    user: UserResponse;
+    user: Option<UserResponse>;
     onRetry: () => void;
 };
 

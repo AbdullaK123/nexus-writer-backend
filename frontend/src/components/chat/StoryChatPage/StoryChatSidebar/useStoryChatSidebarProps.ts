@@ -1,20 +1,21 @@
 import { useNavigate } from "@tanstack/react-router";
-import type { AsyncState, ThreadListResponse } from "../../../../infrastructure/api/types";
+import type { AsyncState, StoryDetailResponse, ThreadListResponse } from "../../../../infrastructure/api/types";
 import type { ApiError } from "../../../../shared/types";
 import type { StoryChatSidebarProps } from "./StoryChatSidebar";
 import { useState } from "react";
+import { resolveAsyncStates } from "../../../../infrastructure/api/utils";
 
 
 export type UseStoryChatSidebarPropsArgs = 
 {
     storyId: string
-    storyTitle: string
+    storyState: AsyncState<StoryDetailResponse, ApiError>,
     threadsState: AsyncState<ThreadListResponse, ApiError>
 }
 
 export function useStoryChatSidebarProps({
     storyId,
-    storyTitle,
+    storyState,
     threadsState
 }: UseStoryChatSidebarPropsArgs): StoryChatSidebarProps {
 
@@ -22,8 +23,13 @@ export function useStoryChatSidebarProps({
 
     const [open, setOpen] = useState(true)
 
+    const resolvedState = resolveAsyncStates({
+        story: storyState,
+        threads: threadsState
+    })
+
     
-    switch (threadsState.status) {
+    switch (resolvedState.status) {
         case "idle": {
             return { status: "idle"}
         }
@@ -38,14 +44,14 @@ export function useStoryChatSidebarProps({
         }
         case "success": {
 
-            const data = threadsState.data.unwrap().unwrap()
+            const data = resolvedState.data
 
             return {
                 status: "ready",
-                storyTitle: storyTitle,
+                storyTitle: data.story.title,
                 open: open,
                 onOpenChange: (e: boolean) => setOpen(e),
-                items: data.threads.map((thread) => ({
+                items: data.threads.threads.map((thread) => ({
                     storyId: storyId,
                     threadId: thread.threadId,
                     threadTitle: thread.threadTitle,

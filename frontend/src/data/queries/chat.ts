@@ -9,6 +9,7 @@ import {
 } from "../../infrastructure/api/types"
 import { ApiError, unwrapResultAsync } from "../../shared/types"
 import { toAsyncState } from "../../infrastructure/api/utils";
+import { useNavigate } from "@tanstack/react-router";
 
 // ─── Keys ──────────────────────────────────────────────────────────────────
 // Threads are story-scoped; messages are thread-scoped. Hierarchy makes
@@ -79,7 +80,16 @@ export function useRenameThread(storyId: string, threadId: string) {
 export function useDeleteThread(storyId: string, threadId: string) {
     const api = useApi()
     const qc = useQueryClient()
+    const navigate = useNavigate()
     return useMutation({
+        onMutate: async () => {
+            await navigate({ 
+                to: "/stories/$storyId/chat/new",
+                params: {
+                    storyId: storyId
+                }
+            })
+        },
         mutationFn: () => unwrapResultAsync(api.chat.deleteThread(storyId, threadId)),
         onSuccess: () => {
             qc.removeQueries({

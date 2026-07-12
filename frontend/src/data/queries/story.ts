@@ -64,12 +64,13 @@ export function useStories() {
 
 export function useStoryDetails(storyId: string) {
     const api = useApi()
-    return toAsyncState<StoryDetailResponse>(useQuery({
+    const result = useQuery<StoryDetailResponse, ApiError>({
         queryKey: storyKeys.detail(storyId),
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.story.getStoryDetails(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
-    }))
+    })
+    return [toAsyncState<StoryDetailResponse>(result), result.refetch] as const
 }
 
 export function useStoryChapters(storyId: string) {

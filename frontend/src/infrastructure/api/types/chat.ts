@@ -52,6 +52,8 @@ export const ChatMessageResponseSchema = z.object({
 export type ChatMessageResponse = z.infer<typeof ChatMessageResponseSchema>
 
 export const ChatMessageListResponseSchema = z.object({
+    threadId: z.string(),
+    threadTitle: z.string(),
     messages: z.array(ChatMessageResponseSchema).default([]),
 })
 export type ChatMessageListResponse = z.infer<typeof ChatMessageListResponseSchema>
