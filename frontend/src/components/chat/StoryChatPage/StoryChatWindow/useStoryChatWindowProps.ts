@@ -3,12 +3,9 @@ import type { AsyncState, ChatMessageListResponse, UserResponse } from "../../..
 import type { ApiError } from "../../../../shared/types";
 import type { StoryChatWindowProps, ConversationMessage } from "./StoryChatWindow";
 import { streamSse } from "../../../../infrastructure/sse";
-import { loadConfig } from "../../../../infrastructure/config";
 import { None, Some, Option } from "oxide.ts";
 import type { EventSourceMessage } from "eventsource-parser";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-
-const config = loadConfig().unwrap();
 
 export type UseStoryChatWindowPropsArgs = {
     storyId: string;
@@ -119,7 +116,7 @@ export function useStoryChatWindowProps({
 
         streamSse(
             {
-                url: `${config.api.baseURL}/api/stories/${storyId}/threads/${threadId}/turn`,
+                url: `stories/${storyId}/chat/threads/${threadId}/turn`,
                 method: Some("POST"),
                 body: Some({
                     user_message: query

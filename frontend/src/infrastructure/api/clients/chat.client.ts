@@ -28,7 +28,7 @@ export class ChatClient {
         options: RequestOptions = noRequestOptions,
     ): Promise<Result<ThreadResponse, ApiError>> {
         return this.api.postJson(
-            `/stories/${storyId}/chat/threads`,
+            `stories/${storyId}/chat/threads`,
             payload,
             ThreadResponseSchema,
             options,
@@ -40,7 +40,7 @@ export class ChatClient {
         options: RequestOptions = noRequestOptions,
     ): Promise<Result<ThreadListResponse, ApiError>> {
         return this.api.getJson(
-            `/stories/${storyId}/chat/threads`,
+            `stories/${storyId}/chat/threads`,
             ThreadListResponseSchema,
             options,
         )
@@ -52,7 +52,7 @@ export class ChatClient {
         options: RequestOptions = noRequestOptions,
     ): Promise<Result<ChatMessageListResponse, ApiError>> {
         return this.api.getJson(
-            `/stories/${storyId}/chat/threads/${threadId}/messages`,
+            `stories/${storyId}/chat/threads/${threadId}/messages`,
             ChatMessageListResponseSchema,
             options,
         )
@@ -65,7 +65,7 @@ export class ChatClient {
         options: RequestOptions = noRequestOptions,
     ): Promise<Result<ThreadResponse, ApiError>> {
         return this.api.patchJson(
-            `/stories/${storyId}/chat/threads/${threadId}`,
+            `stories/${storyId}/chat/threads/${threadId}`,
             payload,
             ThreadResponseSchema,
             options,
@@ -78,7 +78,7 @@ export class ChatClient {
         options: RequestOptions = noRequestOptions,
     ): Promise<Result<ApiMessage, ApiError>> {
         return this.api.deleteJson(
-            `/stories/${storyId}/chat/threads/${threadId}`,
+            `stories/${storyId}/chat/threads/${threadId}`,
             ApiMessageSchema,
             options,
         )

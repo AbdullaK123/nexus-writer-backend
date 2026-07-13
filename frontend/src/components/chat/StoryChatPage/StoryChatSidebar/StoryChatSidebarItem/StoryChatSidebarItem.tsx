@@ -17,7 +17,7 @@ export function StoryChatSidebarItem(props: StoryChatSidebarItemProps) {
             role="button"
             onClick={props.onSelected}
         >
-            <h3>{props.threadTitle}</h3>
+            <h4>{props.threadTitle}</h4>
             <span>{formatDistanceToNow(props.updatedAt, { addSuffix: true })}</span>
         </div>
     )

@@ -41,8 +41,8 @@ class ChatMessageRow(BaseModel):
 # ---------------------------------------------------------------------------
 
 class CreateThreadRequest(ApiModel):
-    story_id: str
-    first_message: str
+    story_id: str = Field(alias="storyId")
+    first_message: str = Field(alias="firstMessage")
 
 
 class ThreadResponse(ApiModel):
@@ -81,11 +81,11 @@ class ConversationTurnRequest(ApiModel):
 # ---------------------------------------------------------------------------
 
 class CreateThreadBody(ApiModel):
-    first_message: str
+    first_message: str = Field(alias="firstMessage")
 
 
 class TurnBody(ApiModel):
-    user_message: str
+    user_message: str = Field(alias="firstMessage")
 
 
 class RenameThreadBody(ApiModel):

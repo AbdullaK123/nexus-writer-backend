@@ -4,7 +4,7 @@ from typing import List, Literal, Optional
 from loguru import logger
 
 from src.data.repositories import StoryRepository, ChapterRepository, SceneRepository
-from src.data.schemas.chapter import ChapterListItem
+from src.data.schemas.chapter import ChapterListItem, ChapterRow
 from src.data.schemas.enums import StoryStatus
 from src.data.schemas.extraction import INSUFFICIENT_CONTEXT, BookPulseResponse, PulseDimension
 from src.data.schemas.scene import (
@@ -118,9 +118,23 @@ class StoryService:
         if story is None:
             raise NotFoundError("A story with that title does not exist")
 
-        chapters = await self._chapter_repo.list_by_story(story_id, user_id)
-        ordered = self._order_chapters_by_path(chapters, story.path_array)
-        chapter_items = [ChapterListItem.model_validate(c) for c in ordered]
+        results = await self._chapter_repo.list_by_story(story_id, user_id)
+
+        results = sorted(results, key=lambda x: x[2])
+
+        chapter_items = [
+            ChapterListItem(
+                story_id=c.story_id,
+                chapter_id=c.id,
+                chapter_number=chapter_number,
+                word_count=c.word_count,
+                story_title=story_title,
+                chapter_title=c.title,
+                published=c.published,
+                updated_at=c.updated_at
+            )
+            for c, story_title, chapter_number in results
+        ]
 
         return StoryDetailResponse.from_story(story, chapter_items)
 

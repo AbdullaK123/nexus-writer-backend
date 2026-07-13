@@ -97,9 +97,11 @@ class ChapterService:
         if story is None:
             raise NotFoundError("We couldn't find this story. It may have been deleted.")
 
-        chapters = await self._chapter_repo.list_by_story(story_id, user_id)
-        if not story.path_array or not chapters:
+        results = await self._chapter_repo.list_by_story(story_id, user_id)
+        if not story.path_array or not results:
             return ChapterListResponse.from_story(story, [])
+        
+        chapters = [result[0] for result in results]
 
         lookup = {c.id: c for c in chapters}
         

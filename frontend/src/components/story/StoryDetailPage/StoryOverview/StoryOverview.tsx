@@ -1,6 +1,6 @@
 import type { StatusBadgeVariant } from "../../../common";
 import { Button, ErrorState, StatusBadge } from "../../../common";
-import { None, Some, Option } from "oxide.ts";
+import { Some, Option } from "oxide.ts";
 import styles from "./StoryOverview.module.css";
 import { StoryOverviewLoadingSkeleton } from "./StoryOverviewLoadingSkeleton";
 

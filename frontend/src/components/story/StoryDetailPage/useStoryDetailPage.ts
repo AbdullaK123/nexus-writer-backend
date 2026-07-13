@@ -85,7 +85,7 @@ export function useStoryDetailPage(): StoryDetailPageProps {
     onModalOpenChange: (open: boolean) => setModalOpen(open),
     onNavigateToLibrary: () => navigate({ to: "/" }),
     onClickSettings: () => {},
-    onAskNexus: () => {},
+    onAskNexus: () => navigate({ to: "/stories/$storyId/chat/new", params:{ storyId: storyId} }),
     onNewChapter: handleChapterCreate,
     onRetry: refetchStory
   })

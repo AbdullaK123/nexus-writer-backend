@@ -1,6 +1,7 @@
 import { None } from "oxide.ts";
 import { AvatarBadge } from "../../../../common";
-
+import ReactMarkdown  from "react-markdown"
+import styles from "./AssistantMessage.module.css"
 
 
 export type AssistantMessageProps = 
@@ -15,36 +16,40 @@ export function AssistantMessage(props: AssistantMessageProps) {
     switch (props.status) {
         case "streaming": {
             return (
-                <div className="flex-row">
-                    <AvatarBadge 
-                        username="Nexus"
-                        profileImgUrl={None}
-                    />
-                    <div className="flex-col properly-wrap-text">
+                <div className="flex-col properly-wrap-text width-full">
+                    <div className="flex-row">
+                        <AvatarBadge 
+                            username="Nexus"
+                            profileImgUrl={None}
+                        />
                         <span className="color-cyan">
                             NEXUS
                         </span>
-                        <p>
+                    </div>
+                    <div className={styles['centered']}>
+                         <ReactMarkdown>
                             {props.message}
-                        </p>
+                        </ReactMarkdown>
                     </div>
                 </div>
             )
         }
         case "done": {
             return (
-                <div className="flex-row">
-                    <AvatarBadge 
-                        username="Nexus"
-                        profileImgUrl={None}
-                    />
-                    <div className="flex-col properly-wrap-text">
+                <div className="flex-col properly-wrap-text width-full">
+                    <div className="flex-row">
+                        <AvatarBadge 
+                            username="Nexus"
+                            profileImgUrl={None}
+                        />
                         <span className="color-cyan">
                             NEXUS
                         </span>
-                        <p>
+                    </div>
+                     <div className={styles['centered']}>
+                         <ReactMarkdown>
                             {props.message}
-                        </p>
+                        </ReactMarkdown>
                     </div>
                 </div>
             )

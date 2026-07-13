@@ -9,10 +9,13 @@ import {
     type Callback,
     type Option,
 } from "../../shared/types"
+import { loadConfig } from "../config"
 
 // ─── Error model ─────────────────────────────────────────────
 // Tagged union so callers can `match` / `switch` exhaustively
 // instead of regex-sniffing an Error.message.
+
+const config = loadConfig().unwrap()
 
 export type SseError =
     | { readonly _tag: "SseHttpError"; readonly status: number; readonly body: string }
@@ -65,7 +68,7 @@ export async function streamSse(
     const signal = request.signal.into(null)
 
     const fetchResult = await Result.safe(
-        fetch(request.url, {
+        fetch(`${config.api.baseURL}${request.url}`, {
             method,
             headers: {
                 Accept: "text/event-stream",

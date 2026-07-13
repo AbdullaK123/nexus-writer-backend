@@ -1,0 +1,27 @@
+.content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3);
+    width: 100%;
+    margin: 0 auto;
+}
+
+.info-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+    flex: 1
+}
+
+.action-container {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    width: 100%;
+    min-width: 0;
+    flex:1;
+}

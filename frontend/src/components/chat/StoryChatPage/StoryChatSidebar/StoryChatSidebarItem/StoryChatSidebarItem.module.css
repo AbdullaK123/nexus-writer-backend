@@ -1,10 +1,11 @@
 .sidebar-item {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     padding: var(--space-4);
 }
 
 .sidebar-item:active {
     background: var(--fill-cyan);
-    border: 1px solid var(--border-focus)
+    border: 1px solid var(--border-focus);
+    border-radius: var(--radius-md)
 }

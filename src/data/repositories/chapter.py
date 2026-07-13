@@ -78,8 +78,8 @@ class ChapterRepository:
                 c.created_at, c.updated_at,
                 s.title AS story_title,
                 ARRAY_POSITION(s.path_array, c.id) AS chapter_number
-              FROM "chapter" c
-              JOIN "story" s ON s.id = c.story_id
+             FROM "chapter" c
+             JOIN "story" s ON s.id = c.story_id
              WHERE c.id = $1 AND c.user_id = $2
         """
         row = await self._pool.fetchrow(sql, chapter_id, user_id)
@@ -90,20 +90,37 @@ class ChapterRepository:
         chapter_number = d.pop("chapter_number")
         return ChapterRow.model_validate(d), story_title, chapter_number
 
+
     async def list_by_story(
         self,
         story_id: str,
         user_id: str,
         *,
         executor: Executor | None = None,
-    ) -> list[ChapterRow]:
+    ) -> list[tuple[ChapterRow, str, int]]:
         sql = f"""
-            SELECT {_CHAPTER_COLUMNS} FROM "chapter"
-             WHERE story_id = $1 AND user_id = $2
+            SELECT
+                c.id, c.story_id, c.user_id, c.title, c.content, c.published,
+                c.word_count, c.next_chapter_id, c.prev_chapter_id,
+                c.created_at, c.updated_at,
+                s.title AS story_title,
+                ARRAY_POSITION(s.path_array, c.id) AS chapter_number
+             FROM "chapter" c
+             JOIN "story" s ON s.id = c.story_id
+             WHERE c.story_id = $1 AND c.user_id = $2
              ORDER BY created_at DESC
         """
         rows = await self._exe(executor).fetch(sql, story_id, user_id)
-        return [ChapterRow.model_validate(dict(r)) for r in rows]
+
+        results = []
+
+        for row in rows:
+            d = dict(row)
+            story_title: str = d.pop("story_title")
+            chapter_number: int = d.pop("chapter_number")
+            results.append((ChapterRow.model_validate(d), story_title, chapter_number))
+
+        return results
 
     async def list_by_story_ids(
         self, story_ids: Sequence[str],

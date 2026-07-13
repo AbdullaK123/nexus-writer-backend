@@ -970,6 +970,10 @@ samp {
   text-transform: uppercase;
 }
 
+.width-full {
+  width: 100%;
+}
+
 .properly-wrap-text {
   min-width: 0;
   flex: 1;

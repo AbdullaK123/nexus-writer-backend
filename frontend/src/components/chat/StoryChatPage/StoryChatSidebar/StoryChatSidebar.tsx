@@ -34,7 +34,7 @@ export function StoryChatSidebar(props: StoryChatSidebarProps) {
         }
         case "ready": {
             return (
-                <div>
+                <div className={`${styles['content']} ${props.open ? "" : styles['closed']}`}>
                     <div className={styles['header']}>
                         <div className={styles['header__label']}>
                             <span>{props.storyTitle}</span>
@@ -45,19 +45,24 @@ export function StoryChatSidebar(props: StoryChatSidebarProps) {
                                 + New Thread
                             </Button>
                         </div>
-                        {props.open ? (
-                            <PanelLeftClose 
-                                width={48}
-                                height={48}
-                                onClick={() => props.onOpenChange(false)}
-                            />
-                        ): (
-                            <PanelLeftOpen
-                                width={48}
-                                height={48}
-                                onClick={() => props.onOpenChange(true)}
-                            />
-                        )}
+                        <span
+                            className={styles['icon-btn']}
+                            onClick={() => props.onOpenChange(!props.open)}
+                        >
+                            {props.open ? (
+                                <PanelLeftClose
+                                    color={"#ffffff"}
+                                    width={24}
+                                    height={24}
+                                />
+                            ): (
+                                <PanelLeftOpen
+                                    color={"#ffffff"}
+                                    width={24}
+                                    height={24}
+                                />
+                            )}
+                        </span>
                     </div>
                     <div className={styles['items-container']}>
                         <span className="system-badge system-badge__nobg">
