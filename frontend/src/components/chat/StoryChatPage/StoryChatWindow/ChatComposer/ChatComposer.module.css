@@ -1,0 +1,42 @@
+.chat-composer-container {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    border: 1px solid var(--color-cyan);
+    border-radius: var(--radius-lg);
+    background-color: var(--surface-2);
+    max-width: 600px;
+    padding: var(--space-3)
+}
+
+.chat-composer-container:focus-within {
+    border-color: var(--border-focus);
+    box-shadow: var(--elevation-card);
+}
+
+.composer-textarea {
+    field-sizing: content;
+    width: 100%;
+    min-height: 24px;
+    max-height: 200px;
+    resize: none;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: var(--fs-xl);
+    line-height: 1.6;
+    padding-bottom: var(--space-6);
+}
+
+.composer-actions {
+    position: absolute;
+    bottom: var(--space-3);
+    right: var(--space-3);
+    pointer-events: none;
+}
+
+.submit-btn {
+    pointer-events: auto;
+    cursor: pointer;
+}

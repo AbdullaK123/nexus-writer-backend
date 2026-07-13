@@ -17,15 +17,18 @@ export function UserMessage(props: UserMessageProps) {
         {
             Some: (user) => {
                 return (
-                    <div>
+                    <div className="flex-row">
                         <AvatarBadge 
                             username={user.username}
                             profileImgUrl={user.profileImg ? Some(user.profileImg) : None}
                         />
-                        <div>
-                            <span>
-                                {user.username} · {format(props.createdAt, 'HH:mm')}
-                            </span>
+                        <div className="flex-col properly-wrap-text">
+                            <div>
+                                <span className="color-cyan all-caps">
+                                    {user.username} 
+                                </span>
+                                · {format(props.createdAt, 'HH:mm')}
+                            </div>
                             <p>
                                 {props.message}
                             </p>

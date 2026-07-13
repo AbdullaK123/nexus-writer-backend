@@ -1,5 +1,5 @@
 import { Button, Nothing } from "../../../../common";
-
+import styles from "./ChatComposer.module.css"
 
 export type ChatComposerProps = 
 | { status: "idle"}
@@ -25,25 +25,31 @@ export function ChatComposer(props: ChatComposerProps) {
         }
         case "ready": {
             return (
-                <div>
+                <div className={styles['chat-composer-container']}>
                     {/*We'll use the field-sizing property to make it auto resizing */}
                     <textarea 
                         value={props.query}
+                        className={styles['composer-textarea']}
+                        rows={1}
                         onChange={(e) => props.onQueryChange(e.target.value)}
                         onKeyDown={(e) => {
                             if (e.key === "Enter" && !e.shiftKey) {
                                 e.preventDefault()
+                                if (!props.query.trim()) return
                                 props.onEnterDown(props.query)
                             }
                         }}
                         placeholder="Ask anything about your story..."
                     />
-                    <Button
-                        variant="primary"
-                        onClick={() => props.onSubmit(props.query)}
-                    >   
-                        Ask →
-                    </Button>
+                    <div className={styles['chat-composer-actions']}>
+                        <Button
+                            variant="primary"
+                            className={styles['submit-btn']}
+                            onClick={() => props.onSubmit(props.query)}
+                        >   
+                            Ask →
+                        </Button>
+                    </div>
                 </div>
             )
         }

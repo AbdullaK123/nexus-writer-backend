@@ -1,7 +1,7 @@
 import { Button, Nothing } from "../../../common";
 import { StoryChatSidebarItem, type StoryChatSidebarItemProps } from "./StoryChatSidebarItem";
 import { PanelLeftOpen, PanelLeftClose  } from "lucide-react"
-
+import styles from "./StoryChatSidebar.module.css"
 
 export type StoryChatSidebarProps = 
 | { status: "idle" }
@@ -35,8 +35,8 @@ export function StoryChatSidebar(props: StoryChatSidebarProps) {
         case "ready": {
             return (
                 <div>
-                    <div>
-                        <div>
+                    <div className={styles['header']}>
+                        <div className={styles['header__label']}>
                             <span>{props.storyTitle}</span>
                             <Button
                                 variant="primary"
@@ -59,7 +59,10 @@ export function StoryChatSidebar(props: StoryChatSidebarProps) {
                             />
                         )}
                     </div>
-                    <div>
+                    <div className={styles['items-container']}>
+                        <span className="system-badge system-badge__nobg">
+                            [RECENT]
+                        </span>
                         {props.items.map((item, idx) => (
                             <StoryChatSidebarItem 
                                 key={idx}

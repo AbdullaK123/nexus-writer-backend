@@ -1,6 +1,6 @@
 import { None } from "oxide.ts";
 import { Button, ModalWithTrigger, Nothing } from "../../../common";
-
+import styles from "./StoryChatHeader.module.css"
 
 export type StoryChatHeaderProps = 
 | { status: "idle" }
@@ -36,19 +36,19 @@ export function StoryChatHeader(props: StoryChatHeaderProps) {
             )
         case "ready":
             return (
-                <div>
-                    <div>
-                        <div>
-                            <span>
+                <div className={styles['content']}>
+                    <div className={styles['info-container']}>
+                        <div className={styles['flex-row']}>
+                            <span className="system-badge system-badge__nobg">
                                 [THREAD]
                             </span>
-                            <p>{props.storyTitle}</p>
+                            <p className={styles['all-caps']}>{props.storyTitle}</p>
                         </div>
                         <h3>
                             {props.threadTitle}
                         </h3>
                     </div>
-                    <div>
+                    <div className={styles['action-container']}>
                         <ModalWithTrigger
                             open={props.renameModalOpen}
                             onOpenChange={props.onRenameModalOpenChange}
@@ -56,9 +56,9 @@ export function StoryChatHeader(props: StoryChatHeaderProps) {
                             description={None}
                             closeTrigger={None}
                             content={
-                                <div>
+                                <div className="flex-col">
                                     <h2>Give it a new title</h2>
-                                    <div>
+                                    <div className="flex-row">
                                         <input 
                                             value={props.newThreadTitle}
                                             onChange={(e) => props.onNewThreadTitleChange(e.target.value)}
@@ -96,9 +96,9 @@ export function StoryChatHeader(props: StoryChatHeaderProps) {
                             description={None}
                             closeTrigger={None}
                             content={
-                                <div>
+                                <div className="flex-col">
                                     <h2>Are you sure? This action can not be undone.</h2>
-                                    <div>
+                                    <div className="flex-row">
                                         <Button
                                             variant="secondary"
                                             onClick={() =>props.onDeleteModalOpenChange(false)}

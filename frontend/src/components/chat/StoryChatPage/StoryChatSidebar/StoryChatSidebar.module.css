@@ -1,0 +1,80 @@
+.content {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--surface-0);
+    gap: var(--space-4);
+    padding: var(--space-4);
+    width: clamp(64px, 30vw, 320px);
+    min-width: 64px;
+    transition: width 0.3s ease, padding 0.3s ease;
+    overflow: hidden;
+    border-right: 0.5px solid var(--border-subtle);
+}
+
+.closed {
+    /* 💡 Shrink down exactly to your icon button size + breathing room */
+    width: 64px; 
+    padding: var(--space-4) 0px; /* Tighten up horizontal padding */
+}
+
+.back-btn {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
+    line-height: 1.3;
+    padding: var(--space-3);
+    transition: transform 0.3s ease-in-out;
+}
+
+.back-btn:hover {
+    cursor: pointer;
+    transform: scale(1.05);
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 var(--space-4);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.header__label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+}
+
+.items-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    overflow-y: auto; 
+}
+
+.full-height {
+    height: 100%;
+}
+
+.closed .header__label,
+.closed .items-container {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.icon-btn:hover {
+    cursor: pointer;
+}

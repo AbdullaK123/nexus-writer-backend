@@ -2,6 +2,7 @@ import { Button, Nothing } from "../../../common";
 import { AssistantMessage, type AssistantMessageProps } from "./AssistantMessage/AssistantMessage";
 import { ChatComposer, type ChatComposerProps } from "./ChatComposer/ChatComposer";
 import { UserMessage, type UserMessageProps } from "./UserMessage/UserMessage";
+import styles from "./StoryChatWindow.module.css"
 
 
 export type ConversationMessage = 
@@ -28,14 +29,14 @@ export function StoryChatWindow(props: StoryChatWindowProps) {
         }
         case "loading": {
             return (
-                <div>
+                <div className={styles['content']}>
                     Loading skeleton...
                 </div>
             )
         }
         case "empty": {
             return (
-                <div>
+                <div className={styles['content']}>
                     <h2>Let's talk about your book</h2>
                     <ChatComposer {...props.composer} />
                 </div>
@@ -43,7 +44,7 @@ export function StoryChatWindow(props: StoryChatWindowProps) {
         }
         case "error": {
             return (
-                <div>
+                <div className={styles['content']}>
                     <h2>Something went wrong.</h2>
                     <Button
                         variant="primary"
@@ -56,8 +57,8 @@ export function StoryChatWindow(props: StoryChatWindowProps) {
         }
         case "ready": {
             return (
-                <div>
-                    <div>
+                <div className={styles['content']}>
+                    <div className={styles['messages-container']}>
                         {props.messages.map((msg, idx) => {
                             switch (msg.type) {
                                 case "user": return <UserMessage key={idx} {...msg.props} />

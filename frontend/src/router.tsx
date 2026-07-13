@@ -11,7 +11,7 @@ import { LoginPage } from "./components/auth";
 import type { AuthContextValue } from "./data/providers/AuthProvider/AuthContext"
 import { Background } from "./components/common/Background/Background";
 import { SignupPage } from "./components/auth/SignupPage";
-import { AppShell, KitchenSink } from "./components";
+import { AppShell } from "./components";
 import { StoryDetailPage } from "./components/story/StoryDetailPage/StoryDetailPage";
 import { ChapterEditorPage } from "./components/chapter/ChapterEditorPage";
 import { StoryChatPage } from "./components/chat";
@@ -51,11 +51,6 @@ const signupRoute = createRoute({
     component: SignupPage
 })
 
-const devRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/dev",
-    component: KitchenSink
-})
 
 const appRoute = createRoute({
     getParentRoute: () => rootRoute,
@@ -128,7 +123,6 @@ const newStoryChatRoute = createRoute({
 const routeTree = rootRoute.addChildren([
     loginRoute,
     signupRoute,
-    devRoute,
     appRoute.addChildren([
         dashboardRoute, 
         storyDetailRoute,

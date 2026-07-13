@@ -946,3 +946,37 @@ samp {
     margin-bottom: var(--space-2);
     font-weight: 700;
 }
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.flex-row {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3);
+  gap: var(--space-3);
+}
+
+.color-cyan {
+  color: var(--color-cyan)
+}
+
+
+.all-caps {
+  text-transform: uppercase;
+}
+
+.properly-wrap-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.properly-wrap-text p {
+  /* Forces long words, links, and text strings to break and wrap to a new line */
+  overflow-wrap: break-word; 
+  word-break: break-word; 
+}

@@ -1,0 +1,10 @@
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    padding: var(--space-4);
+}
+
+.sidebar-item:active {
+    background: var(--fill-cyan);
+    border: 1px solid var(--border-focus)
+}

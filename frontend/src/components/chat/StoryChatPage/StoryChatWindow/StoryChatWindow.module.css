@@ -1,0 +1,19 @@
+.content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    margin: var(--space-4) auto;
+    min-height: 100%
+}
+
+.messages-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    width: 100%;
+    overflow-y: auto;
+}

@@ -15,13 +15,13 @@ export function AssistantMessage(props: AssistantMessageProps) {
     switch (props.status) {
         case "streaming": {
             return (
-                <div>
+                <div className="flex-row">
                     <AvatarBadge 
                         username="Nexus"
                         profileImgUrl={None}
                     />
-                    <div>
-                        <span>
+                    <div className="flex-col properly-wrap-text">
+                        <span className="color-cyan">
                             NEXUS
                         </span>
                         <p>
@@ -33,13 +33,13 @@ export function AssistantMessage(props: AssistantMessageProps) {
         }
         case "done": {
             return (
-                <div>
+                <div className="flex-row">
                     <AvatarBadge 
                         username="Nexus"
                         profileImgUrl={None}
                     />
-                    <div>
-                        <span>
+                    <div className="flex-col properly-wrap-text">
+                        <span className="color-cyan">
                             NEXUS
                         </span>
                         <p>
