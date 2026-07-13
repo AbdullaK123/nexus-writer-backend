@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, startTransition } from "react";
 import type { AsyncState, ChatMessageListResponse, UserResponse } from "../../../../infrastructure/api/types";
 import type { ApiError } from "../../../../shared/types";
 import type { StoryChatWindowProps, ConversationMessage } from "./StoryChatWindow";
@@ -6,8 +6,7 @@ import { streamSse } from "../../../../infrastructure/sse";
 import { loadConfig } from "../../../../infrastructure/config";
 import { None, Some, Option } from "oxide.ts";
 import type { EventSourceMessage } from "eventsource-parser";
-import { useCreateThread } from "../../../../data/queries";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 
 const config = loadConfig().unwrap();
 
@@ -29,11 +28,9 @@ export function useStoryChatWindowProps({
 
     const [query, setQuery] = useState("");
 
-    const {
-        mutate: createThread
-    } = useCreateThread(storyId)
+    const navigate = useNavigate({ from: "/stories/$storyId/chat/$threadId"})
 
-    const navigate = useNavigate()
+    const search = useSearch({ from: "/app/stories/$storyId/chat/$threadId" })
 
     const [streamingMessages, setStreamingMessages] = useState<ConversationMessage[]>([]);
     
@@ -94,7 +91,7 @@ export function useStoryChatWindowProps({
         return () => streamCancellerRef.current.abort();
     }, []);
 
-    const onNewThreadCreated = (query: string) => {
+    const onUserPromptSubmitted = useCallback((query: string) => {
 
         streamCancellerRef.current.abort();
         streamCancellerRef.current = new AbortController();
@@ -180,27 +177,24 @@ export function useStoryChatWindowProps({
                 }
             }
         });
-    };
+    }, [storyId, threadId, onRetry, user])
 
-    const onUserPromptSubmitted = (query: string) => {
-        createThread(
-            {
-                firstMessage: query
-            },
-            {
-                onSuccess: async (newThread) => {
-                    await navigate({
-                        to: "/stories/$storyId/chat/$threadId",
-                        params: {
-                            storyId: storyId,
-                            threadId: newThread.threadId
-                        }
-                    })
-                    onNewThreadCreated(query)
-                }
-            }
-        )
-    }
+    useEffect(() => {
+        if (!search.prompt) return 
+
+        const initialPrompt = search.prompt;
+
+        navigate({
+            search: (prev) => ({ ...prev, prompt: undefined }),
+            replace: true,
+        });
+
+        // 2. Wrap the initial submission state update in a transition
+        startTransition(() => {
+            onUserPromptSubmitted(initialPrompt);
+        });
+
+    }, [search, onUserPromptSubmitted, navigate])
 
     switch (conversationState.status) {
         case "empty": {

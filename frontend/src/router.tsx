@@ -16,6 +16,7 @@ import { StoryDetailPage } from "./components/story/StoryDetailPage/StoryDetailP
 import { ChapterEditorPage } from "./components/chapter/ChapterEditorPage";
 import { StoryChatPage } from "./components/chat";
 import { NewStoryChatPage } from "./components/chat/StoryChatPage/NewStoryChatPage";
+import { z } from "zod";
 
 interface RouterContext {
     auth: AuthContextValue
@@ -112,7 +113,10 @@ const chapterEditorRoute = createRoute({
 const storyChatRoute = createRoute({
     getParentRoute: () => appRoute,
     path: "/stories/$storyId/chat/$threadId",
-    component: StoryChatPage
+    component: StoryChatPage,
+    validateSearch: z.object({
+        prompt: z.string().optional()
+    })
 })
 
 const newStoryChatRoute = createRoute({
