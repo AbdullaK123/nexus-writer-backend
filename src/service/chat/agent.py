@@ -99,12 +99,12 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
             "- The `SCENE STARTS AT` / `SCENE ENDS AT` lines in search "
             "results are boundary anchors, not evidence — never cite them "
             "as quotations on their own.\n"
-            "- To quote the prose of a scene you've already located via "
-            "search, use `get_scene_text` (cheap, returns just that scene). "
-            "To analyze chapter-level prose — style, voice, pacing, what "
-            "exactly is said inside chapter X, or whether a chapter could "
-            "be cut — use `get_chapter`. When the question names a specific "
-            "chapter, read that chapter."
+            "- To quote the prose of a scene you've already located via search, use `get_scene_text` (cheap, returns just that scene). "
+            "To analyze chapter-level prose — style, voice, pacing, what exactly is said inside chapter X, or whether a chapter could be cut — use `get_chapter`. "
+            "When the question names a specific chapter, read that chapter.\n"  
+            "- To see which character or narrator perspectives are present in the current draft, call `list_povs`. "
+            "Use this when responding to questions about viewpoint variety, coverage, "
+            "or to clarify which scenes are written from which POV."
         ),
     )
 
