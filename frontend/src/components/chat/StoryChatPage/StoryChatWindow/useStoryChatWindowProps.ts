@@ -6,6 +6,7 @@ import { streamSse } from "../../../../infrastructure/sse";
 import { None, Some, Option } from "oxide.ts";
 import type { EventSourceMessage } from "eventsource-parser";
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useToast } from "../../../common";
 
 export type UseStoryChatWindowPropsArgs = {
     storyId: string;
@@ -32,6 +33,55 @@ export function useStoryChatWindowProps({
     const [streamingMessages, setStreamingMessages] = useState<ConversationMessage[]>([]);
     
     const streamCancellerRef = useRef<AbortController>(new AbortController());
+
+    const { error } = useToast()
+
+
+    const isAtBottomRef = useRef(true);
+
+    // Track if the user has manually scrolled away from the bottom
+    const handleScroll = useCallback(() => {
+        const container = document.getElementById("messages-container")
+        if (!container) return;
+
+        const threshold = 50; // Pixels from the absolute bottom
+        const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+
+        // User is considered "at bottom" if they are within the threshold
+        isAtBottomRef.current = distanceFromBottom <= threshold;
+    }, []);
+
+    const scrollToBottom = () => {
+        const container = document.getElementById("messages-container")
+        if (!container) return;
+        container.scrollTo({
+            top: container.scrollHeight,
+            behavior: "auto", // Use "smooth" if you want a sliding effect
+        });
+    }
+
+    // Automatically scroll to bottom when dependencies (like tokens) change
+    useEffect(() => {
+        const container = document.getElementById("messages-container")
+        if (!container || !isAtBottomRef.current) return;
+        
+        const lastMessage = streamingMessages[streamingMessages.length - 1]
+        if (!lastMessage) return;
+        
+        if (lastMessage.type === "assistant" && lastMessage.props.status === "streaming") {
+
+            if (isAtBottomRef.current) {
+                 container.scrollTo({
+                    top: container.scrollHeight,
+                    behavior: "auto", // Use "smooth" if you want a sliding effect
+                });
+            }
+        }
+      
+    }, [streamingMessages, handleScroll]);
+
+ 
 
     const historicalMessages = useMemo<ConversationMessage[]>(() => {
         if (conversationState.status !== "success") return [];
@@ -78,6 +128,14 @@ export function useStoryChatWindowProps({
         return conversationMessages;
     }, [conversationState, user]);
 
+    useEffect(() => {
+
+        if (isAtBottomRef.current) {
+            requestAnimationFrame(() => scrollToBottom())
+        }
+
+    }, [historicalMessages])
+
 
     const allMessages = useMemo(() => {
         return [...historicalMessages, ...streamingMessages];
@@ -96,6 +154,8 @@ export function useStoryChatWindowProps({
         const started = performance.now();
         setQuery("");
 
+        isAtBottomRef.current = true
+
         setStreamingMessages([
             {
                 type: "user",
@@ -108,8 +168,7 @@ export function useStoryChatWindowProps({
             {
                 type: "assistant",
                 props: {
-                    status: "streaming",
-                    message: ""
+                    status: "loading"
                 }
             }
         ]);
@@ -131,13 +190,25 @@ export function useStoryChatWindowProps({
                             const data = JSON.parse(event.data);
                             setStreamingMessages(prev => prev.map((msg, idx) => {
                                 if (idx === prev.length - 1) {
-                                    return {
-                                        type: "assistant",
-                                        props: {
-                                            status: "streaming",
-                                            message: msg.props.message + data.delta
+                                    if (msg.type === "assistant" && msg.props.status === "loading") {
+                                        return {
+                                            type: "assistant",
+                                            props: {
+                                                status: "streaming",
+                                                message: data.delta
+                                            }
                                         }
-                                    };
+                                    } else if (msg.type === "assistant" && msg.props.status === "streaming") {
+                                        return {
+                                        type: "assistant",
+                                            props: {
+                                                status: "streaming",
+                                                message: msg.props.message + data.delta
+                                            }
+                                        };
+                                    } else {
+                                        return msg;
+                                    }
                                 } else {
                                     return msg;
                                 }
@@ -155,26 +226,30 @@ export function useStoryChatWindowProps({
             console.log(`SSE stream finished in ${((performance.now() - started) / 1000).toFixed(2)}s`);
             if (result.isErr()) {
                 const e = result.unwrapErr();
+                error(
+                    "Error", 
+                    "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
+                )
                 switch (e._tag) {
                     case "SseAbortedError":
-                        console.log("Aborted SSE stream");
+                        console.error(`${e._tag}: Stream aborted!`)
                         return;
                     case "SseHttpError":
-                        console.log(`HTTP Error!`);
+                        console.error(`${e._tag}: \n Status: ${e.status} \n Body: ${e.body}`);
                         return;
                     case "SseNetworkError":
-                        console.log("Network Error!");
+                        console.error(`${e._tag}: \n ${e.cause.message}`)
                         return;
                     case "SseNoBodyError":
-                        console.log("NO BODY!");
+                        console.error(`${e._tag}: No body!`)
                         return;
                     case "SseStreamError":
-                        console.log("OMG STREAM ERROR!");
+                        console.error(`${e._tag}: \n ${e.cause.message}`)
                         return;
                 }
             }
         });
-    }, [storyId, threadId, onRetry, user])
+    }, [storyId, threadId, onRetry, user, error])
 
     useEffect(() => {
         if (!search.prompt) return 
@@ -224,6 +299,7 @@ export function useStoryChatWindowProps({
             return {
                 status: "ready",
                 messages: allMessages, 
+                onMessagesScroll: handleScroll,
                 composer: {
                     status: streamingMessages.length > 0 ? "loading" : "ready",
                     query: query,

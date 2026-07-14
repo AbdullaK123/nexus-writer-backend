@@ -36,6 +36,14 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 const loginRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/login",
+       beforeLoad: ({ context }) => {
+        const ctx = context.auth
+        if (ctx.status === "authenticated") {
+            throw redirect({
+                to: "/"
+            })
+        }
+    },
     validateSearch: (s: Record<string, unknown>) => ({
         redirect: typeof s.redirect === "string" ? s.redirect : undefined
     }),

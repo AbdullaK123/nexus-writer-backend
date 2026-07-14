@@ -99,7 +99,6 @@
   --glow-cyan: 0 0 24px rgba(0, 212, 255, 0.45);
 
   --popover-z-index: 50;
-  --layer-index:  
 
   /* ---- Base ---- */
   color-scheme: dark;
@@ -197,9 +196,6 @@ select {
 /* ============================================================
  * Typography
  * ============================================================ */
- body {
-    user-select: none;
-}
 /* opt back in for editor / actual readable text */
 .editor, .selectable {
     user-select: text;

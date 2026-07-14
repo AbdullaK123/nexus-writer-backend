@@ -33,7 +33,15 @@ export function UserMessage(props: UserMessageProps) {
                             </span>
                         </div>
                         <div className={styles['centered']}>
-                            <ReactMarkdown>
+                            <ReactMarkdown
+                                components={{
+                                    p: ({children}) => <p className={styles['md-paragraph']}>{children}</p>,
+                                    h2: ({children}) => <h2 className={styles['md-h-large']}>{children}</h2>,
+                                    h3: ({children}) => <h3 className={styles['md-h-large']}>{children}</h3>,
+                                    ol: ({children}) => <ol className={styles['md-list']}>{children}</ol>,
+                                    li: ({children}) => <li className={styles['md-list-item']}>{children}</li>
+                                }}
+                            >
                                 {props.message}
                             </ReactMarkdown>
                         </div>

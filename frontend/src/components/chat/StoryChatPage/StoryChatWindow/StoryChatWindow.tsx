@@ -17,6 +17,7 @@ export type StoryChatWindowProps =
 | { status: "error", onRetry: () => void}
 | { 
     status: "ready"
+    onMessagesScroll: () => void
     messages: ConversationMessage[]
     composer: ChatComposerProps
   }
@@ -58,7 +59,11 @@ export function StoryChatWindow(props: StoryChatWindowProps) {
         case "ready": {
             return (
                 <div className={styles['content']}>
-                    <div className={styles['messages-container']}>
+                    <div 
+                        id="messages-container" 
+                        className={styles['messages-container']}
+                        onScroll={props.onMessagesScroll}
+                    >
                         {props.messages.map((msg, idx) => {
                             switch (msg.type) {
                                 case "user": return <UserMessage key={idx} {...msg.props} />

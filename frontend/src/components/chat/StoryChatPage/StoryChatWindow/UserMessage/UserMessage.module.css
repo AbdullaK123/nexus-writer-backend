@@ -1,3 +1,29 @@
 .centered {
     padding-left: var(--space-6);
 }
+
+.md-paragraph {
+    line-height: 1.6;
+    color: var(--text-primary);
+    margin-bottom: var(--space-4); 
+    font-size: var(--fs-2xl);
+}
+
+.md-h-large {
+    font-family: var(--font-display);
+    color: var(--color-cyan);
+    margin-top: var(--space-6);
+    line-height: 1.4;
+}
+
+.md-list {
+    padding-left: var(--space-8);
+}
+
+.md-list-item {
+    line-height: 1.6;
+    color: var(--text-primary);
+    margin-bottom: var(--space-4);
+    font-size: var(--fs-2xl);
+}
+

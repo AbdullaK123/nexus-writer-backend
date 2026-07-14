@@ -3,8 +3,8 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Field } from "@ark-ui/react/field"
 import { useLogin } from "../../data/queries";
-import { useNavigate } from "@tanstack/react-router"
 import { Button, useToast } from "../common";
+import { useNavigate } from "@tanstack/react-router";
 
 const loginFormSchema = z.object({
     email: z.email("Invalid email"),
@@ -29,10 +29,10 @@ export function LoginForm() {
 
     const login = useLogin()
 
-    const navigate = useNavigate()
-
     
     const { error, success } = useToast()
+
+    const navigate = useNavigate()
 
 
     const onSubmit = handleSubmit(async (values) => {
@@ -40,9 +40,11 @@ export function LoginForm() {
             email: values.email,
             password: values.password
         }, {
-            onSuccess: () => {
+            onSuccess: async () => {
                 success("Login Successful!", "Taking you to your dashboard...")
-                navigate({ to: "/"})
+                await navigate({
+                    to: "/"
+                })
             },
             onError: (err) => {
                 error("Login failed!", err.message)
@@ -110,7 +112,7 @@ export function LoginForm() {
             <Button
                 variant="primary"
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || login.isPending}
             >
                 {login.isPending ? "Signing you in..." : "Launch Nexus  →"}
             </Button>
