@@ -36,6 +36,7 @@ export function ChatComposer(props: ChatComposerProps) {
                             if (e.key === "Enter" && !e.shiftKey) {
                                 e.preventDefault()
                                 if (!props.query.trim()) return
+                                console.log("submit source: enter")
                                 props.onEnterDown(props.query)
                             }
                         }}
@@ -45,7 +46,10 @@ export function ChatComposer(props: ChatComposerProps) {
                         <Button
                             variant="primary"
                             className={styles['submit-btn']}
-                            onClick={() => props.onSubmit(props.query)}
+                            onClick={() => {
+                                console.log("submit source: button")
+                                props.onSubmit(props.query)
+                            }}
                         >   
                             Ask →
                         </Button>

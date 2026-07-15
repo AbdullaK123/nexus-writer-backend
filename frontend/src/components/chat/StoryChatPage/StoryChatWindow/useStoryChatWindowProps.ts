@@ -31,6 +31,27 @@ export function useStoryChatWindowProps({
     const search = useSearch({ from: "/app/stories/$storyId/chat/$threadId" })
 
     const [streamingMessages, setStreamingMessages] = useState<ConversationMessage[]>([]);
+
+    const streamingBufferRef = useRef<string[]>([])
+    const flushScheduledRef = useRef<boolean>(false)
+
+    const flushBuffer = () => {
+        const joinedText = streamingBufferRef.current.join("")
+        streamingBufferRef.current = []
+        flushScheduledRef.current = false
+        setStreamingMessages(prev => prev.map((msg, idx) => {
+              if (idx === prev.length -1 && msg.type === "assistant" && msg.props.status !== "done") {
+                return {
+                    type: "assistant",
+                    props: {
+                        status: "streaming",
+                        message: msg.props.status === "loading" ? joinedText : msg.props.message + joinedText
+                    }
+                }
+              }
+              return msg;
+        }));
+    }
     
     const streamCancellerRef = useRef<AbortController>(new AbortController());
 
@@ -148,6 +169,8 @@ export function useStoryChatWindowProps({
 
     const onUserPromptSubmitted = useCallback((query: string) => {
 
+        console.count("onUserPromptSubmitted")
+
         streamCancellerRef.current.abort();
         streamCancellerRef.current = new AbortController();
 
@@ -188,36 +211,17 @@ export function useStoryChatWindowProps({
                     switch (event.event) {
                         case "token": {
                             const data = JSON.parse(event.data);
-                            setStreamingMessages(prev => prev.map((msg, idx) => {
-                                if (idx === prev.length - 1) {
-                                    if (msg.type === "assistant" && msg.props.status === "loading") {
-                                        return {
-                                            type: "assistant",
-                                            props: {
-                                                status: "streaming",
-                                                message: data.delta
-                                            }
-                                        }
-                                    } else if (msg.type === "assistant" && msg.props.status === "streaming") {
-                                        return {
-                                        type: "assistant",
-                                            props: {
-                                                status: "streaming",
-                                                message: msg.props.message + data.delta
-                                            }
-                                        };
-                                    } else {
-                                        return msg;
-                                    }
-                                } else {
-                                    return msg;
-                                }
-                            }));
+                            streamingBufferRef.current.push(data.delta)
+                            if (!flushScheduledRef.current) {
+                                flushScheduledRef.current = true
+                                requestAnimationFrame(flushBuffer)
+                            }
                             break;
                         }
                     }
                 },
                 onClose: Some(() => {
+                    if (streamingBufferRef.current.length > 0) flushBuffer()
                     setStreamingMessages([]);
                     onRetry(); 
                 })
@@ -226,24 +230,36 @@ export function useStoryChatWindowProps({
             console.log(`SSE stream finished in ${((performance.now() - started) / 1000).toFixed(2)}s`);
             if (result.isErr()) {
                 const e = result.unwrapErr();
-                error(
-                    "Error", 
-                    "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
-                )
                 switch (e._tag) {
                     case "SseAbortedError":
                         console.error(`${e._tag}: Stream aborted!`)
                         return;
                     case "SseHttpError":
+                        error(
+                            "Error", 
+                            "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
+                        )
                         console.error(`${e._tag}: \n Status: ${e.status} \n Body: ${e.body}`);
                         return;
                     case "SseNetworkError":
+                        error(
+                            "Error", 
+                            "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
+                        )
                         console.error(`${e._tag}: \n ${e.cause.message}`)
                         return;
                     case "SseNoBodyError":
+                        error(
+                            "Error", 
+                            "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
+                        )
                         console.error(`${e._tag}: No body!`)
                         return;
                     case "SseStreamError":
+                        error(
+                            "Error", 
+                            "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
+                        )
                         console.error(`${e._tag}: \n ${e.cause.message}`)
                         return;
                 }
@@ -255,7 +271,7 @@ export function useStoryChatWindowProps({
         if (!search.prompt) return 
 
         const initialPrompt = search.prompt;
-
+        
         navigate({
             search: (prev) => ({ ...prev, prompt: undefined }),
             replace: true,
