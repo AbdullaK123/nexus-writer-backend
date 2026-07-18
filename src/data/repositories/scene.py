@@ -18,6 +18,7 @@ from uuid_extensions import uuid7str
 
 from src.data.schemas import Scene, SceneRow
 from src.data.schemas.scene import SceneSearchResult
+from src.shared.utils.html import get_word_count, html_to_plain_text
 
 
 _SCENE_COLUMNS = """
@@ -58,6 +59,51 @@ class SceneRepository:
         """
         rows = await self._exe(executor).fetch(sql, chapter_id)
         return [SceneRow.model_validate(dict(r)) for r in rows]
+    
+    async def get_scene_text(
+        self, 
+        chapter_id: str, 
+        start_quote: str,
+        end_quote: str,
+        *, 
+        executor: Executor | None = None
+    ) -> str | None:
+
+        chapter_text_sql =f"""\
+        SELECT content
+        FROM "chapter"
+        WHERE id = $1
+        """
+
+        chapter_text_raw = await self._exe(executor).fetchrow(chapter_text_sql, chapter_id)
+
+        chapter_plain_text = html_to_plain_text(chapter_text_raw["content"])
+
+        start_idx = chapter_plain_text.find(start_quote)
+        if start_idx == -1:
+            return None
+        end_idx = chapter_plain_text.find(end_quote)
+        if end_idx == -1:
+            return None
+        
+        return chapter_plain_text[start_idx : end_idx + len(end_quote)]
+
+    async def get_scene_word_count(
+        self, 
+        chapter_id: str, 
+        start_quote: str,
+        end_quote: str,
+        *, 
+        executor: Executor | None = None
+    ) -> int:
+        
+        scene_text = await self.get_scene_text(chapter_id, start_quote, end_quote)
+
+        if scene_text is None:
+            return 0
+        
+        return len(scene_text.split())
+
 
     async def list_by_story(
         self, story_id: str, user_id: str, *, chapter_id: str | None = None, executor: Executor | None = None,
@@ -147,7 +193,7 @@ class SceneRepository:
                 chapter_id, story_id, user_id, position,
                 scene.title, scene.start_quote, scene.end_quote, scene.description, scene.pov,
                 scene.tension, scene.pacing,
-                scene.mentioned_entities, scene.tags, scene.questions_raised,
+                scene.mentioned_entities, scene.tags, scene.questions_raised, self.get_scene_word_count(chapter_id, scene.start_quote, scene.end_quote)
             )
             for position, scene in enumerate(scenes)
         ]
@@ -160,7 +206,7 @@ class SceneRepository:
                 "id", "chapter_id", "story_id", "user_id", "position",
                 "title", "start_quote", "end_quote", "description", "pov",
                 "tension", "pacing", "mentioned_entities", "tags",
-                "questions_raised",
+                "questions_raised", "word_count"
             ],
         )
 
@@ -325,8 +371,8 @@ class SceneRepository:
             ),
             ranked AS (
                 SELECT COALESCE(f.id, v.id) AS id,
-                    COALESCE(1.0 / (60.0 + f.rank), 0)
-                    + COALESCE(1.0 / (60.0 + v.rank), 0) AS score
+                    COALESCE(1.0 / (5.0 + f.rank), 0)
+                    + COALESCE(1.0 / (5.0 + v.rank), 0) AS score
                 FROM fts f FULL OUTER JOIN vec v USING (id)
                 ORDER BY score DESC
                 LIMIT $6
@@ -347,6 +393,7 @@ class SceneRepository:
                 s.mentioned_entities AS mentioned_entities, 
                 s.tags AS tags, 
                 s.questions_raised AS questions_raised, 
+                s.word_count AS word_count,
                 s.embedding_model AS embedding_model, 
                 s.embedded_at AS embedded_at, 
                 s.created_at AS created_at, 
@@ -396,6 +443,7 @@ class SceneRepository:
                 end_quote=r["end_quote"],
                 description=r["description"],
                 pov=r["pov"],
+                word_count=r["word_count"],
                 tension=r["tension"],
                 pacing=r["pacing"],
                 mentioned_entities=r["mentioned_entities"],

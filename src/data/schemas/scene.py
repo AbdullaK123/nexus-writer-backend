@@ -82,6 +82,7 @@ class SceneRow(BaseModel):
     end_quote: str
     description: str
     pov: str
+    word_count: int
     tension: Literal["low", "medium", "high"]
     pacing: Literal["slow", "steady", "fast"]
     mentioned_entities: List[str]

@@ -310,7 +310,7 @@ The previous story context is background only. The current chapter text is the s
 
 Return only the provided structured response format.
 
-The chapter summary must be at most four sentences.
+The chapter summary must be at most three sentences.
 
 ## 3. Background
 
