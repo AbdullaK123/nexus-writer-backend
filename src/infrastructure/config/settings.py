@@ -23,6 +23,7 @@ class Settings(BaseSettings):
 
     # Connection strings
     database_url: str
+    redis_url: str
     # Crypto keys
     app_secret_key: str = Field(min_length=32)
 
@@ -77,6 +78,10 @@ class PostgresConfig(BaseModel, frozen=True):
     pool_max_size: int = 20
     max_inactive_connection_lifetime: int = 300
 
+class RedisConfig(BaseModel, frozen=True):
+    max_connections: int = 20
+    decode_responses: bool = True
+
 
 class AiConfig(BaseModel, frozen=True):
     default_model: str = "gpt-5.4-nano-2026-03-17"
@@ -93,6 +98,10 @@ class AiConfig(BaseModel, frozen=True):
     timeout: float = 300.0
     max_concurrent_requests: int = 16
     scene_extraction_max_tokens: int = 8000
+    plot_threads_max_tokens: int = 8000
+    act_segmentation_max_tokens: int = 8000
+    contradictions_max_tokens: int = 8000
+    entities_max_tokens: int = 8000
     pulse_extraction_max_tokens: int = 8000
     summarization_max_tokens: int = 2000
     extraction_retry_attempts: int = 3
@@ -130,6 +139,7 @@ class Config(BaseModel, frozen=True):
     auth: AuthConfig = AuthConfig()
     http: HttpConfig = HttpConfig()
     postgres: PostgresConfig = PostgresConfig()
+    redis: RedisConfig = RedisConfig()
     ai: AiConfig = AiConfig()
     jobs: JobConfig = JobConfig()
     search: SearchConfig = SearchConfig()

@@ -22,7 +22,8 @@ from src.data.repositories import (
 )
 from src.infrastructure.ai import OpenAIProvider, AIProvider
 from src.infrastructure.config.settings import config
-from src.infrastructure.db.pool import init_pool, close_pool
+from src.infrastructure.db.pool import init_pool as init_db_pool, close_pool as close_db_pool
+from src.infrastructure.redis.pool import init_pool as init_redis_pool, close_pool as close_redis_pool
 from src.service.auth import AuthService
 from src.service.chapter import ChapterService
 from src.service.chat import ChatService
@@ -34,12 +35,14 @@ from src.service.story import StoryService
 
 async def init_infrastructure() -> None:
     # AsyncPGInstrumentor().instrument()
-    await init_pool()
+    await init_db_pool()
+    init_redis_pool()
     logger.info("infra.db.connected")
 
 
 async def shutdown_infrastructure() -> None:
-    await close_pool()
+    await close_db_pool()
+    await close_redis_pool()
     logger.info("infra.db.disconnected")
 
 

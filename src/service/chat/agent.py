@@ -5,6 +5,7 @@ from typing import Awaitable, Callable, Literal
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
+from pydantic_ai_harness import CodeMode
 
 from src.data.schemas.chapter import ChapterContentResponse, ChapterListItem
 from src.data.schemas.scene import SceneSearchResponse
@@ -106,6 +107,7 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
             "Use this when responding to questions about viewpoint variety, coverage, "
             "or to clarify which scenes are written from which POV."
         ),
+        capabilities=[CodeMode()]
     )
 
     @agent.tool

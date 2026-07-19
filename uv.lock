@@ -2098,12 +2098,15 @@ dependencies = [
     { name = "opentelemetry-instrumentation-asyncpg" },
     { name = "opentelemetry-instrumentation-fastapi" },
     { name = "opentelemetry-instrumentation-system-metrics" },
+    { name = "prettytable" },
     { name = "psycopg2-binary" },
     { name = "pydantic-ai" },
+    { name = "pydantic-ai-harness" },
     { name = "pydantic-settings" },
     { name = "python-docx" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "redis" },
     { name = "tenacity" },
     { name = "uuid7" },
     { name = "uvicorn" },
@@ -2132,12 +2135,15 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-asyncpg", specifier = ">=0.60b1" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.60b1" },
     { name = "opentelemetry-instrumentation-system-metrics", specifier = ">=0.60b1" },
+    { name = "prettytable", specifier = ">=3.18.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.12" },
     { name = "pydantic-ai", specifier = ">=1.89.1" },
+    { name = "pydantic-ai-harness", specifier = ">=0.2.1" },
     { name = "pydantic-settings", specifier = ">=2.9.1" },
     { name = "python-docx", specifier = ">=1.2.0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "redis", specifier = ">=8.0.1" },
     { name = "tenacity", specifier = ">=9.1.4" },
     { name = "uuid7", specifier = ">=0.1.0" },
     { name = "uvicorn", specifier = ">=0.34.3" },
@@ -2399,6 +2405,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538 },
+]
+
+[[package]]
+name = "prettytable"
+version = "3.18.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "wcwidth" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/81/74/ba08d81e668ccfe8658d7520a307e63c19862c08eb4ccb26f356c5239a7a/prettytable-3.18.0.tar.gz", hash = "sha256:439217116152244369caf3d9f1caf2f9fe29b03bd79e88d2928c8e718c95d680", size = 76373 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/be/2e6798ace5cc036f5d05d36b7b2fd85346f1a708c87060890b070d0ec607/prettytable-3.18.0-py3-none-any.whl", hash = "sha256:b3346e0e6f79180833aebaac088ae926340586cf6d7d991b9eb125b65f72313a", size = 37357 },
 ]
 
 [[package]]
@@ -2718,6 +2736,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/72/18/d52dd26a6be111499849e748feb88b262a074447d20d6978ff061f975cf3/pydantic_ai-1.89.1.tar.gz", hash = "sha256:abed9da5c265565f7e1163ebb6626451c6cce3a832624706c6bbe2900d1a2c75", size = 13059 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a3/31/6125dcb51532eddacba5a47b211ce94826235784a8a10b94dec2e00cf6ef/pydantic_ai-1.89.1-py3-none-any.whl", hash = "sha256:995e5edc068c232729ec4c5246e9e9ede1d34eea5ee8acbaa7ca9560f731f43a", size = 7578 },
+]
+
+[[package]]
+name = "pydantic-ai-harness"
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic-ai-slim" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c4/31/1949cb459355abfe1bb64204b7eb117bf756649cb624fc5b07761bb907ff/pydantic_ai_harness-0.2.1.tar.gz", hash = "sha256:52404e9113428c1e663389b7f590a85214d8be7a51049bc87151d10e171e619e", size = 531368 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1e/e8/b43623eb2d36ecc5850d0842ff26c52636dd275f4f562d53871529ce9aff/pydantic_ai_harness-0.2.1-py3-none-any.whl", hash = "sha256:e6ff483b643a2f89594be3073397e12f036702aa9dfd5143032ebef3be081711", size = 24671 },
 ]
 
 [[package]]
@@ -3190,6 +3220,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/da/92/1446574745d74df0c92e6aa4a7b0b3130706a4142b2d1a5869f2eaa423c6/pyyaml-6.0.3-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:16249ee61e95f858e83976573de0f5b2893b3677ba71c9dd36b9cf8be9ac6d65", size = 829923 },
     { url = "https://files.pythonhosted.org/packages/f0/7a/1c7270340330e575b92f397352af856a8c06f230aa3e76f86b39d01b416a/pyyaml-6.0.3-cp314-cp314t-win_amd64.whl", hash = "sha256:4ad1906908f2f5ae4e5a8ddfce73c320c2a1429ec52eafd27138b7f1cbe341c9", size = 174062 },
     { url = "https://files.pythonhosted.org/packages/f1/12/de94a39c2ef588c7e6455cfbe7343d3b2dc9d6b6b2f40c4c6565744c873d/pyyaml-6.0.3-cp314-cp314t-win_arm64.whl", hash = "sha256:ebc55a14a21cb14062aa4162f906cd962b28e2e9ea38f9b4391244cd8de4ae0b", size = 149341 },
+]
+
+[[package]]
+name = "redis"
+version = "8.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "async-timeout", marker = "python_full_version < '3.11.3'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cc/c3/928b290c2c0ca99ab96eea5b4ff8f30be8112b075301a7d3ba214a3c8c12/redis-8.0.1.tar.gz", hash = "sha256:afc5a7a2f5a084f5b1880dec548dd45be17db7e43c82a30d84f952aefb05cfb0", size = 5114170 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fd/0a/c2345ebf1ebe70840ce3f6c6ee612f8fa749cfbd1b03069c53bf0c62aaad/redis-8.0.1-py3-none-any.whl", hash = "sha256:47daa35a058c23468d6437f17a8c76882cb316b838ef763036af99b96cedd743", size = 502406 },
 ]
 
 [[package]]
