@@ -68,7 +68,7 @@ class PlotThread(BaseModel):
 
 class PlotThreadsExtraction(BaseModel):
     threads: Optional[List[PlotThread]] = Field(
-        default_factory=list,
+        default_factory=lambda : [],
         description="""
         All distinct, narratively significant plot threads visible in the supplied story context.
         Return each thread once using a stable canonical name, order threads by the chapter where they begin, and exclude fleeting events that create no continuing objective, conflict, mystery, promise, or consequence.
@@ -104,7 +104,7 @@ class Act(BaseModel):
 
 class ActSegmentationExtraction(BaseModel):
     acts: Optional[List[Act]] = Field(
-        default_factory=list,
+        default_factory=lambda : [],
         description="""
         The story's broad structural phases in chronological order.
         Acts must be sequential, contiguous, and non-overlapping, with boundaries placed at meaningful changes in objective, conflict, stakes, direction, or narrative function.
@@ -139,7 +139,7 @@ class Contradiction(BaseModel):
 
 class ContradictionExtraction(BaseModel):
     contradictions: Optional[List[Contradiction]] = Field(
-        default_factory=list,
+        default_factory=lambda : [],
         description="""
         High-confidence factual or continuity contradictions supported by the supplied story context.
         Include only conflicts that can be checked against direct evidence in the cited chapters; exclude subjective interpretation, deliberate lies, unreliable narration, unresolved mysteries, and details that can coexist or change over time.
