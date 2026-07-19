@@ -4,9 +4,9 @@ from src.data.schemas._base import ApiModel
 from datetime import datetime
 
 
-class Metric(BaseModel):
-    name: str
-    value: float | int
+# class Metric(BaseModel):
+#     name: str
+#     value: float | int
 
 
 class AnalyticsSuggestionExtraction(BaseModel):
@@ -35,7 +35,6 @@ class AnalyticsSuggestionResponse(ApiModel):
     story_id: str
     story_title: str
     generated_at: datetime
-    metric: Metric
     suggestion: AnalyticsSuggestionExtraction
 
 

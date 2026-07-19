@@ -8,7 +8,7 @@ from src.data.repositories.scene import SceneRepository
 from src.service.exceptions import NotFoundError, ServiceError
 from src.data.repositories.analytics import AnalyticsRepository
 from src.data.repositories.story import StoryRepository
-from src.data.schemas.analytics import ActSegmentationExtraction, ActSegmentationResponse, ContradictionExtraction, ContradictionResponse, EntityLedgerExtraction, EntityLedgerResponse, PlotThreadsExtraction, AnalyticsSuggestionResponse, CastStatisticsResponse, CastStatisticsRow, CharacterStatisticsResponse, CharacterStatisticsRow, CoOccurenceStatisticsResponse, CoOccurenceStatisticsRow, PacingCurveRow, PlotThreadsResponse, SceneLengthDistributionResponse, SceneLengthDistributionRow, TensionAndPacingCurveResponse, TensionCurveRow
+from src.data.schemas.analytics import ActSegmentationExtraction, ActSegmentationResponse, AnalyticsSuggestionExtraction, ContradictionExtraction, ContradictionResponse, EntityLedgerExtraction, EntityLedgerResponse, PlotThreadsExtraction, AnalyticsSuggestionResponse, CastStatisticsResponse, CastStatisticsRow, CharacterStatisticsResponse, CharacterStatisticsRow, CoOccurenceStatisticsResponse, CoOccurenceStatisticsRow, PacingCurveRow, PlotThreadsResponse, SceneLengthDistributionResponse, SceneLengthDistributionRow, TensionAndPacingCurveResponse, TensionCurveRow
 from src.infrastructure.ai.providers.protocol import AIProvider
 from src.infrastructure.config.settings import config
 from prettytable import PrettyTable
@@ -117,7 +117,7 @@ class AnalyticsService:
         self,
         story_id: str,
         user_id: str,
-        extraction: Literal["plot_threads", "act_segmentation", "contradictions", "entities"]
+        extraction: Literal["plot_threads", "act_segmentation", "contradictions", "entities", "suggestion"]
     ) -> str:
         return f"{extraction}:{story_id}:{user_id}"
     
@@ -209,10 +209,67 @@ class AnalyticsService:
 
 
             case "structure":
-                return {}
+                tension_and_pacing_curves, scene_length_distribution, recent_chapter_rythm = \
+                    await asyncio.gather(
+                        self.get_tension_and_pacing_curves(story_id, user_id),
+                        self.get_scene_length_distribution(story_id, user_id),
+                        self.get_recent_chapters_rythm(story_id, user_id)
+                    )
+                
+                tension_curve_table = PrettyTable(["chapter_id", "chapter_number", "avg_tension"])
+                for tension_row in tension_and_pacing_curves.tension_curve:
+                    tension_curve_table.add_row([tension_row.chapter_id, tension_row.chapter_number, tension_row.avg_tension])
+
+                pacing_curve_table = PrettyTable(["chapter_id", "chapter_number", "avg_tension"])
+                for pacing_row in tension_and_pacing_curves.pacing_curve:
+                    pacing_curve_table.add_row([pacing_row.chapter_id, pacing_row.chapter_number, pacing_row.avg_pacing])
+
+                scene_length_distribution_table = PrettyTable(["bin", "count"])
+                for length_row in scene_length_distribution.distribution:
+                    scene_length_distribution_table.add_row([length_row.bin, length_row.count])
+                
+                recent_rythm_table = PrettyTable(["chapter_id", "chapter_number", "avg_tension", "avg_pacing"])
+                for tension_row, pacing_row in zip(recent_chapter_rythm.tension_curve, recent_chapter_rythm.pacing_curve):
+                    recent_rythm_table.add_row([tension_row.chapter_id, tension_row.chapter_number, tension_row.avg_tension, pacing_row.avg_pacing])
+
+                return {
+                    "tension_curve": tension_curve_table.get_string(),
+                    "pacing_curve": pacing_curve_table.get_string(),
+                    "scene_length_distribution": scene_length_distribution_table.get_string(),
+                    "recent_chapter_rythm": recent_rythm_table.get_string()
+                }
 
             case "world":
-                return {}
+                
+                entity_ledger, contradictions = \
+                    await asyncio.gather(
+                        self.extract_entities(story_id, user_id),
+                        self.extract_contradictions(story_id, user_id)
+                    )
+                
+                if (
+                    entity_ledger.extraction.entities is None 
+                    or contradictions.extraction.contradictions is None
+                ):
+                    raise ServiceError("scv.analytics.get_prompt_inputs.failed")
+
+                entity_ledger_table = PrettyTable(["type", "name", "chapter_first_appeared", "chapter_last_touched"])
+                for entity in entity_ledger.extraction.entities:
+                    entity_ledger_table.add_row([entity.type, entity.name, entity.chapter_first_appeared, entity.chapter_last_touched])
+
+                contradictions_table = PrettyTable(["headline", "report", "relevant_chapters"])
+                for contradiction in contradictions.extraction.contradictions:
+                    chapters = ", ".join([str(chapter) for chapter in contradiction.relevant_chapters])
+                    contradictions_table.add_row([
+                        contradiction.headline,
+                        contradiction.report,
+                        chapters
+                    ])
+
+                return {
+                    "entity_ledger": entity_ledger_table.get_string(),
+                    "contradictions": contradictions_table.get_string()
+                }
 
     async def get_analytics_suggestion(
         self,
@@ -220,7 +277,43 @@ class AnalyticsService:
         user_id: str,
         lense: Literal["character", "plot", "structure", "world"]
     ) -> AnalyticsSuggestionResponse:
-        raise NotImplementedError()
+        
+        story = await self._story_repo.get(story_id, user_id)
+
+        if story is None:
+            raise NotFoundError("Story not found")
+        
+        cache_key = self._get_cache_key(story_id, user_id, "suggestion")
+        
+        if raw_data := (await self._cache.get(cache_key)):
+            return AnalyticsSuggestionResponse.model_validate_json(raw_data)
+        
+        inputs = await self.get_prompt_inputs(story_id, user_id, lense)
+
+        prompt_template = self.prompt_template_map.get(lense)
+        system_prompt = self.prompt_map.get(lense)
+
+        if prompt_template is None:
+            raise ServiceError("Invalid lense! Must be 'character', 'plot', 'structure', or 'world'.")
+        
+        if system_prompt is None:
+            raise ServiceError("Invalid lense! Must be 'character', 'plot', 'structure', or 'world'.")
+
+        prompt = prompt_template.format(**inputs)
+
+        suggestion = await self._provider.extract(
+            system_prompt=system_prompt,
+            text=prompt,
+            max_tokens=config.ai.suggestion_max_tokens,
+            schema=AnalyticsSuggestionExtraction
+        )
+
+        return AnalyticsSuggestionResponse(
+            story_id=story.id,
+            story_title=story.title,
+            generated_at=datetime.now(tz=tz.utc),
+            suggestion=suggestion
+        )
 
 
     async def get_cast_statistics(

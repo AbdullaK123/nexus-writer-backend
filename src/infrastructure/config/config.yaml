@@ -38,6 +38,7 @@ ai:
   contradictions_max_tokens: 16000
   act_segmentation_max_tokens: 16000
   entities_max_tokens: 16000
+  suggestion_max_tokens: 16000
   pulse_extraction_max_tokens: 10000
   summarization_max_tokens: 2000
   extraction_retry_attempts: 20
