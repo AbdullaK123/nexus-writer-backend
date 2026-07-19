@@ -27,6 +27,8 @@ from src.service.exceptions import NotFoundError, ValidationError, InternalError
 from src.service.extraction import scenes_are_stale
 from src.service.utils.decorators import handle_service_errors
 from functools import cached_property
+from datetime import timedelta
+import redis.asyncio as aioredis
 from src.shared.utils.html import (
     get_html_similarity_ratio,
     get_preview_content,
@@ -47,12 +49,14 @@ class ChapterService:
         story_repo: StoryRepository,
         chapter_repo: ChapterRepository,
         scene_repo: SceneRepository,
-        provider: AIProvider
+        provider: AIProvider,
+        redis: aioredis.Redis
     ):
         self._story_repo = story_repo
         self._chapter_repo = chapter_repo
         self._scene_repo = scene_repo
         self._provider = provider
+        self._cache = redis
         self._background_tasks: set[asyncio.Task] = set()
 
     # ─── reads ─────────────────────────────────────────────────────────────
@@ -488,7 +492,8 @@ class ChapterService:
     async def summarize_chapter(
         self,
         chapter_id: str,
-        user_id: str
+        user_id: str,
+        ignore_cache: bool = False
     ) -> ChapterSummaryResponse:
         
         chapter_to_summarize = await self._chapter_repo.get(chapter_id, user_id)
@@ -498,6 +503,12 @@ class ChapterService:
         
         if get_word_count(chapter_to_summarize.content) <= 500:
             return ChapterSummaryResponse(summary="")
+        
+        cache_key = f"summary:{chapter_id}:{user_id}"
+
+        if not ignore_cache:
+            if raw_data := (await self._cache.get(cache_key)):
+                return ChapterSummaryResponse.model_validate_json(raw_data)
         
         ctx = await self.get_story_context(
             user_id=user_id,
@@ -521,6 +532,10 @@ class ChapterService:
 
         logger.info("chapter.summary", chapter_id=chapter_id, user_id=user_id)
 
-        return ChapterSummaryResponse(summary=summary)
+        response =  ChapterSummaryResponse(summary=summary)
+
+        await self._cache.set(cache_key, response.model_dump_json(), ex=timedelta(minutes=30))
+
+        return response
 
 

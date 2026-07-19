@@ -2,7 +2,7 @@ import asyncio
 from typing import List, Literal, Optional
 
 from loguru import logger
-
+from datetime import timedelta
 from src.data.repositories import StoryRepository, ChapterRepository, SceneRepository
 from src.data.schemas.chapter import ChapterListItem, ChapterRow
 from src.data.schemas.enums import StoryStatus
@@ -29,6 +29,7 @@ from src.infrastructure.config.settings import SearchConfig
 from src.service.exceptions import NotFoundError, ConflictError
 from src.service.utils.decorators import handle_service_errors
 from src.infrastructure.config import config
+import redis.asyncio as aioredis
 
 
 class StoryService:
@@ -39,12 +40,14 @@ class StoryService:
         scene_repo: SceneRepository,
         provider: AIProvider,
         search_config: SearchConfig,
+        redis: aioredis.Redis
     ):
         self._story_repo = story_repo
         self._chapter_repo = chapter_repo
         self._scene_repo = scene_repo
         self._provider = provider
         self._search_config = search_config
+        self._cache = redis
 
     @handle_service_errors
     async def create_story(
@@ -353,8 +356,19 @@ class StoryService:
     
     @handle_service_errors
     async def get_pulse(
-        self, user_id: str, story_id: str
+        self, user_id: str, story_id: str, ignore_cache: bool = False
     ) -> BookPulseResponse:
+        
+        story = await self._story_repo.get(story_id, user_id)
+
+        if story is None:
+            raise NotFoundError("Story not found")
+        
+        cache_key = f"pulse:{story_id}:{user_id}"
+
+        if not ignore_cache:
+            if raw_data := (await self._cache.get(cache_key)):
+                return BookPulseResponse.model_validate_json(raw_data)
         
         # get story_context
         story_ctx = await self.get_story_context(user_id, story_id)
@@ -413,12 +427,16 @@ class StoryService:
                 return_exceptions=False
             )
 
-        return BookPulseResponse(
+        response = BookPulseResponse(
             characters=character_result,
             plot=plot_result,
             structure=structure_result,
             world=world_result
         )
+
+        await self._cache.set(cache_key, response.model_dump_json(), ex=timedelta(minutes=30))
+
+        return response
     
     @handle_service_errors
     async def get_path_array(

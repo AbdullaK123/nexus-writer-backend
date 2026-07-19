@@ -117,7 +117,7 @@ class AnalyticsService:
         self,
         story_id: str,
         user_id: str,
-        extraction: Literal["plot_threads", "act_segmentation", "contradictions", "entities", "suggestion"]
+        extraction: Literal["plot_threads", "act_segmentation", "contradictions", "entities"]
     ) -> str:
         return f"{extraction}:{story_id}:{user_id}"
     
@@ -275,7 +275,8 @@ class AnalyticsService:
         self,
         story_id: str,
         user_id: str,
-        lense: Literal["character", "plot", "structure", "world"]
+        lense: Literal["character", "plot", "structure", "world"],
+        ignore_cache: bool = False
     ) -> AnalyticsSuggestionResponse:
         
         story = await self._story_repo.get(story_id, user_id)
@@ -283,10 +284,11 @@ class AnalyticsService:
         if story is None:
             raise NotFoundError("Story not found")
         
-        cache_key = self._get_cache_key(story_id, user_id, "suggestion")
+        cache_key = f"suggestion:{lense}:{story_id}:{user_id}"
         
-        if raw_data := (await self._cache.get(cache_key)):
-            return AnalyticsSuggestionResponse.model_validate_json(raw_data)
+        if not ignore_cache:
+            if raw_data := (await self._cache.get(cache_key)):
+                return AnalyticsSuggestionResponse.model_validate_json(raw_data)
         
         inputs = await self.get_prompt_inputs(story_id, user_id, lense)
 
@@ -308,12 +310,16 @@ class AnalyticsService:
             schema=AnalyticsSuggestionExtraction
         )
 
-        return AnalyticsSuggestionResponse(
+        response = AnalyticsSuggestionResponse(
             story_id=story.id,
             story_title=story.title,
             generated_at=datetime.now(tz=tz.utc),
             suggestion=suggestion
         )
+
+        await self._cache.set(cache_key, response.model_dump_json(), ex=timedelta(hours=1))
+
+        return response
 
 
     async def get_cast_statistics(
@@ -494,7 +500,8 @@ class AnalyticsService:
     async def extract_plot_threads(
         self,
         story_id: str,
-        user_id: str
+        user_id: str,
+        ignore_cache: bool = False
     ) -> PlotThreadsResponse:
         
         story = await self._story_repo.get(story_id, user_id)
@@ -504,8 +511,9 @@ class AnalyticsService:
         
         cache_key = self._get_cache_key(story_id, user_id, "plot_threads")
         
-        if raw_data := (await self._cache.get(cache_key)):
-            return PlotThreadsResponse.model_validate_json(raw_data)
+        if not ignore_cache:
+            if raw_data := (await self._cache.get(cache_key)):
+                return PlotThreadsResponse.model_validate_json(raw_data)
         
         story_context = await self.story_service.get_story_context(user_id, story_id)
         
@@ -535,7 +543,8 @@ class AnalyticsService:
     async def extract_acts(
         self,
         story_id: str,
-        user_id: str
+        user_id: str,
+        ignore_cache: bool = False
     ) -> ActSegmentationResponse:
         
         story = await self._story_repo.get(story_id, user_id)
@@ -545,8 +554,9 @@ class AnalyticsService:
         
         cache_key = self._get_cache_key(story_id, user_id, "act_segmentation")
         
-        if raw_data := (await self._cache.get(cache_key)):
-            return ActSegmentationResponse.model_validate_json(raw_data)
+        if not ignore_cache:
+            if raw_data := (await self._cache.get(cache_key)):
+                return ActSegmentationResponse.model_validate_json(raw_data)
         
         story_context = await self.story_service.get_story_context(user_id, story_id)
         
@@ -576,7 +586,8 @@ class AnalyticsService:
     async def extract_contradictions(
         self,
         story_id: str,
-        user_id: str
+        user_id: str,
+        ignore_cache: bool = False
     ) -> ContradictionResponse:
         
         story = await self._story_repo.get(story_id, user_id)
@@ -586,8 +597,9 @@ class AnalyticsService:
         
         cache_key = self._get_cache_key(story_id, user_id, "contradictions")
         
-        if raw_data := (await self._cache.get(cache_key)):
-            return ContradictionResponse.model_validate_json(raw_data)
+        if not ignore_cache:
+            if raw_data := (await self._cache.get(cache_key)):
+                return ContradictionResponse.model_validate_json(raw_data)
         
         story_context = await self.story_service.get_story_context(user_id, story_id)
         
@@ -617,7 +629,8 @@ class AnalyticsService:
     async def extract_entities(
         self,
         story_id: str,
-        user_id: str
+        user_id: str,
+        ignore_cache: bool = False
     ) -> EntityLedgerResponse:
         
         story = await self._story_repo.get(story_id, user_id)
@@ -627,8 +640,9 @@ class AnalyticsService:
         
         cache_key = self._get_cache_key(story_id, user_id, "entities")
         
-        if raw_data := (await self._cache.get(cache_key)):
-            return EntityLedgerResponse.model_validate_json(raw_data)
+        if not ignore_cache:
+            if raw_data := (await self._cache.get(cache_key)):
+                return EntityLedgerResponse.model_validate_json(raw_data)
         
         story_context = await self.story_service.get_story_context(user_id, story_id)
         
