@@ -6,6 +6,7 @@ from src.data.schemas.chat import ChatMessageListResponse, ChatMessageResponse, 
 from src.infrastructure.ai.providers.protocol import AIProvider
 from src.data.repositories import ChatRepository, StoryRepository
 from src.data.schemas import CreateThreadRequest, ThreadResponse
+from src.service.analytics.service import AnalyticsService
 from src.service.chat.agent import ChatDeps
 from src.service.exceptions import ForbiddenError, NotFoundError, ServiceError, ValidationError
 from src.service.chapter import ChapterService
@@ -23,6 +24,7 @@ class ChatService:
         story_repo: StoryRepository,
         chapter_service: ChapterService,
         story_service: StoryService,
+        analytics_service: AnalyticsService,
         agent: Agent[ChatDeps, str]
     ) -> None:
         self._provider = provider
@@ -30,6 +32,7 @@ class ChatService:
         self._story_repo = story_repo
         self._story_svc = story_service
         self._chapter_svc = chapter_service
+        self._analytics_svc = analytics_service
         self._agent = agent
 
     @handle_service_errors
@@ -199,7 +202,8 @@ class ChatService:
             user_id=user_id,
             story_id=payload.story_id,
             chapter_service=self._chapter_svc,
-            story_service=self._story_svc
+            story_service=self._story_svc,
+            analytics_service=self._analytics_svc
         )
 
         async with self._agent.run_stream(

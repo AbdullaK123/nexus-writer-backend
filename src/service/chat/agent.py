@@ -9,6 +9,7 @@ from pydantic_ai_harness import CodeMode
 
 from src.data.schemas.chapter import ChapterContentResponse, ChapterListItem
 from src.data.schemas.scene import SceneSearchResponse
+from src.service.analytics.service import AnalyticsService
 from src.service.chapter import ChapterService
 from src.service.exceptions import ServiceError
 from src.service.story import StoryService
@@ -36,6 +37,7 @@ class ChatDeps:
     user_id: str
     story_id: str
     chapter_service: ChapterService
+    analytics_service: AnalyticsService
     story_service: StoryService
 
 
@@ -90,8 +92,17 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
             "own story. Use the tools to look up scenes and chapters before "
             "answering. Never invent facts about the story.\n\n"
             "Tool guidance:\n"
-            "- For broad recall (character threads, themes, dangling "
-            "plotlines), run `search_scenes_semantic` with several distinct "
+            "- For quantitative questions about character balance, plot "
+            "structure, pacing, tension, worldbuilding consistency, or "
+            "dangling plotlines, start with `get_story_analytics` — it "
+            "returns precomputed tables that answer these questions directly "
+            "and cheaply. Use semantic search to follow up on specific "
+            "findings, not to answer the broad question from scratch.\n"
+            "- `get_story_analytics` tables contain `chapter_id` values. "
+            "Use these to drill into specific chapters with `get_chapter` "
+            "or scope `search_scenes_semantic` via `chapter_ids=[...]`.\n"
+            "- For broad recall (character threads, themes, specific plot "
+            "moments), run `search_scenes_semantic` with several distinct "
             "phrasings — one query rarely covers a topic exhaustively.\n"
             "- Search results include the parent `chapter_id` and chapter "
             "title for every scene; use those when citing chapters.\n"
@@ -100,15 +111,89 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
             "- The `SCENE STARTS AT` / `SCENE ENDS AT` lines in search "
             "results are boundary anchors, not evidence — never cite them "
             "as quotations on their own.\n"
-            "- To quote the prose of a scene you've already located via search, use `get_scene_text` (cheap, returns just that scene). "
-            "To analyze chapter-level prose — style, voice, pacing, what exactly is said inside chapter X, or whether a chapter could be cut — use `get_chapter`. "
-            "When the question names a specific chapter, read that chapter.\n"  
-            "- To see which character or narrator perspectives are present in the current draft, call `list_povs`. "
-            "Use this when responding to questions about viewpoint variety, coverage, "
-            "or to clarify which scenes are written from which POV."
+            "- To quote the prose of a scene you've already located via "
+            "search, use `get_scene_text` (cheap, returns just that scene). "
+            "To analyze chapter-level prose — style, voice, pacing, what "
+            "exactly is said inside chapter X, or whether a chapter could "
+            "be cut — use `get_chapter`. When the question names a specific "
+            "chapter, read that chapter.\n"
+            "- To see which character or narrator perspectives are present "
+            "in the current draft, call `list_povs`. Use this when "
+            "responding to questions about viewpoint variety, coverage, "
+            "or to clarify which scenes are written from which POV.\n\n"
+            "Typical workflow: analytics first for the big picture, then "
+            "semantic search to investigate specifics, then `get_chapter` "
+            "or `get_scene_text` to read actual prose when needed. Avoid "
+            "reading full chapters unless the question requires it — scene "
+            "search and analytics cover most questions more efficiently."
         ),
         capabilities=[CodeMode()]
     )
+
+    @agent.tool
+    @_service_errors_as_text
+    async def get_story_analytics(
+        ctx: RunContext[ChatDeps],
+        lense: Literal["character", "plot", "structure", "world"]
+    ) -> str:
+        """
+        Retrieve structured analytics for the current story, viewed through
+        one of four lenses. Returns ASCII tables (not prose) with quantitative
+        data and chapter IDs that can be fed directly into other tools.
+
+        Pick the lense based on what the user is asking about:
+
+        - `"character"` → three tables:
+            • cast_statistics: every POV character with their total scene count
+            and word count across the story
+            • co_occurrence_statistics: pairs of characters that appear together,
+            with shared scene count and word count — useful for spotting
+            isolated characters or unexplored pairings
+            • character_statistics: per-chapter breakdown of POV, scene count,
+            and word count — shows how character focus shifts across chapters
+
+        - `"plot"` → two tables:
+            • plot_threads: named story threads with the chapter they started,
+            ended, were last touched, and their status (open / closed /
+            stalled) — the primary tool for finding dangling plotlines
+            • act_segmentation: inferred act boundaries with start/end chapters
+            and which chapter the act is currently on
+
+        - `"structure"` → four tables:
+            • tension_curve: average tension per chapter across the full story
+            • pacing_curve: average pacing per chapter across the full story
+            • scene_length_distribution: histogram of scene word counts —
+            reveals whether the story leans toward long set-pieces or short
+            punchy scenes
+            • recent_chapter_rhythm: tension and pacing for the most recent
+            chapters — use to assess whether the current writing stretch
+            feels monotone or varied
+
+        - `"world"` → two tables:
+            • entity_ledger: every named entity (character, location, faction,
+            artifact) with the chapter it first appeared and was last touched
+            — useful for spotting forgotten worldbuilding elements
+            • contradictions: detected internal inconsistencies with a headline,
+            detailed report, and the relevant chapter numbers
+
+        Every table includes `chapter_id` values. Pass these to `get_chapter`
+        to read the actual prose, or to `search_scenes_semantic` via
+        `chapter_ids=[...]` to drill into specific chapters.
+
+        Note: the `plot` and `world` lenses involve LLM extractions under the
+        hood (cached for up to an hour). First calls may take several seconds;
+        subsequent calls are near-instant. The `character` and `structure`
+        lenses are pure database queries and always fast.
+        """
+        inputs = await ctx.deps.analytics_service.get_prompt_inputs(
+            story_id=ctx.deps.story_id,
+            user_id=ctx.deps.user_id,
+            lense=lense
+        )
+        return "\n".join(
+            f"<{key}>\n{value}\n</{key}>"
+            for key, value in inputs.items()
+        )
 
     @agent.tool
     @_service_errors_as_text

@@ -131,7 +131,8 @@ class AnalyticsService:
             chapter_repo=self._chapter_repo,
             scene_repo=self._scene_repo,
             provider=self._provider,
-            search_config=config.search
+            search_config=config.search,
+            redis=self._cache
         )
 
     
