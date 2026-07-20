@@ -1,5 +1,5 @@
 from typing import List, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from src.data.schemas._base import ApiModel
 
@@ -41,8 +41,9 @@ class ChatMessageRow(BaseModel):
 # ---------------------------------------------------------------------------
 
 class CreateThreadRequest(ApiModel):
-    story_id: str = Field(alias="storyId")
-    first_message: str = Field(alias="firstMessage")
+    model_config = ConfigDict(populate_by_name=True)
+    story_id: str = Field(validation_alias="story_id", alias="storyId")
+    first_message: str = Field(validation_alias="first_message", alias="firstMessage")
 
 
 class ThreadResponse(ApiModel):

@@ -8,7 +8,7 @@ from src.data.repositories.scene import SceneRepository
 from src.service.exceptions import NotFoundError, ServiceError
 from src.data.repositories.analytics import AnalyticsRepository
 from src.data.repositories.story import StoryRepository
-from src.data.schemas.analytics import ActSegmentationExtraction, ActSegmentationResponse, AnalyticsSuggestionExtraction, ContradictionExtraction, ContradictionResponse, EntityLedgerExtraction, EntityLedgerResponse, PlotThreadsExtraction, AnalyticsSuggestionResponse, CastStatisticsResponse, CastStatisticsRow, CharacterStatisticsResponse, CharacterStatisticsRow, CoOccurenceStatisticsResponse, CoOccurenceStatisticsRow, PacingCurveRow, PlotThreadsResponse, SceneLengthDistributionResponse, SceneLengthDistributionRow, TensionAndPacingCurveResponse, TensionCurveRow
+from src.data.schemas.analytics import ActSegmentationExtraction, ActSegmentationResponse, AnalyticsSuggestionExtraction, CharacterDashboardResponse, ContradictionExtraction, ContradictionResponse, EntityLedgerExtraction, EntityLedgerResponse, PlotDashboardResponse, PlotThreadsExtraction, AnalyticsSuggestionResponse, CastStatisticsResponse, CastStatisticsRow, CharacterStatisticsResponse, CharacterStatisticsRow, CoOccurenceStatisticsResponse, CoOccurenceStatisticsRow, PacingCurveRow, PlotThreadsResponse, SceneLengthDistributionResponse, SceneLengthDistributionRow, StructureDashboardResponse, TensionAndPacingCurveResponse, TensionCurveRow, WorldDashboardResponse
 from src.infrastructure.ai.providers.protocol import AIProvider
 from src.infrastructure.config.settings import config
 from prettytable import PrettyTable
@@ -668,4 +668,90 @@ class AnalyticsService:
 
         await self._cache.set(cache_key, response.model_dump_json(), ex=timedelta(hours=1))
 
-        return response  
+        return response
+
+    async def get_character_dashboard(
+        self,
+        story_id: str,
+        user_id: str
+    )   -> CharacterDashboardResponse:
+        
+        cast_statistics, co_occurence_statistics, character_statistics = \
+            await asyncio.gather(
+                self.get_cast_statistics(story_id, user_id),
+                self.get_co_occurence_statistics(story_id, user_id),
+                self.get_character_statistics(story_id, user_id)
+            )
+        
+        suggestion = await self.get_analytics_suggestion(story_id, user_id, "character")
+
+        return CharacterDashboardResponse(
+            suggestion=suggestion,
+            cast_statistics=cast_statistics,
+            co_occurence_statistics=co_occurence_statistics,
+            character_statistics=character_statistics
+        )
+    
+    async def get_plot_dashboard(
+        self,
+        story_id: str,
+        user_id: str,
+        ignore_cache: bool = False
+    )   -> PlotDashboardResponse:
+        
+        plot_threads, act_segmentation = \
+            await asyncio.gather(
+                self.extract_plot_threads(story_id, user_id, ignore_cache),
+                self.extract_acts(story_id, user_id, ignore_cache)
+            )
+        
+        suggestion = await self.get_analytics_suggestion(story_id, user_id, "plot")
+
+        return PlotDashboardResponse(
+            suggestion=suggestion,
+            plot_threads=plot_threads,
+            act_segmentation=act_segmentation
+        )
+    
+    async def get_structure_dashboard(
+        self,
+        story_id: str,
+        user_id: str
+    )   -> StructureDashboardResponse:
+        
+        tension_and_pacing_curves, scene_length_distribution, recent_rythm = \
+            await asyncio.gather(
+                self.get_tension_and_pacing_curves(story_id, user_id),
+                self.get_scene_length_distribution(story_id, user_id),
+                self.get_recent_chapters_rythm(story_id, user_id)
+            )
+        
+        suggestion = await self.get_analytics_suggestion(story_id, user_id, "structure")
+
+        return StructureDashboardResponse(
+            suggestion=suggestion,
+            tension_and_pacing_curves=tension_and_pacing_curves,
+            scene_length_distribution=scene_length_distribution,
+            recent_rythm=recent_rythm
+        )
+    
+    async def get_world_dashboard(
+        self,
+        story_id: str,
+        user_id: str,
+        ignore_cache: bool = False
+    )   -> WorldDashboardResponse:
+        
+        contradictions, entities = \
+            await asyncio.gather(
+                self.extract_contradictions(story_id, user_id, ignore_cache),
+                self.extract_entities(story_id, user_id, ignore_cache),
+            )
+        
+        suggestion = await self.get_analytics_suggestion(story_id, user_id, "world")
+
+        return WorldDashboardResponse(
+            suggestion=suggestion,
+            contradictions=contradictions,
+            entities=entities
+        )

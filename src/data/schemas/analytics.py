@@ -264,3 +264,25 @@ class TensionAndPacingCurveResponse(ApiModel):
     story_title: str
     tension_curve: List[TensionCurveRow]
     pacing_curve: List[PacingCurveRow]
+
+class CharacterDashboardResponse(ApiModel):
+    suggestion: AnalyticsSuggestionResponse
+    cast_statistics: CastStatisticsResponse
+    co_occurence_statistics: CoOccurenceStatisticsResponse
+    character_statistics: CharacterStatisticsResponse
+
+class PlotDashboardResponse(ApiModel):
+    suggestion: AnalyticsSuggestionResponse
+    plot_threads: PlotThreadsResponse
+    act_segmentation: ActSegmentationResponse
+
+class StructureDashboardResponse(ApiModel):
+    suggestion: AnalyticsSuggestionResponse
+    tension_and_pacing_curves: TensionAndPacingCurveResponse
+    scene_length_distribution: SceneLengthDistributionResponse
+    recent_rythm: TensionAndPacingCurveResponse
+
+class WorldDashboardResponse(ApiModel):
+    suggestion: AnalyticsSuggestionResponse
+    contradictions: ContradictionResponse
+    entities: EntityLedgerResponse

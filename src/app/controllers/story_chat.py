@@ -39,8 +39,8 @@ async def create_thread(
     return await chat_service.create_thread(
         current_user.id,
         CreateThreadRequest(
-            story_id=story_id,
-            first_message=body.first_message,
+            storyId=story_id,
+            firstMessage=body.first_message,
         ),
     )
 
