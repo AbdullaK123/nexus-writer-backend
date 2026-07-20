@@ -119,7 +119,7 @@ class AnalyticsService:
         user_id: str,
         extraction: Literal["plot_threads", "act_segmentation", "contradictions", "entities"]
     ) -> str:
-        return f"{extraction}:{story_id}:{user_id}"
+        return f"{extraction}:context-v2:{story_id}:{user_id}"
     
     
     @cached_property
@@ -161,13 +161,13 @@ class AnalyticsService:
                 for co_occur_row in co_occurence_statistics:
                     co_occurence_statistics_table.add_row([*co_occur_row])
 
-                character_statistics_table = PrettyTable(["chapter_id", "chapter_number", "pov", "scene_count", "word_count"])
+                character_statistics_table = PrettyTable(["chapter_id", "chapter_number", "character", "scene_count", "word_count"])
                 for character_row in character_statistics:
                     character_statistics_table.add_row([*character_row])
 
                 return {
                     "cast_statistics": cast_statistics_table.get_string(),
-                    "co_occurence_statistics": co_occurence_statistics_table.get_string(),
+                    "co_occurrence_statistics": co_occurence_statistics_table.get_string(),
                     "character_statistics": character_statistics_table.get_string()
                 }
 
@@ -221,7 +221,7 @@ class AnalyticsService:
                 for tension_row in tension_and_pacing_curves.tension_curve:
                     tension_curve_table.add_row([tension_row.chapter_id, tension_row.chapter_number, tension_row.avg_tension])
 
-                pacing_curve_table = PrettyTable(["chapter_id", "chapter_number", "avg_tension"])
+                pacing_curve_table = PrettyTable(["chapter_id", "chapter_number", "avg_pacing"])
                 for pacing_row in tension_and_pacing_curves.pacing_curve:
                     pacing_curve_table.add_row([pacing_row.chapter_id, pacing_row.chapter_number, pacing_row.avg_pacing])
 
@@ -285,7 +285,7 @@ class AnalyticsService:
         if story is None:
             raise NotFoundError("Story not found")
         
-        cache_key = f"suggestion:{lense}:{story_id}:{user_id}"
+        cache_key = f"suggestion:{lense}:context-v2:{story_id}:{user_id}"
         
         if not ignore_cache:
             if raw_data := (await self._cache.get(cache_key)):

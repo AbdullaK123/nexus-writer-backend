@@ -12,7 +12,7 @@ export function NewStoryChatPage() {
             <StoryChatSidebar {...sidebar} />
             <div className={`${styles['content-container']} ${styles['centered']}`}>
                 <div className="flex-col">
-                    <h2>Let's talk about your book</h2>
+                    <h2 className={styles['text-centered']}>Let's talk about your book</h2>
                     <ChatComposer {...composer} />
                 </div>
             </div>

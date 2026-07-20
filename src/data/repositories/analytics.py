@@ -53,7 +53,7 @@ class AnalyticsRepository:
         sql = f"""\
         SELECT
             sc.pov AS character_a,
-            exploded.character_b AS character_b
+            exploded.character_b AS character_b,
             COUNT(*) AS scene_count,
             SUM(word_count) AS word_count
         FROM "scene" sc
@@ -63,7 +63,7 @@ class AnalyticsRepository:
             AND sc.user_id=$2
             AND sc.pov = ANY(sc.mentioned_entities)
             AND exploded.character_b != sc.pov
-        GROUP BY sc.pov, exploded.character_b
+        GROUP BY character_a, character_b
         ORDER BY scene_count DESC, word_count DESC
         """
 
@@ -99,7 +99,7 @@ class AnalyticsRepository:
         rows = await self._exe(executor).fetch(sql, story_id, user_id)
 
         return [
-            (r["chapter_id"], r["chapter_number"], r["pov"], r["scene_count"], r["word_count"])
+            (r["chapter_id"], r["chapter_number"], r["character"], r["scene_count"], r["word_count"])
             for r in rows
         ]
 

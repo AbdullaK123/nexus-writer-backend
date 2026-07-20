@@ -33,6 +33,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    networks:
+      - nexus-network
 
   nexus-writer:
     build: .
@@ -69,7 +71,7 @@ services:
     env_file: .env
     environment: 
       DATABASE_URL: postgresql://nexus_user:password@postgres-nexus:5432/nexus_writer
-      # JAEGAR_URL: http://nexus-telemetry:4318/v1/traces
+      REDIS_URL: redis://nexus-redis:6379
     depends_on:
       postgres-nexus:
         condition: service_healthy

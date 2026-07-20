@@ -25,7 +25,7 @@ _SCENE_COLUMNS = """
     id, chapter_id, story_id, user_id, position,
     title, start_quote, end_quote, description, pov,
     tension, pacing, mentioned_entities, tags, questions_raised,
-    embedding_model, embedded_at, created_at, updated_at
+    embedding_model, embedded_at, created_at, updated_at, word_count
 """
 
 # `embedding` is intentionally excluded from the default projection — it's a
@@ -193,7 +193,7 @@ class SceneRepository:
                 chapter_id, story_id, user_id, position,
                 scene.title, scene.start_quote, scene.end_quote, scene.description, scene.pov,
                 scene.tension, scene.pacing,
-                scene.mentioned_entities, scene.tags, scene.questions_raised, self.get_scene_word_count(chapter_id, scene.start_quote, scene.end_quote)
+                scene.mentioned_entities, scene.tags, scene.questions_raised, (await self.get_scene_word_count(chapter_id, scene.start_quote, scene.end_quote))
             )
             for position, scene in enumerate(scenes)
         ]

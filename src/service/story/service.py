@@ -309,14 +309,22 @@ class StoryService:
         )
         
     
-    def _format_scenes(self, scenes: List[SceneRow]) -> str:
+    def _format_scenes(self, scenes: List[SceneRow], path_array: list[str]) -> str:
 
         formatted_scenes = []
+        chapter_numbers = {
+            chapter_id: chapter_number
+            for chapter_number, chapter_id in enumerate(path_array, start=1)
+        }
 
-        for i, scene in enumerate(scenes):
+        for scene in sorted(
+            scenes,
+            key=lambda scene: (chapter_numbers[scene.chapter_id], scene.position),
+        ):
 
             header = f"""\
-            SCENE - {i + 1}
+            CHAPTER NUMBER: {chapter_numbers[scene.chapter_id]}
+            SCENE NUMBER WITHIN CHAPTER: {scene.position + 1}
             TITLE: {scene.title}
             TENSION: {scene.tension} PACING: {scene.pacing}
             """
@@ -340,17 +348,22 @@ class StoryService:
     async def get_story_context(
         self, user_id: str, story_id: str, chapter_id: Optional[str] = None
     ) -> str:
-        
-        scenes = await self._scene_repo.list_by_story(
-            story_id=story_id, 
-            user_id=user_id, 
-            chapter_id=chapter_id
+        scenes, path_array = await asyncio.gather(
+            self._scene_repo.list_by_story(
+                story_id=story_id,
+                user_id=user_id,
+                chapter_id=chapter_id,
+            ),
+            self._story_repo.get_path_array(story_id),
         )
+
+        if path_array is None:
+            raise NotFoundError("Story not found")
 
         if len(scenes) < 3:
             return "NOT_ENOUGH_CONTEXT"
             
-        story_ctx = self._format_scenes(scenes)
+        story_ctx = self._format_scenes(scenes, path_array)
 
         return story_ctx
     

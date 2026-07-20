@@ -3,8 +3,10 @@ from functools import lru_cache
 from fastapi import Depends, Request
 from loguru import logger
 from pydantic_ai import Agent
-
+import redis.asyncio as aioredis
+from src.app.dependencies.redis import get_redis
 from src.app.dependencies.repositories import (
+    get_analytics_repository,
     get_chapter_repository,
     get_chat_repository,
     get_scene_repository,
@@ -20,10 +22,12 @@ from src.data.repositories import (
     StoryRepository,
     UserRepository,
 )
+from src.data.repositories.analytics import AnalyticsRepository
 from src.infrastructure.ai import OpenAIProvider, AIProvider
 from src.infrastructure.config.settings import config
 from src.infrastructure.db.pool import init_pool as init_db_pool, close_pool as close_db_pool
 from src.infrastructure.redis.pool import init_pool as init_redis_pool, close_pool as close_redis_pool
+from src.service.analytics.service import AnalyticsService
 from src.service.auth import AuthService
 from src.service.chapter import ChapterService
 from src.service.chat import ChatService
@@ -80,22 +84,42 @@ def get_auth_service(
     return AuthService(user_repo, session_repo)
 
 
+def get_analytics_service(
+    analytics_repo: AnalyticsRepository = Depends(get_analytics_repository),
+    story_repo: StoryRepository = Depends(get_story_repository),
+    chapter_repo: ChapterRepository = Depends(get_chapter_repository),
+    scene_repo: SceneRepository = Depends(get_scene_repository),
+    provider: AIProvider = Depends(get_ai_provider),
+    redis: aioredis.Redis = Depends(get_redis)
+) -> AnalyticsService:
+    return AnalyticsService(
+        analytics_repo=analytics_repo,
+        story_repo=story_repo,
+        chapter_repo=chapter_repo,
+        scene_repo=scene_repo,
+        provider=provider,
+        redis=redis
+    )
+
+
 def get_story_service(
     story_repo: StoryRepository = Depends(get_story_repository),
     chapter_repo: ChapterRepository = Depends(get_chapter_repository),
     scene_repo: SceneRepository = Depends(get_scene_repository),
     provider: AIProvider = Depends(get_ai_provider),
+    redis: aioredis.Redis = Depends(get_redis)
 ) -> StoryService:
-    return StoryService(story_repo, chapter_repo, scene_repo, provider, config.search)
+    return StoryService(story_repo, chapter_repo, scene_repo, provider, config.search, redis)
 
 
 def get_chapter_service(
     story_repo: StoryRepository = Depends(get_story_repository),
     chapter_repo: ChapterRepository = Depends(get_chapter_repository),
     scene_repo: SceneRepository = Depends(get_scene_repository),
-    provider: AIProvider = Depends(get_ai_provider)
+    provider: AIProvider = Depends(get_ai_provider),
+    redis: aioredis.Redis = Depends(get_redis)
 ) -> ChapterService:
-    return ChapterService(story_repo, chapter_repo, scene_repo, provider)
+    return ChapterService(story_repo, chapter_repo, scene_repo, provider, redis)
 
 
 def get_extraction_service(
@@ -112,6 +136,7 @@ def get_chat_service(
     story_repo: StoryRepository = Depends(get_story_repository),
     chapter_service: ChapterService = Depends(get_chapter_service),
     story_service: StoryService = Depends(get_story_service),
+    analytics_service: AnalyticsService = Depends(get_analytics_service),
     agent: Agent[ChatDeps, str] = Depends(get_chat_agent),
 ) -> ChatService:
     return ChatService(
@@ -120,5 +145,6 @@ def get_chat_service(
         story_repo=story_repo,
         chapter_service=chapter_service,
         story_service=story_service,
+        analytics_service=analytics_service,
         agent=agent,
     )

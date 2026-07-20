@@ -3,6 +3,7 @@ import { AvatarBadge } from "../../../../common";
 import ReactMarkdown  from "react-markdown"
 import styles from "./AssistantMessage.module.css"
 import { ThreeDotsMoveIcon } from "./ThreeDotsMoveIcon";
+import remarkGfm from "remark-gfm"
 
 
 
@@ -53,7 +54,13 @@ export function AssistantMessage(props: AssistantMessageProps) {
                     </div>
                     <div className={styles['centered']}>
                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
                             components={{
+                                table: ({ children }) => (
+                                <div className={styles["md-table-scroll"]}>
+                                    <table className={styles["md-table"]}>{children}</table>
+                                </div>
+                                ),
                                 p: ({children}) => <p className={styles['md-paragraph']}>{children}</p>,
                                 h2: ({children}) => <h2 className={styles['md-h-large']}>{children}</h2>,
                                 h3: ({children}) => <h3 className={styles['md-h-large']}>{children}</h3>,
@@ -81,7 +88,13 @@ export function AssistantMessage(props: AssistantMessageProps) {
                     </div>
                      <div className={styles['centered']}>
                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
                             components={{
+                                table: ({ children }) => (
+                                <div className={styles["md-table-scroll"]}>
+                                    <table className={styles["md-table"]}>{children}</table>
+                                </div>
+                                ),
                                 p: ({children}) => <p className={styles['md-paragraph']}>{children}</p>,
                                 h2: ({children}) => <h2 className={styles['md-h-large']}>{children}</h2>,
                                 h3: ({children}) => <h3 className={styles['md-h-large']}>{children}</h3>,

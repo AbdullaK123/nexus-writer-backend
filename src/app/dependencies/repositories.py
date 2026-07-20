@@ -16,6 +16,7 @@ from src.data.repositories import (
     ChapterRepository,
     ChatRepository,
 )
+from src.data.repositories.analytics import AnalyticsRepository
 
 
 def get_scene_repository(
@@ -52,3 +53,8 @@ def get_chat_repository(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> ChatRepository:
     return ChatRepository(pool)
+
+def get_analytics_repository(
+    pool: asyncpg.Pool = Depends(get_db_pool)
+) -> AnalyticsRepository:
+    return AnalyticsRepository(pool)
