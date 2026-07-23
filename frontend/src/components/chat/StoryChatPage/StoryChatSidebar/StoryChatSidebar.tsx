@@ -1,7 +1,8 @@
-import { Button, Nothing } from "../../../common";
+import { Button, LoadingSkeleton, Nothing } from "../../../common";
 import { StoryChatSidebarItem, type StoryChatSidebarItemProps } from "./StoryChatSidebarItem";
 import { PanelLeftOpen, PanelLeftClose  } from "lucide-react"
 import styles from "./StoryChatSidebar.module.css"
+import { None } from "oxide.ts";
 
 export type StoryChatSidebarProps = 
 | { status: "idle" }
@@ -27,8 +28,20 @@ export function StoryChatSidebar(props: StoryChatSidebarProps) {
         }
         case "loading": {
             return (
-                <div>
-                    loading...
+                <div className={styles['content']}>
+                    <div className={styles['header']}>
+                        <div className={styles['header__label']}>
+                            <LoadingSkeleton className={None}/>
+                            <LoadingSkeleton className={None}/>
+                        </div>
+                        <LoadingSkeleton className={None}/>
+                    </div>
+                    <div className={styles['items-container']}>
+                        <LoadingSkeleton className={None} />
+                        <LoadingSkeleton className={None} />
+                        <LoadingSkeleton className={None} />
+                        <LoadingSkeleton className={None} />
+                    </div>
                 </div>
             )
         }

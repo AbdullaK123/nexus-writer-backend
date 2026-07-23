@@ -1,8 +1,9 @@
-import { Button, Nothing } from "../../../common";
+import { Button, LoadingSkeleton, Nothing } from "../../../common";
 import { AssistantMessage, type AssistantMessageProps } from "./AssistantMessage/AssistantMessage";
 import { ChatComposer, type ChatComposerProps } from "./ChatComposer/ChatComposer";
 import { UserMessage, type UserMessageProps } from "./UserMessage/UserMessage";
 import styles from "./StoryChatWindow.module.css"
+import { None } from "oxide.ts";
 
 
 export type ConversationMessage = 
@@ -25,21 +26,19 @@ export type StoryChatWindowProps =
 
 export function StoryChatWindow(props: StoryChatWindowProps) {
     switch (props.status) {
-        case "idle": {
-                return <Nothing />
+        case "idle":
+        case "empty": {
+            return <Nothing />
         }
         case "loading": {
             return (
                 <div className={styles['content']}>
-                    Loading skeleton...
-                </div>
-            )
-        }
-        case "empty": {
-            return (
-                <div className={styles['content']}>
-                    <h2>Let's talk about your book</h2>
-                    <ChatComposer {...props.composer} />
+                    <div className={styles['messages-container']}>
+                        <LoadingSkeleton className={None} />
+                        <LoadingSkeleton className={None} />
+                        <LoadingSkeleton className={None} />
+                        <LoadingSkeleton className={None} />
+                    </div>
                 </div>
             )
         }

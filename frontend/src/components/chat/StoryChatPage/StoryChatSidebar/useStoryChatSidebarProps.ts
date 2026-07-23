@@ -4,17 +4,19 @@ import type { ApiError } from "../../../../shared/types";
 import type { StoryChatSidebarProps } from "./StoryChatSidebar";
 import { useState } from "react";
 import { resolveAsyncStates } from "../../../../infrastructure/api/utils";
-
+import { Option } from "oxide.ts"
 
 export type UseStoryChatSidebarPropsArgs = 
 {
     storyId: string
+    threadId: Option<string>
     storyState: AsyncState<StoryDetailResponse, ApiError>,
     threadsState: AsyncState<ThreadListResponse, ApiError>
 }
 
 export function useStoryChatSidebarProps({
     storyId,
+    threadId,
     storyState,
     threadsState
 }: UseStoryChatSidebarPropsArgs): StoryChatSidebarProps {
@@ -55,6 +57,7 @@ export function useStoryChatSidebarProps({
                     storyId: storyId,
                     threadId: thread.threadId,
                     threadTitle: thread.threadTitle,
+                    active: threadId.isSome() ? thread.threadId === threadId.unwrap() : false,
                     updatedAt: thread.updatedAt,
                     onSelected: () => navigate({ 
                         to: "/stories/$storyId/chat/$threadId",

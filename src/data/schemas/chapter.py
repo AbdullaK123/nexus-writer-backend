@@ -14,7 +14,7 @@ class ChapterRow(BaseModel):
     story_id: str
     user_id: str
     title: str
-    content: str
+    content: Optional[str] = ""
     published: bool
     word_count: int
     next_chapter_id: Optional[str]
@@ -27,7 +27,6 @@ class ChapterRow(BaseModel):
 
 class CreateChapterRequest(ApiModel):
     title: str = Field(min_length=1, max_length=255)
-    content: str = ""
 
 
 class UpdateChapterRequest(ApiModel):
@@ -87,7 +86,7 @@ class ChapterContentResponse(ApiModel):
             chapter_number=chapter_number,
             title=chapter.title,
             published=chapter.published,
-            content=chapter.content if content is None else content,
+            content=chapter.content if chapter.content else "",
             story_id=chapter.story_id,
             word_count=chapter.word_count,
             story_title=story_title,

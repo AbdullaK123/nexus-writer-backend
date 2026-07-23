@@ -2,10 +2,22 @@
     display: flex;
     flex-direction: column;
     padding: var(--space-4);
+    cursor: pointer;
+}
+
+.active {
+    background: var(--fill-cyan);
+    border: 1px solid var(--border-focus);
+    border-radius: var(--radius-md)
 }
 
 .sidebar-item:active {
     background: var(--fill-cyan);
     border: 1px solid var(--border-focus);
+    border-radius: var(--radius-md)
+}
+
+.sidebar-item:hover {
+    background: var(--fill-cyan-soft);
     border-radius: var(--radius-md)
 }

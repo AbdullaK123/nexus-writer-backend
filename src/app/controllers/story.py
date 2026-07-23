@@ -100,16 +100,12 @@ async def get_story_details(
 async def create_chapter(
     story_id: str,
     chapter_info: CreateChapterRequest,
-    background_tasks: BackgroundTasks,
     current_user: UserRow = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(get_chapter_service),
-    extraction_service: ExtractionService = Depends(get_extraction_service),
+    chapter_service: ChapterService = Depends(get_chapter_service)
 ) -> ChapterContentResponse:
-    result = await chapter_service.create_chapter(
+    return await chapter_service.create_chapter(
         story_id, current_user.id, chapter_info,
     )
-    background_tasks.add_task(extraction_service.extract_scenes, result.id)
-    return result
 
 
 @story_controller.post("/{story_id}/chapters/reorder")

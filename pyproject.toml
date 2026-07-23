@@ -31,6 +31,7 @@ dependencies = [
     "prettytable>=3.18.0",
     "redis>=8.0.1",
     "opentelemetry-instrumentation-redis>=0.60b1",
+    "saq[redis]>=0.9.1",
 ]
 
 [tool.mypy]

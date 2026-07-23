@@ -773,6 +773,18 @@ wheels = [
 ]
 
 [[package]]
+name = "croniter"
+version = "6.2.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-dateutil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/37/57/2e2a65aee2a70483cb28e2b7e15a072d00a523207593b44400d4717bb100/croniter-6.2.4.tar.gz", hash = "sha256:fc124f751b1b04805c2a04b061898b436b45ab2320b045e1e052ea895de65189", size = 166267 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cd/ba/d678e5bd329646ca51d3c92addbc77804e86d21f4b6b6a027218e6abb010/croniter-6.2.4-py3-none-any.whl", hash = "sha256:8ef3d544107a5c05a150a2d78f8bf5a8eb9c5c4d93405a736b824109574e3f4d", size = 46677 },
+]
+
+[[package]]
 name = "cronsim"
 version = "2.7"
 source = { registry = "https://pypi.org/simple" }
@@ -2108,6 +2120,7 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "redis" },
+    { name = "saq" },
     { name = "tenacity" },
     { name = "uuid7" },
     { name = "uvicorn" },
@@ -2146,6 +2159,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "redis", specifier = ">=8.0.1" },
+    { name = "saq", extras = ["redis"], specifier = ">=0.9.1" },
     { name = "tenacity", specifier = ">=9.1.4" },
     { name = "uuid7", specifier = ">=0.1.0" },
     { name = "uvicorn", specifier = ">=0.34.3" },
@@ -3635,6 +3649,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/9b/ec/7c692cde9125b77e84b307354d4fb705f98b8ccad59a036d5957ca75bfc3/s3transfer-0.17.0.tar.gz", hash = "sha256:9edeb6d1c3c2f89d6050348548834ad8289610d886e5bf7b7207728bd43ce33a", size = 155337 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/87/72/c6c32d2b657fa3dad1de340254e14390b1e334ce38268b7ad51abda3c8c2/s3transfer-0.17.0-py3-none-any.whl", hash = "sha256:ce3801712acf4ad3e89fb9990df97b4972e93f4b3b0004d214be5bce12814c20", size = 86811 },
+]
+
+[[package]]
+name = "saq"
+version = "0.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "croniter" },
+    { name = "redis" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8f/6e/ccab44f90ad40b09dbac13056f162fd8dd945f820973ee50c56596f49fcd/saq-0.9.1.tar.gz", hash = "sha256:071348f2132d997f7bbbcfe0628554936a7080b4ae284c0220f9e2e3c945d84b", size = 43021 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ff/7f/bf1162defcd13e6796bcf68557cac8b277cec43af82bdd2e33cd40467704/saq-0.9.1-py3-none-any.whl", hash = "sha256:f8f2bff790de6b128a767f5a23cbaa36014c164128beae2910e6e3d5d1c3689c", size = 40806 },
 ]
 
 [[package]]

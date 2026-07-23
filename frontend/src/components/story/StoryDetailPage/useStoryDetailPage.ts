@@ -62,7 +62,7 @@ export function useStoryDetailPage(): StoryDetailPageProps {
   }, [summaryState.status])
 
   const handleChapterCreate = () => createChapter(
-    { title: chapterTitle, content: "" },
+    { title: chapterTitle },
     {
       onSuccess: () => {
         success("Successfully created a new chapter!", "Happy writing!")

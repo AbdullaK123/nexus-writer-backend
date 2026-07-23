@@ -42,8 +42,8 @@ export function isEmpty(value: unknown): value is null | undefined | '' | Record
 }
 
 export function toAsyncState<T>(query: UseQueryResult<T, ApiError>): AsyncState<T, ApiError> {
-    if (query.isPending) return {status: "idle", data: None}
     if (query.isLoading) return {status: "loading", data: None}
+    if (query.isPending) return {status: "idle", data: None}
     if (query.isError) return {status: "error", data: Some(Err(query.error))}
     if (query.data && isEmpty(query.data)) return {status: "empty", data: Some(Ok(query.data as []))}
     return {status: "success", data: Some(Ok(query.data as T))}
@@ -56,7 +56,9 @@ export function useTypedQuery<T>(
 
   switch (query.status) {
     case "pending":
-      return { status: "idle", data: None };
+      return query.isLoading ? 
+              { status: "loading", data: None} 
+            : { status: "idle", data: None };
       
     case "error":
       return { status: "error", data: Some(Err(query.error)) };

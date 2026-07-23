@@ -1,5 +1,5 @@
-import { None } from "oxide.ts";
-import { Button, ModalWithTrigger, Nothing } from "../../../common";
+import { None, Some } from "oxide.ts";
+import { Button, LoadingSkeleton, ModalWithTrigger, Nothing } from "../../../common";
 import styles from "./StoryChatHeader.module.css"
 
 export type StoryChatHeaderProps = 
@@ -30,8 +30,19 @@ export function StoryChatHeader(props: StoryChatHeaderProps) {
             return <Nothing />
         case "loading":
             return (
-                <div>
-                    Loading...
+                <div className={styles['content']}>
+                    <div className={styles['info-container']}>
+                        <div className={styles['flex-row']}>
+                            <LoadingSkeleton className={Some(styles['width-33'])} />
+                            <LoadingSkeleton className={Some(styles['width-33'])} />
+                        </div>
+                        <LoadingSkeleton className={Some(styles['width-50'])}/>
+                    </div>
+                    <div className={styles['action-container']}>
+                        <LoadingSkeleton className={Some(styles['width-33'])} />
+                        <LoadingSkeleton className={Some(styles['width-33'])} />
+                        <LoadingSkeleton className={Some(styles['width-33'])} />
+                    </div>
                 </div>
             )
         case "ready":

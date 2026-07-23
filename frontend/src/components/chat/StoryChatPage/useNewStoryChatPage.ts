@@ -3,6 +3,7 @@ import { useStoryChatSidebarProps, type StoryChatSidebarProps } from "./StoryCha
 import { useStoryDetails,  useThreads } from "../../../data/queries";
 import type { ChatComposerProps } from "./StoryChatWindow/ChatComposer/ChatComposer";
 import { useChatComposerProps } from "./StoryChatWindow/ChatComposer/useChatComposerProps";
+import { None } from "oxide.ts";
 
 
 
@@ -29,6 +30,7 @@ export function useNewStoryChatPage(): NewStoryChatPageProps {
 
     const sidebarProps = useStoryChatSidebarProps({
         storyId: params.storyId,
+        threadId: None,
         storyState: storyState,
         threadsState: threadsState
     })

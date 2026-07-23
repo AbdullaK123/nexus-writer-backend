@@ -30,8 +30,6 @@ HEARTBEAT_INTERVAL_SECONDS = 30
 
 shutdown_event = asyncio.Event()
 
-# AsyncPGInstrumentor().instrument()
-
 tracer = trace.get_tracer(__name__)
 
 async def heartbeat_loop() -> None:

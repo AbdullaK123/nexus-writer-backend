@@ -5,6 +5,7 @@ export type StoryChatSidebarItemProps = {
     storyId: string
     threadId: string
     threadTitle: string
+    active: boolean
     updatedAt: Date
     onSelected: () => void
 }
@@ -13,7 +14,7 @@ export type StoryChatSidebarItemProps = {
 export function StoryChatSidebarItem(props: StoryChatSidebarItemProps) {
     return (
         <div
-            className={styles['sidebar-item']}
+            className={`${styles['sidebar-item']} ${props.active ? styles['active'] : ""}`}
             role="button"
             onClick={props.onSelected}
         >

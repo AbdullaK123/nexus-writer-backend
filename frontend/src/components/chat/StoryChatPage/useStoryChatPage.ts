@@ -46,6 +46,7 @@ export function useStoryChatPage(): StoryChatPageProps {
 
     const sidebarProps = useStoryChatSidebarProps({
         storyId: params.storyId,
+        threadId: Some(params.threadId),
         storyState: storyState,
         threadsState: threadsState
     })

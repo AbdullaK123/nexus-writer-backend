@@ -65,9 +65,9 @@ services:
     networks:
       - nexus-network
 
-  worker:
+  cron-worker:
     build: .
-    command: ["uv", "run", "--no-sync", "worker.py"]
+    command: ["uv", "run", "--no-sync", "cron_worker.py"]
     env_file: .env
     environment: 
       DATABASE_URL: postgresql://nexus_user:password@postgres-nexus:5432/nexus_writer
@@ -79,6 +79,27 @@ services:
       - nexus-network
     healthcheck:
       test: ["CMD-SHELL", "find /tmp/worker_heartbeat -mmin -2 | grep -q ."]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  saq-worker:
+    build: .
+    command: ["uv", "run", "--no-sync", "python", "-m", "saq", "saq_worker.settings"]
+    env_file: .env
+    environment: 
+      DATABASE_URL: postgresql://nexus_user:password@postgres-nexus:5432/nexus_writer
+      REDIS_URL: redis://nexus-redis:6379
+    depends_on:
+      postgres-nexus:
+        condition: service_healthy
+      nexus-redis:
+        condition: service_healthy
+    networks:
+      - nexus-network
+    healthcheck:
+      test: ["CMD-SHELL", "find /tmp/saq_worker_heartbeat -mmin -2 | grep -q ."]
       interval: 30s
       timeout: 5s
       retries: 3

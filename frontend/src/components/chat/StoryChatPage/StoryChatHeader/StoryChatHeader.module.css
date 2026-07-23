@@ -22,3 +22,24 @@
     padding: var(--space-3);
     width: 100%;
 }
+
+
+.flex-row {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3);
+  gap: var(--space-3);
+}
+
+
+.width-50 {
+    width: 50%;
+}
+
+.width-33 {
+    width: 33%
+}
+
+.width-80 {
+    width: 80%;
+}

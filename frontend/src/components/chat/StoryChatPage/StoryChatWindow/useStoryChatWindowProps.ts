@@ -53,7 +53,7 @@ export function useStoryChatWindowProps({
         }));
     }
     
-    const streamCancellerRef = useRef<AbortController>(new AbortController());
+    const streamCancellerRef = useRef<AbortController | null>(null);
 
     const { error } = useToast()
 
@@ -164,12 +164,16 @@ export function useStoryChatWindowProps({
 
     // Cleanup abort controller on component unmount
     useEffect(() => {
-        return () => streamCancellerRef.current.abort();
+        return () => {
+            if (streamCancellerRef.current) streamCancellerRef.current.abort();
+        }
     }, []);
 
     const onUserPromptSubmitted = useCallback((query: string) => {
 
-        console.count("onUserPromptSubmitted")
+        if (!streamCancellerRef.current) {
+            streamCancellerRef.current = new AbortController()
+        }
 
         streamCancellerRef.current.abort();
         streamCancellerRef.current = new AbortController();
@@ -229,7 +233,10 @@ export function useStoryChatWindowProps({
         ).then((result) => {
             console.log(`SSE stream finished in ${((performance.now() - started) / 1000).toFixed(2)}s`);
             if (result.isErr()) {
+
+
                 const e = result.unwrapErr();
+
                 switch (e._tag) {
                     case "SseAbortedError":
                         console.error(`${e._tag}: Stream aborted!`)
@@ -240,6 +247,9 @@ export function useStoryChatWindowProps({
                             "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
                         )
                         console.error(`${e._tag}: \n Status: ${e.status} \n Body: ${e.body}`);
+                        if (streamingBufferRef.current.length > 0) flushBuffer()
+                        setStreamingMessages([]);
+                        onRetry()
                         return;
                     case "SseNetworkError":
                         error(
@@ -247,6 +257,9 @@ export function useStoryChatWindowProps({
                             "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
                         )
                         console.error(`${e._tag}: \n ${e.cause.message}`)
+                        if (streamingBufferRef.current.length > 0) flushBuffer()
+                        setStreamingMessages([]);
+                        onRetry(); 
                         return;
                     case "SseNoBodyError":
                         error(
@@ -254,6 +267,9 @@ export function useStoryChatWindowProps({
                             "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
                         )
                         console.error(`${e._tag}: No body!`)
+                        if (streamingBufferRef.current.length > 0) flushBuffer()
+                        setStreamingMessages([]);
+                        onRetry()
                         return;
                     case "SseStreamError":
                         error(
@@ -261,7 +277,11 @@ export function useStoryChatWindowProps({
                             "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
                         )
                         console.error(`${e._tag}: \n ${e.cause.message}`)
+                        if (streamingBufferRef.current.length > 0) flushBuffer()
+                        setStreamingMessages([]);
+                        onRetry()
                         return;
+                    
                 }
             }
         });
@@ -285,6 +305,11 @@ export function useStoryChatWindowProps({
     }, [search, onUserPromptSubmitted, navigate])
 
     switch (conversationState.status) {
+        case "loading": {
+            return {
+                status: "loading"
+            }
+        }
         case "empty": {
             return {
                 status: "empty",

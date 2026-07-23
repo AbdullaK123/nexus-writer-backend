@@ -27,6 +27,7 @@ from src.service.exceptions import NotFoundError, ValidationError, InternalError
 from src.service.extraction import scenes_are_stale
 from src.service.utils.decorators import handle_service_errors
 from functools import cached_property
+from src.infrastructure.redis.queue import queue
 from datetime import timedelta
 import redis.asyncio as aioredis
 from src.shared.utils.html import (
@@ -142,7 +143,6 @@ class ChapterService:
         if story is None:
             raise NotFoundError("We couldn't find this story. It may have been deleted.")
 
-        word_count = get_word_count(data.content) if data.content else 0
 
         try:
             async with self._chapter_repo.pool.acquire() as conn:
@@ -151,8 +151,8 @@ class ChapterService:
                         story_id=story_id,
                         user_id=user_id,
                         title=data.title,
-                        content=data.content,
-                        word_count=word_count,
+                        content="",
+                        word_count=0,
                         executor=conn,
                     )
                     await self._handle_chapter_creation(
@@ -176,21 +176,6 @@ class ChapterService:
         return await self.get_chapter_with_navigation(
             chapter.id, user_id, as_html=True,
         )
-    
-    @handle_service_errors
-    async def _scene_and_embedding_job(self, chapter_id: str) -> None:
-        await self.extraction_service.extract_scenes(chapter_id)
-        await self.embedding_service.embed_scenes(chapter_id)
-
-    def _discard_background_task(self, task: asyncio.Task) -> None:
-        self._background_tasks.discard(task)
-
-        try:
-            task.result()
-        except asyncio.CancelledError:
-            pass
-        except Exception:
-            logger.exception("chapter.scene_and_embedding_job.failed")
 
     @handle_service_errors
     async def update_chapter(
@@ -235,10 +220,17 @@ class ChapterService:
             )
     
         
-        if  "content" in fields and get_html_similarity_ratio(chapter.content, updated.content) < self.REEXTRACTION_THRESHOLD: 
-            task = asyncio.create_task(self._scene_and_embedding_job(chapter_id))
-            self._background_tasks.add(task)
-            task.add_done_callback(self._discard_background_task)
+        if  (
+            "content" in fields 
+             and chapter.content
+             and updated.content
+             and get_html_similarity_ratio(chapter.content, updated.content) < self.REEXTRACTION_THRESHOLD
+        ): 
+            await queue.enqueue(
+                "scene_and_embedding_job",
+                chapter_id=chapter_id,
+                timeout=900
+            )
 
         logger.info(
             "chapter.update.done",

@@ -4,8 +4,7 @@ import { DateTimeSchema, StoryStatusSchema } from "./common"
 // ─── Requests ────────────────────────────────────────────────
 
 export const CreateChapterRequestSchema = z.object({
-    title: z.string().min(1).max(255),
-    content: z.string().default(""),
+    title: z.string().min(1).max(255)
 })
 export type CreateChapterRequest = z.infer<typeof CreateChapterRequestSchema>
 
