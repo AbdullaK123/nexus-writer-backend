@@ -29,6 +29,7 @@ import {
     StoryPathArrayResponseSchema,
  } from "../types"
 import type { Result, ApiError } from "../../../shared/types"
+import { CharacterDashboardResponseSchema, PlotDashboardResponseSchema, StructureDashboardResponseSchema, WorldDashboardResponseSchema, type CharacterDashboardResponse, type PlotDashboardResponse, type StructureDashboardResponse, type WorldDashboardResponse } from "../types/analytics";
 
 export class StoryClient {
 
@@ -195,6 +196,51 @@ export class StoryClient {
         return this.api.getJson(
             `stories/${storyId}/stats`,
             StoryStatsResponseSchema,
+            options
+        )
+    }
+
+    public getCharacterDashboard(
+        storyId: string,
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<CharacterDashboardResponse, ApiError>> {
+        return this.api.getJson(
+            `stories/${storyId}/analytics/dashboard/characters`,
+            CharacterDashboardResponseSchema,
+            options
+        )
+    }
+
+    public getPlotDashboard(
+        storyId: string,
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<PlotDashboardResponse, ApiError>> {
+        return this.api.getJson(
+            `stories/${storyId}/analytics/dashboard/plot`,
+            PlotDashboardResponseSchema,
+            options
+        )
+    }
+
+    public getStuctureDashboard(
+        storyId: string,
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<StructureDashboardResponse, ApiError>> {
+        return this.api.getJson(
+            `stories/${storyId}/analytics/dashboard/structure`,
+            StructureDashboardResponseSchema,
+            options
+        )
+    }
+
+
+    public getWorldDashboard(
+        storyId: string,
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<WorldDashboardResponse, ApiError>> {
+        return this.api.getJson(
+            `stories/${storyId}/analytics/dashboard/world`,
+            WorldDashboardResponseSchema,
             options
         )
     }
