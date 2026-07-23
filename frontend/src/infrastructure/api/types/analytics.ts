@@ -24,6 +24,8 @@ export const CastStatisticsRowSchema = z.object({
     word_count: z.number()
 })
 
+export type CastStatisticsRow = z.infer<typeof CastStatisticsRowSchema>
+
 export const CastStatisticsResponseSchema = z.object({
     storyId: z.string(),
     storyTitle: z.string(),
