@@ -18,6 +18,12 @@ export type CharacterBarChartProps =
 export function CharacterBarChart(props: CharacterBarChartProps) {
     return (
         <div>
+            <div>
+                <span>
+                    [CHARACTER FREQUENCY]
+                </span>
+                <p>Scene and word counts for each detected character</p>
+            </div>
             <ResponsiveContainer
                 width="100%"
                 height="100%"

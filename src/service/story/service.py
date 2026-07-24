@@ -482,6 +482,8 @@ class StoryService:
         stats = await self._story_repo.get_stats(story_id, user_id)
 
         return StoryStatsResponse(
+            story_id=story.id,
+            story_title=story.title,
             total_words=stats.get("total_words", 0),
             total_chapters=stats.get("chapters_total", 0),
             total_scenes=stats.get("scenes_tracked", 0),

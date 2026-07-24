@@ -42,6 +42,8 @@ export const CoOccurenceStatisticsRowSchema = z.object({
     word_count: z.number()
 })
 
+export type CoOccurenceStatisticsRow = z.infer<typeof CoOccurenceStatisticsRowSchema>
+
 export const CoOccurenceStatisticsResponseSchema = z.object({
     storyId: z.string(),
     storyTitle: z.string(),
@@ -57,6 +59,8 @@ export const CharacterStatisticsRowSchema = z.object({
     scene_count: z.number(),
     word_count: z.number()
 })
+
+export type CharacterStatisticsRow = z.infer<typeof CharacterStatisticsRowSchema>
 
 export const CharacterStatisticsResponseSchema = z.object({
     storyId: z.string(),

@@ -1,9 +1,7 @@
-from saq import Queue
-from saq.types import Context, JobTaskContext
+from saq.types import Context
 from src.app.dependencies.services import build_ai_provider
 from src.data.repositories.chapter import ChapterRepository
 from src.data.repositories.scene import SceneRepository
-from src.infrastructure.config.settings import settings as app_settings
 from src.infrastructure.db.pool import init_pool, close_pool
 from src.infrastructure.telemetry.logfire import init_tracing
 from src.service.embedding.service import EmbeddingService

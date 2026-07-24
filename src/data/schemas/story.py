@@ -81,6 +81,8 @@ class StoryGridResponse(ApiModel):
 
 
 class StoryStatsResponse(ApiModel):
+    story_id: str
+    story_title: str
     total_words: Optional[int] = 0
     total_chapters: Optional[int] = 0
     total_scenes: Optional[int] = 0
