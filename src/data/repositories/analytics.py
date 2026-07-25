@@ -65,6 +65,7 @@ class AnalyticsRepository:
             AND exploded.character_b != sc.pov
         GROUP BY character_a, character_b
         ORDER BY scene_count DESC, word_count DESC
+        LIMIT 10
         """
 
         rows = await self._exe(executor).fetch(sql, story_id, user_id)

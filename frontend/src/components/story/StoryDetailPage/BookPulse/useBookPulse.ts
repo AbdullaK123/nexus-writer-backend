@@ -31,7 +31,7 @@ export function useBookPulse(storyId: string): BookPulseProps {
         characters: data.characters,
         plot: data.plot,
         structure: data.structure,
-        world: data.world,
+        world: data.world
       }
     }
   }

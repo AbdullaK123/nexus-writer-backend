@@ -222,9 +222,8 @@ class ChapterService:
         
         if  (
             "content" in fields 
-             and chapter.content
              and updated.content
-             and get_html_similarity_ratio(chapter.content, updated.content) < self.REEXTRACTION_THRESHOLD
+             and get_html_similarity_ratio(chapter.content or "", updated.content) < self.REEXTRACTION_THRESHOLD
         ): 
             await queue.enqueue(
                 "scene_and_embedding_job",

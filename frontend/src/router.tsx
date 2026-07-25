@@ -17,8 +17,6 @@ import { ChapterEditorPage } from "./components/chapter/ChapterEditorPage";
 import { StoryChatPage } from "./components/chat";
 import { NewStoryChatPage } from "./components/chat/StoryChatPage/NewStoryChatPage";
 import { z } from "zod";
-import { StoryAnalyticsPage } from "./components/analytics/StoryAnalyticsPage/StoryAnalyticsPage";
-import { CharacterDashboardPage } from "./components/analytics/StoryAnalyticsPage/CharacterDashboard/CharacterDashboardPage";
 
 interface RouterContext {
     auth: AuthContextValue
@@ -130,18 +128,6 @@ const newStoryChatRoute = createRoute({
     component: NewStoryChatPage
 })
 
-const storyAnalyticsPage = createRoute({
-    getParentRoute: () => appRoute,
-    path: "/stories/$storyId/analytics",
-    component: StoryAnalyticsPage
-})
-
-const characterDashboardPage = createRoute({
-    getParentRoute: () => storyAnalyticsPage,
-    path: "/characters",
-    component: CharacterDashboardPage
-})
-
 const routeTree = rootRoute.addChildren([
     loginRoute,
     signupRoute,
@@ -150,10 +136,7 @@ const routeTree = rootRoute.addChildren([
         storyDetailRoute,
         chapterEditorRoute,
         storyChatRoute,
-        newStoryChatRoute,
-        storyAnalyticsPage.addChildren([
-            characterDashboardPage
-        ])
+        newStoryChatRoute
     ])
 ])
 

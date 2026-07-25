@@ -37,12 +37,12 @@ class OpenAIProvider(AIProvider):
         logfire.instrument_openai(raw_client)
         self._client = raw_client
 
-    @logfire.instrument("OpenAI Generate (Model: {model_name})")
+    @logfire.instrument("OpenAI Generate")
     @handle_openai_errors
     async def _generate(
         self, system_prompt: str, text: str, max_tokens: int
     ) -> str:
-        model_name = self.model
+       
         logger.info("openai.generate.start", model=self.model, max_tokens=max_tokens)
         
         response = await self._client.chat.completions.create(
@@ -69,7 +69,7 @@ class OpenAIProvider(AIProvider):
         )
         return content
 
-    @logfire.instrument("OpenAI Extract Schema (Schema: {schema_name})")
+    @logfire.instrument("OpenAI Extract Schema")
     @handle_openai_errors
     async def _extract[T: BaseModel](
         self, system_prompt: str, text: str, max_tokens: int, schema: type[T]
@@ -108,10 +108,10 @@ class OpenAIProvider(AIProvider):
         )
         return content
 
-    @logfire.instrument("OpenAI Embed (Model: {embed_model})")
+    @logfire.instrument("OpenAI Embed")
     @handle_openai_errors
     async def _embed(self, text: str) -> List[float]:
-        embed_model = self.embedding_model
+   
         logger.info("openai.embed.start", model=self.embedding_model, count=1)
         
         response = await self._client.embeddings.create(
@@ -131,11 +131,11 @@ class OpenAIProvider(AIProvider):
         )
         return data[0].embedding
 
-    @logfire.instrument("OpenAI Embed Many Raw (Count: {text_count})")
+    @logfire.instrument("OpenAI Embed Many Raw")
     @handle_openai_errors
     async def _embed_many_raw(self, texts: List[str]) -> List[List[float]]:
-        text_count = len(texts)
-        logger.info("openai.embed_many.start", model=self.embedding_model, count=text_count)
+    
+        logger.info("openai.embed_many.start", model=self.embedding_model, count=len(texts))
         
         response = await self._client.embeddings.create(
             model=self.embedding_model, input=texts
@@ -148,7 +148,7 @@ class OpenAIProvider(AIProvider):
         logger.info(
             "openai.embed_many.done",
             model=self.embedding_model,
-            count=text_count,
+            count=len(texts),
             prompt_tokens=usage.prompt_tokens if usage else None,
             total_tokens=usage.total_tokens if usage else None,
         )
@@ -156,7 +156,7 @@ class OpenAIProvider(AIProvider):
 
     _MIN_EMBED_BATCH_SIZE = 8
 
-    @logfire.instrument("OpenAI Embed Many Batched (Total Count: {total_count})")
+    @logfire.instrument("OpenAI Embed Many Batched")
     async def _embed_many_batched(self, texts: List[str]) -> List[List[float]]:
         total_count = len(texts)
         if total_count == 0:
@@ -212,7 +212,7 @@ class OpenAIProvider(AIProvider):
         async with self._sem:
             return await self._embed(text)
 
-    @logfire.instrument("Provider Queue Wait: embed_many (Batched: {with_batching})")
+    @logfire.instrument("Provider Queue Wait: embed_many")
     async def embed_many(self, texts: List[str], with_batching: bool = False) -> List[List[float]]:
         async with self._sem:
             if with_batching:

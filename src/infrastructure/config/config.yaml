@@ -30,7 +30,7 @@ ai:
   embedding_model: openai/text-embedding-3-small
   embedding_batch_size: 32  # scenes per cron tick; capped at 128 in settings
   temperature: 1
-  max_retries: 3
+  max_retries: 20
   timeout: 300.0
   max_concurrent_requests: 35
   scene_extraction_max_tokens: 16000

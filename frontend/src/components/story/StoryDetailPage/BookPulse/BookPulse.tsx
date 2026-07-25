@@ -43,7 +43,6 @@ export function BookPulse(props: BookPulseProps) {
               <span className="system-badge system-badge__nobg">[BOOK PULSE]</span>
               <p>Loading…</p>
             </div>
-            <Button variant="ghost" onClick={() => {}}>→ FULL</Button>
           </div>
           <div className={styles['content']}>
             {[1,2,3,4].map((i) => (
@@ -84,7 +83,6 @@ export function BookPulse(props: BookPulseProps) {
               <span className="system-badge system-badge__nobg">[BOOK PULSE]</span>
               <p>From the analytics agent</p>
             </div>
-            <Button variant="ghost" onClick={() => {}}>→ FULL</Button>
           </div>
           <div className={styles['content']}>
             <div className={styles['pulse-card']}>
