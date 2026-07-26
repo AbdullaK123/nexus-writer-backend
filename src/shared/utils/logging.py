@@ -17,19 +17,19 @@ LAYER_SHARED = "shared"
 LAYERS = (LAYER_APP, LAYER_SERVICE, LAYER_INFRA, LAYER_DATA, LAYER_SHARED)
 
 LAYER_COLORS = {
-    LAYER_APP:     "<magenta>",
+    LAYER_APP: "<magenta>",
     LAYER_SERVICE: "<cyan>",
-    LAYER_INFRA:   "<yellow>",
-    LAYER_DATA:    "<green>",
-    LAYER_SHARED:  "<white>",
+    LAYER_INFRA: "<yellow>",
+    LAYER_DATA: "<green>",
+    LAYER_SHARED: "<white>",
 }
 
 LAYER_BADGES = {
-    LAYER_APP:     "[APP]   ",
+    LAYER_APP: "[APP]   ",
     LAYER_SERVICE: "[SVC]   ",
-    LAYER_INFRA:   "[INFRA] ",
-    LAYER_DATA:    "[DATA]  ",
-    LAYER_SHARED:  "[SHARED]",
+    LAYER_INFRA: "[INFRA] ",
+    LAYER_DATA: "[DATA]  ",
+    LAYER_SHARED: "[SHARED]",
 }
 
 
@@ -68,6 +68,7 @@ def layer_filter(target: str):
     def _f(record: "Record") -> bool:
         layer = record["extra"].get("layer") or detect_layer(record["name"])
         return layer == target
+
     return _f
 
 
@@ -84,7 +85,7 @@ def _add_layer_sinks(layer: str) -> None:
         level="INFO",
         rotation="20 MB",
         retention="14 days",
-        **base, # type: ignore
+        **base,  # type: ignore
     )
     logger.add(
         f"logs/{layer}/errors.log",
@@ -93,7 +94,7 @@ def _add_layer_sinks(layer: str) -> None:
         retention="90 days",
         backtrace=True,
         diagnose=False,
-        **base, # type: ignore
+        **base,  # type: ignore
     )
 
 

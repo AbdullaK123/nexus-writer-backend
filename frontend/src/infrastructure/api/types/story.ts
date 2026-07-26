@@ -40,7 +40,9 @@ export type StoryGridResponse = z.infer<typeof StoryGridResponseSchema>
 export const PulseDimensionSchema = z.object({
     label: z.enum(["healthy", "watch", "needs-attention", "unavailable"]),
     headline: z.string(),
-    report: z.string()
+    whats_working: z.string(),
+    whats_not_working: z.string(),
+    evidence_chapters: z.array(z.int().positive())
 })
 export type PulseDimension = z.infer<typeof PulseDimensionSchema>
 

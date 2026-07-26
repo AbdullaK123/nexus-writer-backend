@@ -4,9 +4,13 @@ from typing import List, Literal, Optional
 from loguru import logger
 from datetime import timedelta
 from src.data.repositories import StoryRepository, ChapterRepository, SceneRepository
-from src.data.schemas.chapter import ChapterListItem, ChapterRow
+from src.data.schemas.chapter import ChapterListItem
 from src.data.schemas.enums import StoryStatus
-from src.data.schemas.extraction import INSUFFICIENT_CONTEXT, BookPulseResponse, PulseDimension
+from src.data.schemas.extraction import (
+    INSUFFICIENT_CONTEXT,
+    BookPulseResponse,
+    PulseDimension,
+)
 from src.data.schemas.scene import (
     SceneRow,
     SceneSearchResponse,
@@ -23,7 +27,12 @@ from src.data.schemas.story import (
     StoryDetailResponse,
     StoryGridResponse,
 )
-from src.infrastructure.ai.prompts import CHARACTER_PULSE_PROMPT, PLOT_PULSE_PROMPT, STRUCTURE_PULSE_PROMPT, WORLD_PULSE_PROMPT
+from src.infrastructure.ai.prompts import (
+    CHARACTER_PULSE_PROMPT,
+    PLOT_PULSE_PROMPT,
+    STRUCTURE_PULSE_PROMPT,
+    WORLD_PULSE_PROMPT,
+)
 from src.infrastructure.ai.providers.protocol import AIProvider
 from src.infrastructure.config.settings import SearchConfig
 from src.service.exceptions import NotFoundError, ConflictError
@@ -40,7 +49,7 @@ class StoryService:
         scene_repo: SceneRepository,
         provider: AIProvider,
         search_config: SearchConfig,
-        redis: aioredis.Redis
+        redis: aioredis.Redis,
     ):
         self._story_repo = story_repo
         self._chapter_repo = chapter_repo
@@ -57,7 +66,9 @@ class StoryService:
     ) -> dict:
         if await self._story_repo.exists_with_title(user_id, story_info.title):
             logger.warning(
-                "story.create.conflict", user_id=user_id, title=story_info.title,
+                "story.create.conflict",
+                user_id=user_id,
+                title=story_info.title,
             )
             raise ConflictError(
                 "You already have a story with this title. Please choose a different one."
@@ -77,14 +88,20 @@ class StoryService:
         fields = update_info.model_dump(exclude_unset=True)
 
         updated = await self._story_repo.update(
-            story_id=story_id, user_id=user_id, fields=fields,
+            story_id=story_id,
+            user_id=user_id,
+            fields=fields,
         )
         if updated is None:
-            raise NotFoundError("We couldn't find this story. It may have been deleted.")
+            raise NotFoundError(
+                "We couldn't find this story. It may have been deleted."
+            )
 
         logger.info(
             "story.update.done",
-            user_id=user_id, story_id=story_id, fields=list(fields.keys()),
+            user_id=user_id,
+            story_id=story_id,
+            fields=list(fields.keys()),
         )
         return {"message": "Story successfully updated"}
 
@@ -92,7 +109,9 @@ class StoryService:
     async def delete_story(self, user_id: str, story_id: str) -> dict:
         deleted = await self._story_repo.delete(story_id=story_id, user_id=user_id)
         if not deleted:
-            raise NotFoundError("We couldn't find this story. It may have been deleted.")
+            raise NotFoundError(
+                "We couldn't find this story. It may have been deleted."
+            )
 
         logger.info("story.delete.done", user_id=user_id, story_id=story_id)
         return {"message": "Story successfully deleted"}
@@ -101,7 +120,8 @@ class StoryService:
 
     @staticmethod
     def _order_chapters_by_path(
-        chapters: list, path_array: list[str] | None,
+        chapters: list,
+        path_array: list[str] | None,
     ) -> list:
         """Reorder a flat chapter list to match story.path_array. Falls back
         to newest-first when no path is set (matches the previous behaviour)."""
@@ -134,7 +154,7 @@ class StoryService:
                 story_title=story_title,
                 chapter_title=c.title,
                 published=c.published,
-                updated_at=c.updated_at
+                updated_at=c.updated_at,
             )
             for c, story_title, chapter_number in results
         ]
@@ -142,20 +162,19 @@ class StoryService:
         return StoryDetailResponse.from_story(story, chapter_items)
 
     @handle_service_errors
-    async def get_all_stories(self, user_id: str, status: Optional[StoryStatus] = None) -> StoryGridResponse:
-
+    async def get_all_stories(
+        self, user_id: str, status: Optional[StoryStatus] = None
+    ) -> StoryGridResponse:
         stories = await self._story_repo.list_for_user(user_id)
         if not stories:
             return StoryGridResponse(stories=[])
-        
+
         if status:
             story_ids = [s.id for s in stories if s.status == status]
         else:
             story_ids = [s.id for s in stories]
 
-        all_chapters = await self._chapter_repo.list_by_story_ids(
-            story_ids
-        )
+        all_chapters = await self._chapter_repo.list_by_story_ids(story_ids)
 
         by_story: dict[str, list] = {}
         for ch in all_chapters:
@@ -165,7 +184,7 @@ class StoryService:
             StoryCardResponse.from_story(s, by_story.get(s.id, [])) for s in stories
         ]
         return StoryGridResponse(stories=cards)
-    
+
     @handle_service_errors
     async def search_story_scenes(
         self,
@@ -181,15 +200,15 @@ class StoryService:
         mentioned_entities: list[str] | None = None,
         chapter_ids: list[str] | None = None,
     ) -> List[SceneSearchResponse]:
-
         query_text = query_text.strip()
         if not query_text:
             logger.info(
                 "story.search.empty_query",
-                user_id=user_id, story_id=story_id,
+                user_id=user_id,
+                story_id=story_id,
             )
             return []
-        
+
         story_path_array = await self._story_repo.get_path_array(story_id)
 
         if story_path_array is None:
@@ -261,20 +280,23 @@ class StoryService:
                 score=result.score,
                 created_at=result.created_at,
                 updated_at=result.updated_at,
-                chapter_title=result.chapter_title
+                chapter_title=result.chapter_title,
             )
             for result in search_results
         ]
 
     @handle_service_errors
     async def list_story_tags(
-        self, user_id: str, story_id: str,
+        self,
+        user_id: str,
+        story_id: str,
     ) -> VocabularyListResponse:
         """Return every distinct tag in this story's scenes with its count,
         sorted by frequency desc. Authorisation is row-level via user_id
         — a foreign story silently returns an empty list."""
         rows = await self._scene_repo.list_story_tags(
-            user_id=user_id, story_id=story_id,
+            user_id=user_id,
+            story_id=story_id,
         )
         return VocabularyListResponse(
             items=[VocabularyItem(value=v, count=n) for v, n in rows],
@@ -282,35 +304,35 @@ class StoryService:
 
     @handle_service_errors
     async def list_story_entities(
-        self, user_id: str, story_id: str,
+        self,
+        user_id: str,
+        story_id: str,
     ) -> VocabularyListResponse:
         """Return every distinct mentioned entity in this story's scenes
         with its count, sorted by frequency desc. Same auth model as
         `list_story_tags`."""
         rows = await self._scene_repo.list_story_entities(
-            user_id=user_id, story_id=story_id,
+            user_id=user_id,
+            story_id=story_id,
         )
         return VocabularyListResponse(
             items=[VocabularyItem(value=v, count=n) for v, n in rows],
         )
-    
+
     @handle_service_errors
-    async def list_povs(
-        self, user_id: str, story_id: str
-    ) -> VocabularyListResponse:
+    async def list_povs(self, user_id: str, story_id: str) -> VocabularyListResponse:
         """Return every distinct pov in this story's scenes
         with its count, sorted by frequency desc. Same auth model as
         `list_story_tags`."""
         rows = await self._scene_repo.list_povs(
-            user_id=user_id, story_id=story_id,
+            user_id=user_id,
+            story_id=story_id,
         )
         return VocabularyListResponse(
             items=[VocabularyItem(value=v, count=n) for v, n in rows],
         )
-        
-    
-    def _format_scenes(self, scenes: List[SceneRow], path_array: list[str]) -> str:
 
+    def _format_scenes(self, scenes: List[SceneRow], path_array: list[str]) -> str:
         formatted_scenes = []
         chapter_numbers = {
             chapter_id: chapter_number
@@ -321,7 +343,6 @@ class StoryService:
             scenes,
             key=lambda scene: (chapter_numbers[scene.chapter_id], scene.position),
         ):
-
             header = f"""\
             CHAPTER NUMBER: {chapter_numbers[scene.chapter_id]}
             SCENE NUMBER WITHIN CHAPTER: {scene.position + 1}
@@ -343,7 +364,23 @@ class StoryService:
             formatted_scenes.append("\n".join([header, body]))
 
         return "\n".join(formatted_scenes)
-    
+
+    @staticmethod
+    def _normalize_pulse_evidence(
+        dimension: PulseDimension,
+        chapter_count: int,
+    ) -> PulseDimension:
+        evidence_chapters = sorted(
+            {
+                chapter
+                for chapter in dimension.evidence_chapters
+                if 1 <= chapter <= chapter_count
+            }
+        )
+        return dimension.model_copy(
+            update={"evidence_chapters": evidence_chapters},
+        )
+
     @handle_service_errors
     async def get_story_context(
         self, user_id: str, story_id: str, chapter_id: Optional[str] = None
@@ -362,27 +399,26 @@ class StoryService:
 
         if len(scenes) < 3:
             return "NOT_ENOUGH_CONTEXT"
-            
+
         story_ctx = self._format_scenes(scenes, path_array)
 
         return story_ctx
-    
+
     @handle_service_errors
     async def get_pulse(
         self, user_id: str, story_id: str, ignore_cache: bool = False
     ) -> BookPulseResponse:
-        
         story = await self._story_repo.get(story_id, user_id)
 
         if story is None:
             raise NotFoundError("Story not found")
-        
+
         cache_key = f"pulse:{story_id}:{user_id}"
 
         if not ignore_cache:
             if raw_data := (await self._cache.get(cache_key)):
                 return BookPulseResponse.model_validate_json(raw_data)
-        
+
         # get story_context
         story_ctx = await self.get_story_context(user_id, story_id)
 
@@ -397,7 +433,7 @@ class StoryService:
             </story_context>
             """,
             max_tokens=config.ai.pulse_extraction_max_tokens,
-            schema=PulseDimension
+            schema=PulseDimension,
         )
         plot_pulse_task = self._provider.extract(
             system_prompt=PLOT_PULSE_PROMPT,
@@ -407,7 +443,7 @@ class StoryService:
             </story_context>
             """,
             max_tokens=config.ai.pulse_extraction_max_tokens,
-            schema=PulseDimension
+            schema=PulseDimension,
         )
         structure_pulse_task = self._provider.extract(
             system_prompt=STRUCTURE_PULSE_PROMPT,
@@ -417,7 +453,7 @@ class StoryService:
             </story_context>
             """,
             max_tokens=config.ai.pulse_extraction_max_tokens,
-            schema=PulseDimension
+            schema=PulseDimension,
         )
         world_pulse_task = self._provider.extract(
             system_prompt=WORLD_PULSE_PROMPT,
@@ -427,58 +463,63 @@ class StoryService:
             </story_context>
             """,
             max_tokens=config.ai.pulse_extraction_max_tokens,
-            schema=PulseDimension
+            schema=PulseDimension,
         )
 
         # four parellel extractions
-        character_result, plot_result, structure_result, world_result = \
-            await asyncio.gather(
-                character_pulse_task,
-                plot_pulse_task,
-                structure_pulse_task,
-                world_pulse_task,
-                return_exceptions=False
-            )
-
-        response = BookPulseResponse(
-            characters=character_result,
-            plot=plot_result,
-            structure=structure_result,
-            world=world_result
+        (
+            character_result,
+            plot_result,
+            structure_result,
+            world_result,
+        ) = await asyncio.gather(
+            character_pulse_task,
+            plot_pulse_task,
+            structure_pulse_task,
+            world_pulse_task,
+            return_exceptions=False,
         )
 
-        await self._cache.set(cache_key, response.model_dump_json(), ex=timedelta(minutes=30))
+        chapter_count = len(story.path_array or [])
+        response = BookPulseResponse(
+            characters=self._normalize_pulse_evidence(
+                character_result,
+                chapter_count,
+            ),
+            plot=self._normalize_pulse_evidence(plot_result, chapter_count),
+            structure=self._normalize_pulse_evidence(
+                structure_result,
+                chapter_count,
+            ),
+            world=self._normalize_pulse_evidence(world_result, chapter_count),
+        )
+
+        await self._cache.set(
+            cache_key, response.model_dump_json(), ex=timedelta(minutes=30)
+        )
 
         return response
-    
+
     @handle_service_errors
     async def get_path_array(
-        self,
-        story_id: str,
-        user_id: str
+        self, story_id: str, user_id: str
     ) -> StoryPathArrayResponse:
-        
         story = await self._story_repo.get(story_id, user_id)
 
         if story is None:
             raise NotFoundError("Story not found")
-        
-        path_array =  await self._story_repo.get_path_array(story_id)
+
+        path_array = await self._story_repo.get_path_array(story_id)
 
         return StoryPathArrayResponse(path_array=path_array)
-    
+
     @handle_service_errors
-    async def get_story_stats(
-        self,
-        story_id: str,
-        user_id: str
-    ) -> StoryStatsResponse:
-        
+    async def get_story_stats(self, story_id: str, user_id: str) -> StoryStatsResponse:
         story = await self._story_repo.get(story_id, user_id)
 
         if story is None:
             raise NotFoundError("Story not found")
-        
+
         stats = await self._story_repo.get_stats(story_id, user_id)
 
         return StoryStatsResponse(
@@ -487,6 +528,5 @@ class StoryService:
             total_words=stats.get("total_words", 0),
             total_chapters=stats.get("chapters_total", 0),
             total_scenes=stats.get("scenes_tracked", 0),
-            streak_days=stats.get("streak_days", 0)
+            streak_days=stats.get("streak_days", 0),
         )
-

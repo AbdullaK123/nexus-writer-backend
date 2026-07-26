@@ -9,10 +9,18 @@ from src.data.schemas._base import ApiModel
 
 class Scene(BaseModel):
     title: str = Field(description="A short descriptive title for the scene.")
-    start_quote: str = Field(description="A short VERBATIM quote from the chapter marking where the scene begins.")
-    end_quote: str = Field(description="A short VERBATIM quote from the chapter marking where the scene ends.")
-    description: str = Field(description="A 3-4 sentence synopsis of what happened in the scene")
-    pov: str = Field(description="The POV character of the scene. It MUST correspond to an entity in the mentioned_entities field.")
+    start_quote: str = Field(
+        description="A short VERBATIM quote from the chapter marking where the scene begins."
+    )
+    end_quote: str = Field(
+        description="A short VERBATIM quote from the chapter marking where the scene ends."
+    )
+    description: str = Field(
+        description="A 3-4 sentence synopsis of what happened in the scene"
+    )
+    pov: str = Field(
+        description="The POV character of the scene. It MUST correspond to an entity in the mentioned_entities field."
+    )
     tension: Literal["low", "medium", "high"] = Field(
         description="""
         The dramatic tension of the scene.
@@ -57,6 +65,7 @@ class Scene(BaseModel):
 class SceneExtraction(BaseModel):
     """LLM output container — the bag of scenes extracted from one chapter.
     Not persisted directly; the service explodes it into per-scene rows."""
+
     scenes: List[Scene] = Field(default_factory=list)
 
 
@@ -70,6 +79,7 @@ class SceneRow(BaseModel):
     `embedding` / `embedding_model` / `embedded_at`. A separate worker
     fills those in once the vector is generated.
     """
+
     model_config = ConfigDict(from_attributes=True)
 
     id: str
@@ -95,6 +105,7 @@ class SceneRow(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
 class SceneSearchResult(SceneRow):
     """A `SceneRow` plus a hybrid-search relevance score.
 
@@ -103,8 +114,10 @@ class SceneSearchResult(SceneRow):
     relevant). Values are not comparable across queries — they're only
     meaningful for ordering within one result set.
     """
+
     chapter_title: str
     score: float
+
 
 class SceneSearchRequest(ApiModel):
     """Body for POST /stories/{story_id}/search.
@@ -115,6 +128,7 @@ class SceneSearchRequest(ApiModel):
     `search.default_candidate_pool` from config. Most callers should leave
     them unset.
     """
+
     query: str = Field(min_length=1, max_length=500)
     k: int | None = Field(default=None, ge=1, le=50)
     candidate_pool: int | None = Field(default=None, ge=1, le=500)
@@ -132,9 +146,11 @@ class SceneSearchRequest(ApiModel):
     def _empty_to_none(cls, v: List[str] | None) -> List[str] | None:
         return v or None
 
+
 class SceneSearchListResponse(ApiModel):
     """Wrapper so the API returns an object, not a bare list (easier to
     extend with paging/metadata later without breaking clients)."""
+
     results: List["SceneSearchResponse"]
 
 
@@ -177,6 +193,7 @@ class VocabularyItem(ApiModel):
     Sorted by count desc on the way out so the most common labels come
     first — useful both for UI surfacing and for letting the agent prioritise
     high-signal filter values."""
+
     value: str
     count: int
 

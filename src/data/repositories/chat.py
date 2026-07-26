@@ -6,28 +6,20 @@ from src.data.schemas.chat import ChatMessageRow, ChatThreadRow
 
 Executor = Any
 
-class ChatRepository:
 
-    def __init__(
-        self,
-        pool: asyncpg.Pool
-    ) -> None:
+class ChatRepository:
+    def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
     @property
     def pool(self) -> asyncpg.Pool:
         return self._pool
-    
+
     def _exe(self, executor: Executor) -> Executor:
         return executor if executor is not None else self._pool
-    
 
     async def create_thread(
-        self, 
-        user_id: str, 
-        story_id: str,
-        title: str,
-        executor: Executor | None = None
+        self, user_id: str, story_id: str, title: str, executor: Executor | None = None
     ) -> ChatThreadRow:
         sql = """
         INSERT INTO "chat_thread" (id, user_id, story_id, title)
@@ -40,10 +32,7 @@ class ChatRepository:
         return ChatThreadRow.model_validate(dict(row))
 
     async def get_thread(
-        self, 
-        thread_id: str,
-        user_id: str,
-        executor: Executor | None = None
+        self, thread_id: str, user_id: str, executor: Executor | None = None
     ) -> Optional[ChatThreadRow]:
         sql = """
         SELECT *
@@ -52,16 +41,12 @@ class ChatRepository:
         """
         row = await self._exe(executor).fetchrow(sql, thread_id, user_id)
         if row is None:
-            return None 
+            return None
         return ChatThreadRow.model_validate(dict(row))
-    
+
     async def list_threads_for_story(
-        self,
-        user_id: str,
-        story_id: str, 
-        executor: Executor | None = None
+        self, user_id: str, story_id: str, executor: Executor | None = None
     ) -> List[ChatThreadRow]:
-        
         sql = """
         SELECT *
         FROM "chat_thread"
@@ -69,44 +54,34 @@ class ChatRepository:
         ORDER BY updated_at DESC
         """
         rows = await self._exe(executor).fetch(sql, user_id, story_id)
-        
-        return [
-            ChatThreadRow.model_validate(dict(row))
-            for row in rows
-        ]
-    
+
+        return [ChatThreadRow.model_validate(dict(row)) for row in rows]
+
     async def update_thread_title(
         self,
         thread_id: str,
         user_id: str,
         title: str,
         *,
-        executor: Executor | None = None
+        executor: Executor | None = None,
     ) -> Optional[ChatThreadRow]:
-        
         sql = """
         UPDATE "chat_thread"
         SET title=$3, updated_at=NOW()
         WHERE id=$1 AND user_id=$2
         RETURNING *
         """
-    
+
         row = await self._exe(executor).fetchrow(sql, thread_id, user_id, title)
 
         if row is None:
             return None
 
         return ChatThreadRow.model_validate(dict(row))
-    
 
     async def touch_thread(
-        self,
-        thread_id: str, 
-        user_id: str,
-        *,
-        executor: Executor | None = None
+        self, thread_id: str, user_id: str, *, executor: Executor | None = None
     ) -> None:
-        
         sql = """
         UPDATE "chat_thread"
         SET updated_at=NOW()
@@ -114,21 +89,14 @@ class ChatRepository:
         """
         await self._exe(executor).execute(sql, thread_id, user_id)
 
-        
     async def delete_thread(
-        self,
-        thread_id: str,
-        user_id: str,
-        *,
-        executor: Executor | None = None
+        self, thread_id: str, user_id: str, *, executor: Executor | None = None
     ) -> None:
-        
         sql = """
         DELETE FROM "chat_thread"
         WHERE id=$1 AND user_id=$2
         """
         await self._exe(executor).execute(sql, thread_id, user_id)
-
 
     async def append_message(
         self,

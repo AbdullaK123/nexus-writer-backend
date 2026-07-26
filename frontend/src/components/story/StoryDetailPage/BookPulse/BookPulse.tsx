@@ -1,7 +1,9 @@
 import type { PulseDimension } from "../../../../infrastructure/api/types";
 import { Button, EmptyState, ErrorState, LoadingSkeleton } from "../../../common";
-import { None, Some } from "oxide.ts";
+import { None, Some, Option } from "oxide.ts";
+import { useMemo, useState } from "react"
 import styles from "./BookPulse.module.css"
+import { FilterChipNoCounts } from "../../DashboardPage/LibraryGrid/FilterChip/FilterChip";
 
 export type BookPulseProps =
   | { status: 'loading' }
@@ -9,6 +11,8 @@ export type BookPulseProps =
   | { status: 'empty' }
   | {
       status: 'ready'
+      onDigIntoThis: (pulse: PulseDimension) => void
+      threadCreationPending: boolean
       characters: PulseDimension
       plot: PulseDimension
       structure: PulseDimension
@@ -16,6 +20,22 @@ export type BookPulseProps =
     }
 
 export function BookPulse(props: BookPulseProps) {
+
+  const [selectedLense, setSelectedLense] = useState<"characters" | "plot" | "structure" | "world">("characters")
+
+  const selectedDimension: Option<PulseDimension> = useMemo(() => {
+
+    if (props.status !== "ready") return None
+
+    switch (selectedLense) {
+      case "characters": return Some(props.characters)
+      case "plot": return Some(props.plot)
+      case "structure": return Some(props.structure)
+      case "world": return Some(props.world)
+    }
+    
+  }, [props, selectedLense])
+
   const getLabelStyles = (label: "healthy" | "needs-attention" | "watch" | "unavailable") => {
     switch (label) {
       case "healthy": return styles['text-healthy']
@@ -33,6 +53,43 @@ export function BookPulse(props: BookPulseProps) {
       case "watch": return "watch"
     }
   }
+
+  const renderPulseCard = (
+    lense: "characters" | "plot" | "structure" | "world", 
+    dimension: PulseDimension,
+    onDigIntoThis: (pulse: PulseDimension) => void,
+    threadCreationPending: boolean
+  ) => (
+    <div className={styles['pulse-card']}>
+      <div className={styles['pulse-card-header']}>
+        <p className={styles['all-caps']}>{lense}</p>
+        <p className={getLabelStyles(dimension.label)}>
+          {getLabelText(dimension.label)}
+        </p>
+      </div>
+      <h3>{dimension.headline}</h3>
+      <div className={styles['pulse-section']}>
+        <p className={styles['pulse-section-label']}>What's working</p>
+        <p>{dimension.whats_working}</p>
+      </div>
+      <div className={styles['pulse-section']}>
+        <p className={styles['pulse-section-label']}>What's not working</p>
+        <p>{dimension.whats_not_working}</p>
+        <Button
+          variant="secondary"
+          disabled={threadCreationPending}
+          onClick={() => onDigIntoThis(dimension)}
+        >
+          {threadCreationPending ? "Opening investigation···" : "Dig into this →"}
+        </Button>
+      </div>
+      {dimension.evidence_chapters.length > 0 && (
+        <p className={styles['evidence-chapters']}>
+          Evidence: Chapters {dimension.evidence_chapters.join(", ")}
+        </p>
+      )}
+    </div>
+  )
 
   switch (props.status) {
     case 'loading':
@@ -75,7 +132,10 @@ export function BookPulse(props: BookPulseProps) {
           action={None}
         />
       )
-    case 'ready':
+    case 'ready': {
+
+      const unwrappedDimension = selectedDimension.unwrap()
+
       return (
         <div className={styles['content-container']}>
           <div className={styles['content-header']}>
@@ -84,49 +144,38 @@ export function BookPulse(props: BookPulseProps) {
               <p>From the analytics agent</p>
             </div>
           </div>
+          <div className={styles['actions-container']}>
+            <FilterChipNoCounts 
+                label="characters"
+                onClick={() => setSelectedLense("characters")}
+                status={(selectedLense === "characters") ? "selected" : "idle"}
+              />
+            <FilterChipNoCounts 
+                label="plot"
+                onClick={() => setSelectedLense("plot")}
+                status={(selectedLense === "plot") ? "selected" : "idle"}
+              />
+            <FilterChipNoCounts 
+                label="structure"
+                onClick={() => setSelectedLense("structure")}
+                status={(selectedLense === "structure") ? "selected" : "idle"}
+              />
+            <FilterChipNoCounts 
+                label="world"
+                onClick={() => setSelectedLense("world")}
+                status={(selectedLense === "world") ? "selected" : "idle"}
+            />
+          </div>
           <div className={styles['content']}>
-            <div className={styles['pulse-card']}>
-              <div className={styles['pulse-card-header']}>
-                <p className={styles['all-caps']}>CHARACTERS</p>
-                <p className={getLabelStyles(props.characters.label)}>
-                  {getLabelText(props.characters.label)}
-                </p>
-              </div>
-              <h3>{props.characters.headline}</h3>
-              <p>{props.characters.report}</p>
-            </div>
-            <div className={styles['pulse-card']}>
-              <div className={styles['pulse-card-header']}>
-                <p className={styles['all-caps']}>PLOT</p>
-                <p className={getLabelStyles(props.plot.label)}>
-                  {getLabelText(props.plot.label)}
-                </p>
-              </div>
-              <h3>{props.plot.headline}</h3>
-              <p>{props.plot.report}</p>
-            </div>
-            <div className={styles['pulse-card']}>
-              <div className={styles['pulse-card-header']}>
-                <p className={styles['all-caps']}>STRUCTURE</p>
-                <p className={getLabelStyles(props.structure.label)}>
-                  {getLabelText(props.structure.label)}
-                </p>
-              </div>
-              <h3>{props.structure.headline}</h3>
-              <p>{props.structure.report}</p>
-            </div>
-            <div className={styles['pulse-card']}>
-              <div className={styles['pulse-card-header']}>
-                <p className={styles['all-caps']}>WORLD</p>
-                <p className={getLabelStyles(props.world.label)}>
-                  {getLabelText(props.world.label)}
-                </p>
-              </div>
-              <h3>{props.world.headline}</h3>
-              <p>{props.world.report}</p>
-            </div>
+            {renderPulseCard(
+              selectedLense, 
+              unwrappedDimension, 
+              props.onDigIntoThis,
+              props.threadCreationPending
+            )}
           </div>
         </div>
       )
+    }
   }
 }

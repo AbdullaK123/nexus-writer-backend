@@ -6,6 +6,7 @@ pool directly (which acquires-and-releases a connection per call). asyncpg's
 Pool exposes `fetch`/`fetchrow`/`execute` with that exact contract, so the
 two are interchangeable for single-shot calls.
 """
+
 from __future__ import annotations
 
 from typing import Any, Sequence
@@ -40,7 +41,11 @@ class StoryRepository:
         return executor if executor is not None else self._pool
 
     async def get(
-        self, story_id: str, user_id: str, *, executor: Executor | None = None,
+        self,
+        story_id: str,
+        user_id: str,
+        *,
+        executor: Executor | None = None,
     ) -> StoryRow | None:
         sql = f'SELECT {_STORY_COLUMNS} FROM "story" WHERE id = $1 AND user_id = $2'
         row = await self._exe(executor).fetchrow(sql, story_id, user_id)
@@ -92,7 +97,7 @@ class StoryRepository:
             raise ValueError(f"unsupported fields: {sorted(bad)}")
 
         cols = list(fields.keys())
-        set_clause = ", ".join(f'{col} = ${i + 3}' for i, col in enumerate(cols))
+        set_clause = ", ".join(f"{col} = ${i + 3}" for i, col in enumerate(cols))
         params: list[Any] = [story_id, user_id, *fields.values()]
 
         sql = f"""
@@ -125,7 +130,10 @@ class StoryRepository:
         await self._exe(executor).execute(sql, story_id, list(path))
 
     async def get_path_array(
-        self, story_id: str, *, executor: Executor | None = None,
+        self,
+        story_id: str,
+        *,
+        executor: Executor | None = None,
     ) -> list[str] | None:
         """Returns the story's path_array, or None if the story doesn't exist.
         Distinguishes 'no story' from 'empty path' on purpose."""
@@ -136,16 +144,22 @@ class StoryRepository:
         return list(row["path_array"] or [])
 
     async def touch(
-        self, story_id: str, *, executor: Executor | None = None,
+        self,
+        story_id: str,
+        *,
+        executor: Executor | None = None,
     ) -> None:
         sql = 'UPDATE "story" SET updated_at = NOW() WHERE id = $1'
         await self._exe(executor).execute(sql, story_id)
 
     async def get_stats(
-        self, story_id: str, user_id: str, *, executor: Executor | None = None,
+        self,
+        story_id: str,
+        user_id: str,
+        *,
+        executor: Executor | None = None,
     ) -> dict:
-        sql = \
-        """
+        sql = """
            WITH unique_dates AS (
                 SELECT DISTINCT
                     DATE_TRUNC('day', updated_at)::date AS active_date
@@ -187,5 +201,5 @@ class StoryRepository:
 
         if len(result) == 0:
             return {}
-        
+
         return result[0]

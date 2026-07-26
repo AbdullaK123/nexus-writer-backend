@@ -146,8 +146,8 @@ lint: ## Run ruff linter
 	@uv run ruff check src/ main.py worker.py
 
 format: ## Auto-format code with ruff
-	@uv run ruff format src/ main.py worker.py
-	@uv run ruff check --fix src/ main.py worker.py
+	@uv run ruff format src/ main.py cron_worker.py
+	@uv run ruff check --fix src/ main.py saq_worker.py
 
 typecheck: ## Run mypy type checking
 	@uv run mypy src/ main.py worker.py

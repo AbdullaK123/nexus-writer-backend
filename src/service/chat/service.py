@@ -1,22 +1,33 @@
-
 from typing import AsyncIterator
 import json
 from pydantic_ai import Agent, ModelMessagesTypeAdapter
-from src.data.schemas.chat import ChatMessageListResponse, ChatMessageResponse, ConversationTurnRequest, ThreadListResponse
+from src.data.schemas.chat import (
+    ChatMessageListResponse,
+    ChatMessageResponse,
+    ConversationTurnRequest,
+    ThreadListResponse,
+)
 from src.infrastructure.ai.providers.protocol import AIProvider
 from src.data.repositories import ChatRepository, StoryRepository
 from src.data.schemas import CreateThreadRequest, ThreadResponse
 from src.service.analytics.service import AnalyticsService
 from src.service.chat.agent import ChatDeps
-from src.service.exceptions import ForbiddenError, NotFoundError, ServiceError, ValidationError
+from src.service.exceptions import (
+    NotFoundError,
+    ServiceError,
+    ValidationError,
+)
 from src.service.chapter import ChapterService
 from src.service.story import StoryService
 from loguru import logger
 
-from src.service.utils.decorators import handle_service_errors, handle_service_errors_stream
+from src.service.utils.decorators import (
+    handle_service_errors,
+    handle_service_errors_stream,
+)
+
 
 class ChatService:
-
     def __init__(
         self,
         provider: AIProvider,
@@ -25,7 +36,7 @@ class ChatService:
         chapter_service: ChapterService,
         story_service: StoryService,
         analytics_service: AnalyticsService,
-        agent: Agent[ChatDeps, str]
+        agent: Agent[ChatDeps, str],
     ) -> None:
         self._provider = provider
         self._chat_repo = chat_repo
@@ -37,11 +48,8 @@ class ChatService:
 
     @handle_service_errors
     async def create_thread(
-        self,
-        user_id: str,
-        payload: CreateThreadRequest
+        self, user_id: str, payload: CreateThreadRequest
     ) -> ThreadResponse:
-        
         try:
             title = await self._provider.generate(
                 system_prompt="""
@@ -52,7 +60,7 @@ class ChatService:
                 with the following initial message in triple backticks:
                 ```{payload.first_message}```
                 """,
-                max_tokens=50 # will tune later
+                max_tokens=50,  # will tune later
             )
         except Exception as e:
             logger.warning("svc.create_thread.generate_title.failed", error=str(e))
@@ -62,27 +70,19 @@ class ChatService:
         if story is None:
             raise NotFoundError("Story not found")
 
-        thread = await self._chat_repo.create_thread(
-            user_id,
-            payload.story_id,
-            title
-        )
+        thread = await self._chat_repo.create_thread(user_id, payload.story_id, title)
 
         return ThreadResponse(
-            thread_id=thread.id,
-            thread_title=thread.title,
-            updated_at=thread.updated_at
+            thread_id=thread.id, thread_title=thread.title, updated_at=thread.updated_at
         )
-    
-    @handle_service_errors    
+
+    @handle_service_errors
     async def update_thread_title(
-        self,
-        thread_id: str,
-        user_id: str,
-        new_title: str 
+        self, thread_id: str, user_id: str, new_title: str
     ) -> ThreadResponse:
-        
-        updated_thread = await self._chat_repo.update_thread_title(thread_id, user_id, new_title)
+        updated_thread = await self._chat_repo.update_thread_title(
+            thread_id, user_id, new_title
+        )
 
         if updated_thread is None:
             raise NotFoundError("Thread not found")
@@ -90,39 +90,27 @@ class ChatService:
         return ThreadResponse(
             thread_id=updated_thread.id,
             thread_title=updated_thread.title,
-            updated_at=updated_thread.updated_at
+            updated_at=updated_thread.updated_at,
         )
-    
+
     @handle_service_errors
-    async def delete_thread(
-        self,
-        thread_id: str,
-        user_id: str
-    ) -> dict:
-        
+    async def delete_thread(self, thread_id: str, user_id: str) -> dict:
         thread = await self._chat_repo.get_thread(thread_id, user_id)
 
         if thread is None:
             raise NotFoundError("Thread not found")
-        
+
         await self._chat_repo.delete_thread(thread_id, user_id)
 
-        return {
-            "message": "Thread successfully deleted."
-        }
-    
-    @handle_service_errors
-    async def get_threads(
-        self,
-        story_id: str,
-        user_id: str
-    ) -> ThreadListResponse:
+        return {"message": "Thread successfully deleted."}
 
+    @handle_service_errors
+    async def get_threads(self, story_id: str, user_id: str) -> ThreadListResponse:
         story = await self._story_repo.get(story_id, user_id)
 
         if story is None:
             raise NotFoundError("Story not found")
-        
+
         threads = await self._chat_repo.list_threads_for_story(user_id, story_id)
 
         return ThreadListResponse(
@@ -130,24 +118,21 @@ class ChatService:
                 ThreadResponse(
                     thread_id=thread.id,
                     thread_title=thread.title,
-                    updated_at=thread.updated_at
+                    updated_at=thread.updated_at,
                 )
                 for thread in threads
             ]
         )
-    
+
     @handle_service_errors
     async def get_thread_messages(
-        self,
-        thread_id: str,
-        user_id: str
+        self, thread_id: str, user_id: str
     ) -> ChatMessageListResponse:
-        
         thread = await self._chat_repo.get_thread(thread_id, user_id)
 
         if thread is None:
             raise NotFoundError("Thread not found error")
-        
+
         messages = await self._chat_repo.list_messages(thread_id, user_id)
 
         return ChatMessageListResponse(
@@ -161,39 +146,31 @@ class ChatService:
                     created_at=message.created_at,
                 )
                 for message in messages
-            ]
+            ],
         )
 
     @handle_service_errors_stream
     async def run_turn(
-        self,
-        user_id: str,
-        payload: ConversationTurnRequest
+        self, user_id: str, payload: ConversationTurnRequest
     ) -> AsyncIterator[str]:
-        
         async with self._chat_repo.pool.acquire() as conn:
-
             story = await self._story_repo.get(payload.story_id, user_id, executor=conn)
 
             if story is None:
                 raise NotFoundError("Story not found")
-            
+
             thread = await self._chat_repo.get_thread(
-                payload.thread_id, 
-                user_id, 
-                executor=conn
+                payload.thread_id, user_id, executor=conn
             )
 
             if thread is None:
                 raise NotFoundError("Thread not found")
-            
+
             if payload.story_id != thread.story_id:
                 raise ValidationError({"story_id": ["does not match thread"]})
-            
+
             rows = await self._chat_repo.list_messages(
-                payload.thread_id,
-                user_id,
-                executor=conn
+                payload.thread_id, user_id, executor=conn
             )
 
         history = ModelMessagesTypeAdapter.validate_python([r.message for r in rows])
@@ -203,18 +180,16 @@ class ChatService:
             story_id=payload.story_id,
             chapter_service=self._chapter_svc,
             story_service=self._story_svc,
-            analytics_service=self._analytics_svc
+            analytics_service=self._analytics_svc,
         )
 
         async with self._agent.run_stream(
-            user_prompt=payload.user_message,
-            deps=deps,
-            message_history=history
+            user_prompt=payload.user_message, deps=deps, message_history=history
         ) as stream:
             async for delta in stream.stream_text(delta=True):
                 yield delta
             new_messages = stream.new_messages()
-        
+
         serialized = ModelMessagesTypeAdapter.dump_python(new_messages, mode="json")
 
         async with self._chat_repo.pool.acquire() as conn:
@@ -225,12 +200,10 @@ class ChatService:
                         user_id=user_id,
                         kind=msg.kind,
                         message=dumped,
-                        executor=conn
+                        executor=conn,
                     )
                 await self._chat_repo.touch_thread(
-                    payload.thread_id,
-                    user_id,
-                    executor=conn
+                    payload.thread_id, user_id, executor=conn
                 )
 
     @staticmethod

@@ -17,7 +17,7 @@ workers, and a grounded story-research agent. The Vite/React frontend lives in
 ## Tech stack (current)
 
 ### Backend
-- Python 3.10+
+- Python 3.12 in Docker (the package declares Python 3.10+ compatibility)
 - FastAPI
 - Uvicorn
 - asyncpg / psycopg2-binary
@@ -62,44 +62,53 @@ workers, and a grounded story-research agent. The Vite/React frontend lives in
 
 ## Backend configuration
 
-Create a `.env` file in the repository root. At minimum, provide values required by your runtime config (DB URLs, auth/cookie keys, and any AI/provider keys your enabled flows need).
+Create a `.env` file in the repository root. The application loads this file
+through `pydantic-settings` at startup.
 
-Commonly used keys in this codebase include:
+Required runtime keys:
 
 - `DATABASE_URL`
-- `DATABASE_SYNC_URL`
-- `MIGRATION_URL`
-- `APP_SECRET_KEY`
-- `COOKIE_SIGNING_KEY`
-- `COOKIE_ENCRYPTION_KEY`
 - `REDIS_URL`
-- provider keys used by enabled services, including `OPENAI_API_KEY` and `OPEN_ROUTER_API_KEY`
+- `APP_SECRET_KEY`
+- `OPENAI_API_KEY`
+- `OPEN_ROUTER_API_KEY`
+- `OPEN_ROUTER_API_URL`
 
-Use your environment-specific values.
+Useful optional settings include `ENV` (`dev`, `staging`, or `prod`), `DEBUG`,
+and the CORS settings defined in `src/infrastructure/config/settings.py`.
 
 ## Run locally (without Docker)
 
-### 1) Install dependencies
+### 1) Start PostgreSQL and Redis
+
+The API and both workers require PostgreSQL and Redis. You can run those
+services yourself, or start only the Compose dependencies:
+
+```bash
+docker compose up -d postgres-nexus nexus-redis
+```
+
+### 2) Install dependencies
 ```bash
 uv sync
 ```
 
-### 2) Apply migrations
+### 3) Apply migrations
 ```bash
-uv run yoyo apply --batch --database "$MIGRATION_URL" ./migrations/yoyo
+uv run yoyo apply --batch --database "$DATABASE_URL" ./migrations/yoyo
 ```
 
-### 3) Start API
+### 4) Start API
 ```bash
 uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 4) Start the SAQ worker (separate terminal)
+### 5) Start the SAQ worker (separate terminal)
 ```bash
 uv run python -m saq saq_worker.settings
 ```
 
-### 5) Start the cron worker (separate terminal)
+### 6) Start the cron worker (separate terminal)
 ```bash
 uv run cron_worker.py
 ```
@@ -165,10 +174,20 @@ Story analysis is agent-first. The chat agent is grounded with tools that can:
 The agent uses the internal `AnalyticsService` as research evidence alongside
 scene and chapter retrieval. It is not a public dashboard API.
 
+The chat API is scoped to a story and persists thread history. Create and list
+threads under `/api/stories/{story_id}/chat/threads`; send a turn to
+`/api/stories/{story_id}/chat/threads/{thread_id}/turn`, which streams the
+response as Server-Sent Events.
+
+The agent uses OpenRouter for its tool-using model. OpenRouter may cache stable
+prompt prefixes when the selected model and provider support prompt caching.
+Treat caching as an optimization, not a correctness mechanism; inspect provider
+usage metrics such as `cached_tokens` and `cache_write_tokens` when tuning
+conversation behavior.
+
 The dashboard UI and public `/api/stories/{story_id}/analytics/dashboard/*` endpoints
-were retired on 2026-07-25. The former frontend UI remains under
-`frontend/src/components/analytics/` as deprecated reference code; see its
-`DEPRECATED.md` before considering restoration.
+were retired on 2026-07-25. There is no active frontend dashboard; internal
+analytics remains available only as evidence for the story agent.
 
 ## Notes on logging and error handling
 
@@ -190,10 +209,10 @@ Typical commands:
 
 ```bash
 # apply all
-uv run yoyo apply --batch --database "$MIGRATION_URL" ./migrations/yoyo
+uv run yoyo apply --batch --database "$DATABASE_URL" ./migrations/yoyo
 
 # rollback one migration (example)
-uv run yoyo rollback --batch --database "$MIGRATION_URL" ./migrations/yoyo
+uv run yoyo rollback --batch --database "$DATABASE_URL" ./migrations/yoyo
 ```
 
 ## Development helper scripts

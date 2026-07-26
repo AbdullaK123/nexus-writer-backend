@@ -365,6 +365,15 @@ samp {
 }
 .btn--danger:hover { background: var(--fill-danger); }
 
+.btn--disabled {
+  background: var(--fill-neutral);
+  border-color: var(--fill-neutral-border);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.btn--disabled:active { transform: none; }
+
 /* ---- 04 · Form Field ---- */
 .field {
   display: flex;

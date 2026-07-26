@@ -17,6 +17,7 @@ scenes_are_stale (module-level):
   matches verbatim — i.e. the user edited the chapter and the existing
   extraction is now lying about scene boundaries.
 """
+
 import asyncio
 from itertools import batched
 from typing import Any, Iterable
@@ -45,7 +46,6 @@ def scenes_are_stale(scenes: Iterable[Any], chapter_content: str) -> bool:
 
 
 class ExtractionService:
-
     MIN_SCENE_EXTRACTION_WORDS = 1000
 
     def __init__(
@@ -60,16 +60,15 @@ class ExtractionService:
 
     def _validate_extraction(
         self,
-        extraction: SceneExtraction, 
+        extraction: SceneExtraction,
         content: str,
     ) -> list[str]:
-        
         if not extraction.scenes:
             return ["extraction must contain at least one scene"]
-        
+
         if len(content.strip().split()) < self.MIN_SCENE_EXTRACTION_WORDS:
             return ["There is not enough chapter content for a valid extraction."]
-        
+
         errors = []
 
         for scene in extraction.scenes:
@@ -86,14 +85,9 @@ class ExtractionService:
 
         return errors
 
-
-    async def _extract_with_feedback(
-        self,
-        chapter_content: str
-    ) -> SceneExtraction:
-        
+    async def _extract_with_feedback(self, chapter_content: str) -> SceneExtraction:
         feedback: list[str] = []
-        
+
         for _ in range(config.ai.max_retries):
             prompt = chapter_content
             if feedback:
@@ -106,30 +100,31 @@ class ExtractionService:
                     f"Fix them in this attempt.\n"
                     f"</previous_extraction_errors>"
                 )
-            
+
             extraction = await self._provider.extract(
                 system_prompt=SCENE_EXTRACTION_PROMPT,
                 text=prompt,
                 max_tokens=config.ai.scene_extraction_max_tokens,
                 schema=SceneExtraction,
             )
-            
+
             errors = self._validate_extraction(extraction, chapter_content)
             if not errors:
                 return extraction
-            
+
             feedback = errors
-        
-        raise InternalError(f"Failed after {config.ai.max_retries} attempts: {feedback}")
+
+        raise InternalError(
+            f"Failed after {config.ai.max_retries} attempts: {feedback}"
+        )
 
     @handle_service_errors
     async def extract_scenes(self, chapter_id: str) -> None:
-
         chapter = await self._chapter_repo.get_for_system(chapter_id)
 
         if chapter is None:
             raise NotFoundError("Chapter not found")
-        
+
         if get_word_count(chapter.content) < self.MIN_SCENE_EXTRACTION_WORDS:
             async with self._scene_repo.pool.acquire() as conn:
                 async with conn.transaction():
@@ -140,7 +135,9 @@ class ExtractionService:
                         scenes=[],
                         executor=conn,
                     )
-                    await self._scene_repo.mark_chapter_extracted(chapter.id, executor=conn)
+                    await self._scene_repo.mark_chapter_extracted(
+                        chapter.id, executor=conn
+                    )
             return
 
         plain_text = html_to_plain_text(chapter.content)
@@ -157,7 +154,8 @@ class ExtractionService:
                     executor=conn,
                 )
                 await self._scene_repo.mark_chapter_extracted(
-                    chapter.id, executor=conn,
+                    chapter.id,
+                    executor=conn,
                 )
 
     async def regenerate_stale_batched(
@@ -183,7 +181,8 @@ class ExtractionService:
                 if isinstance(result, Exception):
                     logger.warning(
                         "extract_scenes.failed",
-                        chapter_id=cid, error=str(result),
+                        chapter_id=cid,
+                        error=str(result),
                     )
                 else:
                     total_reextracted += 1

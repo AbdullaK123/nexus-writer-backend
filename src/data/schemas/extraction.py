@@ -7,10 +7,18 @@ from src.data.schemas._base import ApiModel
 
 class Scene(BaseModel):
     title: str = Field(description="A short descriptive title for the scene.")
-    start_quote: str = Field(description="A short VERBATIM quote from the chapter marking where the scene begins.")
-    end_quote: str = Field(description="A short VERBATIM quote from the chapter marking where the scene ends.")
-    description: str = Field(description="A 3-4 sentence synopsis of what happened in the scene")
-    pov: str = Field(description="The POV character of the scene. It MUST correspond to an entity in the mentioned_entities field.")
+    start_quote: str = Field(
+        description="A short VERBATIM quote from the chapter marking where the scene begins."
+    )
+    end_quote: str = Field(
+        description="A short VERBATIM quote from the chapter marking where the scene ends."
+    )
+    description: str = Field(
+        description="A 3-4 sentence synopsis of what happened in the scene"
+    )
+    pov: str = Field(
+        description="The POV character of the scene. It MUST correspond to an entity in the mentioned_entities field."
+    )
     tension: Literal["low", "medium", "high"] = Field(
         description="""
         The dramatic tension of the scene. 
@@ -51,12 +59,14 @@ class Scene(BaseModel):
         """
     )
 
+
 class SceneExtraction(BaseModel):
     scenes: List[Scene] = Field(default_factory=list)
 
 
 class ExtractionRow(BaseModel):
     """One row from the `extraction` table. Repository return type."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: str
@@ -67,6 +77,7 @@ class ExtractionRow(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
 class PulseDimension(BaseModel):
     """
     A high-level editorial assessment of one dimension of the story:
@@ -74,7 +85,8 @@ class PulseDimension(BaseModel):
 
     The assessment identifies the single most consequential pattern visible
     across the ordered scene synopses. It evaluates broad narrative health
-    and state only, without making claims about prose-level execution.
+    and state only, without making claims about prose-level execution, and
+    cites the chapters that support its observations.
     """
 
     label: Literal[
@@ -117,23 +129,40 @@ class PulseDimension(BaseModel):
         """
     )
 
-    report: str = Field(
+    whats_working: str = Field(
         description="""
-        A short executive report explaining the headline in 2-3 sentences.
+        A short 1-2 sentence report identifying the strongest pattern that is
+        working in this story dimension. Ground it in the supplied scene
+        synopses and keep it at the level of characters, plot, structure, or
+        world appropriate to the current assessment.
 
-        Describe the dominant manuscript-wide pattern, support it with concrete
-        story-specific observations from the scene synopses, and briefly explain
-        why it matters. Remain at the level of characters, plot, structure, or
-        world appropriate to the current call.
-
-        Do not provide a list, detailed scene critique, prescriptive rewrite
-        advice, unsupported speculation, or claims about prose-level qualities
-        that cannot be determined from scene synopses.
-
-        When the label is 'unavailable', briefly explain why the supplied
-        context cannot support the assessment.
+        If the context is insufficient, state that no reliable strength can be
+        assessed. Do not give prose-level feedback, rewrite advice, or make
+        unsupported claims.
         """
     )
+
+    whats_not_working: str = Field(
+        description="""
+        A short 1-2 sentence report identifying the clearest weakness, risk, or
+        missing development in this story dimension. Ground it in the supplied
+        scene synopses and explain the consequence without prescribing a rewrite.
+
+        If no substantial concern is visible, say so plainly. If the context is
+        insufficient, explain why no responsible assessment can be made.
+        """
+    )
+
+    evidence_chapters: List[int] = Field(
+        default_factory=list,
+        description="""
+        A sorted, unique list of the 1-based chapter numbers that directly
+        support the working and not-working reports. Cite only chapter numbers
+        present in the supplied story context. Return an empty list only when
+        the label is 'unavailable' because the context is insufficient.
+        """
+    )
+
 
 class BookPulseResponse(ApiModel):
     """The complete high-level editorial pulse for a story."""
@@ -143,40 +172,46 @@ class BookPulseResponse(ApiModel):
     structure: PulseDimension
     world: PulseDimension
 
+
 INSUFFICIENT_CONTEXT = BookPulseResponse(
     characters=PulseDimension(
         label="unavailable",
         headline="Characters pulse is unavailable.",
-        report=(
+        whats_working="No reliable character strength can be assessed yet.",
+        whats_not_working=(
             "The supplied scenes do not contain enough character activity "
-            "to support a meaningful assessment. More narrative content "
-            "is needed before character health can be evaluated."
+            "to support a meaningful assessment."
         ),
+        evidence_chapters=[],
     ),
     plot=PulseDimension(
         label="unavailable",
         headline="Plot pulse is unavailable.",
-        report=(
-            "There are too few scenes to identify plot-level patterns. "
-            "A responsible assessment requires enough material to observe "
-            "cause-and-effect progression across the manuscript."
+        whats_working="No reliable plot strength can be assessed yet.",
+        whats_not_working=(
+            "There are too few scenes to identify plot-level patterns or "
+            "cause-and-effect progression."
         ),
+        evidence_chapters=[],
     ),
     structure=PulseDimension(
         label="unavailable",
         headline="Structure pulse is unavailable.",
-        report=(
-            "Structural assessment requires a sequence of scenes long enough "
-            "to exhibit pacing, rhythm, and arc shape. The current input "
-            "is too sparse for that analysis."
+        whats_working="No reliable structural strength can be assessed yet.",
+        whats_not_working=(
+            "The current scene sequence is too sparse to exhibit pacing, "
+            "rhythm, or arc shape."
         ),
+        evidence_chapters=[],
     ),
     world=PulseDimension(
         label="unavailable",
         headline="World pulse is unavailable.",
-        report=(
-            "The supplied context does not contain enough setting detail "
-            "or world-building to support an assessment of this dimension."
+        whats_working="No reliable worldbuilding strength can be assessed yet.",
+        whats_not_working=(
+            "The supplied context does not contain enough setting detail or "
+            "worldbuilding to support an assessment."
         ),
+        evidence_chapters=[],
     ),
 )

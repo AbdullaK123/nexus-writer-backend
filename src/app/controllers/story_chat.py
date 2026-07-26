@@ -6,6 +6,7 @@ is `/stories/{story_id}/chat`.
 Streaming endpoints return `text/event-stream`. Frame formatting and
 error handling for the stream live in `ChatService.stream_turn_sse`.
 """
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from src.app.dependencies import get_current_user, get_chat_service
@@ -39,8 +40,8 @@ async def create_thread(
     return await chat_service.create_thread(
         current_user.id,
         CreateThreadRequest(
-            story_id=story_id, # type: ignore
-            first_message=body.first_message, # type: ignore
+            story_id=story_id,  # type: ignore
+            first_message=body.first_message,  # type: ignore
         ),
     )
 
@@ -79,7 +80,9 @@ async def rename_thread(
     chat_service: ChatService = Depends(get_chat_service),
 ) -> ThreadResponse:
     return await chat_service.update_thread_title(
-        thread_id, current_user.id, body.title,
+        thread_id,
+        current_user.id,
+        body.title,
     )
 
 

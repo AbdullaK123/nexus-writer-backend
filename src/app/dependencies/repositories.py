@@ -4,6 +4,7 @@ Repos are constructed per-request from the app-state pool. They're stateless
 w.r.t. connections (acquire from pool per call), so cheap to recreate and
 safe to capture in BackgroundTasks closures.
 """
+
 from fastapi import Depends
 import asyncpg
 
@@ -54,7 +55,8 @@ def get_chat_repository(
 ) -> ChatRepository:
     return ChatRepository(pool)
 
+
 def get_analytics_repository(
-    pool: asyncpg.Pool = Depends(get_db_pool)
+    pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> AnalyticsRepository:
     return AnalyticsRepository(pool)

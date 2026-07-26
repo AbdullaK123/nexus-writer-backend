@@ -6,11 +6,12 @@ The big shape change: extraction is no longer an upsert against a single row.
 Instead, `replace_for_chapter` deletes-then-bulk-inserts inside a transaction
 so a re-extraction atomically swaps the scene set for a chapter.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 from time import perf_counter
-from typing import Any, List, Literal, Sequence
+from typing import Any, Literal, Sequence
 
 import asyncpg
 from loguru import logger
@@ -18,7 +19,7 @@ from uuid_extensions import uuid7str
 
 from src.data.schemas import Scene, SceneRow
 from src.data.schemas.scene import SceneSearchResult
-from src.shared.utils.html import get_word_count, html_to_plain_text
+from src.shared.utils.html import html_to_plain_text
 
 
 _SCENE_COLUMNS = """
@@ -49,7 +50,10 @@ class SceneRepository:
     # ─── reads ────────────────────────────────────────────────────────────
 
     async def list_by_chapter(
-        self, chapter_id: str, *, executor: Executor | None = None,
+        self,
+        chapter_id: str,
+        *,
+        executor: Executor | None = None,
     ) -> list[SceneRow]:
         sql = f"""
             SELECT {_SCENE_COLUMNS}
@@ -59,23 +63,24 @@ class SceneRepository:
         """
         rows = await self._exe(executor).fetch(sql, chapter_id)
         return [SceneRow.model_validate(dict(r)) for r in rows]
-    
+
     async def get_scene_text(
-        self, 
-        chapter_id: str, 
+        self,
+        chapter_id: str,
         start_quote: str,
         end_quote: str,
-        *, 
-        executor: Executor | None = None
+        *,
+        executor: Executor | None = None,
     ) -> str | None:
-
-        chapter_text_sql =f"""\
+        chapter_text_sql = """\
         SELECT content
         FROM "chapter"
         WHERE id = $1
         """
 
-        chapter_text_raw = await self._exe(executor).fetchrow(chapter_text_sql, chapter_id)
+        chapter_text_raw = await self._exe(executor).fetchrow(
+            chapter_text_sql, chapter_id
+        )
 
         chapter_plain_text = html_to_plain_text(chapter_text_raw["content"])
 
@@ -85,30 +90,32 @@ class SceneRepository:
         end_idx = chapter_plain_text.find(end_quote)
         if end_idx == -1:
             return None
-        
+
         return chapter_plain_text[start_idx : end_idx + len(end_quote)]
 
     async def get_scene_word_count(
-        self, 
-        chapter_id: str, 
+        self,
+        chapter_id: str,
         start_quote: str,
         end_quote: str,
-        *, 
-        executor: Executor | None = None
+        *,
+        executor: Executor | None = None,
     ) -> int:
-        
         scene_text = await self.get_scene_text(chapter_id, start_quote, end_quote)
 
         if scene_text is None:
             return 0
-        
+
         return len(scene_text.split())
 
-
     async def list_by_story(
-        self, story_id: str, user_id: str, *, chapter_id: str | None = None, executor: Executor | None = None,
+        self,
+        story_id: str,
+        user_id: str,
+        *,
+        chapter_id: str | None = None,
+        executor: Executor | None = None,
     ) -> list[SceneRow]:
-
         sql = f"""
             WITH story_ids AS (
                 SELECT UNNEST(
@@ -131,7 +138,10 @@ class SceneRepository:
         return [SceneRow.model_validate(dict(r)) for r in rows]
 
     async def list_pending_embeddings(
-        self, *, limit: int, executor: Executor | None = None,
+        self,
+        *,
+        limit: int,
+        executor: Executor | None = None,
     ) -> list[SceneRow]:
         """Scenes with no embedding yet — input for the embedding worker.
         Ordered oldest-first so old work doesn't starve."""
@@ -167,12 +177,20 @@ class SceneRepository:
             async with self._pool.acquire() as conn:
                 async with conn.transaction():
                     await self._replace_for_chapter_inner(
-                        conn, chapter_id, story_id, user_id, scenes,
+                        conn,
+                        chapter_id,
+                        story_id,
+                        user_id,
+                        scenes,
                     )
             return
 
         await self._replace_for_chapter_inner(
-            executor, chapter_id, story_id, user_id, scenes,
+            executor,
+            chapter_id,
+            story_id,
+            user_id,
+            scenes,
         )
 
     async def _replace_for_chapter_inner(
@@ -190,10 +208,25 @@ class SceneRepository:
         rows = [
             (
                 uuid7str(),
-                chapter_id, story_id, user_id, position,
-                scene.title, scene.start_quote, scene.end_quote, scene.description, scene.pov,
-                scene.tension, scene.pacing,
-                scene.mentioned_entities, scene.tags, scene.questions_raised, (await self.get_scene_word_count(chapter_id, scene.start_quote, scene.end_quote))
+                chapter_id,
+                story_id,
+                user_id,
+                position,
+                scene.title,
+                scene.start_quote,
+                scene.end_quote,
+                scene.description,
+                scene.pov,
+                scene.tension,
+                scene.pacing,
+                scene.mentioned_entities,
+                scene.tags,
+                scene.questions_raised,
+                (
+                    await self.get_scene_word_count(
+                        chapter_id, scene.start_quote, scene.end_quote
+                    )
+                ),
             )
             for position, scene in enumerate(scenes)
         ]
@@ -203,10 +236,22 @@ class SceneRepository:
             "scene",
             records=rows,
             columns=[
-                "id", "chapter_id", "story_id", "user_id", "position",
-                "title", "start_quote", "end_quote", "description", "pov",
-                "tension", "pacing", "mentioned_entities", "tags",
-                "questions_raised", "word_count"
+                "id",
+                "chapter_id",
+                "story_id",
+                "user_id",
+                "position",
+                "title",
+                "start_quote",
+                "end_quote",
+                "description",
+                "pov",
+                "tension",
+                "pacing",
+                "mentioned_entities",
+                "tags",
+                "questions_raised",
+                "word_count",
             ],
         )
 
@@ -234,13 +279,19 @@ class SceneRepository:
         # pgvector text format: '[1.0,2.0,3.0]'
         embedding_text = "[" + ",".join(repr(float(x)) for x in embedding) + "]"
         await self._exe(executor).execute(
-            sql, scene_id, embedding_text, embedding_model,
+            sql,
+            scene_id,
+            embedding_text,
+            embedding_model,
         )
 
     # ─── chapter-level extraction status ───────────────────────────────────
 
     async def mark_chapter_stale(
-        self, chapter_id: str, *, executor: Executor | None = None,
+        self,
+        chapter_id: str,
+        *,
+        executor: Executor | None = None,
     ) -> None:
         """Flag a chapter for re-extraction. Idempotent."""
         sql = """
@@ -252,7 +303,10 @@ class SceneRepository:
         await self._exe(executor).execute(sql, chapter_id)
 
     async def mark_chapter_extracted(
-        self, chapter_id: str, *, executor: Executor | None = None,
+        self,
+        chapter_id: str,
+        *,
+        executor: Executor | None = None,
     ) -> None:
         """Clear the stale flag and stamp `scenes_extracted_at`. Called at
         the end of a successful extraction, inside the same transaction."""
@@ -286,7 +340,6 @@ class SceneRepository:
         """
         rows = await self._exe(executor).fetch(sql, cutoff, limit)
         return [r["id"] for r in rows]
-    
 
     async def search_scenes(
         self,
@@ -319,7 +372,7 @@ class SceneRepository:
         # lexical side because array_to_string isn't IMMUTABLE. The vector
         # CTE still covers tags / questions_raised via the embedded text.
 
-        sql = f"""
+        sql = """
             WITH fts AS (
                 SELECT id,
                     ROW_NUMBER() OVER (
@@ -407,19 +460,19 @@ class SceneRepository:
         """
         t0 = perf_counter()
         rows = await self._exe(executor).fetch(
-            sql, 
-            user_id, 
-            story_id, 
-            query_text, 
-            embedding_text, 
-            candidate_pool, 
+            sql,
+            user_id,
+            story_id,
+            query_text,
+            embedding_text,
+            candidate_pool,
             k,
             tension,
             pacing,
             tags,
             mentioned_entities,
             chapter_ids,
-            pov
+            pov,
         )
         logger.info(
             "scene_repo.search_scenes.done",
@@ -454,7 +507,7 @@ class SceneRepository:
                 created_at=r["created_at"],
                 updated_at=r["updated_at"],
                 chapter_title=r["chapter_title"],
-                score=r["score"]
+                score=r["score"],
             )
             for r in rows
         ]
@@ -498,13 +551,9 @@ class SceneRepository:
         """
         rows = await self._exe(executor).fetch(sql, user_id, story_id)
         return [(r["entity"], r["n"]) for r in rows]
-    
+
     async def list_povs(
-        self,
-        *,
-        user_id: str,
-        story_id: str,
-        executor: Executor | None = None
+        self, *, user_id: str, story_id: str, executor: Executor | None = None
     ) -> list[tuple[str, int]]:
         sql = """\
         SELECT pov, COUNT(*) AS n

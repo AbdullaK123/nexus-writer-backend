@@ -46,9 +46,11 @@ class ConnectionDetails(BaseModel):
 # Returned by UserRepository / SessionRepository. These replace direct use of
 # the Tortoise model classes in the service layer.
 
+
 class UserRow(BaseModel):
     """One row from the `user` table. Includes password_hash — do NOT return
     this to the API; convert to `UserResponse` first."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: str
@@ -62,6 +64,7 @@ class UserRow(BaseModel):
 
 class SessionRow(BaseModel):
     """One row from the `session` table."""
+
     model_config = ConfigDict(from_attributes=True)
 
     session_id: str
@@ -71,7 +74,6 @@ class SessionRow(BaseModel):
     user_agent: Optional[str]
     created_at: datetime
     updated_at: datetime
-
 
 
 class DashboardResponse(ApiModel):

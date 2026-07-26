@@ -2,7 +2,11 @@ from fastapi import APIRouter, Depends
 
 from src.app.dependencies import get_current_user, get_chapter_service
 from src.data.schemas import UserRow
-from src.data.schemas.chapter import ChapterContentResponse, ChapterSummaryResponse, UpdateChapterRequest
+from src.data.schemas.chapter import (
+    ChapterContentResponse,
+    ChapterSummaryResponse,
+    UpdateChapterRequest,
+)
 from src.service.chapter import ChapterService
 
 chapter_controller = APIRouter(prefix="/chapters")
@@ -16,7 +20,9 @@ async def get_chapter_with_navigation(
     chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> ChapterContentResponse:
     return await chapter_service.get_chapter_with_navigation(
-        chapter_id, current_user.id, as_html,
+        chapter_id,
+        current_user.id,
+        as_html,
     )
 
 
@@ -45,6 +51,7 @@ async def delete_chapter(
         user_id=current_user.id,
     )
 
+
 @chapter_controller.get("/{chapter_id}/summary", response_model=ChapterSummaryResponse)
 async def summarize_chapter(
     chapter_id: str,
@@ -52,6 +59,5 @@ async def summarize_chapter(
     chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> ChapterSummaryResponse:
     return await chapter_service.summarize_chapter(
-        chapter_id=chapter_id,
-        user_id=current_user.id
+        chapter_id=chapter_id, user_id=current_user.id
     )

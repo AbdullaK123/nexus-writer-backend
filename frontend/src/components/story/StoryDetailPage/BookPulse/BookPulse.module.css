@@ -25,6 +25,15 @@
     border-radius: var(--radius-md)
 }
 
+.actions-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    width: 100%;
+    gap: var(--space-3);
+    padding: var(--space-3);
+}
+
 
 .pulse-card-loading {
     display: flex;
@@ -42,6 +51,21 @@
     flex-wrap: wrap;
     padding: var(--space-3);
     width: 100%;
+}
+
+.pulse-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.pulse-section-label,
+.evidence-chapters {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
 }
 
 .content-header {
