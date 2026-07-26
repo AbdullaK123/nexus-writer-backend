@@ -4,7 +4,7 @@ from fastapi import Depends, Request
 from loguru import logger
 from pydantic_ai import Agent
 import redis.asyncio as aioredis
-from src.app.dependencies.redis import get_redis
+from src.app.dependencies.redis import get_pubsub, get_redis
 from src.app.dependencies.repositories import (
     get_analytics_repository,
     get_chapter_repository,
@@ -33,6 +33,7 @@ from src.infrastructure.redis.pool import (
     init_pool as init_redis_pool,
     close_pool as close_redis_pool,
 )
+from src.infrastructure.redis.pubsub import RedisPubSub
 from src.service.analytics.service import AnalyticsService
 from src.service.auth import AuthService
 from src.service.chapter import ChapterService
@@ -86,8 +87,9 @@ def get_chat_agent(request: Request) -> Agent[ChatDeps, str]:
 def get_auth_service(
     user_repo: UserRepository = Depends(get_user_repository),
     session_repo: SessionRepository = Depends(get_session_repository),
+    pubsub: RedisPubSub = Depends(get_pubsub)
 ) -> AuthService:
-    return AuthService(user_repo, session_repo)
+    return AuthService(user_repo, session_repo, pubsub)
 
 
 def get_analytics_service(

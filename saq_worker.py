@@ -1,3 +1,5 @@
+from typing import Optional
+
 from saq.types import Context
 from src.app.dependencies.redis import get_redis
 from src.app.dependencies.services import build_ai_provider
@@ -5,7 +7,10 @@ from src.data.repositories.analytics import AnalyticsRepository
 from src.data.repositories.chapter import ChapterRepository
 from src.data.repositories.scene import SceneRepository
 from src.data.repositories.story import StoryRepository
+from src.data.schemas.auth import Notification
+from src.data.schemas.extraction import SceneExtractionResult
 from src.infrastructure.db.pool import init_pool, close_pool
+from src.infrastructure.redis.pubsub import RedisPubSub
 from src.infrastructure.redis.queue import client
 from src.infrastructure.config.settings import config, settings as app_settings
 from src.infrastructure.telemetry.logfire import init_tracing
@@ -47,6 +52,7 @@ async def startup(ctx: Context) -> None:
     scene_repo = SceneRepository(pool)
     story_repo = StoryRepository(pool)
     analytics_repo = AnalyticsRepository(pool)
+    pubsub = RedisPubSub(client)
 
     extraction_service = ExtractionService(
         provider=provider,
@@ -89,6 +95,7 @@ async def startup(ctx: Context) -> None:
     ctx['story_service'] = story_service
     ctx['chapter_service'] = chapter_service
     ctx['analytics_service'] = analytics_service
+    ctx['pubsub'] = pubsub
 
     logger.info("Startup complete!")
 
@@ -114,8 +121,20 @@ async def scene_and_embedding_job(
 ) -> None:
     with tracer.start_as_current_span("saq.scene_and_embedding_job") as span:
         try:
-            await ctx['worker'].context['extraction_service'].extract_scenes(chapter_id)
+            result: Optional[SceneExtractionResult] = await ctx['worker'].context['extraction_service'].extract_scenes(chapter_id, user_id)
             await ctx['worker'].context['embedding_service'].embed_scenes(chapter_id)
+
+            if result:
+                await ctx['worker'].context['pubsub'].publish(
+                    f"notifications:{user_id}",
+                    Notification(
+                        kind="scenes_extracted",
+                        story_id=story_id,
+                        chapter_id=chapter_id,
+                        message=f"Extracted {result.scenes_extracted} scenes from Chapter {result.chapter_number} of {result.story_title}"
+                    )
+                 )
+
             await asyncio.gather(
                 ctx['worker'].context['story_service'].get_pulse(
                     user_id=user_id,
@@ -148,6 +167,18 @@ async def scene_and_embedding_job(
                     ignore_cache=True
                 )
             )
+
+            if result:
+                await ctx['worker'].context['pubsub'].publish(
+                    f"notifications:{user_id}",
+                    Notification(
+                        kind="analysis_ready",
+                        story_id=story_id,
+                        chapter_id=chapter_id,
+                        message=f"New pulse and analysis for {result.story_title} are ready."
+                    )
+                )
+
             span.set_status(trace.StatusCode.OK)
         except Exception as e:
             logger.exception("saq.scene_and_embedding_job.failed")

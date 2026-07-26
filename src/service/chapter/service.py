@@ -90,7 +90,7 @@ class ChapterService:
             chapter,
             content=chapter.content
             if as_html
-            else get_preview_content(chapter.content),
+            else get_preview_content(chapter.content or ""),
             story_title=story_title,
             chapter_number=chapter_number,
         )

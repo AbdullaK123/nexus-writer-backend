@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic import EmailStr
-from typing import List, Optional
+from typing import List, Literal, Optional
 from datetime import datetime
 import re
 from src.data.schemas._base import ApiModel
@@ -84,3 +84,9 @@ class DashboardResponse(ApiModel):
     scenes_tracked: Optional[int] = Field(default=0)
     streak_days: Optional[int] = Field(default=0)
     jump_back_in: Optional[List[ChapterListItem]] = []
+
+class Notification(BaseModel):
+    kind: Literal["scenes_extracted", "analysis_ready"]
+    story_id: str
+    chapter_id: str
+    message: str

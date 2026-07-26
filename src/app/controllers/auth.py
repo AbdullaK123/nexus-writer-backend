@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Request, Response, Depends, Cookie
+from fastapi.responses import StreamingResponse
 
+from src.app.dependencies.redis import get_pubsub
 from src.data.schemas.auth import (
     DashboardResponse,
     UserResponse,
@@ -10,6 +12,7 @@ from src.data.schemas.auth import (
 from src.data.schemas import UserRow
 from src.app.dependencies import get_current_user, get_auth_service
 from src.infrastructure.config import settings, config as app_config
+from src.infrastructure.redis.pubsub import RedisPubSub
 from src.service.auth import AuthService
 
 user_controller = APIRouter(prefix="/auth")
@@ -77,3 +80,19 @@ async def get_dashboard(
     auth_service: AuthService = Depends(get_auth_service),
 ) -> DashboardResponse:
     return await auth_service.get_dashboard(user_id=current_user.id)
+
+
+@user_controller.get("/me/notifications")
+async def get_notifications(
+    request: Request,
+    current_user: UserRow = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service)
+) -> StreamingResponse:
+    return StreamingResponse(
+        auth_service.stream_notifications(current_user.id),
+        media_type="text/event-stream",
+         headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # disable nginx proxy buffering
+        },
+    )

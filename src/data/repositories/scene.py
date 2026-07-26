@@ -325,13 +325,13 @@ class SceneRepository:
         window_seconds: int,
         limit: int,
         executor: Executor | None = None,
-    ) -> list[str]:
+    ) -> tuple[list[str], str]:
         """Chapters flagged for re-extraction whose last edit is older than
         `window_seconds` (debounce — don't re-extract while the user is
         actively typing). Ordered oldest-first."""
         cutoff = datetime.now(timezone.utc) - timedelta(seconds=window_seconds)
         sql = """
-            SELECT id
+            SELECT id, user_id
               FROM "chapter"
              WHERE scenes_need_reextraction = TRUE
                AND updated_at <= $1
@@ -339,7 +339,7 @@ class SceneRepository:
              LIMIT $2
         """
         rows = await self._exe(executor).fetch(sql, cutoff, limit)
-        return [r["id"] for r in rows]
+        return [r["id"] for r in rows], rows[0]["user_id"]
 
     async def search_scenes(
         self,

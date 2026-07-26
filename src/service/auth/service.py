@@ -1,13 +1,15 @@
 from datetime import datetime, timedelta, timezone
+from typing import AsyncIterator
 
 from loguru import logger
-
+import json
 from src.data.schemas.chapter import ChapterListItem
 from src.infrastructure.config import config
 from src.data.repositories import UserRepository, SessionRepository
 from src.data.schemas import UserRow
 from src.data.schemas.auth import (
     DashboardResponse,
+    Notification,
     RegistrationData,
     UserResponse,
     AuthCredentials,
@@ -15,8 +17,9 @@ from src.data.schemas.auth import (
 )
 from src.infrastructure.auth.password import hash_password, verify_password
 from src.infrastructure.auth.session import generate_session_id
+from src.infrastructure.redis.pubsub import RedisPubSub
 from src.service.exceptions import AuthError, ForbiddenError, ConflictError
-from src.service.utils.decorators import handle_service_errors
+from src.service.utils.decorators import handle_service_errors, handle_service_errors_stream
 from src.shared.utils.correlation import set_user_id
 
 
@@ -25,9 +28,11 @@ class AuthService:
         self,
         user_repo: UserRepository,
         session_repo: SessionRepository,
+        pubsub: RedisPubSub
     ):
         self._user_repo = user_repo
         self._session_repo = session_repo
+        self._pubsub = pubsub
 
     @handle_service_errors
     async def authenticate_user(self, credentials: AuthCredentials) -> UserRow:
@@ -185,3 +190,23 @@ class AuthService:
                 for item in last_three_chapters
             ],
         )
+
+    @staticmethod
+    def _sse_frame(event: str, data: dict) -> str:
+            return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+    @handle_service_errors_stream
+    async def stream_notifications(
+        self,
+        user_id: str
+    ) -> AsyncIterator[str]:
+        try:
+            async for notification in self._pubsub.listen(f"notifications:{user_id}", Notification):
+                yield self._sse_frame("notification", notification.model_dump(mode='json'))
+        except Exception:
+             yield self._sse_frame(
+                    "error",
+                    {"code": "INTERNAL", "message": "Internal server error"},
+                )
+             return
+        yield self._sse_frame("done", {})

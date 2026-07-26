@@ -20,12 +20,13 @@ scenes_are_stale (module-level):
 
 import asyncio
 from itertools import batched
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional
 
 from loguru import logger
 
 from src.data.repositories import ChapterRepository, SceneRepository
 from src.data.schemas import SceneExtraction
+from src.data.schemas.extraction import SceneExtractionResult
 from src.infrastructure.ai import AIProvider, SCENE_EXTRACTION_PROMPT
 from src.infrastructure.config import config
 from src.service.exceptions import InternalError, NotFoundError
@@ -119,13 +120,16 @@ class ExtractionService:
         )
 
     @handle_service_errors
-    async def extract_scenes(self, chapter_id: str) -> None:
-        chapter = await self._chapter_repo.get_for_system(chapter_id)
+    async def extract_scenes(self, chapter_id: str, user_id: str) -> Optional[SceneExtractionResult]:
 
-        if chapter is None:
+        result =  await self._chapter_repo.get_with_story_title(chapter_id, user_id)
+
+        if result is None:
             raise NotFoundError("Chapter not found")
 
-        if get_word_count(chapter.content) < self.MIN_SCENE_EXTRACTION_WORDS:
+        chapter, story_title, chapter_number = result
+
+        if get_word_count(chapter.content or "") < self.MIN_SCENE_EXTRACTION_WORDS:
             async with self._scene_repo.pool.acquire() as conn:
                 async with conn.transaction():
                     await self._scene_repo.replace_for_chapter(
@@ -138,9 +142,9 @@ class ExtractionService:
                     await self._scene_repo.mark_chapter_extracted(
                         chapter.id, executor=conn
                     )
-            return
+            return None
 
-        plain_text = html_to_plain_text(chapter.content)
+        plain_text = html_to_plain_text(chapter.content or "")
 
         extraction = await self._extract_with_feedback(chapter_content=plain_text)
 
@@ -157,6 +161,12 @@ class ExtractionService:
                     chapter.id,
                     executor=conn,
                 )
+        
+        return SceneExtractionResult(
+            scenes_extracted=len(extraction.scenes),
+            chapter_number=chapter_number,
+            story_title=story_title
+        )
 
     async def regenerate_stale_batched(
         self,
@@ -167,14 +177,14 @@ class ExtractionService:
         logged and skipped."""
         total_reextracted = 0
 
-        stale_chapter_ids = await self._scene_repo.list_stale_chapter_ids(
+        stale_chapter_ids, user_id = await self._scene_repo.list_stale_chapter_ids(
             window_seconds=config.jobs.scene_extraction_window_seconds,
             limit=4 * batch_size,
         )
 
         for batch in batched(stale_chapter_ids, batch_size):
             results = await asyncio.gather(
-                *(self.extract_scenes(cid) for cid in batch),
+                *(self.extract_scenes(cid, user_id) for cid in batch),
                 return_exceptions=True,
             )
             for cid, result in zip(batch, results):

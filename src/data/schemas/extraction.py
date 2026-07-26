@@ -173,6 +173,13 @@ class BookPulseResponse(ApiModel):
     world: PulseDimension
 
 
+class SceneExtractionResult(BaseModel):
+    scenes_extracted: int 
+    chapter_number: int
+    story_title: str
+
+
+
 INSUFFICIENT_CONTEXT = BookPulseResponse(
     characters=PulseDimension(
         label="unavailable",
