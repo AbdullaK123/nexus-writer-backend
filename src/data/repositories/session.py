@@ -1,4 +1,5 @@
 """SessionRepository — raw asyncpg + SQL. Returns Pydantic SessionRow."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -42,7 +43,12 @@ class SessionRepository:
         """
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
-                sql, session_id, user_id, expires_at, ip_address, user_agent,
+                sql,
+                session_id,
+                user_id,
+                expires_at,
+                ip_address,
+                user_agent,
             )
         assert row is not None
         return SessionRow.model_validate(dict(row))

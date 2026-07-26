@@ -1,4 +1,5 @@
 """UserRepository — raw asyncpg + SQL. Returns Pydantic UserRow."""
+
 from __future__ import annotations
 from typing import Tuple
 
@@ -47,19 +48,18 @@ class UserRepository:
         """
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
-                sql, generate_uuid(), username, email, password_hash, profile_img,
+                sql,
+                generate_uuid(),
+                username,
+                email,
+                password_hash,
+                profile_img,
             )
         assert row is not None
         return UserRow.model_validate(dict(row))
-    
-    async def get_dashboard(
-        self,
-        *,
-        user_id: str
-    ) -> Tuple[dict, list[dict]]:
-        
+
+    async def get_dashboard(self, *, user_id: str) -> Tuple[dict, list[dict]]:
         async with self._pool.acquire() as conn:
-        
             agg_sql = """
             WITH unique_dates AS (
                 SELECT DISTINCT
@@ -125,8 +125,10 @@ class UserRepository:
             LIMIT 3
             """
 
-            last_three_chapters_result = await conn.fetch(last_three_chapters_sql, user_id)
+            last_three_chapters_result = await conn.fetch(
+                last_three_chapters_sql, user_id
+            )
 
-    
-    
-            return (dict(agg_result) if agg_result else {}), [dict(result) for result in last_three_chapters_result]
+            return (dict(agg_result) if agg_result else {}), [
+                dict(result) for result in last_three_chapters_result
+            ]

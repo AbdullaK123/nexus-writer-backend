@@ -10,6 +10,7 @@ ORDINALITY)` + `lag/lead` window functions. Combined with the deferrable
 unique constraints on prev/next added in migration 00002, the bulk update
 applies cleanly without intermediate-state violations.
 """
+
 from __future__ import annotations
 
 from typing import Any, Sequence
@@ -56,7 +57,8 @@ class ChapterRepository:
         return ChapterRow.model_validate(dict(row)) if row else None
 
     async def get_for_system(
-        self, chapter_id: str,
+        self,
+        chapter_id: str,
     ) -> ChapterRow | None:
         """System-level fetch (no user scoping). Used by background jobs
         like the scene extractor that don't have a user_id in scope."""
@@ -65,13 +67,15 @@ class ChapterRepository:
         return ChapterRow.model_validate(dict(row)) if row else None
 
     async def get_with_story_title(
-        self, chapter_id: str, user_id: str,
+        self,
+        chapter_id: str,
+        user_id: str,
     ) -> tuple[ChapterRow, str, int] | None:
         """Returns the chapter plus its parent story's title in one round-trip.
         Lets callers build ChapterContentResponse without a second fetch."""
         # qualified column names — the SELECT above is sloppy because
         # _CHAPTER_COLUMNS isn't aliased; expand it.
-        sql = f"""
+        sql = """
             SELECT
                 c.id, c.story_id, c.user_id, c.title, c.content, c.published,
                 c.word_count, c.next_chapter_id, c.prev_chapter_id,
@@ -90,7 +94,6 @@ class ChapterRepository:
         chapter_number = d.pop("chapter_number")
         return ChapterRow.model_validate(d), story_title, chapter_number
 
-
     async def list_by_story(
         self,
         story_id: str,
@@ -98,7 +101,7 @@ class ChapterRepository:
         *,
         executor: Executor | None = None,
     ) -> list[tuple[ChapterRow, str, int]]:
-        sql = f"""
+        sql = """
             SELECT
                 c.id, c.story_id, c.user_id, c.title, c.content, c.published,
                 c.word_count, c.next_chapter_id, c.prev_chapter_id,
@@ -123,7 +126,8 @@ class ChapterRepository:
         return results
 
     async def list_by_story_ids(
-        self, story_ids: Sequence[str],
+        self,
+        story_ids: Sequence[str],
     ) -> list[ChapterRow]:
         if not story_ids:
             return []
@@ -153,7 +157,13 @@ class ChapterRepository:
             RETURNING {_CHAPTER_COLUMNS}
         """
         row = await self._exe(executor).fetchrow(
-            sql, generate_uuid(), story_id, user_id, title, content, word_count,
+            sql,
+            generate_uuid(),
+            story_id,
+            user_id,
+            title,
+            content,
+            word_count,
         )
         assert row is not None
         return ChapterRow.model_validate(dict(row))

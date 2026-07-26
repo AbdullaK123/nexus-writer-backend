@@ -19,6 +19,7 @@ from src.infrastructure.config import settings
 from src.infrastructure.telemetry import init_tracing
 from dotenv import load_dotenv
 from loguru import logger
+
 # from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 import logfire
 
@@ -57,6 +58,7 @@ async def limit_request_body(request: Request, call_next):
             )
     return await call_next(request)
 
+
 # ── Layer exception handlers ──────────────────────────────────────────
 
 
@@ -64,8 +66,8 @@ async def limit_request_body(request: Request, call_next):
 async def service_error_handler(request: Request, exc: ServiceError):
     cid = get_correlation_id()
     detail = {"code": exc.code, "message": exc.message, "correlation_id": cid}
-    if hasattr(exc, "fields") and exc.fields: # type: ignore
-        detail["fields"] = exc.fields # type: ignore
+    if hasattr(exc, "fields") and exc.fields:  # type: ignore
+        detail["fields"] = exc.fields  # type: ignore
     logger.warning(
         "Service error: {code} — {message}", code=exc.code, message=exc.message
     )
@@ -157,6 +159,7 @@ api.include_router(main_router)
 @api.get("/health")
 async def get_health() -> dict:
     return {"message": "Everything is healthy!"}
+
 
 # FastAPIInstrumentor.instrument_app(api)
 logfire.instrument_fastapi(api)

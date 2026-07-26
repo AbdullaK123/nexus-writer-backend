@@ -1,15 +1,12 @@
 import functools
 from openai import AuthenticationError, BadRequestError, NotFoundError, OpenAIError
-from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 from src.infrastructure.exceptions import DatabaseError
 from src.infrastructure.exceptions import (
     LLMConfigError,
     LLMServiceError,
     InfrastructureError,
 )
-from src.infrastructure.config import config
 from loguru import logger
-
 
 
 def handle_db_errors(func):
@@ -38,12 +35,16 @@ def handle_openai_errors(func):
             logger.error("infra.llm_config_error", func=func.__qualname__, error=str(e))
             raise LLMConfigError(f"LLM Config Error: {e}", original=e) from e
         except OpenAIError as e:
-            logger.error("infra.llm_service_error", func=func.__qualname__, error=str(e))
+            logger.error(
+                "infra.llm_service_error", func=func.__qualname__, error=str(e)
+            )
             raise LLMServiceError(
                 f"LLM Provider failed after retries: {e}", original=e
             ) from e
         except Exception as e:
-            logger.error("infra.llm_uncaught_error", func=func.__qualname__, error=str(e))
+            logger.error(
+                "infra.llm_uncaught_error", func=func.__qualname__, error=str(e)
+            )
             raise LLMServiceError(
                 f"LLM Provider failed after retries: {e}", original=e
             ) from e

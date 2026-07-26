@@ -6,6 +6,7 @@ This keeps them safe to share across requests and across background tasks.
 Methods return Pydantic models (see src/data/schemas) — never raw `Record`s.
 Service code never touches asyncpg or SQL.
 """
+
 from src.data.repositories.scene import SceneRepository
 from src.data.repositories.user import UserRepository
 from src.data.repositories.session import SessionRepository
@@ -19,5 +20,5 @@ __all__ = [
     "SessionRepository",
     "StoryRepository",
     "ChapterRepository",
-    "ChatRepository"
+    "ChatRepository",
 ]

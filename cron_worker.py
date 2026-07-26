@@ -18,6 +18,7 @@ from loguru import logger
 from src.shared.utils.logging import configure_logger
 from src.infrastructure.telemetry import init_tracing
 from dotenv import load_dotenv
+
 # from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
 from opentelemetry import trace
 
@@ -31,6 +32,7 @@ HEARTBEAT_INTERVAL_SECONDS = 30
 shutdown_event = asyncio.Event()
 
 tracer = trace.get_tracer(__name__)
+
 
 async def heartbeat_loop() -> None:
     while True:
@@ -117,7 +119,6 @@ async def main():
         heartbeat_task.cancel()
         await close_pool()
         logger.info("worker.stopped")
-
 
 
 if __name__ == "__main__":

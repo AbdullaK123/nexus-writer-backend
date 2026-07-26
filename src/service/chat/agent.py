@@ -23,12 +23,14 @@ def _service_errors_as_text(
     """Catch ServiceError inside a tool and return its message as the tool
     result. Without this, the exception aborts the whole agent run instead
     of being fed back to the LLM as recoverable feedback."""
+
     @wraps(func)
     async def wrapper(*args, **kwargs) -> str:
         try:
             return await func(*args, **kwargs)
         except ServiceError as e:
             return f"Tool error: {e}"
+
     return wrapper
 
 
@@ -67,10 +69,7 @@ def _format_scene(
 
 
 def _format_chapter(response: ChapterContentResponse, content: str) -> str:
-    return (
-        f"TITLE: {response.title} (chapter_id={response.id})\n\n"
-        f"CONTENT:\n{content}"
-    )
+    return f"TITLE: {response.title} (chapter_id={response.id})\n\nCONTENT:\n{content}"
 
 
 def _format_chapter_item(item: ChapterListItem) -> str:
@@ -78,10 +77,8 @@ def _format_chapter_item(item: ChapterListItem) -> str:
 
 
 def build_agent(model_name: str) -> Agent[ChatDeps, str]:
-
     model = OpenRouterModel(
-        model_name,
-        provider=OpenRouterProvider(api_key=settings.open_router_api_key)
+        model_name, provider=OpenRouterProvider(api_key=settings.open_router_api_key)
     )
 
     agent = Agent(
@@ -127,18 +124,18 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
             "reading full chapters unless the question requires it — scene "
             "search and analytics cover most questions more efficiently."
         ),
-        capabilities=[CodeMode()]
+        capabilities=[CodeMode()],
     )
 
     @agent.tool
     @_service_errors_as_text
     async def get_story_analytics(
         ctx: RunContext[ChatDeps],
-        lense: Literal["character", "plot", "structure", "world"]
+        lense: Literal["character", "plot", "structure", "world", "questions"],
     ) -> str:
         """
         Retrieve structured analytics for the current story, viewed through
-        one of four lenses. Returns ASCII tables (not prose) with quantitative
+        one of five lenses. Returns ASCII tables (not prose) with quantitative
         data and chapter IDs that can be fed directly into other tools.
 
         Pick the lense based on what the user is asking about:
@@ -148,26 +145,42 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
             and word count across the story
             • co_occurrence_statistics: pairs of characters that appear together,
             with shared scene count and word count — useful for spotting
-            isolated characters or unexplored pairings
+            isolated characters or unexplored pairings. Top 10 pairs only.
             • character_statistics: per-chapter breakdown of POV, scene count,
             and word count — shows how character focus shifts across chapters
+
+        - `"questions"` → one table:
+            • open_questions: every unresolved question raised by a scene, in
+            reading order, with the chapter that raised it. The rawest and
+            cheapest view of dangling threads. NOTE: questions are recorded
+            where they are RAISED and never marked answered — a question from
+            chapter 4 appearing here does not mean it is still open. Confirm
+            with search before reporting anything as unresolved.
 
         - `"plot"` → two tables:
             • plot_threads: named story threads with the chapter they started,
             ended, were last touched, and their status (open / closed /
-            stalled) — the primary tool for finding dangling plotlines
+            stalled). This is a synthesized, coarse-grained view — use it for
+            thread-level narrative shape. For raw dangling threads, prefer the
+            `questions` lense, which is free and more granular.
             • act_segmentation: inferred act boundaries with start/end chapters
             and which chapter the act is currently on
 
         - `"structure"` → four tables:
-            • tension_curve: average tension per chapter across the full story
-            • pacing_curve: average pacing per chapter across the full story
+            • tension_curve: average tension per chapter, with the scene count
+            and word count it was averaged over
+            • pacing_curve: average pacing per chapter, with scene count and word count
             • scene_length_distribution: histogram of scene word counts —
             reveals whether the story leans toward long set-pieces or short
             punchy scenes
             • recent_chapter_rhythm: tension and pacing for the most recent
             chapters — use to assess whether the current writing stretch
             feels monotone or varied
+            • Tension and pacing are 3-level ordinal scales (low/medium/high mapped
+            to 1/2/3). Always read the averages against scene_count and word_count: 
+            a 3.0 over two scenes is far weaker evidence than a 2.6 over six, and differences
+            under ~0.3 in thin chapters are usually one scene changing bucket, not
+            a real shift.
 
         - `"world"` → two tables:
             • entity_ledger: every named entity (character, location, faction,
@@ -180,20 +193,15 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
         to read the actual prose, or to `search_scenes_semantic` via
         `chapter_ids=[...]` to drill into specific chapters.
 
-        Note: the `plot` and `world` lenses involve LLM extractions under the
-        hood (cached for up to an hour). First calls may take several seconds;
-        subsequent calls are near-instant. The `character` and `structure`
-        lenses are pure database queries and always fast.
+        Cost: `character`, `structure`, and `questions` are pure database
+        queries and always fast. `plot` and `world` run LLM extractions over
+        the whole story (cached for up to an hour) — first calls may take
+        several seconds. Reach for the cheap lenses first.
         """
         inputs = await ctx.deps.analytics_service.get_prompt_inputs(
-            story_id=ctx.deps.story_id,
-            user_id=ctx.deps.user_id,
-            lense=lense
+            story_id=ctx.deps.story_id, user_id=ctx.deps.user_id, lense=lense
         )
-        return "\n".join(
-            f"<{key}>\n{value}\n</{key}>"
-            for key, value in inputs.items()
-        )
+        return "\n".join(f"<{key}>\n{value}\n</{key}>" for key, value in inputs.items())
 
     @agent.tool
     @_service_errors_as_text
@@ -372,7 +380,8 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
 
         Returns one line per tag: `tag_value (N scenes)`."""
         result = await ctx.deps.story_service.list_story_tags(
-            user_id=ctx.deps.user_id, story_id=ctx.deps.story_id,
+            user_id=ctx.deps.user_id,
+            story_id=ctx.deps.story_id,
         )
         if not result.items:
             return "This story has no tagged scenes yet."
@@ -393,26 +402,28 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
 
         Returns one line per entity: `entity_value (N scenes)`."""
         result = await ctx.deps.story_service.list_story_entities(
-            user_id=ctx.deps.user_id, story_id=ctx.deps.story_id,
+            user_id=ctx.deps.user_id,
+            story_id=ctx.deps.story_id,
         )
         if not result.items:
             return "This story has no entities extracted yet."
         return "\n".join(f"{i.value} ({i.count} scenes)" for i in result.items)
-    
+
     @agent.tool
     @_service_errors_as_text
     async def list_povs(ctx: RunContext[ChatDeps]) -> str:
         """List every distinct pov mentioned in this story's scenes, with how many scenes
         each appears in, sorted most-frequent first.
 
-        Use this to discover a story's pov characters BEFORE 
+        Use this to discover a story's pov characters BEFORE
         filtering 'search_scenes_semantic' by 'pov=...'. Povs
         are case- and form-sensitive (e.g. 'Captain Vale' vs 'Vale'
         are distinct). Guessed values will silently return no results.
 
         Returns one line per povs: `entity_value (N scenes)`."""
         result = await ctx.deps.story_service.list_povs(
-            user_id=ctx.deps.user_id, story_id=ctx.deps.story_id,
+            user_id=ctx.deps.user_id,
+            story_id=ctx.deps.story_id,
         )
         if not result.items:
             return "This story has no pov characters extracted yet."

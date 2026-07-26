@@ -25,8 +25,14 @@ from src.data.repositories import (
 from src.data.repositories.analytics import AnalyticsRepository
 from src.infrastructure.ai import OpenAIProvider, AIProvider
 from src.infrastructure.config.settings import config
-from src.infrastructure.db.pool import init_pool as init_db_pool, close_pool as close_db_pool
-from src.infrastructure.redis.pool import init_pool as init_redis_pool, close_pool as close_redis_pool
+from src.infrastructure.db.pool import (
+    init_pool as init_db_pool,
+    close_pool as close_db_pool,
+)
+from src.infrastructure.redis.pool import (
+    init_pool as init_redis_pool,
+    close_pool as close_redis_pool,
+)
 from src.service.analytics.service import AnalyticsService
 from src.service.auth import AuthService
 from src.service.chapter import ChapterService
@@ -90,7 +96,7 @@ def get_analytics_service(
     chapter_repo: ChapterRepository = Depends(get_chapter_repository),
     scene_repo: SceneRepository = Depends(get_scene_repository),
     provider: AIProvider = Depends(get_ai_provider),
-    redis: aioredis.Redis = Depends(get_redis)
+    redis: aioredis.Redis = Depends(get_redis),
 ) -> AnalyticsService:
     return AnalyticsService(
         analytics_repo=analytics_repo,
@@ -98,7 +104,7 @@ def get_analytics_service(
         chapter_repo=chapter_repo,
         scene_repo=scene_repo,
         provider=provider,
-        redis=redis
+        redis=redis,
     )
 
 
@@ -107,9 +113,11 @@ def get_story_service(
     chapter_repo: ChapterRepository = Depends(get_chapter_repository),
     scene_repo: SceneRepository = Depends(get_scene_repository),
     provider: AIProvider = Depends(get_ai_provider),
-    redis: aioredis.Redis = Depends(get_redis)
+    redis: aioredis.Redis = Depends(get_redis),
 ) -> StoryService:
-    return StoryService(story_repo, chapter_repo, scene_repo, provider, config.search, redis)
+    return StoryService(
+        story_repo, chapter_repo, scene_repo, provider, config.search, redis
+    )
 
 
 def get_chapter_service(
@@ -117,7 +125,7 @@ def get_chapter_service(
     chapter_repo: ChapterRepository = Depends(get_chapter_repository),
     scene_repo: SceneRepository = Depends(get_scene_repository),
     provider: AIProvider = Depends(get_ai_provider),
-    redis: aioredis.Redis = Depends(get_redis)
+    redis: aioredis.Redis = Depends(get_redis),
 ) -> ChapterService:
     return ChapterService(story_repo, chapter_repo, scene_repo, provider, redis)
 

@@ -29,8 +29,8 @@ from pydantic.alias_generators import to_camel
 class ApiModel(BaseModel):
     model_config = ConfigDict(
         alias_generator=AliasGenerator(
-            validation_alias=None,       # Disables camelCase when reading data (DB rows)
-            serialization_alias=to_camel, # Enables camelCase when producing API responses
+            validation_alias=None,  # Disables camelCase when reading data (DB rows)
+            serialization_alias=to_camel,  # Enables camelCase when producing API responses
         ),
         populate_by_name=True,
         from_attributes=True,

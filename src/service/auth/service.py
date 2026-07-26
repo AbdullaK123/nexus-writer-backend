@@ -118,12 +118,18 @@ class AuthService:
         session_id = await self.create_session(
             user.id, connection_details=connection_details
         )
-        logger.info("auth.user_logged_in", user_id=str(user.id), ip_address=str(connection_details.ip_address), user_agent=str(connection_details.user_agent))
+        logger.info(
+            "auth.user_logged_in",
+            user_id=str(user.id),
+            ip_address=str(connection_details.ip_address),
+            user_agent=str(connection_details.user_agent),
+        )
         return UserResponse.model_validate(user, from_attributes=True), session_id
 
     @handle_service_errors
     async def register_user(
-        self, registration_data: RegistrationData,
+        self,
+        registration_data: RegistrationData,
     ) -> UserResponse:
         existing = await self._user_repo.get_by_email(registration_data.email)
 
@@ -154,30 +160,28 @@ class AuthService:
         if total_deleted > 0:
             logger.info("session.cleanup_complete", sessions_deleted=total_deleted)
 
-
     @handle_service_errors
     async def get_dashboard(self, user_id: str) -> DashboardResponse:
-        
         kpis, last_three_chapters = await self._user_repo.get_dashboard(user_id=user_id)
 
         return DashboardResponse(
-            total_words=kpis['total_words'],
-            total_stories=kpis['total_stories'],
-            chapters_total=kpis['chapters_total'],
-            chapters_published=kpis['chapters_published'],
-            scenes_tracked=kpis['scenes_tracked'],
-            streak_days=kpis['streak_days'],
+            total_words=kpis["total_words"],
+            total_stories=kpis["total_stories"],
+            chapters_total=kpis["chapters_total"],
+            chapters_published=kpis["chapters_published"],
+            scenes_tracked=kpis["scenes_tracked"],
+            streak_days=kpis["streak_days"],
             jump_back_in=[
                 ChapterListItem(
-                    story_id=item['story_id'],
-                    chapter_id=item['chapter_id'],
-                    chapter_number=item['chapter_number'],
-                    word_count=item['word_count'],
-                    story_title=item['story_title'],
-                    chapter_title=item['chapter_title'],
-                    published=item['published'],
-                    updated_at=item['updated_at']
+                    story_id=item["story_id"],
+                    chapter_id=item["chapter_id"],
+                    chapter_number=item["chapter_number"],
+                    word_count=item["word_count"],
+                    story_title=item["story_title"],
+                    chapter_title=item["chapter_title"],
+                    published=item["published"],
+                    updated_at=item["updated_at"],
                 )
                 for item in last_three_chapters
-            ]
+            ],
         )

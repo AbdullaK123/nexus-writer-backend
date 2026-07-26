@@ -9,6 +9,7 @@ export type ChatComposerProps =
 | { 
     status: "ready"
     query: string
+    threadCreationPending: boolean
     onQueryChange: (query: string) => void
     onEnterDown: (query: string) => void
     onSubmit: (query: string) => void
@@ -45,13 +46,14 @@ export function ChatComposer(props: ChatComposerProps) {
                     <div className={styles['chat-composer-actions']}>
                         <Button
                             variant="primary"
+                            disabled={props.threadCreationPending}
                             className={styles['submit-btn']}
                             onClick={() => {
                                 console.log("submit source: button")
                                 props.onSubmit(props.query)
                             }}
                         >   
-                            Ask →
+                            {props.threadCreationPending ? "Creating new thread ···" : "Ask →"}
                         </Button>
                     </div>
                 </div>

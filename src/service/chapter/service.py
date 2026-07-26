@@ -41,8 +41,8 @@ if TYPE_CHECKING:
     from src.service.extraction.service import ExtractionService
     from src.service.embedding.service import EmbeddingService
 
-class ChapterService:
 
+class ChapterService:
     REEXTRACTION_THRESHOLD = 0.95
 
     def __init__(
@@ -51,7 +51,7 @@ class ChapterService:
         chapter_repo: ChapterRepository,
         scene_repo: SceneRepository,
         provider: AIProvider,
-        redis: aioredis.Redis
+        redis: aioredis.Redis,
     ):
         self._story_repo = story_repo
         self._chapter_repo = chapter_repo
@@ -64,13 +64,14 @@ class ChapterService:
     @cached_property
     def extraction_service(self) -> "ExtractionService":
         from src.service.extraction.service import ExtractionService
+
         return ExtractionService(self._provider, self._chapter_repo, self._scene_repo)
-    
+
     @cached_property
     def embedding_service(self) -> "EmbeddingService":
         from src.service.embedding.service import EmbeddingService
+
         return EmbeddingService(self._scene_repo, self._provider)
-        
 
     @handle_service_errors
     async def get_chapter_with_navigation(
@@ -87,9 +88,11 @@ class ChapterService:
         chapter, story_title, chapter_number = triple
         return ChapterContentResponse.from_chapter(
             chapter,
-            content=chapter.content if as_html else get_preview_content(chapter.content),
+            content=chapter.content
+            if as_html
+            else get_preview_content(chapter.content),
             story_title=story_title,
-            chapter_number=chapter_number
+            chapter_number=chapter_number,
         )
 
     @handle_service_errors
@@ -100,16 +103,18 @@ class ChapterService:
     ) -> ChapterListResponse:
         story = await self._story_repo.get(story_id, user_id)
         if story is None:
-            raise NotFoundError("We couldn't find this story. It may have been deleted.")
+            raise NotFoundError(
+                "We couldn't find this story. It may have been deleted."
+            )
 
         results = await self._chapter_repo.list_by_story(story_id, user_id)
         if not story.path_array or not results:
             return ChapterListResponse.from_story(story, [])
-        
+
         chapters = [result[0] for result in results]
 
         lookup = {c.id: c for c in chapters}
-        
+
         # Explicit mapping loop: reading direct properties from the database object
         items = []
         for i, cid in enumerate(story.path_array):
@@ -118,17 +123,16 @@ class ChapterService:
                 item = ChapterListItem(
                     story_id=row.story_id,
                     chapter_id=row.id,  # Manually mapping 'id' to 'chapter_id'
-                    chapter_number=i+1,
+                    chapter_number=i + 1,
                     word_count=row.word_count,
                     story_title=story.title,
                     chapter_title=row.title,
                     published=row.published,
-                    updated_at=row.updated_at
+                    updated_at=row.updated_at,
                 )
                 items.append(item)
 
         return ChapterListResponse.from_story(story, items)
-
 
     # ─── writes (transactional) ────────────────────────────────────────────
 
@@ -141,8 +145,9 @@ class ChapterService:
     ) -> ChapterContentResponse:
         story = await self._story_repo.get(story_id, user_id)
         if story is None:
-            raise NotFoundError("We couldn't find this story. It may have been deleted.")
-
+            raise NotFoundError(
+                "We couldn't find this story. It may have been deleted."
+            )
 
         try:
             async with self._chapter_repo.pool.acquire() as conn:
@@ -156,14 +161,18 @@ class ChapterService:
                         executor=conn,
                     )
                     await self._handle_chapter_creation(
-                        story_id, chapter.id, conn=conn,
+                        story_id,
+                        chapter.id,
+                        conn=conn,
                     )
         except (NotFoundError, ValidationError, InternalError):
             raise
         except Exception as e:
             logger.error(
                 "chapter.create_failed",
-                story_id=story_id, user_id=user_id, error=str(e),
+                story_id=story_id,
+                user_id=user_id,
+                error=str(e),
             )
             raise InternalError(
                 "Something went wrong while creating your chapter. Please try again."
@@ -171,10 +180,14 @@ class ChapterService:
 
         logger.info(
             "chapter.create.done",
-            story_id=story_id, chapter_id=chapter.id, user_id=user_id,
+            story_id=story_id,
+            chapter_id=chapter.id,
+            user_id=user_id,
         )
         return await self.get_chapter_with_navigation(
-            chapter.id, user_id, as_html=True,
+            chapter.id,
+            user_id,
+            as_html=True,
         )
 
     @handle_service_errors
@@ -218,24 +231,30 @@ class ChapterService:
             raise NotFoundError(
                 "We couldn't find this chapter. It may have been deleted."
             )
-    
-        
-        if  (
-            "content" in fields 
-             and updated.content
-             and get_html_similarity_ratio(chapter.content or "", updated.content) < self.REEXTRACTION_THRESHOLD
-        ): 
+
+        if (
+            "content" in fields
+            and updated.content
+            and get_html_similarity_ratio(chapter.content or "", updated.content)
+            < self.REEXTRACTION_THRESHOLD
+        ):
             await queue.enqueue(
-                "scene_and_embedding_job",
-                chapter_id=chapter_id,
+                "scene_and_embedding_job", 
+                story_id=chapter.story_id,
+                user_id=chapter.user_id,
+                chapter_id=chapter_id, 
                 timeout=900
             )
 
         logger.info(
             "chapter.update.done",
-            chapter_id=chapter_id, user_id=user_id, fields=list(fields.keys()),
+            chapter_id=chapter_id,
+            user_id=user_id,
+            fields=list(fields.keys()),
         )
-        return ChapterContentResponse.from_chapter(updated, story_title=story_title, chapter_number=chapter_number)
+        return ChapterContentResponse.from_chapter(
+            updated, story_title=story_title, chapter_number=chapter_number
+        )
 
     @handle_service_errors
     async def delete_chapter(
@@ -246,19 +265,25 @@ class ChapterService:
         async with self._chapter_repo.pool.acquire() as conn:
             async with conn.transaction():
                 story_id = await self._chapter_repo.delete(
-                    chapter_id=chapter_id, user_id=user_id, executor=conn,
+                    chapter_id=chapter_id,
+                    user_id=user_id,
+                    executor=conn,
                 )
                 if story_id is None:
                     raise NotFoundError(
                         "We couldn't find this chapter. It may have been deleted."
                     )
                 await self._handle_chapter_deletion(
-                    story_id, chapter_id, conn=conn,
+                    story_id,
+                    chapter_id,
+                    conn=conn,
                 )
 
         logger.info(
             "chapter.delete.done",
-            chapter_id=chapter_id, user_id=user_id, story_id=story_id,
+            chapter_id=chapter_id,
+            user_id=user_id,
+            story_id=story_id,
         )
         return {"message": "Chapter was successfully deleted"}
 
@@ -271,7 +296,9 @@ class ChapterService:
     ) -> dict:
         story = await self._story_repo.get(story_id, user_id)
         if story is None:
-            raise NotFoundError("We couldn't find this story. It may have been deleted.")
+            raise NotFoundError(
+                "We couldn't find this story. It may have been deleted."
+            )
 
         if not story.path_array:
             raise ValidationError(message="This story has no chapters to reorder.")
@@ -292,12 +319,17 @@ class ChapterService:
             async with self._chapter_repo.pool.acquire() as conn:
                 async with conn.transaction():
                     await self._handle_chapter_reordering(
-                        story_id, data.from_pos, data.to_pos, conn=conn,
+                        story_id,
+                        data.from_pos,
+                        data.to_pos,
+                        conn=conn,
                     )
         except Exception as e:
             logger.error(
                 "chapter.reorder_failed",
-                story_id=story_id, user_id=user_id, error=str(e),
+                story_id=story_id,
+                user_id=user_id,
+                error=str(e),
             )
             raise InternalError(
                 "Something went wrong while reordering your chapters. Please try again."
@@ -305,8 +337,10 @@ class ChapterService:
 
         logger.info(
             "chapter.reorder.done",
-            story_id=story_id, user_id=user_id,
-            from_pos=data.from_pos, to_pos=data.to_pos,
+            story_id=story_id,
+            user_id=user_id,
+            from_pos=data.from_pos,
+            to_pos=data.to_pos,
         )
         return {"message": "Chapters reordered successfully"}
 
@@ -332,7 +366,9 @@ class ChapterService:
             return
 
         await self._story_repo.set_path_array(
-            story_id, [*path, chapter_id], executor=conn,
+            story_id,
+            [*path, chapter_id],
+            executor=conn,
         )
 
     async def _remove_chapter_from_path(
@@ -347,7 +383,9 @@ class ChapterService:
             return
 
         await self._story_repo.set_path_array(
-            story_id, [c for c in path if c != chapter_id], executor=conn,
+            story_id,
+            [c for c in path if c != chapter_id],
+            executor=conn,
         )
 
     async def _reorder_chapter_path(
@@ -404,7 +442,9 @@ class ChapterService:
         await self._sync_all_chapter_pointers(story_id, conn=conn)
         await self._update_story_timestamp(story_id, conn=conn)
         logger.info(
-            "chapter.path_created", chapter_id=chapter_id, story_id=story_id,
+            "chapter.path_created",
+            chapter_id=chapter_id,
+            story_id=story_id,
         )
 
     async def _handle_chapter_deletion(
@@ -418,7 +458,9 @@ class ChapterService:
         await self._sync_all_chapter_pointers(story_id, conn=conn)
         await self._update_story_timestamp(story_id, conn=conn)
         logger.info(
-            "chapter.path_deleted", chapter_id=chapter_id, story_id=story_id,
+            "chapter.path_deleted",
+            chapter_id=chapter_id,
+            story_id=story_id,
         )
 
     async def _handle_chapter_reordering(
@@ -434,15 +476,15 @@ class ChapterService:
         await self._update_story_timestamp(story_id, conn=conn)
         logger.info(
             "chapter.path_reordered",
-            story_id=story_id, from_pos=from_pos, to_pos=to_pos,
+            story_id=story_id,
+            from_pos=from_pos,
+            to_pos=to_pos,
         )
 
     def _format_scenes(self, scenes: List[SceneRow]) -> str:
-
         formatted_scenes = []
 
         for i, scene in enumerate(scenes):
-
             header = f"""\
             SCENE - {i + 1}
             TITLE: {scene.title}
@@ -463,48 +505,41 @@ class ChapterService:
             formatted_scenes.append("\n".join([header, body]))
 
         return "\n".join(formatted_scenes)
-    
+
     @handle_service_errors
     async def get_story_context(
         self, user_id: str, story_id: str, chapter_id: Optional[str] = None
     ) -> str:
-        
         scenes = await self._scene_repo.list_by_story(
-            story_id=story_id, 
-            user_id=user_id, 
-            chapter_id=chapter_id
+            story_id=story_id, user_id=user_id, chapter_id=chapter_id
         )
-            
+
         story_ctx = self._format_scenes(scenes)
 
         return story_ctx
 
     @handle_service_errors
     async def summarize_chapter(
-        self,
-        chapter_id: str,
-        user_id: str,
-        ignore_cache: bool = False
+        self, chapter_id: str, user_id: str, ignore_cache: bool = False
     ) -> ChapterSummaryResponse:
-        
         chapter_to_summarize = await self._chapter_repo.get(chapter_id, user_id)
 
         if chapter_to_summarize is None:
             raise NotFoundError("Chapter not found")
-        
-        if get_word_count(chapter_to_summarize.content) <= 500:
+
+        if get_word_count(chapter_to_summarize.content or "") <= 500:
             return ChapterSummaryResponse(summary="")
-        
+
         cache_key = f"summary:{chapter_id}:{user_id}"
 
         if not ignore_cache:
             if raw_data := (await self._cache.get(cache_key)):
                 return ChapterSummaryResponse.model_validate_json(raw_data)
-        
+
         ctx = await self.get_story_context(
             user_id=user_id,
             story_id=chapter_to_summarize.story_id,
-            chapter_id=chapter_to_summarize.prev_chapter_id
+            chapter_id=chapter_to_summarize.prev_chapter_id,
         )
 
         summary = await self._provider.generate(
@@ -515,18 +550,18 @@ class ChapterService:
             </story_context_so_far>
 
             <chapter_text>
-            {html_to_plain_text(chapter_to_summarize.content)}
+            {html_to_plain_text(chapter_to_summarize.content or "")}
             </chapter_text>
             """,
-            max_tokens=config.ai.summarization_max_tokens
+            max_tokens=config.ai.summarization_max_tokens,
         )
 
         logger.info("chapter.summary", chapter_id=chapter_id, user_id=user_id)
 
-        response =  ChapterSummaryResponse(summary=summary)
+        response = ChapterSummaryResponse(summary=summary)
 
-        await self._cache.set(cache_key, response.model_dump_json(), ex=timedelta(minutes=30))
+        await self._cache.set(
+            cache_key, response.model_dump_json(), ex=timedelta(minutes=30)
+        )
 
         return response
-
-

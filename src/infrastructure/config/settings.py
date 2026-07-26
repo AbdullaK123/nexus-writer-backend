@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     open_router_api_key: str
     open_router_api_url: str
 
-    #jaegar url
+    # jaegar url
     jaegar_url: str = "http://localhost:4318/v1/traces"
 
     # CORS
@@ -78,6 +78,7 @@ class PostgresConfig(BaseModel, frozen=True):
     pool_max_size: int = 20
     max_inactive_connection_lifetime: int = 300
 
+
 class RedisConfig(BaseModel, frozen=True):
     max_connections: int = 20
     decode_responses: bool = True
@@ -118,6 +119,7 @@ class SearchConfig(BaseModel, frozen=True):
     channels overlap on the same scene (which is what amplifies score), at
     the cost of more rows scanned per query.
     """
+
     default_k: int = Field(default=5, ge=1, le=50)
     default_candidate_pool: int = Field(default=50, ge=1, le=500)
 
@@ -133,6 +135,7 @@ class JobConfig(BaseModel, frozen=True):
     # Offset 30s from the extraction cron (which fires at :00 every 2 min) so
     # the two jobs don't fight for the same connections.
     scene_embedding_cron_expression: str = "30 * * * * *"
+
 
 class Config(BaseModel, frozen=True):
     """Application-wide static configuration. Loaded from config.yaml."""

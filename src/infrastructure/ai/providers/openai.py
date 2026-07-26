@@ -2,7 +2,7 @@ import asyncio
 from itertools import batched, chain
 import math
 from typing import List
-import logfire 
+import logfire
 from loguru import logger
 from openai import AsyncOpenAI
 from pydantic import BaseModel
@@ -12,7 +12,6 @@ from src.infrastructure.utils.decorators import handle_openai_errors
 
 
 class OpenAIProvider(AIProvider):
-
     def __init__(
         self,
         model: str = config.ai.default_model,
@@ -34,17 +33,14 @@ class OpenAIProvider(AIProvider):
             max_retries=config.ai.max_retries,
             timeout=config.ai.timeout,
         )
-        logfire.instrument_openai(raw_client)
+        logfire.instrument_openai(raw_client, version="latest")
         self._client = raw_client
 
     @logfire.instrument("OpenAI Generate")
     @handle_openai_errors
-    async def _generate(
-        self, system_prompt: str, text: str, max_tokens: int
-    ) -> str:
-       
+    async def _generate(self, system_prompt: str, text: str, max_tokens: int) -> str:
         logger.info("openai.generate.start", model=self.model, max_tokens=max_tokens)
-        
+
         response = await self._client.chat.completions.create(
             model=self.model,
             messages=[
@@ -59,7 +55,7 @@ class OpenAIProvider(AIProvider):
             raise ValueError("OpenAI hit max_completion_tokens before producing output")
         if content is None:
             raise ValueError("Open AI Provider returned empty content")
-            
+
         usage = response.usage
         logger.info(
             "openai.generate.done",
@@ -75,8 +71,13 @@ class OpenAIProvider(AIProvider):
         self, system_prompt: str, text: str, max_tokens: int, schema: type[T]
     ) -> T:
         schema_name = schema.__name__
-        logger.info("openai.extract.start", model=self.model, max_tokens=max_tokens, schema=schema_name)
-        
+        logger.info(
+            "openai.extract.start",
+            model=self.model,
+            max_tokens=max_tokens,
+            schema=schema_name,
+        )
+
         response = await self._client.chat.completions.parse(
             model=self.model,
             messages=[
@@ -92,7 +93,7 @@ class OpenAIProvider(AIProvider):
             raise ValueError("OpenAI hit max_completion_tokens before producing output")
         if content is None:
             raise ValueError("Open AI Provider returned empty extraction")
-            
+
         usage = response.usage
         logger.info(
             "openai.extract.done",
@@ -103,7 +104,8 @@ class OpenAIProvider(AIProvider):
             completion_tokens=usage.completion_tokens if usage else None,
             reasoning_tokens=(
                 usage.completion_tokens_details.reasoning_tokens
-                if usage and usage.completion_tokens_details else None
+                if usage and usage.completion_tokens_details
+                else None
             ),
         )
         return content
@@ -111,16 +113,15 @@ class OpenAIProvider(AIProvider):
     @logfire.instrument("OpenAI Embed")
     @handle_openai_errors
     async def _embed(self, text: str) -> List[float]:
-   
         logger.info("openai.embed.start", model=self.embedding_model, count=1)
-        
+
         response = await self._client.embeddings.create(
             model=self.embedding_model, input=text
         )
         data = response.data
         if data is None:
             raise ValueError("Open AI Provider failed to return embeddings")
-            
+
         usage = response.usage
         logger.info(
             "openai.embed.done",
@@ -134,16 +135,17 @@ class OpenAIProvider(AIProvider):
     @logfire.instrument("OpenAI Embed Many Raw")
     @handle_openai_errors
     async def _embed_many_raw(self, texts: List[str]) -> List[List[float]]:
-    
-        logger.info("openai.embed_many.start", model=self.embedding_model, count=len(texts))
-        
+        logger.info(
+            "openai.embed_many.start", model=self.embedding_model, count=len(texts)
+        )
+
         response = await self._client.embeddings.create(
             model=self.embedding_model, input=texts
         )
         data = response.data
         if data is None:
             raise ValueError("Open AI Provider failed to return embeddings")
-            
+
         usage = response.usage
         logger.info(
             "openai.embed_many.done",
@@ -161,7 +163,7 @@ class OpenAIProvider(AIProvider):
         total_count = len(texts)
         if total_count == 0:
             return []
-            
+
         batch_size = min(
             max(
                 math.ceil(total_count / self.max_concurrent_requests),
@@ -177,14 +179,14 @@ class OpenAIProvider(AIProvider):
             batch_size=batch_size,
             num_batches=num_batches,
         )
-        
+
         batched_texts = batched(texts, batch_size)
         # We pass lists to raw embedder since it's already bounded inside our main semaphore loop
         result = await asyncio.gather(
             *(self._embed_many_raw(list(batch)) for batch in batched_texts)
         )
         embeddings = list(chain.from_iterable(result))
-        
+
         logger.info(
             "openai.embed_many_batched.done",
             model=self.embedding_model,
@@ -194,7 +196,7 @@ class OpenAIProvider(AIProvider):
         return embeddings
 
     # ── PUBLIC ENTRYPOINTS (With Semaphore Guarding) ───────────────────
-    
+
     @logfire.instrument("Provider Queue Wait: generate")
     async def generate(self, system_prompt: str, text: str, max_tokens: int) -> str:
         async with self._sem:
@@ -213,7 +215,9 @@ class OpenAIProvider(AIProvider):
             return await self._embed(text)
 
     @logfire.instrument("Provider Queue Wait: embed_many")
-    async def embed_many(self, texts: List[str], with_batching: bool = False) -> List[List[float]]:
+    async def embed_many(
+        self, texts: List[str], with_batching: bool = False
+    ) -> List[List[float]]:
         async with self._sem:
             if with_batching:
                 return await self._embed_many_batched(texts)

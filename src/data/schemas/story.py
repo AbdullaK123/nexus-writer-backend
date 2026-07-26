@@ -17,6 +17,7 @@ class UpdateStoryRequest(ApiModel):
 
 class StoryRow(BaseModel):
     """One row from the `story` table."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: str
@@ -32,6 +33,7 @@ class StoryRow(BaseModel):
 class StoryPathArrayResponse(ApiModel):
     path_array: Optional[List[str]] = []
 
+
 class StoryCardResponse(ApiModel):
     story_id: str
     status: StoryStatus
@@ -41,7 +43,9 @@ class StoryCardResponse(ApiModel):
     updated_at: datetime
 
     @classmethod
-    def from_story(cls, story: StoryRow, chapters: List[ChapterRow]) -> "StoryCardResponse":
+    def from_story(
+        cls, story: StoryRow, chapters: List[ChapterRow]
+    ) -> "StoryCardResponse":
         return cls(
             story_id=story.id,
             title=story.title,
@@ -86,4 +90,4 @@ class StoryStatsResponse(ApiModel):
     total_words: Optional[int] = 0
     total_chapters: Optional[int] = 0
     total_scenes: Optional[int] = 0
-    streak_days: Optional[int] = 0    
+    streak_days: Optional[int] = 0

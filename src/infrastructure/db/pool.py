@@ -3,6 +3,7 @@
 Module-level singleton kept behind getters so callers can't accidentally
 acquire before init() / after close(). Repositories receive the pool via DI.
 """
+
 from __future__ import annotations
 
 import json
@@ -41,7 +42,9 @@ async def init_pool() -> asyncpg.Pool:
     # Tolerate the SQLAlchemy-style `postgresql+asyncpg://...` DSN that other
     # tools (alembic, yoyo, ORM configs) often want to share via .env.
     dsn = str(settings.database_url).replace(
-        "postgresql+asyncpg://", "postgresql://", 1,
+        "postgresql+asyncpg://",
+        "postgresql://",
+        1,
     )
     _pool = await asyncpg.create_pool(
         dsn=dsn,

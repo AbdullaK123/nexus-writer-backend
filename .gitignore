@@ -1,5 +1,5 @@
 KitchenSink
-
+test_stories
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -200,6 +200,7 @@ cython_debug/
 .cursorindexingignore
 # AI throwaway test scripts
 scratch/
+dev_scripts/seed_archived_stories.py
 
 # DevUI throwaway playground (scratch/devui + built assets in static/)
 /scratch/devui/

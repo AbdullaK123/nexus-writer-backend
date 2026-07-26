@@ -24,6 +24,8 @@ export function useStoryChatWindowProps({
     onRetry,
 }: UseStoryChatWindowPropsArgs): StoryChatWindowProps {
 
+    const [threadCreationPending, setThreadCreationPending] = useState(false)
+
     const [query, setQuery] = useState("");
 
     const navigate = useNavigate({ from: "/stories/$storyId/chat/$threadId"})
@@ -171,6 +173,8 @@ export function useStoryChatWindowProps({
 
     const onUserPromptSubmitted = useCallback((query: string) => {
 
+        setThreadCreationPending(true)
+
         if (!streamCancellerRef.current) {
             streamCancellerRef.current = new AbortController()
         }
@@ -227,6 +231,7 @@ export function useStoryChatWindowProps({
                 onClose: Some(() => {
                     if (streamingBufferRef.current.length > 0) flushBuffer()
                     setStreamingMessages([]);
+                    setThreadCreationPending(false)
                     onRetry(); 
                 })
             }
@@ -250,6 +255,7 @@ export function useStoryChatWindowProps({
                         if (streamingBufferRef.current.length > 0) flushBuffer()
                         setStreamingMessages([]);
                         onRetry()
+                        setThreadCreationPending(false)
                         return;
                     case "SseNetworkError":
                         error(
@@ -260,6 +266,7 @@ export function useStoryChatWindowProps({
                         if (streamingBufferRef.current.length > 0) flushBuffer()
                         setStreamingMessages([]);
                         onRetry(); 
+                        setThreadCreationPending(false)
                         return;
                     case "SseNoBodyError":
                         error(
@@ -270,6 +277,7 @@ export function useStoryChatWindowProps({
                         if (streamingBufferRef.current.length > 0) flushBuffer()
                         setStreamingMessages([]);
                         onRetry()
+                        setThreadCreationPending(false)
                         return;
                     case "SseStreamError":
                         error(
@@ -280,6 +288,7 @@ export function useStoryChatWindowProps({
                         if (streamingBufferRef.current.length > 0) flushBuffer()
                         setStreamingMessages([]);
                         onRetry()
+                        setThreadCreationPending(false)
                         return;
                     
                 }
@@ -315,6 +324,7 @@ export function useStoryChatWindowProps({
                 status: "empty",
                 composer: {
                     status: "ready",
+                    threadCreationPending: threadCreationPending,
                     query: query,
                     onQueryChange: (query: string) => setQuery(query),
                     onEnterDown: (query: string) => onUserPromptSubmitted(query),
@@ -344,6 +354,7 @@ export function useStoryChatWindowProps({
                 composer: {
                     status: streamingMessages.length > 0 ? "loading" : "ready",
                     query: query,
+                    threadCreationPending: threadCreationPending,
                     onQueryChange: (query: string) => setQuery(query),
                     onEnterDown: (query: string) => onUserPromptSubmitted(query),
                     onSubmit: (query: string) => onUserPromptSubmitted(query)

@@ -6,5 +6,6 @@ class ItemWithCount(BaseModel):
     value: str
     count: int
 
+
 class ItemListResponse(BaseModel):
     items: List[ItemWithCount]

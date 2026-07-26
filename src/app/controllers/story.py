@@ -1,11 +1,10 @@
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, Depends, Query
 
 from src.app.dependencies import (
     get_current_user,
     get_chapter_service,
-    get_extraction_service,
     get_story_service,
 )
 from src.data.schemas import UserRow
@@ -31,7 +30,6 @@ from src.data.schemas.scene import (
     VocabularyListResponse,
 )
 from src.service.chapter import ChapterService
-from src.service.extraction import ExtractionService
 from src.service.story import StoryService
 from src.app.controllers.story_chat import chat_controller
 
@@ -47,6 +45,7 @@ async def get_path_array(
     story_service: StoryService = Depends(get_story_service),
 ) -> StoryPathArrayResponse:
     return await story_service.get_path_array(story_id, current_user.id)
+
 
 @story_controller.post("")
 async def create_story(
@@ -65,7 +64,9 @@ async def update_story(
     story_service: StoryService = Depends(get_story_service),
 ) -> dict:
     return await story_service.update_story(
-        current_user.id, story_id, update_info,
+        current_user.id,
+        story_id,
+        update_info,
     )
 
 
@@ -101,10 +102,12 @@ async def create_chapter(
     story_id: str,
     chapter_info: CreateChapterRequest,
     current_user: UserRow = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(get_chapter_service)
+    chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> ChapterContentResponse:
     return await chapter_service.create_chapter(
-        story_id, current_user.id, chapter_info,
+        story_id,
+        current_user.id,
+        chapter_info,
     )
 
 
@@ -116,7 +119,9 @@ async def reorder_chapters(
     chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> dict:
     return await chapter_service.reorder_chapters(
-        story_id, current_user.id, reorder_info,
+        story_id,
+        current_user.id,
+        reorder_info,
     )
 
 
@@ -127,12 +132,13 @@ async def get_story_chapters(
     chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> ChapterListResponse:
     return await chapter_service.get_story_chapters(
-        story_id, current_user.id,
+        story_id,
+        current_user.id,
     )
 
 
 @story_controller.post(
-    "/{story_id}/search", 
+    "/{story_id}/search",
     response_model=SceneSearchListResponse,
 )
 async def search_story_scenes(
@@ -179,6 +185,7 @@ async def list_story_entities(
 ) -> VocabularyListResponse:
     return await story_service.list_story_entities(current_user.id, story_id)
 
+
 @story_controller.get(
     "/{story_id}/povs",
     response_model=VocabularyListResponse,
@@ -191,10 +198,7 @@ async def list_povs(
     return await story_service.list_povs(current_user.id, story_id)
 
 
-@story_controller.get(
-    "/{story_id}/pulse",
-    response_model=BookPulseResponse
-)
+@story_controller.get("/{story_id}/pulse", response_model=BookPulseResponse)
 async def get_pulse(
     story_id: str,
     current_user: UserRow = Depends(get_current_user),
@@ -203,13 +207,10 @@ async def get_pulse(
     return await story_service.get_pulse(current_user.id, story_id)
 
 
-@story_controller.get(
-    "/{story_id}/stats",
-    response_model=StoryStatsResponse
-)
+@story_controller.get("/{story_id}/stats", response_model=StoryStatsResponse)
 async def get_stats(
     story_id: str,
     current_user: UserRow = Depends(get_current_user),
-    story_service: StoryService = Depends(get_story_service)
+    story_service: StoryService = Depends(get_story_service),
 ) -> StoryStatsResponse:
     return await story_service.get_story_stats(story_id, current_user.id)

@@ -5,6 +5,7 @@ The application uses asyncpg directly via the pool in
 both the pool and any ad-hoc clients (yoyo, scripts, …) agree on the
 same parameter set.
 """
+
 from urllib.parse import urlencode, urlparse, urlunparse
 
 from src.infrastructure.config.settings import settings, config

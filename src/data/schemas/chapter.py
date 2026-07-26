@@ -8,6 +8,7 @@ from src.data.schemas.enums import StoryStatus
 
 class ChapterRow(BaseModel):
     """One row from the `chapter` table."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: str
@@ -46,11 +47,9 @@ class ChapterListItem(ApiModel):
     chapter_number: int
     word_count: int
     story_title: str
-    chapter_title: str 
+    chapter_title: str
     published: bool
     updated_at: datetime
-
-  
 
 
 class ChapterContentResponse(ApiModel):
@@ -79,7 +78,7 @@ class ChapterContentResponse(ApiModel):
         chapter_number: int,
         story_title: str,
         *,
-        content: Optional[str] = None
+        content: Optional[str] = None,
     ) -> "ChapterContentResponse":
         return cls(
             id=chapter.id,
@@ -115,6 +114,7 @@ class ChapterListResponse(ApiModel):
             story_last_updated=story.updated_at,
             chapters=chapters,
         )
+
 
 class ChapterSummaryResponse(ApiModel):
     summary: str

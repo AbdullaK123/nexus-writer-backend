@@ -20,7 +20,9 @@ class AnalyticsSuggestionExtraction(BaseModel):
         When the status is 'not-available', briefly explain why the metric cannot support a responsible interpretation.
         """
     )
-    status: Literal["healthy", "worth-watching", "needs-your-attention", "not-available"] = Field(
+    status: Literal[
+        "healthy", "worth-watching", "needs-your-attention", "not-available"
+    ] = Field(
         description="""
         The editorial significance of the metric.
         'healthy' = the metric reflects a coherent or well-balanced story pattern with no meaningful concern;
@@ -51,7 +53,7 @@ class PlotThread(BaseModel):
     )
     chapter_ended: Optional[int] = Field(
         default=None,
-        description="The 1-based chapter number where the plot thread is definitively resolved or closed; null when it remains open or its resolution cannot be determined."
+        description="The 1-based chapter number where the plot thread is definitively resolved or closed; null when it remains open or its resolution cannot be determined.",
     )
     chapter_last_touched: int = Field(
         description="The latest 1-based chapter number that meaningfully develops, complicates, advances, or resolves the thread; incidental mentions do not count."
@@ -68,12 +70,12 @@ class PlotThread(BaseModel):
 
 class PlotThreadsExtraction(BaseModel):
     threads: Optional[List[PlotThread]] = Field(
-        default_factory=lambda : [],
+        default_factory=lambda: [],
         description="""
         All distinct, narratively significant plot threads visible in the supplied story context.
         Return each thread once using a stable canonical name, order threads by the chapter where they begin, and exclude fleeting events that create no continuing objective, conflict, mystery, promise, or consequence.
         Return an empty list when no meaningful plot threads can be identified.
-        """
+        """,
     )
 
 
@@ -94,22 +96,22 @@ class Act(BaseModel):
     )
     chapter_ended: Optional[int] = Field(
         default=None,
-        description="The 1-based chapter number where this act ends, inclusive; null only when this is the currently unfinished act."
+        description="The 1-based chapter number where this act ends, inclusive; null only when this is the currently unfinished act.",
     )
     current_chapter: Optional[int] = Field(
         default=None,
-        description="The latest available 1-based chapter number within this act when it is still in progress; null for completed acts."
+        description="The latest available 1-based chapter number within this act when it is still in progress; null for completed acts.",
     )
 
 
 class ActSegmentationExtraction(BaseModel):
     acts: Optional[List[Act]] = Field(
-        default_factory=lambda : [],
+        default_factory=lambda: [],
         description="""
         The story's broad structural phases in chronological order.
         Acts must be sequential, contiguous, and non-overlapping, with boundaries placed at meaningful changes in objective, conflict, stakes, direction, or narrative function.
         Do not force the story into four acts when the supplied material supports fewer, especially when the manuscript is unfinished. Return an empty list when no responsible segmentation can be made.
-        """
+        """,
     )
 
 
@@ -139,12 +141,12 @@ class Contradiction(BaseModel):
 
 class ContradictionExtraction(BaseModel):
     contradictions: Optional[List[Contradiction]] = Field(
-        default_factory=lambda : [],
+        default_factory=lambda: [],
         description="""
         High-confidence factual or continuity contradictions supported by the supplied story context.
         Include only conflicts that can be checked against direct evidence in the cited chapters; exclude subjective interpretation, deliberate lies, unreliable narration, unresolved mysteries, and details that can coexist or change over time.
         Return an empty list when no defensible contradictions are present.
-        """
+        """,
     )
 
 
@@ -157,8 +159,9 @@ class ContradictionResponse(ApiModel):
 
 
 class Entity(BaseModel):
-    type: Literal["place", "faction", "concept", "system", "character", "other"] = Field(
-        description="""
+    type: Literal["place", "faction", "concept", "system", "character", "other"] = (
+        Field(
+            description="""
         The entity's narrative category.
         'place' = a named physical location;
         'faction' = an organization, government, group, institution, or collective actor;
@@ -167,6 +170,7 @@ class Entity(BaseModel):
         'character' = an individual person, creature, intelligence, or person-like agent;
         'other' = a significant named entity that does not responsibly fit another category.
         """
+        )
     )
     name: str = Field(
         description="The entity's most specific canonical name as used by the story; merge aliases and repeated references to the same entity into one ledger entry."
@@ -251,12 +255,16 @@ class TensionCurveRow(BaseModel):
     chapter_id: str
     chapter_number: int
     avg_tension: float
+    scene_count: int
+    word_count: int
 
 
 class PacingCurveRow(BaseModel):
     chapter_id: str
     chapter_number: int
     avg_pacing: float
+    scene_count: int
+    word_count: int
 
 
 class TensionAndPacingCurveResponse(ApiModel):
@@ -265,22 +273,26 @@ class TensionAndPacingCurveResponse(ApiModel):
     tension_curve: List[TensionCurveRow]
     pacing_curve: List[PacingCurveRow]
 
+
 class CharacterDashboardResponse(ApiModel):
     suggestion: AnalyticsSuggestionResponse
     cast_statistics: CastStatisticsResponse
     co_occurence_statistics: CoOccurenceStatisticsResponse
     character_statistics: CharacterStatisticsResponse
 
+
 class PlotDashboardResponse(ApiModel):
     suggestion: AnalyticsSuggestionResponse
     plot_threads: PlotThreadsResponse
     act_segmentation: ActSegmentationResponse
+
 
 class StructureDashboardResponse(ApiModel):
     suggestion: AnalyticsSuggestionResponse
     tension_and_pacing_curves: TensionAndPacingCurveResponse
     scene_length_distribution: SceneLengthDistributionResponse
     recent_rythm: TensionAndPacingCurveResponse
+
 
 class WorldDashboardResponse(ApiModel):
     suggestion: AnalyticsSuggestionResponse

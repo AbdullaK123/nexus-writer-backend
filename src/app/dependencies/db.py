@@ -3,6 +3,7 @@
 Lives in its own module so both `repositories.py` and `services.py` can
 import it without creating a cycle (repositories <- services <- repositories).
 """
+
 import asyncpg
 from fastapi import Request
 

@@ -1,13 +1,21 @@
 from saq.types import Context
+from src.app.dependencies.redis import get_redis
 from src.app.dependencies.services import build_ai_provider
+from src.data.repositories.analytics import AnalyticsRepository
 from src.data.repositories.chapter import ChapterRepository
 from src.data.repositories.scene import SceneRepository
+from src.data.repositories.story import StoryRepository
 from src.infrastructure.db.pool import init_pool, close_pool
+from src.infrastructure.redis.queue import client
+from src.infrastructure.config.settings import config, settings as app_settings
 from src.infrastructure.telemetry.logfire import init_tracing
+from src.service.analytics.service import AnalyticsService
+from src.service.chapter.service import ChapterService
 from src.service.embedding.service import EmbeddingService
 from src.service.extraction.service import ExtractionService
 from src.infrastructure.redis.queue import queue
 from dotenv import load_dotenv
+from src.service.story.service import StoryService
 from src.shared.utils.logging import configure_logger
 from pathlib import Path
 import asyncio
@@ -37,6 +45,8 @@ async def startup(ctx: Context) -> None:
     provider = build_ai_provider()
     chapter_repo = ChapterRepository(pool)
     scene_repo = SceneRepository(pool)
+    story_repo = StoryRepository(pool)
+    analytics_repo = AnalyticsRepository(pool)
 
     extraction_service = ExtractionService(
         provider=provider,
@@ -47,12 +57,38 @@ async def startup(ctx: Context) -> None:
         scene_repo=scene_repo,
         provider=provider
     )
+    story_service = StoryService(
+        story_repo=story_repo,
+        chapter_repo=chapter_repo,
+        scene_repo=scene_repo,
+        provider=provider,
+        search_config=config.search,
+        redis=client
+    )
+    chapter_service = ChapterService(
+        story_repo=story_repo,
+        chapter_repo=chapter_repo,
+        scene_repo=scene_repo,
+        provider=provider,
+        redis=client
+    )
+    analytics_service = AnalyticsService(
+        analytics_repo=analytics_repo,
+        story_repo=story_repo,
+        chapter_repo=chapter_repo,
+        scene_repo=scene_repo,
+        provider=provider,
+        redis=client
+    )
 
     heartbeat_task = asyncio.create_task(heartbeat_loop())
     
     ctx['heartbeat_task'] = heartbeat_task
     ctx['extraction_service'] = extraction_service
     ctx['embedding_service'] = embedding_service
+    ctx['story_service'] = story_service
+    ctx['chapter_service'] = chapter_service
+    ctx['analytics_service'] = analytics_service
 
     logger.info("Startup complete!")
 
@@ -73,11 +109,45 @@ async def shutdown(ctx: Context) -> None:
 
     logger.info("Goodbye...")
 
-async def scene_and_embedding_job(ctx: Context, *, chapter_id: str) -> None:
+async def scene_and_embedding_job(
+    ctx: Context, *, chapter_id: str, story_id: str, user_id: str
+) -> None:
     with tracer.start_as_current_span("saq.scene_and_embedding_job") as span:
         try:
             await ctx['worker'].context['extraction_service'].extract_scenes(chapter_id)
             await ctx['worker'].context['embedding_service'].embed_scenes(chapter_id)
+            await asyncio.gather(
+                ctx['worker'].context['story_service'].get_pulse(
+                    user_id=user_id,
+                    story_id=story_id,
+                    ignore_cache=True
+                ),
+                ctx['worker'].context['chapter_service'].summarize_chapter(
+                    user_id=user_id,
+                    chapter_id=chapter_id,
+                    ignore_cache=True
+                ),
+                ctx['worker'].context['analytics_service'].extract_plot_threads(
+                    story_id=story_id,
+                    user_id=user_id,
+                    ignore_cache=True
+                ),
+                ctx['worker'].context['analytics_service'].extract_acts(
+                    story_id=story_id,
+                    user_id=user_id,
+                    ignore_cache=True
+                ),
+                ctx['worker'].context['analytics_service'].extract_contradictions(
+                    story_id=story_id,
+                    user_id=user_id,
+                    ignore_cache=True
+                ),
+                ctx['worker'].context['analytics_service'].extract_entities(
+                    story_id=story_id,
+                    user_id=user_id,
+                    ignore_cache=True
+                )
+            )
             span.set_status(trace.StatusCode.OK)
         except Exception as e:
             logger.exception("saq.scene_and_embedding_job.failed")

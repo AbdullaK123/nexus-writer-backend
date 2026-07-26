@@ -12,6 +12,8 @@ export function useChatComposerProps({
     storyId
 }: UseStoryChatWindowPropsArgs): ChatComposerProps {
 
+    const [threadCreationPending, setThreadCreationPending] = useState(false)
+
     const [query, setQuery] = useState("");
 
     const {
@@ -21,12 +23,16 @@ export function useChatComposerProps({
     const navigate = useNavigate()
 
     const onUserPromptSubmitted = (query: string) => {
+
+        setThreadCreationPending(true)
+
         createThread(
             {
                 firstMessage: query
             },
             {
                 onSuccess: async (newThread) => {
+                    setThreadCreationPending(false)
                     await navigate({
                         to: "/stories/$storyId/chat/$threadId",
                         params: {
@@ -44,6 +50,7 @@ export function useChatComposerProps({
 
     return {
         status: "ready",
+        threadCreationPending: threadCreationPending,
         query: query,
         onQueryChange: (query: string) => setQuery(query),
         onEnterDown: (query: string) => onUserPromptSubmitted(query),

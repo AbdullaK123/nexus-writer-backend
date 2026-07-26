@@ -8,6 +8,7 @@ from src.data.schemas._base import ApiModel
 # DB row models
 # ---------------------------------------------------------------------------
 
+
 class ChatThreadRow(BaseModel):
     id: str
     user_id: str
@@ -39,6 +40,7 @@ class ChatMessageRow(BaseModel):
 # ---------------------------------------------------------------------------
 # HTTP request / response DTOs
 # ---------------------------------------------------------------------------
+
 
 class CreateThreadRequest(ApiModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -80,6 +82,7 @@ class ConversationTurnRequest(ApiModel):
 # ---------------------------------------------------------------------------
 # HTTP request bodies (path supplies story_id / thread_id)
 # ---------------------------------------------------------------------------
+
 
 class CreateThreadBody(ApiModel):
     first_message: str = Field(alias="firstMessage")

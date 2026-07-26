@@ -10,6 +10,7 @@ from src.service.exceptions import (
 )
 from loguru import logger
 
+
 def handle_service_errors(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
@@ -31,6 +32,7 @@ def handle_service_errors(func):
 
     return wrapper
 
+
 def handle_service_errors_stream(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
@@ -50,6 +52,7 @@ def handle_service_errors_stream(func):
                 error=str(e.original),
             )
             raise ServiceError("A database error occurred")
+
     return wrapper
 
 
