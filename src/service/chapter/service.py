@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
 import textwrap
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Union
 
 import asyncpg
 from loguru import logger
@@ -27,7 +27,7 @@ from src.data.schemas.scene import SceneRow
 from src.infrastructure.config import config
 from src.infrastructure.ai.prompts import COMMENTS_EXTRACTION_PROMPT, COMMENTS_PLANNER_PROMPT, SUMMARIZATION_PROMPT
 from src.infrastructure.ai.providers.protocol import AIProvider
-from src.service.exceptions import NotFoundError, ValidationError, InternalError
+from src.service.exceptions import NoContentError, NotFoundError, ValidationError, InternalError
 from src.service.utils.decorators import handle_service_errors
 from functools import cached_property, lru_cache
 from src.infrastructure.redis.queue import queue
@@ -741,3 +741,23 @@ class ChapterService:
         await self._cache.set(f"chapter:comments:{chapter_id}", response.model_dump_json())
 
         return response
+
+    async def get_comments(
+        self,
+        user_id: str,
+        chapter_id: str
+    ) -> CommentExtractionResponse:
+
+        chapter = await self._chapter_repo.get(chapter_id, user_id)
+                
+        if chapter is None:
+            raise NotFoundError("Chapter not found")
+
+        raw_data = await self._cache.get(f"chapter:comments:{chapter_id}")
+
+        if raw_data is None:
+            raise NoContentError()
+
+        return CommentExtractionResponse.model_validate_json(raw_data)
+
+   

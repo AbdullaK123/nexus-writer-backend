@@ -62,3 +62,10 @@ class InternalError(ServiceError):
 
     def __init__(self, message: str = "Internal error"):
         super().__init__(message)
+
+class NoContentError(ServiceError):
+    code = "NO_CONTENT"
+    status_code = 204
+
+    def __init__(self, message: str = "No content"):
+        super().__init__(message)

@@ -7,6 +7,7 @@ from src.data.schemas.chapter import (
     ChapterSummaryResponse,
     UpdateChapterRequest,
 )
+from src.data.schemas.extraction import CommentExtractionResponse
 from src.service.chapter import ChapterService
 
 chapter_controller = APIRouter(prefix="/chapters")
@@ -60,4 +61,14 @@ async def summarize_chapter(
 ) -> ChapterSummaryResponse:
     return await chapter_service.summarize_chapter(
         chapter_id=chapter_id, user_id=current_user.id
+    )
+
+@chapter_controller.get("/{chapter_id}/comments", response_model=CommentExtractionResponse)
+async def get_comments(
+    chapter_id,
+    current_user: UserRow = Depends(get_current_user),
+    chapter_service: ChapterService = Depends(get_chapter_service)
+) -> CommentExtractionResponse:
+    return await chapter_service.get_comments(
+        user_id=current_user.id, chapter_id=chapter_id
     )
