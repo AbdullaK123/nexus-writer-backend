@@ -31,8 +31,9 @@ from src.infrastructure.redis.queue import queue
 from datetime import timedelta
 import redis.asyncio as aioredis
 from src.shared.utils.html import (
-    get_html_similarity_ratio,
+    get_similarity_ratio,
     get_preview_content,
+    get_similarity_ratio,
     get_word_count,
     html_to_plain_text,
 )
@@ -232,19 +233,36 @@ class ChapterService:
                 "We couldn't find this chapter. It may have been deleted."
             )
 
+        baseline = await self._cache.get(f"chapter:baseline:{chapter_id}")
+        plain_text = html_to_plain_text(updated.content or "")
+
+        if baseline is None:
+            should_extract = get_word_count(updated.content or "") >= 1000
+        else:
+            should_extract = get_similarity_ratio(str(baseline), plain_text) < self.REEXTRACTION_THRESHOLD
+
         if (
             "content" in fields
             and updated.content
-            and get_html_similarity_ratio(chapter.content or "", updated.content)
-            < self.REEXTRACTION_THRESHOLD
+            and should_extract
         ):
-            await queue.enqueue(
-                "scene_and_embedding_job", 
-                story_id=chapter.story_id,
-                user_id=chapter.user_id,
-                chapter_id=chapter_id, 
-                timeout=900
+
+            claimed = await self._cache.set(
+                f"chapter:extraction-pending:{chapter_id}",
+                "1",
+                nx=True,
+                ex=1800
             )
+
+            if claimed:
+                await queue.enqueue(
+                    "scene_and_embedding_job", 
+                    story_id=chapter.story_id,
+                    user_id=chapter.user_id,
+                    chapter_id=chapter_id, 
+                    content=plain_text,
+                    timeout=900
+                )
 
         logger.info(
             "chapter.update.done",
