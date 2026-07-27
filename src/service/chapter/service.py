@@ -198,25 +198,23 @@ class ChapterService:
         user_id: str,
         data: UpdateChapterRequest,
     ) -> ChapterContentResponse:
-        triple = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
+        triple = await self._chapter_repo.get_with_story_title(
+            chapter_id,
+            user_id,
+        )
         if triple is None:
             raise NotFoundError(
                 "We couldn't find this chapter. It may have been deleted."
             )
-        chapter, story_title, chapter_number = triple
 
+        chapter, story_title, chapter_number = triple
         fields = data.model_dump(exclude_unset=True)
+
+        plain_text: str | None = None
+
         if "content" in fields:
             fields["word_count"] = get_word_count(fields["content"])
-
-            # If existing scenes' quotes no longer line up with the new content,
-            # flag the chapter for re-extraction. Avoids churn on trivial edits
-            # (typos, formatting) where every quote still matches verbatim.
-            existing_scenes = await self._scene_repo.list_by_chapter(chapter_id)
-            if existing_scenes:
-                new_plain_text = html_to_plain_text(fields["content"])
-                if scenes_are_stale(existing_scenes, new_plain_text):
-                    await self._scene_repo.mark_chapter_stale(chapter_id)
+            plain_text = html_to_plain_text(fields["content"])
 
         async with self._chapter_repo.pool.acquire() as conn:
             async with conn.transaction():
@@ -228,41 +226,49 @@ class ChapterService:
                 )
 
         if updated is None:
-            # disappeared between the read above and the update — treat as gone
             raise NotFoundError(
                 "We couldn't find this chapter. It may have been deleted."
             )
 
-        baseline = await self._cache.get(f"chapter:baseline:{chapter_id}")
-        plain_text = html_to_plain_text(updated.content or "")
+        if plain_text is not None and updated.content:
+            baseline_key = f"chapter:baseline:{chapter_id}"
+            pending_key = f"chapter:extraction-pending:{chapter_id}"
 
-        if baseline is None:
-            should_extract = get_word_count(updated.content or "") >= 1000
-        else:
-            should_extract = get_similarity_ratio(str(baseline), plain_text) < self.REEXTRACTION_THRESHOLD
+            baseline = await self._cache.get(baseline_key)
 
-        if (
-            "content" in fields
-            and updated.content
-            and should_extract
-        ):
-
-            claimed = await self._cache.set(
-                f"chapter:extraction-pending:{chapter_id}",
-                "1",
-                nx=True,
-                ex=1800
-            )
-
-            if claimed:
-                await queue.enqueue(
-                    "scene_and_embedding_job", 
-                    story_id=chapter.story_id,
-                    user_id=chapter.user_id,
-                    chapter_id=chapter_id, 
-                    content=plain_text,
-                    timeout=900
+            if baseline is None:
+                should_extract = updated.word_count >= 1000
+            else:
+                should_extract = (
+                    get_similarity_ratio(
+                        baseline.decode() if isinstance(baseline, bytes) else baseline, 
+                        plain_text
+                    ) < self.REEXTRACTION_THRESHOLD
                 )
+
+            if should_extract:
+                claimed = await self._cache.set(
+                    pending_key,
+                    "1",
+                    nx=True,
+                    ex=1800,
+                )
+
+                if claimed:
+                    try:
+                        await queue.enqueue(
+                            "scene_and_embedding_job",
+                            story_id=chapter.story_id,
+                            user_id=chapter.user_id,
+                            chapter_id=chapter_id,
+                            content=plain_text,
+                            timeout=900,
+                        )
+                    except Exception:
+                        # Do not leave the chapter blocked until the lock TTL expires
+                        # when enqueueing itself fails.
+                        await self._cache.delete(pending_key)
+                        raise
 
         logger.info(
             "chapter.update.done",
@@ -270,8 +276,11 @@ class ChapterService:
             user_id=user_id,
             fields=list(fields.keys()),
         )
+
         return ChapterContentResponse.from_chapter(
-            updated, story_title=story_title, chapter_number=chapter_number
+            updated,
+            story_title=story_title,
+            chapter_number=chapter_number,
         )
 
     @handle_service_errors
