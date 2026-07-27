@@ -31,7 +31,7 @@ from src.infrastructure.ai import AIProvider, SCENE_EXTRACTION_PROMPT
 from src.infrastructure.config import config
 from src.service.exceptions import InternalError, NotFoundError
 from src.service.utils.decorators import handle_service_errors
-from src.shared.utils.html import html_to_plain_text, get_word_count
+from src.shared.utils.html import html_to_plain_text
 
 
 def scenes_are_stale(scenes: Iterable[Any], chapter_content: str) -> bool:
@@ -131,7 +131,13 @@ class ExtractionService:
 
         chapter, story_title, chapter_number = result
 
-        if get_word_count(chapter.content or "") < self.MIN_SCENE_EXTRACTION_WORDS:
+        plain_text = (
+            content
+            if content is not None
+            else html_to_plain_text(chapter.content or "")
+        )
+
+        if len(plain_text.split()) < self.MIN_SCENE_EXTRACTION_WORDS:
             async with self._scene_repo.pool.acquire() as conn:
                 async with conn.transaction():
                     await self._scene_repo.replace_for_chapter(
@@ -145,8 +151,6 @@ class ExtractionService:
                         chapter.id, executor=conn
                     )
             return None
-
-        plain_text = content or html_to_plain_text(chapter.content or "")
 
         extraction = await self._extract_with_feedback(chapter_content=plain_text)
 

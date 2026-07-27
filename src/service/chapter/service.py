@@ -24,7 +24,6 @@ from src.infrastructure.config import config
 from src.infrastructure.ai.prompts import SUMMARIZATION_PROMPT
 from src.infrastructure.ai.providers.protocol import AIProvider
 from src.service.exceptions import NotFoundError, ValidationError, InternalError
-from src.service.extraction import scenes_are_stale
 from src.service.utils.decorators import handle_service_errors
 from functools import cached_property
 from src.infrastructure.redis.queue import queue
@@ -33,7 +32,6 @@ import redis.asyncio as aioredis
 from src.shared.utils.html import (
     get_similarity_ratio,
     get_preview_content,
-    get_similarity_ratio,
     get_word_count,
     html_to_plain_text,
 )
