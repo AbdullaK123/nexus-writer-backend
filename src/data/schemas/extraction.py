@@ -1,7 +1,6 @@
 from datetime import datetime
-from pydantic import Field, BaseModel, ConfigDict
+from pydantic import Field, BaseModel, ConfigDict, model_validator
 from typing import Literal, List
-
 from src.data.schemas._base import ApiModel
 
 
@@ -177,6 +176,420 @@ class SceneExtractionResult(BaseModel):
     scenes_extracted: int 
     chapter_number: int
     story_title: str
+
+
+CommentCategory = Literal[
+    "clarity",
+    "continuity",
+    "character",
+    "plot",
+    "structure",
+    "pacing",
+    "dialogue",
+    "worldbuilding",
+    "prose",
+    "not-available",
+]
+
+CommentPriority = Literal[
+    "note",
+    "suggestion",
+    "important",
+    "not-available",
+]
+
+CommentScope = Literal[
+    "local",
+    "chapter",
+    "character-history",
+    "manuscript",
+    "not-available",
+]
+
+
+class CommentEvidence(BaseModel):
+    """
+    One exact passage of manuscript evidence supporting an editorial comment.
+
+    This is primarily used when the comment depends on character history,
+    continuity, or broader manuscript context rather than only the locally
+    anchored passage.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    quoted_text: str = Field(
+        min_length=1,
+        max_length=4000,
+        description="""
+        A contiguous VERBATIM quotation copied from the manuscript evidence
+        supporting the comment.
+
+        Preserve the original punctuation, capitalization, spelling, wording,
+        and word order exactly. Do not paraphrase, summarize, normalize,
+        correct, truncate, or insert ellipses.
+
+        Quote the shortest passage that clearly establishes the relevant fact.
+        The passage should normally contain one sentence, one exchange, or one
+        short paragraph. Use a longer passage only when the evidence depends
+        on the relationship between multiple sentences.
+
+        This quotation must come from manuscript text actually supplied by the
+        planner or retrieved through a manuscript tool. Do not reconstruct a
+        quotation from a synopsis, analytics result, memory, or inference.
+
+        Do not quote the target passage again unless that repetition provides
+        genuinely distinct evidence from elsewhere in the target chapter.
+        """,
+    )
+
+    relevance: str = Field(
+        min_length=1,
+        max_length=500,
+        description="""
+        A concise explanation of what the quoted evidence establishes and why
+        it matters to the editorial comment.
+
+        Describe the evidence conservatively. Distinguish what the text
+        explicitly establishes from what it merely suggests.
+
+        Good:
+        "This earlier exchange establishes that Tali respects Anderson's
+        tactical judgment while still withholding personal trust."
+
+        Bad:
+        "This proves that the new scene is badly written."
+
+        Do not introduce facts, motives, relationships, knowledge, emotional
+        states, or causal conclusions unsupported by the quotation.
+        """,
+    )
+
+
+class ExtractedComment(BaseModel):
+    """
+    One manuscript-aware editorial comment anchored to an exact passage in
+    the target chapter.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    quoted_text: str = Field(
+        min_length=1,
+        max_length=4000,
+        description="""
+        A contiguous VERBATIM excerpt copied from the target chapter that
+        identifies the exact passage to which the comment applies.
+
+        Preserve punctuation, capitalization, spelling, wording, and word
+        order exactly. Do not paraphrase, normalize, correct, truncate, or
+        insert ellipses.
+
+        Select the shortest passage that fully supports the comment. This will
+        normally be one sentence, one exchange, or one short paragraph. Use a
+        longer passage only when the concern depends on multiple connected
+        sentences or paragraphs.
+
+        The complete quotation must be uniquely locatable in the target
+        chapter. If a short phrase occurs more than once, include enough
+        surrounding prose to distinguish the intended occurrence.
+
+        Do not include unrelated prose merely to make the quotation longer.
+        """,
+    )
+
+    title: str = Field(
+        min_length=1,
+        max_length=80,
+        description="""
+        A short, concrete label identifying the subject of the comment.
+
+        Prefer approximately 2-6 words. Name the specific concern or question
+        rather than using generic labels such as "Suggestion", "Writing issue",
+        or "Needs work".
+
+        Good examples:
+        - "Anderson's knowledge"
+        - "Tali's change in trust"
+        - "Unclear speaker"
+        - "Repeated evacuation detail"
+        - "Spatial continuity"
+
+        Do not state an uncertain interpretation as an established fact.
+        """,
+    )
+
+    body: str = Field(
+        min_length=1,
+        max_length=1200,
+        description="""
+        The complete editorial comment that will be shown to the author.
+
+        Write a concise, passage-specific comment, normally 1-3 sentences.
+        Explain what a reader may notice, why it may matter, and what question
+        the author may wish to consider.
+
+        Ground the comment in the anchored passage, the supplied review plan,
+        and any exact evidence quotations.
+
+        Clearly distinguish:
+        - facts established by the manuscript;
+        - reasonable interpretations;
+        - unresolved possibilities.
+
+        Prefer language such as:
+        - "This may read as..."
+        - "The earlier passage establishes..."
+        - "Consider whether..."
+        - "It is not yet clear..."
+        - "This appears to..."
+
+        Do not:
+        - issue commands;
+        - rewrite the passage;
+        - prescribe generic writing rules;
+        - homogenize the author's voice;
+        - treat personal taste as an objective defect;
+        - manufacture a concern merely to produce a comment;
+        - repeat the review plan;
+        - mention prompts, tools, searches, models, or internal reasoning.
+
+        A manuscript-level comment should briefly explain how the supplied
+        evidence relates to the target passage. A purely local comment should
+        not force irrelevant manuscript context into the response.
+        """,
+    )
+
+    category: CommentCategory = Field(
+        description="""
+        The primary editorial category represented by the comment. Select
+        exactly one value:
+
+        - `clarity`:
+          The passage may be difficult to understand because of ambiguous
+          reference, chronology, causation, spatial orientation, action,
+          information flow, or sentence meaning.
+
+        - `continuity`:
+          The passage may conflict with established facts, chronology,
+          character knowledge, physical state, location, terminology, world
+          rules, or previous events.
+
+        - `character`:
+          The comment concerns motivation, agency, emotional continuity,
+          internal conflict, behaviour, development, relationships, or the
+          credibility of a decision or reaction.
+
+        - `plot`:
+          The comment concerns objectives, stakes, conflict, causality, setup,
+          consequence, revelation, payoff, or forward narrative movement.
+
+        - `structure`:
+          The comment concerns the placement, sequencing, framing, function,
+          or relationship of beats, scenes, transitions, revelations, or
+          chapter-level developments.
+
+        - `pacing`:
+          The comment concerns how much narrative space a beat receives,
+          repetition, rushed transitions, delayed movement, or whether a
+          development has enough room to land.
+
+        - `dialogue`:
+          The comment concerns speaker identification, conversational logic,
+          character voice, intent, subtext, response continuity, or whether
+          the exchange communicates what the scene requires.
+
+        - `worldbuilding`:
+          The comment concerns the coherence, introduction, explanation,
+          recurrence, consequence, or integration of locations, factions,
+          institutions, cultures, technologies, objects, rules, or
+          terminology.
+
+        - `prose`:
+          The comment concerns concrete sentence- or paragraph-level effects
+          involving construction, repetition, imagery, emphasis, rhythm,
+          redundancy, or diction.
+
+        - `not-available`:
+          Use only when the comment is otherwise valid but no category can be
+          responsibly determined from the available evidence.
+
+        When multiple categories appear relevant, choose the category
+        representing the comment's central editorial purpose.
+        """,
+    )
+
+    priority: CommentPriority = Field(
+        description="""
+        The editorial importance of the comment. Select exactly one value:
+
+        - `note`:
+          A useful observation, question, or optional refinement. The passage
+          remains understandable and functional without revision.
+
+        - `suggestion`:
+          A meaningful concern that may affect understanding, emotional
+          impact, characterization, pacing, continuity, or narrative
+          effectiveness and deserves deliberate review.
+
+        - `important`:
+          A strongly supported concern with substantial consequences, such as
+          a likely contradiction, impossible character knowledge, missing
+          causal connection, seriously unclear action, or unsupported major
+          decision.
+
+        - `not-available`:
+          Use only when there is not enough evidence to determine importance
+          responsibly.
+
+        Reserve `important` for clear, consequential concerns. Do not use it
+        for subjective preferences, optional polish, or speculative risks.
+        """,
+    )
+
+    scope: CommentScope = Field(
+        description="""
+        The amount of manuscript context required to support the comment.
+        Select exactly one value:
+
+        - `local`:
+          The comment is justified by the anchored passage itself, such as
+          ambiguous wording, unclear reference, speaker confusion, or local
+          repetition.
+
+        - `chapter`:
+          The comment depends on another part of the target chapter, such as
+          chapter-level repetition, causality, pacing, or an internal
+          contradiction.
+
+        - `character-history`:
+          The comment depends on prior appearances, motivations, knowledge,
+          emotional state, choices, or relationships of one or more active
+          characters.
+
+        - `manuscript`:
+          The comment depends on broader plot, chronology, worldbuilding,
+          structural, thematic, or continuity evidence from prior chapters.
+
+        - `not-available`:
+          Use only when the available material does not permit the scope to be
+          determined responsibly.
+
+        Choose the narrowest scope that fully supports the comment.
+        """,
+    )
+
+    issue_key: str = Field(
+        min_length=3,
+        max_length=80,
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        description="""
+        A concise, reusable kebab-case label describing the specific kind of
+        editorial concern raised by the comment.
+
+        This is not a database identifier. It is a semantic classification
+        used with the anchored quotation to detect repeated or previously
+        dismissed criticism.
+
+        Good examples:
+        - `unclear-pronoun-reference`
+        - `unsupported-character-shift`
+        - `possible-knowledge-continuity`
+        - `repeated-exposition`
+        - `unclear-spatial-transition`
+        - `abrupt-emotional-transition`
+        - `dialogue-speaker-ambiguity`
+
+        Bad examples:
+        - `comment-one`
+        - `issue-123`
+        - a UUID or hash;
+        - the comment body converted to kebab case;
+        - a passage-specific sentence such as
+          `tali-says-something-strange-here`.
+
+        Use the same issue key only for substantially the same kind of
+        editorial concern.
+        """,
+    )
+
+    evidence: List[CommentEvidence] = Field(
+        default_factory=list,
+        max_length=5,
+        description="""
+        Exact manuscript quotations that directly support the comment.
+
+        Use an empty list when the comment has `local` scope and the anchored
+        target passage contains all evidence required.
+
+        For `chapter` scope, include exact quotations from elsewhere in the
+        target chapter when they are necessary to establish the concern.
+
+        For `character-history` or `manuscript` scope, include at least one
+        exact quotation from prior manuscript material.
+
+        Include only directly relevant evidence. Do not return every passage
+        involving the same character, relationship, object, location, or
+        thread.
+
+        Every quotation must have been supplied by the planner or retrieved
+        from actual manuscript text. Never convert a summary, synopsis,
+        analytics result, or inference into a fake quotation.
+
+        Order evidence from most directly relevant to least directly relevant.
+        """,
+    )
+
+    @model_validator(mode="after")
+    def validate_evidence_requirements(self) -> "ExtractedComment":
+        if (
+            self.scope in {"character-history", "manuscript"}
+            and not self.evidence
+        ):
+            raise ValueError(
+                f"Comments with scope {self.scope!r} require exact "
+                "manuscript evidence."
+            )
+
+        return self
+
+
+class CommentExtraction(BaseModel):
+    """
+    LLM output containing the editorial comments generated for one target
+    chapter.
+
+    The application adds persistence fields such as ownership, lifecycle
+    status, and timestamps after generation.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    comments: List[ExtractedComment] = Field(
+        default_factory=list,
+        max_length=7,
+        description="""
+        The editorial comments generated for the target chapter.
+
+        Return only comments that are specific, grounded, consequential, and
+        useful. Returning an empty list is correct when the review reveals no
+        issue worth surfacing.
+
+        Do not generate comments merely to reach a quota. Prefer a small
+        number of high-value comments over exhaustive annotation.
+
+        Order comments according to the first occurrence of their
+        `quoted_text` in the target chapter, from beginning to end.
+
+        Do not return:
+        - duplicate comments;
+        - substantially repeated criticisms;
+        - multiple comments against the same passage unless they concern
+          genuinely distinct issues;
+        - criticism matching a previously dismissed issue when the relevant
+          prose remains unchanged or substantially equivalent.
+        """,
+    )
 
 
 
