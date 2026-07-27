@@ -120,7 +120,9 @@ class ExtractionService:
         )
 
     @handle_service_errors
-    async def extract_scenes(self, chapter_id: str, user_id: str) -> Optional[SceneExtractionResult]:
+    async def extract_scenes(
+        self, chapter_id: str, user_id: str, content: str | None = None
+    ) -> Optional[SceneExtractionResult]:
 
         result =  await self._chapter_repo.get_with_story_title(chapter_id, user_id)
 
@@ -144,7 +146,7 @@ class ExtractionService:
                     )
             return None
 
-        plain_text = html_to_plain_text(chapter.content or "")
+        plain_text = content or html_to_plain_text(chapter.content or "")
 
         extraction = await self._extract_with_feedback(chapter_content=plain_text)
 

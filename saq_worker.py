@@ -117,11 +117,11 @@ async def shutdown(ctx: Context) -> None:
     logger.info("Goodbye...")
 
 async def scene_and_embedding_job(
-    ctx: Context, *, chapter_id: str, story_id: str, user_id: str
+    ctx: Context, *, chapter_id: str, story_id: str, user_id: str, content: str | None = None
 ) -> None:
     with tracer.start_as_current_span("saq.scene_and_embedding_job") as span:
         try:
-            result: Optional[SceneExtractionResult] = await ctx['worker'].context['extraction_service'].extract_scenes(chapter_id, user_id)
+            result: Optional[SceneExtractionResult] = await ctx['worker'].context['extraction_service'].extract_scenes(chapter_id, user_id, content)
             await ctx['worker'].context['embedding_service'].embed_scenes(chapter_id)
 
             if result:
@@ -134,6 +134,9 @@ async def scene_and_embedding_job(
                         message=f"Extracted {result.scenes_extracted} scenes from Chapter {result.chapter_number} of {result.story_title}"
                     )
                  )
+
+            await client.set(f"chapter:baseline:{chapter_id}", content or "")
+            await client.delete(f"chapter:extraction-pending:{chapter_id}")
 
             await asyncio.gather(
                 ctx['worker'].context['story_service'].get_pulse(
@@ -182,6 +185,7 @@ async def scene_and_embedding_job(
             span.set_status(trace.StatusCode.OK)
         except Exception as e:
             logger.exception("saq.scene_and_embedding_job.failed")
+            await client.delete(f"chapter:extraction-pending:{chapter_id}")
             span.record_exception(e)
             span.set_status(trace.StatusCode.ERROR, str(e))
             raise
