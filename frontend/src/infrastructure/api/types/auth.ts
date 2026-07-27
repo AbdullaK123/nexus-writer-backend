@@ -40,7 +40,7 @@ export type DashboardResponse = z.infer<typeof DashboardResponseSchema>
 
 
 export const NotificationSchema = z.object({
-    kind: z.literal(["scenes_extracted", "analysis_ready"]),
+    kind: z.literal(["scenes_extracted", "analysis_ready", "comments_ready"]),
     story_id: z.string(),
     chapter_id: z.string(),
     message: z.string()

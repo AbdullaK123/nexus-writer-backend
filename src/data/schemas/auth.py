@@ -86,7 +86,7 @@ class DashboardResponse(ApiModel):
     jump_back_in: Optional[List[ChapterListItem]] = []
 
 class Notification(BaseModel):
-    kind: Literal["scenes_extracted", "analysis_ready"]
+    kind: Literal["scenes_extracted", "analysis_ready", "comments_ready"]
     story_id: str
     chapter_id: str
     message: str

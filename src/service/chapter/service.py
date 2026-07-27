@@ -1,15 +1,18 @@
 from __future__ import annotations
 import asyncio
+import textwrap
 from typing import TYPE_CHECKING, List, Optional
 
 import asyncpg
 from loguru import logger
+from pydantic_ai import Agent
 
 from src.data.repositories import (
     StoryRepository,
     ChapterRepository,
     SceneRepository,
 )
+from src.data.repositories.analytics import AnalyticsRepository
 from src.data.schemas import (
     CreateChapterRequest,
     UpdateChapterRequest,
@@ -19,14 +22,16 @@ from src.data.schemas import (
     ChapterListResponse,
 )
 from src.data.schemas.chapter import ChapterSummaryResponse
+from src.data.schemas.extraction import CommentExtraction, CommentExtractionResponse
 from src.data.schemas.scene import SceneRow
 from src.infrastructure.config import config
-from src.infrastructure.ai.prompts import SUMMARIZATION_PROMPT
+from src.infrastructure.ai.prompts import COMMENTS_EXTRACTION_PROMPT, COMMENTS_PLANNER_PROMPT, SUMMARIZATION_PROMPT
 from src.infrastructure.ai.providers.protocol import AIProvider
 from src.service.exceptions import NotFoundError, ValidationError, InternalError
 from src.service.utils.decorators import handle_service_errors
-from functools import cached_property
+from functools import cached_property, lru_cache
 from src.infrastructure.redis.queue import queue
+from datetime import datetime, timezone as tz
 from datetime import timedelta
 import redis.asyncio as aioredis
 from src.shared.utils.html import (
@@ -39,6 +44,9 @@ from src.shared.utils.html import (
 if TYPE_CHECKING:
     from src.service.extraction.service import ExtractionService
     from src.service.embedding.service import EmbeddingService
+    from src.service.analytics.service import AnalyticsService
+    from src.service.story.service import StoryService
+    from src.service.chat.agent import ChatDeps
 
 
 class ChapterService:
@@ -49,15 +57,16 @@ class ChapterService:
         story_repo: StoryRepository,
         chapter_repo: ChapterRepository,
         scene_repo: SceneRepository,
+        analytics_repo: AnalyticsRepository,
         provider: AIProvider,
         redis: aioredis.Redis,
     ):
         self._story_repo = story_repo
         self._chapter_repo = chapter_repo
         self._scene_repo = scene_repo
+        self._analytics_repo = analytics_repo
         self._provider = provider
         self._cache = redis
-        self._background_tasks: set[asyncio.Task] = set()
 
     # ─── reads ─────────────────────────────────────────────────────────────
     @cached_property
@@ -71,6 +80,50 @@ class ChapterService:
         from src.service.embedding.service import EmbeddingService
 
         return EmbeddingService(self._scene_repo, self._provider)
+
+    @cached_property
+    def analytics_service(self) -> "AnalyticsService":
+        from src.service.analytics.service import AnalyticsService
+
+        return AnalyticsService(
+            analytics_repo=self._analytics_repo,
+            story_repo=self._story_repo,
+            chapter_repo=self._chapter_repo,
+            scene_repo=self._scene_repo,
+            provider=self._provider,
+            redis=self._cache
+        )
+
+    @cached_property
+    def agent(self) -> Agent[ChatDeps, str]:
+        from src.service.chat.agent import build_agent
+        return build_agent(config.ai.default_model, system_prompt=COMMENTS_PLANNER_PROMPT)
+
+    @cached_property
+    def story_service(self) -> "StoryService":
+        from src.service.story.service import StoryService
+
+        return StoryService(
+            story_repo=self._story_repo,
+            chapter_repo=self._chapter_repo,
+            scene_repo=self._scene_repo,
+            provider=self._provider,
+            search_config=config.search,
+            redis=self._cache
+        )
+
+    @lru_cache
+    def get_agent_chat_deps(
+        self, user_id: str, story_id: str
+    ) -> "ChatDeps":
+        from src.service.chat.agent import ChatDeps
+        return ChatDeps(
+            user_id=user_id,
+            story_id=story_id,
+            chapter_service=self,
+            analytics_service=self.analytics_service,
+            story_service=self.story_service
+        )
 
     @handle_service_errors
     async def get_chapter_with_navigation(
@@ -245,6 +298,7 @@ class ChapterService:
                 )
 
             if should_extract:
+
                 claimed = await self._cache.set(
                     pending_key,
                     "1",
@@ -253,6 +307,11 @@ class ChapterService:
                 )
 
                 if claimed:
+                    
+                    await self._cache.delete(
+                        f"chapter:editorial_plan:{user_id}:{chapter_id}"
+                    )
+
                     try:
                         await queue.enqueue(
                             "scene_and_embedding_job",
@@ -588,5 +647,97 @@ class ChapterService:
         await self._cache.set(
             cache_key, response.model_dump_json(), ex=timedelta(minutes=30)
         )
+
+        return response
+
+    @handle_service_errors
+    async def generate_editorial_plan(
+        self,
+        chapter_id: str,
+        user_id: str,
+        ignore_cache: bool = False
+    ) -> str:
+
+        triple = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
+
+        if triple is None:
+            raise NotFoundError("Chapter not found")
+
+        chapter, story_title, chapter_number = triple
+
+        if not ignore_cache:
+            if plan := (await self._cache.get(f"chapter:editorial_plan:{user_id}:{chapter_id}")):
+                return plan.decode() if isinstance(plan, bytes) else plan
+
+        result = await self.agent.run(
+            user_prompt=textwrap.dedent(
+                f"""\
+                <inputs>
+                    <target_chapter>
+                        # Chapter {chapter_number} of {story_title}\n
+                        {html_to_plain_text(chapter.content or "")}
+                    </target_chapter>
+                </inputs>
+                """
+            ),
+            deps=self.get_agent_chat_deps(user_id, chapter.story_id)
+        )
+
+        plan = result.output
+
+        await self._cache.set(f"chapter:editorial_plan:{user_id}:{chapter_id}", plan)
+
+        return plan
+
+    @handle_service_errors
+    async def generate_comments(
+        self,
+        user_id: str,
+        chapter_id: str,
+        ignore_cache: bool = False
+    ) -> CommentExtractionResponse:
+
+        triple = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
+        
+        if triple is None:
+            raise NotFoundError("Chapter not found")
+        
+        chapter, story_title, chapter_number = triple
+
+        if not ignore_cache:
+            if raw_data := (await self._cache.get(f"chapter:comments:{chapter_id}")):
+                return CommentExtractionResponse.model_validate_json(raw_data)
+
+        plan = await self.generate_editorial_plan(chapter_id, user_id)
+
+        extraction = await self._provider.extract(
+            system_prompt=COMMENTS_EXTRACTION_PROMPT,
+            text=textwrap.dedent(
+                f"""\
+                <inputs>
+                    <review_plan>
+                        {plan}
+                    </review_plan>
+                    <target_chapter>
+                        # Chapter {chapter_number} of {story_title}\n
+                        {html_to_plain_text(chapter.content or "")}
+                    </target_chapter>
+                </inputs>
+                """
+            ),
+            max_tokens=config.ai.comments_max_tokens,
+            schema=CommentExtraction
+        )
+
+        response = CommentExtractionResponse(
+            story_id=chapter.story_id,
+            story_title=story_title,
+            chapter_id=chapter_id,
+            chapter_number=chapter_number,
+            generated_at=datetime.now(tz=tz.utc),
+            extraction=extraction
+        )
+
+        await self._cache.set(f"chapter:comments:{chapter_id}", response.model_dump_json())
 
         return response

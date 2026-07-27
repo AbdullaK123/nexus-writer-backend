@@ -592,6 +592,14 @@ class CommentExtraction(BaseModel):
     )
 
 
+class CommentExtractionResponse(ApiModel):
+    story_id: str
+    story_title: str
+    chapter_id: str
+    chapter_number: int
+    generated_at: datetime
+    extraction: CommentExtraction
+
 
 INSUFFICIENT_CONTEXT = BookPulseResponse(
     characters=PulseDimension(

@@ -9,6 +9,7 @@ from pydantic_ai_harness import CodeMode
 
 from src.data.schemas.chapter import ChapterContentResponse, ChapterListItem
 from src.data.schemas.scene import SceneSearchResponse
+from src.infrastructure.ai.prompts import STORY_ASSISTANT_PROMPT
 from src.service.analytics.service import AnalyticsService
 from src.service.chapter import ChapterService
 from src.service.exceptions import ServiceError
@@ -76,7 +77,7 @@ def _format_chapter_item(item: ChapterListItem) -> str:
     return f"TITLE: {item.chapter_title} (chapter_id={item.chapter_id})"
 
 
-def build_agent(model_name: str) -> Agent[ChatDeps, str]:
+def build_agent(model_name: str, system_prompt: str = STORY_ASSISTANT_PROMPT ) -> Agent[ChatDeps, str]:
     model = OpenRouterModel(
         model_name, provider=OpenRouterProvider(api_key=settings.open_router_api_key)
     )
@@ -84,46 +85,7 @@ def build_agent(model_name: str) -> Agent[ChatDeps, str]:
     agent = Agent(
         model=model,
         deps_type=ChatDeps,
-        system_prompt=(
-            "You are a writing assistant helping the author explore their "
-            "own story. Use the tools to look up scenes and chapters before "
-            "answering. Never invent facts about the story.\n\n"
-            "Tool guidance:\n"
-            "- For quantitative questions about character balance, plot "
-            "structure, pacing, tension, worldbuilding consistency, or "
-            "dangling plotlines, start with `get_story_analytics` — it "
-            "returns precomputed tables that answer these questions directly "
-            "and cheaply. Use semantic search to follow up on specific "
-            "findings, not to answer the broad question from scratch.\n"
-            "- `get_story_analytics` tables contain `chapter_id` values. "
-            "Use these to drill into specific chapters with `get_chapter` "
-            "or scope `search_scenes_semantic` via `chapter_ids=[...]`.\n"
-            "- For broad recall (character threads, themes, specific plot "
-            "moments), run `search_scenes_semantic` with several distinct "
-            "phrasings — one query rarely covers a topic exhaustively.\n"
-            "- Search results include the parent `chapter_id` and chapter "
-            "title for every scene; use those when citing chapters.\n"
-            "- `get_chapter` takes a chapter_id ONLY. Scene ids are different "
-            "and will fail. If unsure, call `list_chapters` first.\n"
-            "- The `SCENE STARTS AT` / `SCENE ENDS AT` lines in search "
-            "results are boundary anchors, not evidence — never cite them "
-            "as quotations on their own.\n"
-            "- To quote the prose of a scene you've already located via "
-            "search, use `get_scene_text` (cheap, returns just that scene). "
-            "To analyze chapter-level prose — style, voice, pacing, what "
-            "exactly is said inside chapter X, or whether a chapter could "
-            "be cut — use `get_chapter`. When the question names a specific "
-            "chapter, read that chapter.\n"
-            "- To see which character or narrator perspectives are present "
-            "in the current draft, call `list_povs`. Use this when "
-            "responding to questions about viewpoint variety, coverage, "
-            "or to clarify which scenes are written from which POV.\n\n"
-            "Typical workflow: analytics first for the big picture, then "
-            "semantic search to investigate specifics, then `get_chapter` "
-            "or `get_scene_text` to read actual prose when needed. Avoid "
-            "reading full chapters unless the question requires it — scene "
-            "search and analytics cover most questions more efficiently."
-        ),
+        system_prompt=system_prompt,
         capabilities=[CodeMode()],
     )
 

@@ -126,10 +126,18 @@ def get_chapter_service(
     story_repo: StoryRepository = Depends(get_story_repository),
     chapter_repo: ChapterRepository = Depends(get_chapter_repository),
     scene_repo: SceneRepository = Depends(get_scene_repository),
+    analytics_repo: AnalyticsRepository = Depends(get_analytics_repository),
     provider: AIProvider = Depends(get_ai_provider),
     redis: aioredis.Redis = Depends(get_redis),
 ) -> ChapterService:
-    return ChapterService(story_repo, chapter_repo, scene_repo, provider, redis)
+    return ChapterService(
+        story_repo=story_repo,
+        chapter_repo=chapter_repo,
+        scene_repo=scene_repo,
+        analytics_repo=analytics_repo,
+        provider=provider,
+        redis=redis
+    )
 
 
 def get_extraction_service(

@@ -103,6 +103,7 @@ class AiConfig(BaseModel, frozen=True):
     act_segmentation_max_tokens: int = 8000
     contradictions_max_tokens: int = 8000
     suggestion_max_tokens: int = 8000
+    comments_max_tokens: int = 8000
     entities_max_tokens: int = 8000
     pulse_extraction_max_tokens: int = 8000
     summarization_max_tokens: int = 2000

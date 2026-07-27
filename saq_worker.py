@@ -8,7 +8,7 @@ from src.data.repositories.chapter import ChapterRepository
 from src.data.repositories.scene import SceneRepository
 from src.data.repositories.story import StoryRepository
 from src.data.schemas.auth import Notification
-from src.data.schemas.extraction import SceneExtractionResult
+from src.data.schemas.extraction import CommentExtractionResponse, SceneExtractionResult
 from src.infrastructure.db.pool import init_pool, close_pool
 from src.infrastructure.redis.pubsub import RedisPubSub
 from src.infrastructure.redis.queue import client
@@ -74,6 +74,7 @@ async def startup(ctx: Context) -> None:
     chapter_service = ChapterService(
         story_repo=story_repo,
         chapter_repo=chapter_repo,
+        analytics_repo=analytics_repo,
         scene_repo=scene_repo,
         provider=provider,
         redis=client
@@ -181,6 +182,23 @@ async def scene_and_embedding_job(
                         message=f"New pulse and analysis for {result.story_title} are ready."
                     )
                 )
+
+            comments_extraction: CommentExtractionResponse =  \
+            await ctx['worker'].context['chapter_service'].generate_comments(
+                user_id,
+                chapter_id,
+                ignore_cache=True
+            )
+
+            await ctx['worker'].context['pubsub'].publish(
+                f"notifications:{user_id}",
+                Notification(
+                    kind="comments_ready",
+                    story_id=story_id,
+                    chapter_id=chapter_id,
+                    message=f"{len(comments_extraction.extraction.comments)} comments are ready for chapter {comments_extraction.chapter_number} of {comments_extraction.story_title}"
+                )
+            )
 
             span.set_status(trace.StatusCode.OK)
         except Exception as e:

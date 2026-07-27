@@ -99,6 +99,8 @@ export function AppRouter() {
                 info("Analysis ready!", notification.data.message);
                 qc.invalidateQueries({ queryKey: storyKeys.pulse(notification.data.story_id) });
                 break;
+              case "comments_ready":
+                info("Comments ready!", notification.data.message)
             }
           },
           onClose: Some(() => {
@@ -136,7 +138,7 @@ export function AppRouter() {
         
         const id = window.setTimeout(() => {
             connect();
-        }, 200);
+        }, 2000);
 
         return () => {
             window.clearTimeout(id);
