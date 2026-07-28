@@ -122,7 +122,11 @@ async def scene_and_embedding_job(
 ) -> None:
     with tracer.start_as_current_span("saq.scene_and_embedding_job") as span:
         try:
-            result: Optional[SceneExtractionResult] = await ctx['worker'].context['extraction_service'].extract_scenes(chapter_id, user_id, content)
+            result: Optional[SceneExtractionResult] = \
+                await ctx['worker'].context['extraction_service'].extract_scenes(
+                    chapter_id, user_id, content
+                )
+            
             await ctx['worker'].context['embedding_service'].embed_scenes(chapter_id)
 
             if result:
@@ -184,11 +188,11 @@ async def scene_and_embedding_job(
                 )
 
             comments_extraction: CommentExtractionResponse =  \
-            await ctx['worker'].context['chapter_service'].generate_comments(
-                user_id,
-                chapter_id,
-                ignore_cache=True
-            )
+                await ctx['worker'].context['chapter_service'].generate_comments(
+                    user_id,
+                    chapter_id,
+                    ignore_cache=True
+                )
 
             await ctx['worker'].context['pubsub'].publish(
                 f"notifications:{user_id}",

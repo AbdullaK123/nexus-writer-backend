@@ -742,6 +742,7 @@ class ChapterService:
 
         return response
 
+    @handle_service_errors
     async def get_comments(
         self,
         user_id: str,
