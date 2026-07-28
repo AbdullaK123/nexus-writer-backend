@@ -9,6 +9,8 @@ import {
     noRequestOptions,
     type ChapterSummaryResponse,
     ChapterSummaryResponseSchema,
+    type CommentExtractionResponse,
+    CommentExtractionResponseSchema,
 } from "../types"
 import type { Result, ApiError } from "../../../shared/types"
 
@@ -62,6 +64,17 @@ export class ChapterClient {
         return this.api.getJson(
             `chapters/${chapterId}/summary`,
             ChapterSummaryResponseSchema,
+            options
+        )
+    }
+
+    public getComments(
+        chapterId: string,
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<CommentExtractionResponse, ApiError>> {
+        return this.api.getJson(
+            `chapters/${chapterId}/comments`,
+            CommentExtractionResponseSchema,
             options
         )
     }

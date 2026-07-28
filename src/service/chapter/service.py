@@ -749,15 +749,26 @@ class ChapterService:
         chapter_id: str
     ) -> CommentExtractionResponse:
 
-        chapter = await self._chapter_repo.get(chapter_id, user_id)
+        triple = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
                 
-        if chapter is None:
+        if triple is None:
             raise NotFoundError("Chapter not found")
+                
+        chapter, story_title, chapter_number = triple
 
         raw_data = await self._cache.get(f"chapter:comments:{chapter_id}")
 
         if raw_data is None:
-            raise NoContentError()
+            return CommentExtractionResponse(
+            story_id=chapter.story_id,
+            story_title=story_title,
+            chapter_id=chapter_id,
+            chapter_number=chapter_number,
+            generated_at=datetime.now(tz=tz.utc),
+            extraction=CommentExtraction(
+                comments=[]
+            )
+        )
 
         return CommentExtractionResponse.model_validate_json(raw_data)
 

@@ -66,3 +66,79 @@ export const ChapterSummaryResponseSchema = z.object({
 })
 
 export type ChapterSummaryResponse = z.infer<typeof ChapterSummaryResponseSchema>
+
+
+export const CommentCategorySchema = z.enum([
+    "clarity",
+    "continuity",
+    "character",
+    "plot",
+    "structure",
+    "pacing",
+    "dialogue",
+    "worldbuilding",
+    "prose",
+    "not-available",
+])
+
+export type CommentCategory = z.infer<typeof CommentCategorySchema>
+
+export const CommentPrioritySchema = z.enum([
+    "note",
+    "suggestion",
+    "important",
+    "not-available",
+])
+
+export type CommentPriority = z.infer<typeof CommentPrioritySchema>
+
+export const CommentScopeSchema = z.enum([
+    "local",
+    "chapter",
+    "character-history",
+    "manuscript",
+    "not-available",
+])
+
+export type CommentScope = z.infer<typeof CommentScopeSchema>
+
+
+export const CommentEvidenceSchema = z.object({
+    quoted_text: z.string(),
+    relevance: z.string()
+})
+
+export type CommentEvidence = z.infer<typeof CommentEvidenceSchema>
+
+
+export const ExtractedCommentSchema = z.object({
+    quoted_text: z.string(),
+    title: z.string(),
+    body: z.string(),
+    category: CommentCategorySchema,
+    priority: CommentPrioritySchema,
+    scope: CommentScopeSchema,
+    issue_key: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    evidence: z.array(CommentEvidenceSchema)
+})
+
+export type ExtractedComment = z.infer<typeof ExtractedCommentSchema>
+
+
+export const CommentExtractionSchema = z.object({
+    comments: z.array(ExtractedCommentSchema)
+})
+
+export type CommentExtraction = z.infer<typeof CommentExtractionSchema>
+
+
+export const CommentExtractionResponseSchema = z.object({
+    storyId: z.string(),
+    storyTitle: z.string(),
+    chapterId: z.string(),
+    chapterNumber: z.number(),
+    generatedAt: z.coerce.date(),
+    extraction: CommentExtractionSchema
+})
+
+export type CommentExtractionResponse = z.infer<typeof CommentExtractionResponseSchema>
