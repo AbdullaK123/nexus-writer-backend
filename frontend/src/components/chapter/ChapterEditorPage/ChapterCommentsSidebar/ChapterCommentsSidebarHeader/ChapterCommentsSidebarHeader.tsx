@@ -14,7 +14,7 @@ export type FilterCounts =
     structure: number
     pacing: number
     dialogue: number
-    world: number
+    worldbuilding: number
     prose: number
 }
 
@@ -60,22 +60,20 @@ const getActiveCount = (category: CommentCategory | "all", counts: FilterCounts)
         case "structure":
             return counts.structure
         case "worldbuilding":
-            return counts.world
+            return counts.worldbuilding
     }
 }
 
 export function ChapterCommentsSidebarHeader(props: ChapterCommentsSidebarHeaderProps) {
     return (
         <div className={`${styles['content']} ${props.sidebarOpen ? "" : styles['closed']}`}>
+            <span className="system-badge system-badge__nobg">
+                [COMMENTS]
+            </span>
             <div className={styles['header']}>
-                <span className="system-badge system-badge__nobg">
-                    [COMMENTS]
-                </span>
-                <span className={styles['counts']}>
-                    {`${getActiveCount(props.activeCategory, props.filterCounts)} active`}
-                </span>
-                <Button
+                 <Button
                     variant="ghost"
+                    className={styles['icon-btn']}
                     onClick={() => props.onSidebarOpenChange(props.sidebarOpen)}
                 >
                     {props.sidebarOpen ? (
@@ -92,6 +90,9 @@ export function ChapterCommentsSidebarHeader(props: ChapterCommentsSidebarHeader
                         />
                     )}
                 </Button>
+                <span className={styles['counts']}>
+                    {`${getActiveCount(props.activeCategory, props.filterCounts) ?? 0} active`}
+                </span>
             </div>
             <div className={styles['filter-actions']}>
                 <FilterChipNoCounts

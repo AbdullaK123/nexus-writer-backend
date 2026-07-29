@@ -27,3 +27,19 @@
     font-size: var(--fs-2xl);
 }
 
+.md-blockquote {
+  font-family: var(--font-content);
+  font-size: var(--fs-md);
+  font-style: italic;
+  color: var(--text-muted);
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid rgba(0, 212, 255, 0.3);
+  background: rgba(0, 212, 255, 0.03);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  line-height: 1.5;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+

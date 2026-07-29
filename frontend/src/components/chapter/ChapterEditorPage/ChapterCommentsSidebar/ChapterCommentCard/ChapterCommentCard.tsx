@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { CommentCategory, CommentPriority, ExtractedComment } from "../../../../../infrastructure/api/types";
 import { Button } from "../../../../common";
 import styles from "./ChapterCommentCard.module.css"
@@ -6,9 +7,14 @@ import styles from "./ChapterCommentCard.module.css"
 
 export type ChapterCommentCardProps = 
 {
+    chapterNumber: number,
     comment: ExtractedComment,
     onDismiss: () => void
-    onDigIntoThis: () => void
+    onDigIntoThis: (
+        comment: ExtractedComment, 
+        chapterNumber: number,
+        onThreadCreationPendingChange: (e: boolean) => void
+    ) => void
 }
 
 const getCategoryBadgeStyle = (category: CommentCategory) => {
@@ -49,12 +55,15 @@ const getPriorityBadgeStyles = (priority: CommentPriority) => {
 
 
 export function ChapterCommentCard(props: ChapterCommentCardProps) {
+
+    const [threadCreationPending, setThreadCreationPending] = useState(false)
+
     return (
         <div className={styles['ccard']}>
+            <h3>
+                {props.comment.title}
+            </h3>
             <div className={styles['ccard-top']}>
-                <h3>
-                    {props.comment.title}
-                </h3>
                 <span className={getCategoryBadgeStyle(props.comment.category)}>
                     {props.comment.category}
                 </span>
@@ -87,10 +96,10 @@ export function ChapterCommentCard(props: ChapterCommentCardProps) {
                     </div>
                 )}
             </div>
+            <span className={getPriorityBadgeStyles(props.comment.priority)}>
+                {props.comment.priority}
+            </span>
             <div className={styles['ccard-actions']}>
-                <span className={getPriorityBadgeStyles(props.comment.priority)}>
-                    {props.comment.priority}
-                </span>
                 <Button 
                     variant="ghost"
                     onClick={props.onDismiss}
@@ -99,9 +108,14 @@ export function ChapterCommentCard(props: ChapterCommentCardProps) {
                 </Button>
                 <Button
                     variant="secondary"
-                    onClick={props.onDigIntoThis}
+                    disabled={threadCreationPending}
+                    onClick={() => props.onDigIntoThis(
+                        props.comment,
+                        props.chapterNumber,
+                        setThreadCreationPending
+                    )}
                 >
-                    Dig Into This →
+                    {threadCreationPending ? "Starting investigation ···": "Dig Into This →"}
                 </Button>
             </div>
         </div>

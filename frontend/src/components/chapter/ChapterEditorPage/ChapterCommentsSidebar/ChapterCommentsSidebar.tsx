@@ -49,11 +49,21 @@ export function ChapterCommentsSidebar(props: ChapterCommentsSidebarProps) {
                         {...props.header} 
                     />
                     <div className={styles['items-container']}>
-                        {props.comments.map((comment) => (
-                            <ChapterCommentCard 
-                                {...comment}
-                            />
-                        ))}
+                        {props
+                            .comments
+                            .filter((comment) => {
+                                if (props.header.activeCategory === "all") {
+                                    return true
+                                } else {
+                                    return comment.comment.category === props.header.activeCategory
+                                }
+                            })
+                            .map((comment) => (
+                                <ChapterCommentCard 
+                                    {...comment}
+                                />
+                            ))
+                        }
                     </div>
                 </aside>
             )

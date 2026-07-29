@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useChapter, useStoryChapters, useUpdateChapter } from "../../../data/queries";
+import { useChapter, useChapterComments, useStoryChapters, useUpdateChapter } from "../../../data/queries";
 import type { ChapterEditorProps } from "./ChapterEditor";
 import { useChapterEditorSidebarProps, type ChapterEditorSidebarProps } from "./ChapterEditorSidebar";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
@@ -9,10 +9,13 @@ import { debounce } from "lodash"
 import { useChapterEditorProps } from "./ChapterEditor"
 import { None, Some } from "oxide.ts";
 import { useToast } from "../../common";
+import type { ChapterCommentsSidebarProps } from "./ChapterCommentsSidebar/ChapterCommentsSidebar";
+import { useChapterCommentsSidebarProps } from "./ChapterCommentsSidebar";
 export type ChapterEditorPageProps = {
     sidebar: ChapterEditorSidebarProps
     editorProps: ChapterEditorProps
-    tipTapEditor: Editor
+    tipTapEditor: Editor,
+    commentsSidebar: ChapterCommentsSidebarProps
 }
 
 export function useChapterEditorPage(): ChapterEditorPageProps {
@@ -21,6 +24,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
 
     const [storyChaptersState, refetchChapterList] = useStoryChapters(params.storyId)
     const [chapterState, refetchChapter] = useChapter(params.chapterId)
+    const [commentsState, refetchComments] = useChapterComments(params.chapterId)
     const updateChapterMutation = useUpdateChapter(params.chapterId)
     const [updating, setUpdating] = useState(false)
     const [query, setQuery] = useState("")
@@ -109,9 +113,16 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
         state: chapterState
     })
 
+    const commentsSidebarProps = useChapterCommentsSidebarProps({
+        storyId: params.storyId,
+        state: commentsState,
+        onRefetchComments: refetchComments
+    })
+
     return {
         sidebar: sidebarProps,
         editorProps: editorProps,
-        tipTapEditor: editor
+        tipTapEditor: editor,
+        commentsSidebar: commentsSidebarProps
     }
 }
