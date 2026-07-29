@@ -60,34 +60,35 @@ export function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
             return (
                 <aside className={`${styles['content']} ${props.open ? "": styles['closed']}`}>
                     <div className={styles['header']}>
+                        <span id="badge" className="system-badge system-badge__nobg">[Chapters]</span>
                         <div className={styles['header__label']}>
-                            <span className="system-badge system-badge__nobg">[Chapters]</span>
                             <h4 
                                 role="button"
+                                id="back-btn"
                                 className={styles['back-btn']}
                                 onClick={() => navigate({ to: "/stories/$storyId", params: {storyId: props.storyId} }) }
                             >
                                 ← {props.storyTitle}
                             </h4>
+                            <span
+                                className={styles['icon-btn']}
+                                onClick={() => props.onOpenChange(props.open)}
+                            >
+                                {props.open ? (
+                                    <PanelLeftClose
+                                        color={"#ffffff"}
+                                        width={24}
+                                        height={24}
+                                    />
+                                ): (
+                                    <PanelLeftOpen
+                                        color={"#ffffff"}
+                                        width={24}
+                                        height={24}
+                                    />
+                                )}
+                            </span>
                         </div>
-                        <span
-                            className={styles['icon-btn']}
-                            onClick={() => props.onOpenChange(props.open)}
-                        >
-                            {props.open ? (
-                                <PanelLeftClose
-                                    color={"#ffffff"}
-                                    width={24}
-                                    height={24}
-                                />
-                            ): (
-                                <PanelLeftOpen
-                                    color={"#ffffff"}
-                                    width={24}
-                                    height={24}
-                                />
-                            )}
-                        </span>
                     </div>
                     <div className={styles['items-container']}>
                         {props.items.map((item, idx) => (

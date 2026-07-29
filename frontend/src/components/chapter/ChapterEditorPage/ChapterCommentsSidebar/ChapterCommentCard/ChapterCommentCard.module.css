@@ -1,0 +1,148 @@
+.ccard {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  max-width: 100%;
+  flex: 1;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  box-sizing: border-box;
+}
+
+.ccard-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    min-width: 0;
+    max-width: 100%;
+}
+
+.ccard-ev-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    min-width: 0;
+    max-width: 100%;
+}
+
+.ccard-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+}
+
+.ccard-top {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.b-character { background: var(--fill-cyan-soft); border: 1px solid rgba(0,212,255,0.4); color: var(--color-cyan); }
+.b-continuity { background: var(--fill-warning); border: 1px solid var(--fill-warning-border); color: var(--color-warning); }
+.b-clarity { background: var(--fill-neutral); border: 1px solid var(--fill-neutral-border); color: var(--text-secondary); }
+.b-plot { background: var(--fill-success); border: 1px solid var(--fill-success-border); color: var(--color-success); }
+.b-structure { background: var(--fill-danger); border: 1px solid var(--fill-danger-border); color: var(--color-danger); }
+.b-pacing { background: var(--fill-purple); border: 1px solid var(--fill-purple-border); color: var(--color-purple); }
+.b-dialogue { background: var(--fill-teal); border: 1px solid var(--fill-teal-border); color: var(--color-teal); }
+.b-worldbuilding { background: var(--fill-rose); border: 1px solid var(--fill-rose-border); color: var(--color-rose); }
+.b-prose { background: var(--fill-sky); border: 1px solid var(--fill-sky-border); color: var(--color-sky); }
+
+.b-scope {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-muted);
+  font-size: var(--fs-md)
+}
+
+.ccard-quote {
+  font-family: var(--font-content);
+  font-size: var(--fs-md);
+  font-style: italic;
+  color: var(--text-muted);
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid rgba(0, 212, 255, 0.3);
+  background: rgba(0, 212, 255, 0.03);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  line-height: 1.5;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ev-quote {
+  font-family: var(--font-content);
+  font-size: var(--fs-md);
+  font-style: italic;
+  color: var(--text-muted);
+  padding: 6px 10px;
+  border-left: 2px solid rgba(255, 128, 0, 0.3);
+  background: rgba(255, 128, 0, 0.03);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  line-height: 1.5;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ev-relevance {
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+  line-height: 1.4;
+  padding-left: 12px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+
+.ccard-body {
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.priority {
+  font-family: var(--font-mono);
+  padding: var(--space-3);
+  font-size: var(--fs-md);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.p-note { color: var(--text-muted); }
+.p-suggestion { color: var(--text-secondary); }
+.p-important { color: var(--color-warning); }

@@ -3,6 +3,7 @@ import { useApi } from "../providers/ApiProvider"
 import {
     type ChapterContentResponse,
     type ChapterSummaryResponse,
+    type CommentExtractionResponse,
     type UpdateChapterRequest,
     requestOptions,
 } from "../../infrastructure/api/types"
@@ -23,7 +24,9 @@ export const chapterKeys = {
     detail: (chapterId: string, asHtml: boolean) =>
         [...chapterKeys.all, "detail", chapterId, { asHtml }] as const,
     summary: (chapterId: string) => 
-        [...chapterKeys.all, chapterId, "summary"]
+        [...chapterKeys.all, chapterId, "summary"],
+    comments: (chapterId: string) =>
+        [...chapterKeys.all, chapterId, "comments"]
 }
 
 // ─── Queries ───────────────────────────────────────────────────────────────
@@ -153,8 +156,7 @@ export function useDeleteChapter(chapterId: string, storyId: string) {
 }
 
 
-export function useChapterSummary(chapterId: Option<string>) {
-   
+export function useChapterSummary(chapterId: Option<string>) {   
 
   const api = useApi()
 
@@ -172,4 +174,20 @@ export function useChapterSummary(chapterId: Option<string>) {
   })
 
   return [toAsyncState<ChapterSummaryResponse>(result), result.refetch] as const
+}
+
+export function useChapterComments(chapterId: string) {
+    const api = useApi()
+
+    const result = useQuery<CommentExtractionResponse, ApiError>({
+        queryKey: chapterKeys.comments(chapterId),
+        queryFn: ({ signal }) => 
+            unwrapResultAsync(
+                api.chapter.getComments(chapterId, requestOptions({ signal }))
+            ),
+        enabled: Boolean(chapterId),
+        staleTime: 1000*10
+    })
+
+    return [toAsyncState<CommentExtractionResponse>(result), result.refetch] as const
 }

@@ -65,7 +65,8 @@ export function AssistantMessage(props: AssistantMessageProps) {
                                 h2: ({children}) => <h2 className={styles['md-h-large']}>{children}</h2>,
                                 h3: ({children}) => <h3 className={styles['md-h-large']}>{children}</h3>,
                                 ol: ({children}) => <ol className={styles['md-list']}>{children}</ol>,
-                                li: ({children}) => <li className={styles['md-list-item']}>{children}</li>
+                                li: ({children}) => <li className={styles['md-list-item']}>{children}</li>,
+                                blockquote: ({ children }) => <blockquote className={styles['md-blockquote']}>{children}</blockquote>
                             }}
                          >
                             {props.message}
@@ -99,7 +100,8 @@ export function AssistantMessage(props: AssistantMessageProps) {
                                 h2: ({children}) => <h2 className={styles['md-h-large']}>{children}</h2>,
                                 h3: ({children}) => <h3 className={styles['md-h-large']}>{children}</h3>,
                                 ol: ({children}) => <ol className={styles['md-list']}>{children}</ol>,
-                                li: ({children}) => <li className={styles['md-list-item']}>{children}</li>
+                                li: ({children}) => <li className={styles['md-list-item']}>{children}</li>,
+                                blockquote: ({ children }) => <blockquote className={styles['md-blockquote']}>{children}</blockquote>
                             }}
                          >
                             {props.message}

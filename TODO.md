@@ -1,0 +1,5 @@
+- [x] Refine ChapterEditorPage.module.css to ensure center editor always takes available space
+- [x] Update ChapterEditor.module.css to use parent-height layout (remove viewport-height conflict)
+- [x] Refine ChapterCommentsSidebar.module.css scrolling behavior for full comment visibility
+- [x] Refine ChapterCommentCard.module.css to avoid clipping while preserving containment
+- [x] Mark all TODOs complete after refinement edits

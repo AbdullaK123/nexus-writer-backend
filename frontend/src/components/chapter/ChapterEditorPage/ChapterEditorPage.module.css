@@ -1,8 +1,14 @@
 .page-container {
     display: grid;
-    grid-template-columns: auto 1fr;
-    min-height: 100%;
-    padding: (--space-3);
-    overflow-y: scroll;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: stretch;
+    justify-items: stretch;
+    height: 100vh;
+    min-height: 0;
+    width: 100%;
+    padding: var(--space-3);
+    gap: var(--space-3);
+    overflow: hidden;
     transition: grid-template-columns 0.3s ease-in-out;
+    box-sizing: border-box;
 }

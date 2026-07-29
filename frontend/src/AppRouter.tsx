@@ -7,13 +7,14 @@ import type { EventSourceMessage } from "eventsource-parser";
 import { useToast } from "./components";
 import { NotificationSchema } from "./infrastructure/api/types";
 import { useQueryClient } from "@tanstack/react-query";
-import { authKeys, storyKeys } from "./data/queries";
+import { authKeys, chapterKeys, storyKeys } from "./data/queries";
 import { isRetryable, isTerminal } from "./infrastructure/sse/notifications";
 
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;
 
 export function AppRouter() {
+  
   const auth = useAuthOrThrow();
   const qc = useQueryClient();
   const { info } = useToast();
@@ -101,6 +102,8 @@ export function AppRouter() {
                 break;
               case "comments_ready":
                 info("Comments ready!", notification.data.message)
+                qc.invalidateQueries({ queryKey: chapterKeys.comments(notification.data.chapter_id)})
+                break
             }
           },
           onClose: Some(() => {
