@@ -47,3 +47,31 @@ export const NotificationSchema = z.object({
 })
 
 export type Notification = z.infer<typeof NotificationSchema>
+
+export const UserNavigationRowSchema = z.object({
+    chapterId: z.string(),
+    storyId: z.string(),
+    chapterNumber: z.number(),
+    label: z.string()
+})
+
+export type UserNavigationRow = z.infer<typeof UserNavigationRowSchema>
+
+export const UserNavigationResponseSchema = z.object({
+    links: z.array(UserNavigationRowSchema)
+})
+
+export type UserNavigationResponse = z.infer<typeof UserNavigationResponseSchema>
+
+export const StoryNavigationRowSchema = z.object({
+    storyId: z.string(),
+    title: z.string()
+})
+
+export type StoryNavigationRow = z.infer<typeof StoryNavigationRowSchema>
+
+export const StoryNavigationResponseSchema = z.object({
+    links: z.array(StoryNavigationRowSchema)
+})
+
+export type StoryNavigationResponse = z.infer<typeof StoryNavigationResponseSchema>

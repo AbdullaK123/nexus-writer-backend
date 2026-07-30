@@ -43,7 +43,7 @@ export function ChatComposer(props: ChatComposerProps) {
                         }}
                         placeholder="Ask anything about your story..."
                     />
-                    <div className={styles['chat-composer-actions']}>
+                    <div className={styles['composer-actions']}>
                         <Button
                             variant="primary"
                             disabled={props.threadCreationPending}

@@ -1,7 +1,7 @@
 """UserRepository — raw asyncpg + SQL. Returns Pydantic UserRow."""
 
 from __future__ import annotations
-from typing import Tuple
+from typing import List, Tuple
 
 import asyncpg
 
@@ -132,3 +132,51 @@ class UserRepository:
             return (dict(agg_result) if agg_result else {}), [
                 dict(result) for result in last_three_chapters_result
             ]
+
+    async def get_editor_link_params(self, *, user_id: str) -> List[Tuple[str, str, int, str]]:
+
+        sql = """\
+        SELECT
+            s.id AS story_id,
+            c.id AS chapter_id,
+            ARRAY_POSITION(s.path_array, c.id) AS chapter_number,
+            CONCAT(
+                s.title, 
+                ' - ', 
+                'Chapter ', 
+                ARRAY_POSITION(s.path_array, c.id)::TEXT,
+                ' ( ',
+                c.title,
+                ' )'
+            ) AS label
+        FROM "story" s
+        INNER JOIN "chapter" c ON (s.id = c.story_id)
+        WHERE s.user_id = $1
+        """
+
+        async with self._pool.acquire() as conn:
+
+            result = await conn.fetch(sql, user_id)
+
+        return [
+            (r['story_id'], r['chapter_id'], r['chapter_number'], r['label'])
+            for r in result
+        ]
+
+    async def get_chat_link_params(self, *, user_id: str) -> List[Tuple[str, str]]:
+    
+        sql = """\
+        SELECT
+            s.id AS story_id,
+            s.title AS title
+        FROM "story" s
+        WHERE s.user_id = $1
+        """
+    
+        async with self._pool.acquire() as conn:
+            result = await conn.fetch(sql, user_id)
+    
+        return [
+            (r['story_id'], r['title'])
+            for r in result
+        ]

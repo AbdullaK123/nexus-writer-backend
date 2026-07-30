@@ -10,6 +10,10 @@ import {
     noRequestOptions,
     DashboardResponseSchema,
     type DashboardResponse,
+    type UserNavigationResponse,
+    UserNavigationResponseSchema,
+    type StoryNavigationResponse,
+    StoryNavigationResponseSchema,
 } from "../types"
 import type { Result, ApiError } from "../../../shared/types"
 
@@ -71,6 +75,26 @@ export class AuthClient {
         return this.api.getJson(
             "auth/me/dashboard",
             DashboardResponseSchema,
+            options
+        )
+    }
+
+    public getEditorLinks(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<UserNavigationResponse, ApiError>> {
+        return this.api.getJson(
+            "auth/me/links/editor",
+            UserNavigationResponseSchema,
+            options
+        )
+    }
+
+    public getChatLinks(
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<StoryNavigationResponse, ApiError>> {
+        return this.api.getJson(
+            "auth/me/links/chat",
+            StoryNavigationResponseSchema,
             options
         )
     }
