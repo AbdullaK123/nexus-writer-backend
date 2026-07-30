@@ -11,6 +11,10 @@ from src.data.schemas.auth import (
     DashboardResponse,
     Notification,
     RegistrationData,
+    StoryNavigationResponse,
+    StoryNavigationRow,
+    UserNavigationResponse,
+    UserNavigationRow,
     UserResponse,
     AuthCredentials,
     ConnectionDetails,
@@ -210,3 +214,41 @@ class AuthService:
                 )
              return
         yield self._sse_frame("done", {})
+
+    @handle_service_errors
+    async def get_editor_links(
+        self,
+        user_id: str
+    ) -> UserNavigationResponse:
+
+        rows = await self._user_repo.get_editor_link_params(user_id=user_id)
+
+        return UserNavigationResponse(
+            links=[
+                UserNavigationRow(
+                    chapter_id=row[1],
+                    story_id=row[0],
+                    chapter_number=row[2],
+                    label=row[3]
+                )
+                for row in rows
+            ]
+        )
+
+    @handle_service_errors
+    async def get_chat_links(
+        self,
+        user_id: str
+    ) -> StoryNavigationResponse:
+    
+        rows = await self._user_repo.get_chat_link_params(user_id=user_id)
+    
+        return StoryNavigationResponse(
+            links=[
+                StoryNavigationRow(
+                    story_id=row[0],
+                    title=row[1]
+                )
+                for row in rows
+            ]
+        )

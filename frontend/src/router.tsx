@@ -3,8 +3,7 @@ import {
     createRoute,
     Outlet,
     redirect,
-    createRootRouteWithContext,
-    useNavigate,
+    createRootRouteWithContext
 } from "@tanstack/react-router"
 import { DashboardPage } from "./components/story";
 import { LoginPage } from "./components/auth";
@@ -76,17 +75,10 @@ const appRoute = createRoute({
         } 
     },
     component: () => {
-        // eslint-disable-next-line react-hooks/rules-of-hooks
-        const navigate = useNavigate() 
-
         return (
             <AppShell
                 sideRail={{
-                    onClickHome: () => navigate({ to: "/" }),
-                    onClickChat: () => {},
-                    onClickStat: () => {},
-                    onClickSet: () => {},
-                    onClickEdit: () => {}
+                    onClickSet: () => {}
                 }}
             >
                 <Outlet />

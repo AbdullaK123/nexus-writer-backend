@@ -7,6 +7,8 @@ import {
     type ApiMessage,
     requestOptions,
     type DashboardResponse,
+    type UserNavigationResponse,
+    type StoryNavigationResponse,
 } from "../../infrastructure/api/types"
 import { ApiError, unwrapResultAsync } from "../../shared/types"
 import { toAsyncState } from "../../infrastructure/api/utils";
@@ -14,7 +16,9 @@ import { toAsyncState } from "../../infrastructure/api/utils";
 export const authKeys = {
     all: ["auth"] as const,
     me: () => [...authKeys.all, "me"] as const,
-    dashboard: () => [...authKeys.all, "me", "dashboard"]
+    dashboard: () => [...authKeys.all, "me", "dashboard"],
+    editorLinks: () => [...authKeys.all, "me", "links", "editor"],
+    chatLinks: () => [...authKeys.all, "me", "links", "chat"]
 }
 
 export function useCurrentUser() {
@@ -35,6 +39,26 @@ export function useDashboard() {
         staleTime: 5*60*100
     })
     return [toAsyncState<DashboardResponse>(result), result.refetch] as const
+}
+
+export function useEditorLinks() {
+    const api = useApi()
+    const result = useQuery<UserNavigationResponse, ApiError>({
+        queryKey: authKeys.editorLinks(),
+        queryFn: ({ signal }) => unwrapResultAsync(api.auth.getEditorLinks(requestOptions({ signal }))),
+        staleTime: 5*60*100
+    })
+    return [toAsyncState<UserNavigationResponse>(result), result.refetch] as const
+}
+
+export function useChatLinks() {
+    const api = useApi()
+    const result = useQuery<StoryNavigationResponse, ApiError>({
+        queryKey: authKeys.chatLinks(),
+        queryFn: ({ signal }) => unwrapResultAsync(api.auth.getChatLinks(requestOptions({ signal }))),
+        staleTime: 5*60*100
+    })
+    return [toAsyncState<StoryNavigationResponse>(result), result.refetch] as const
 }
 
 export function useLogin() {

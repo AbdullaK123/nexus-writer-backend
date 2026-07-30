@@ -90,3 +90,19 @@ class Notification(BaseModel):
     story_id: str
     chapter_id: str
     message: str
+
+class UserNavigationRow(ApiModel):
+    chapter_id: str
+    story_id: str
+    chapter_number: int
+    label: str
+
+class StoryNavigationRow(ApiModel):
+    story_id: str
+    title: str
+
+class UserNavigationResponse(ApiModel):
+    links: List[UserNavigationRow]
+
+class StoryNavigationResponse(ApiModel):
+    links: List[StoryNavigationRow]

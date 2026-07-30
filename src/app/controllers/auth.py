@@ -4,6 +4,8 @@ from fastapi.responses import StreamingResponse
 from src.app.dependencies.redis import get_pubsub
 from src.data.schemas.auth import (
     DashboardResponse,
+    StoryNavigationResponse,
+    UserNavigationResponse,
     UserResponse,
     RegistrationData,
     AuthCredentials,
@@ -96,3 +98,19 @@ async def get_notifications(
             "X-Accel-Buffering": "no",  # disable nginx proxy buffering
         },
     )
+
+@user_controller.get("/me/links/editor")
+async def get_editor_links(
+    request: Request,
+    current_user: UserRow = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service)
+) -> UserNavigationResponse:
+    return await auth_service.get_editor_links(current_user.id)
+
+@user_controller.get("/me/links/chat")
+async def get_chat_links(
+    request: Request,
+    current_user: UserRow = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service)
+) -> StoryNavigationResponse:
+    return await auth_service.get_chat_links(current_user.id)
