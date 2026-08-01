@@ -4,6 +4,7 @@ import styles from "./SceneSearchPalette.module.css"
 import { None, Option, Some } from "oxide.ts";
 import { useEffect, useId, useState } from "react";
 import { paletteBus } from "./eventbus";
+import { useShortcut } from "../../../hooks/useShortcut";
 
 
 export type SceneSearchPaletteProps =
@@ -103,6 +104,15 @@ export function SceneSearchPalette(props: SceneSearchPaletteProps) {
             paletteBus.removeEventListener('close', handleBusClose);
         };
     }, []);
+
+    useShortcut(
+        "k",
+        true,
+        true,
+        () => {
+            setOpen(true) 
+        }
+    )
 
     return (
         <>

@@ -3,12 +3,14 @@ import styles from "./SceneSearchPaletteFooter.module.css"
 
 
 export type SceneSearchPaletteFooterProps = {
+    threadCreationPending: boolean
     query: string 
     onAskAgent: (query: string) => void;
 }
 
 
 export function SceneSearchPaletteFooter({
+    threadCreationPending,
     query,
     onAskAgent
 }: SceneSearchPaletteFooterProps) {
@@ -27,18 +29,12 @@ export function SceneSearchPaletteFooter({
                     </Kbd>
                     <p>open</p>
                 </div>
-                <div className={styles['kdb']}>
-                    <Kbd>
-                        ⇧ ↵
-                    </Kbd>
-                    <p>open in new tab</p>
-                </div>
             </div>
             <Button 
                 onClick={() => onAskAgent(query)}
                 variant="ghost"
             >
-                Ask the agent →
+                {threadCreationPending ? "Starting investigation..." : "Ask Nexus →" }
             </Button>
         </div>
     )

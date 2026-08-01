@@ -1,9 +1,11 @@
-import { None, Some } from "oxide.ts";
+import { None, Some, type Option } from "oxide.ts";
 import { Button, EmptyState, ErrorState } from "../../../../common";
 import { SceneSearchLoadingSkeleton } from "../SceneSearchLoadingSkeleton";
 import { SceneSearchResultItem } from "../SceneSearchResultItem"
 import styles from "./SceneSearchResultList.module.css"
 import type { SceneSearchResponse } from "../../../../../infrastructure/api/types";
+import { useState } from "react";
+import { useShortcut } from "../../../../../hooks/useShortcut";
 
 export type SceneSearchResultListProps = 
 | { status: "loading" }
@@ -16,6 +18,44 @@ export type SceneSearchResultListProps =
   }
 
 export function SceneSearchResultList(props: SceneSearchResultListProps) {
+
+    const [selectedIdx, setSelectedIdx] = useState(0)
+
+    useShortcut(
+        "ArrowUp",
+        false,
+        false,
+        () => {
+            if (props.status === "ready" && selectedIdx > 0 ) {
+                setSelectedIdx(prev => prev - 1)
+            }
+        }
+    )
+
+    useShortcut(
+        "ArrowDown",
+        false,
+        false,
+        () => {
+             if (props.status === "ready" && selectedIdx < props.results.length - 1) {
+                setSelectedIdx(prev => prev + 1)
+            }
+        }
+    )
+
+    useShortcut(
+        "Enter",
+        false,
+        false,
+        () => {
+            if (props.status === "ready") {
+                const selectedSceneChapter = props.results[selectedIdx].chapterId
+                props.onSelectResult(selectedSceneChapter)
+            }
+        }
+    )
+
+
     switch (props.status) {
         case "loading": {
             return <SceneSearchLoadingSkeleton />
@@ -55,6 +95,7 @@ export function SceneSearchResultList(props: SceneSearchResultListProps) {
                     </h4>
                     {props.results.map((result, idx) => (
                         <SceneSearchResultItem 
+                            selected={idx === selectedIdx}
                             key={idx}
                             sceneTitle={result.title}
                             scenePacing={result.pacing}

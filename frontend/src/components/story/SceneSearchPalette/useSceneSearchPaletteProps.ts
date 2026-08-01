@@ -11,6 +11,7 @@ export type UseSceneSearchPalettePropsArgs =
     onQueryChange: (query: string) => void
     onAskAgent: (query: string) => void
     onRetry: () => void
+    threadCreationPending: boolean
     state: AsyncState<SceneSearchListResponse, ApiError>
 }
 
@@ -21,6 +22,7 @@ export function useSceneSearchPaletteProps({
     onQueryChange,
     onAskAgent,
     onRetry,
+    threadCreationPending,
     state
 }: UseSceneSearchPalettePropsArgs): SceneSearchPaletteProps {
     
@@ -41,6 +43,7 @@ export function useSceneSearchPaletteProps({
                         status: "loading"
                     },
                     footer: {
+                        threadCreationPending: threadCreationPending,
                         query: query,
                         onAskAgent: onAskAgent
                     }
@@ -60,6 +63,7 @@ export function useSceneSearchPaletteProps({
                         status: "empty"
                     },
                     footer: {
+                        threadCreationPending: threadCreationPending,
                         query: query,
                         onAskAgent: onAskAgent
                     }
@@ -80,6 +84,7 @@ export function useSceneSearchPaletteProps({
                         onRetry: onRetry
                     },
                     footer: {
+                        threadCreationPending: threadCreationPending,
                         query: query,
                         onAskAgent: onAskAgent
                     }
@@ -115,6 +120,7 @@ export function useSceneSearchPaletteProps({
                         }
                     },
                     footer: {
+                        threadCreationPending: threadCreationPending,
                         query: query,
                         onAskAgent: onAskAgent
                     }

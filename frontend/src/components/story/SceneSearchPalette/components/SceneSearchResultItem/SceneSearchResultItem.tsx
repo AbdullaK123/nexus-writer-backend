@@ -1,6 +1,8 @@
+import { useEffect, useRef } from "react";
 import styles from "./SceneSearchResultItem.module.css"
 
 export type SceneSearchResultItemProps = {
+    selected: boolean
     sceneTitle: string 
     chapterNumber: number 
     chapterTitle: string 
@@ -39,6 +41,7 @@ function PacingChip({ scenePacing }: { scenePacing: "fast" | "steady" | "slow" }
 
 
 export function SceneSearchResultItem({
+    selected,
     sceneTitle,
     chapterNumber,
     chapterTitle,
@@ -47,11 +50,21 @@ export function SceneSearchResultItem({
     sceneScore,
     onSelect
 }: SceneSearchResultItemProps) {
+
+    const scrollRef =useRef<HTMLDivElement | null>(null)
+
+    useEffect(() => {
+        if (selected) {
+            scrollRef.current?.scrollIntoView({ block: "nearest"})
+        }
+    }, [selected])
+
     return (
         <div 
+            ref={scrollRef}
             role="button"
             tabIndex={0}
-            className={styles['item-container']}
+            className={`${styles['item-container']} ${selected ? styles['selected'] : ""}`}
             onClick={onSelect}
         >
             <div className={styles['content-container']}>
