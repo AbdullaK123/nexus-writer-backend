@@ -68,6 +68,12 @@
     border-radius: var(--radius-md)
 }
 
+.selected {
+    background: var(--fill-cyan);
+    border: var(--border-focus);
+    border-radius: var(--radius-md)
+}
+
 .cyan-text {
     color: var(--color-cyan)
 }

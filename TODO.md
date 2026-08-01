@@ -2,11 +2,9 @@
 - [] Settings page
 - [] Wire scene search palette shortcuts and its 'ask nexus' button
 - [] Comment dismissal system
-- [] Polish all loading / error states
-- [] Editor shortcuts
+- [] app shortcuts
 - [] Comment card interactivity and editor decorations (clicking a card should scroll the quote and highlight it)
 - [] Drag and drop support for chapter editor sidebar and its re-indexing consequences.
 - [] Deleting a chapter should wipe everything related to it in redis.
-- [] Error and loading state (if we even need it) for the chapter comments sidebar
 - [] Make chapter/story status meaningful: draft chapters skip extraction, embedding, and comment generation; excluded from global analytics and pulse; agent notes when citing draft content. Status becomes a cost gate, not just a label.
 - [] Unit tests — not happy path coverage, but invariants that must hold: quote anchor validation rejects non-verbatim quotes and enforces monotonic ordering; similarity gate doesn't enqueue below threshold; Redis lock prevents duplicate extraction jobs; cache invalidation fires on extraction completion; status gate excludes draft chapters from extraction/embedding/comments/analytics; credit decrement is atomic and rejects negative balance; notification publishes only after the cache write succeeds (not before); SSE reconnection after worker crash doesn't lose events; comment evidence validator rejects character-history/manuscript scope with empty evidence.

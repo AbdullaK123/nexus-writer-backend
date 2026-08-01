@@ -8,10 +8,12 @@ import { type Editor } from "@tiptap/react";
 import { None, Option, Some } from "oxide.ts"
 import { useEffect, useEffectEvent, useState } from "react";
 import { useToast } from "../../../common";
+import { useShortcut } from "../../../../hooks/useShortcut";
 export type UseChapterEditorPropsArgs = 
 {
     updating: boolean
     query: string
+    threadCreationPending: boolean
     onQueryChange: (query: string) => void
     onAskAgent: (query: string) => void
     onRetryStory: () => void
@@ -25,6 +27,7 @@ export type UseChapterEditorPropsArgs =
 export function useChapterEditorProps({
     updating,
     query,
+    threadCreationPending,
     onQueryChange,
     onAskAgent,
     onRetryChapter,
@@ -42,7 +45,8 @@ export function useChapterEditorProps({
         onAskAgent: onAskAgent,
         storyId: storyId,
         query: query,
-        onQueryChange: onQueryChange
+        onQueryChange: onQueryChange,
+        threadCreationPending: threadCreationPending
     })
     const [newChapterTitle, setNewChapterTitle] = useState("")
     const [modalOpen, setModalOpen] = useState(false)
@@ -52,6 +56,61 @@ export function useChapterEditorProps({
     const onSearchError = useEffectEvent(() => {
         error("Failed to search your story", "Something went wrong. The server might be experiencing issues.")
     })
+
+    useShortcut(
+        "ArrowLeft",
+        true,
+        false,
+        () => {
+            if (state.status === "success") {
+                const data = state.data.unwrap().unwrap()
+                if (data.previousChapterId) {
+                    navigate({
+                        to: "/stories/$storyId/$chapterId",
+                        params: {
+                            storyId: storyId,
+                            chapterId: data.previousChapterId
+                        }
+                    })
+                }
+            }
+        }
+    )
+
+    useShortcut(
+        "ArrowRight",
+        true,
+        false,
+        () => {
+            if (state.status === "success") {
+                const data = state.data.unwrap().unwrap()
+                if (data.nextChapterId) {
+                    navigate({
+                        to: "/stories/$storyId/$chapterId",
+                        params: {
+                            storyId: storyId,
+                            chapterId: data.nextChapterId
+                        }
+                    })
+                }
+            }
+        }
+    )
+
+    useShortcut(
+        "n",
+        true,
+        true,
+        () => {
+            if (state.status === "success") {
+                const data = state.data.unwrap().unwrap()
+                if (!data.nextChapterId) {
+                    setNewChapterTitle(`Chapter ${data.chapterNumber + 1}`)
+                    setModalOpen(true)
+                }
+            }
+        }
+    )
 
     useEffect(() => {   
         if (sceneSearchState.status === "error") onSearchError()

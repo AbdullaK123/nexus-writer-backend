@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useChapter, useChapterComments, useStoryChapters, useUpdateChapter } from "../../../data/queries";
+import { useChapter, useChapterComments, useCreateThread, useStoryChapters, useUpdateChapter } from "../../../data/queries";
 import type { ChapterEditorProps } from "./ChapterEditor";
 import { useChapterEditorSidebarProps, type ChapterEditorSidebarProps } from "./ChapterEditorSidebar";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
@@ -28,6 +28,10 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     const updateChapterMutation = useUpdateChapter(params.chapterId)
     const [updating, setUpdating] = useState(false)
     const [query, setQuery] = useState("")
+    const [threadCreationPending, setThreadCreationPending] = useState(false)
+    const {
+        mutate: createThread
+    } = useCreateThread(params.storyId)
     const navigate = useNavigate()
 
     const { error } = useToast()
@@ -110,11 +114,42 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
         }
     })
 
+    const onAskAgent = (query: string) => {
+        const message = `I’m looking into “${query}” in my story. Find the most relevant scenes, explain how they connect, and point out anything inconsistent or worth developing.`
+
+        setThreadCreationPending(true)
+        createThread(
+            {
+                firstMessage: message
+            },
+            {
+                onSuccess: async (newThread) => {
+                    setThreadCreationPending(false)
+                    await navigate({
+                        to: "/stories/$storyId/chat/$threadId",
+                        params: {
+                            storyId: params.storyId,
+                            threadId: newThread.threadId
+                        },
+                        search: {
+                            prompt: message
+                        }
+                    })
+                },
+                onError: () => {
+                    setThreadCreationPending(false)
+                    error("Error", "Something went wrong and we could not investigate your pulse finding. The server might be experiencing issues.")
+                }
+            }
+        )
+    }
+
     const editorProps = useChapterEditorProps({
         updating: updating,
         query: query,
+        threadCreationPending: threadCreationPending,
         onQueryChange: (query: string) => setQuery(query),
-        onAskAgent: (query: string) => console.log(query),
+        onAskAgent: onAskAgent,
         onRetryChapter: refetchChapter,
         onRetryStory: refetchChapterList,
         editor: editor ? Some(editor) : None,

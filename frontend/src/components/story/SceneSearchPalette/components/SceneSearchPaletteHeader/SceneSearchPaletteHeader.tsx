@@ -28,6 +28,11 @@ export function SceneSearchPaletteHeader({
                     className="field__input"
                     value={query}
                     onChange={(e) => onQueryChange(e.target.value)}
+                    onFocus={(e) => {
+                        requestAnimationFrame(() => {
+                            e.target.setSelectionRange(e.target.value.length, e.target.value.length)
+                        })
+                    }}
                 />
             </div>
             <Kbd>ESC</Kbd>

@@ -186,8 +186,10 @@ export function useCreateChapter(storyId: string) {
         onSuccess: () => {
             // New chapter affects story detail (chapter list).
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
+            qc.invalidateQueries({ queryKey: storyKeys.chapters(storyId)})
             qc.invalidateQueries({ queryKey: authKeys.dashboard()})
             qc.invalidateQueries({ queryKey: [storyKeys.path(storyId)] })
+            qc.invalidateQueries({ queryKey: chapterKeys.all})
         },
     })
 }
