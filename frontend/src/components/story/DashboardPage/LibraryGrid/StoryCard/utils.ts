@@ -1,5 +1,5 @@
-import type { StoryStatus } from "../../../../infrastructure/api/types";
-import type { StatusBadgeVariant } from "../../../common";
+import type { StoryStatus } from "../../../../../infrastructure/api/types";
+import type { StatusBadgeVariant } from "../../../../common";
 
 export const toStatusBadgeVariant = (status: StoryStatus): StatusBadgeVariant => {
     switch (status) {

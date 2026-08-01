@@ -67,6 +67,7 @@ export function SignupForm() {
                 })
             },
             onError: (err) => {
+                error("Registration Failed", err.detail)
                 if (err.status === 409) 
                     setError("email", { message: err.detail }) 
                 else 

@@ -7,8 +7,6 @@ export type ChapterEditorFooterProps =
 | { status: "empty" }
 | { 
     status: "loading"
-    searchPalette: SceneSearchPaletteProps
-    onAskAgent: (query: string) => void
   }
 | { 
     status: "ready",
@@ -34,11 +32,8 @@ export function ChapterEditorFooter(props: ChapterEditorFooterProps) {
         case "loading": {
             return (
                 <div className={styles['content']}>
-                    <LoadingSkeleton className={Some("btn btn--secondary")} />
-                    <SceneSearchPalette
-                        {...props.searchPalette}
-                    />
-                    <LoadingSkeleton className={Some("btn btn--secondary")} />
+                    <LoadingSkeleton className={Some(`btn btn--secondary ${styles['loading-pill']}`)} />
+                    <LoadingSkeleton className={Some(`btn btn--secondary ${styles['loading-pill']}`)} />
                 </div>
             )
         }

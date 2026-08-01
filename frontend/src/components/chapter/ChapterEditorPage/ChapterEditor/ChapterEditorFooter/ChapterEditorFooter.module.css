@@ -7,3 +7,8 @@
     justify-content: space-between;
     margin: 0 auto;
 }
+
+.loading-pill {
+    height: 2.5rem;
+    width: 10rem;
+}

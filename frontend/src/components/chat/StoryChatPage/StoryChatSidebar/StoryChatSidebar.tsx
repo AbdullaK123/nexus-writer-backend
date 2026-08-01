@@ -1,13 +1,13 @@
-import { Button, LoadingSkeleton, Nothing } from "../../../common";
+import { Button, ErrorState, LoadingSkeleton, Nothing } from "../../../common";
 import { StoryChatSidebarItem, type StoryChatSidebarItemProps } from "./StoryChatSidebarItem";
 import { PanelLeftOpen, PanelLeftClose  } from "lucide-react"
 import styles from "./StoryChatSidebar.module.css"
-import { None } from "oxide.ts";
+import { None, Some } from "oxide.ts";
 
 export type StoryChatSidebarProps = 
 | { status: "idle" }
 | { status: "loading" }
-| { status: "error" }
+| { status: "error", onRetry: () => void }
 | { status: "empty" }
 | {
     status: "ready",
@@ -22,9 +22,27 @@ export type StoryChatSidebarProps =
 export function StoryChatSidebar(props: StoryChatSidebarProps) {
     switch (props.status) {
         case "empty":
-        case "idle":
-        case "error": {
+        case "idle": {
             return <Nothing />
+        }
+        case "error": {
+            return (
+                <div className={styles['content']}>
+                     <ErrorState 
+                        headline="Error"
+                        title="Failed to fetch threads"
+                        description={Some("Something went wrong. The server might be experiencing issues.")}
+                        action={Some(
+                            <Button
+                                variant="primary"
+                                onClick={props.onRetry}
+                            >
+                                Retry
+                            </Button>
+                        )}
+                    />
+                </div>
+            )
         }
         case "loading": {
             return (

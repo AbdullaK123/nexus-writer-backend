@@ -1,11 +1,11 @@
 import { None, Some } from "oxide.ts";
-import { Button, LoadingSkeleton, ModalWithTrigger, Nothing } from "../../../common";
+import { Button, ErrorState, LoadingSkeleton, ModalWithTrigger, Nothing } from "../../../common";
 import styles from "./StoryChatHeader.module.css"
 
 export type StoryChatHeaderProps = 
 | { status: "idle" }
 | { status: "loading" }
-| { status: "error" }
+| { status: "error", onRetry: () => void }
 | { status: "empty" }
 | { 
     status: "ready"
@@ -26,8 +26,26 @@ export type StoryChatHeaderProps =
 export function StoryChatHeader(props: StoryChatHeaderProps) {
     switch (props.status) {
         case "empty":
-        case "error":
             return <Nothing />
+        case "error": {
+            return (
+                <div className={styles['content']}>
+                    <ErrorState 
+                        headline="Error"
+                        title="Failed to fetch thread information"
+                        description={Some("Something went wrong. The server might be experiencing issues.")}
+                        action={Some(
+                            <Button
+                                variant="primary"
+                                onClick={props.onRetry}
+                            >
+                                Retry
+                            </Button>
+                        )}
+                    />
+                </div>
+            )
+        }
         case "loading":
             return (
                 <div className={styles['content']}>

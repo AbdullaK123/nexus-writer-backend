@@ -68,9 +68,7 @@ export function useChapterEditorProps({
                     status: "loading"
                 },
                 footer: {
-                    status: "loading",
-                    onAskAgent: onAskAgent,
-                    searchPalette: searchPaletteProps
+                    status: "loading"
                 }
             }
         }
@@ -151,8 +149,7 @@ export function useChapterEditorProps({
                     onNewChapter: (title) => {
                         createChapterMutation.mutate(
                         {
-                            title: title,
-                            content: ""
+                            title: title
                         }, 
                         {
                             onSuccess: (newChapter) => {
