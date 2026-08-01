@@ -93,7 +93,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     const sidebarProps = useChapterEditorSidebarProps({
         state: storyChaptersState,
         selectedChapterId: params.chapterId,
-         onSelectChapter: (chapterId: string) => {
+        onSelectChapter: (chapterId: string) => {
             navigate({
                 to: "/stories/$storyId/$chapterId",
                 params: { storyId: params.storyId, chapterId }

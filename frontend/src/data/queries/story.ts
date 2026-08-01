@@ -187,6 +187,7 @@ export function useCreateChapter(storyId: string) {
             // New chapter affects story detail (chapter list).
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
             qc.invalidateQueries({ queryKey: authKeys.dashboard()})
+            qc.invalidateQueries({ queryKey: [storyKeys.path(storyId)] })
         },
     })
 }
@@ -202,6 +203,7 @@ export function useReorderChapters(storyId: string) {
             // Per-chapter prev/next pointers shift on reorder.
             qc.invalidateQueries({ queryKey: chapterKeys.all })
             qc.invalidateQueries({ queryKey: authKeys.dashboard()})
+            qc.invalidateQueries({ queryKey: [storyKeys.path(storyId)] })
         },
     })
 }

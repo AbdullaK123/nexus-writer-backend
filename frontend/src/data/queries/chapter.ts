@@ -147,6 +147,12 @@ export function useDeleteChapter(chapterId: string, storyId: string) {
             qc.removeQueries({
                 queryKey: [...chapterKeys.all, "detail", chapterId],
             })
+            qc.invalidateQueries({
+                queryKey: chapterKeys.all
+            })
+            qc.invalidateQueries({
+                queryKey: storyKeys.chapters(storyId)
+            })
             // 3. Crucial: Invalidate the path array so the system knows the order changed
             qc.invalidateQueries({ queryKey: [storyKeys.path(storyId)] })
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
