@@ -28,6 +28,18 @@
     padding: var(--space-3);
 }
 
+.w-full {
+    width: 10rem;
+}
+
+.h-30 {
+    height: 30%;
+}
+
+.h-15 {
+    height: 15%;
+}
+
 
 .items-container {
     display: flex;

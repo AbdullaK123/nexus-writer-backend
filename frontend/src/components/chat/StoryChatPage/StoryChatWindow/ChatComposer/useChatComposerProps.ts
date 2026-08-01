@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useCreateThread } from "../../../../../data/queries";
 import { useNavigate } from "@tanstack/react-router";
 import type { ChatComposerProps } from "./ChatComposer";
+import { useToast } from "../../../../common";
 
 
 export type UseStoryChatWindowPropsArgs = {
@@ -15,6 +16,8 @@ export function useChatComposerProps({
     const [threadCreationPending, setThreadCreationPending] = useState(false)
 
     const [query, setQuery] = useState("");
+
+    const { error } = useToast()
 
     const {
         mutate: createThread
@@ -43,6 +46,10 @@ export function useChatComposerProps({
                             prompt: query
                         }
                     })
+                },
+                onError:  () => {
+                    setThreadCreationPending(false)
+                    error("Failed to create thread.", "Something went wrong. The server might be experiencing issues.")           
                 }
             }
         )

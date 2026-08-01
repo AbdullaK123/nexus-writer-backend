@@ -40,6 +40,10 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
         error("Failed to load your chapter", "Something went wrong. The server might be experiencing issues.")
     })
 
+    const onCommentsError = useEffectEvent(() => {
+        error("Failed to load your comments", "Something went wrong. The server might be experiencing issues.")
+    })
+
     useEffect(() => {
         if (storyChaptersState.status === "error") onStoryChaptersError()
     }, [storyChaptersState.status])
@@ -47,6 +51,10 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     useEffect(() => {
         if (chapterState.status === "error") onChapterError()
     }, [chapterState.status])
+
+    useEffect(() => {
+        if (commentsState.status === "error") onCommentsError()
+    }, [commentsState.status])
 
     const debouncedUpdate = useMemo(
         () => debounce((htmlContent: string) => {
@@ -93,6 +101,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     const sidebarProps = useChapterEditorSidebarProps({
         state: storyChaptersState,
         selectedChapterId: params.chapterId,
+        onChaptersRetry: refetchChapterList,
         onSelectChapter: (chapterId: string) => {
             navigate({
                 to: "/stories/$storyId/$chapterId",

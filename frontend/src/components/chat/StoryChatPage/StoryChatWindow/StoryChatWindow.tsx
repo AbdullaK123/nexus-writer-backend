@@ -26,9 +26,15 @@ export type StoryChatWindowProps =
 
 export function StoryChatWindow(props: StoryChatWindowProps) {
     switch (props.status) {
-        case "idle":
-        case "empty": {
+        case "idle": {
             return <Nothing />
+        }
+        case "empty": {
+            return (
+                <div className={styles['content']}>
+                    <ChatComposer {...props.composer} />
+                </div>
+            )
         }
         case "loading": {
             return (

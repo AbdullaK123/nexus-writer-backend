@@ -1,7 +1,8 @@
-import { Nothing } from "../../../common";
+import { Button, ErrorState, LoadingSkeleton, Nothing } from "../../../common";
 import { ChapterCommentCard, type ChapterCommentCardProps } from "./ChapterCommentCard";
 import { ChapterCommentsSidebarHeader, type ChapterCommentsSidebarHeaderProps } from "./ChapterCommentsSidebarHeader";
 import styles from "./ChapterCommentsSidebar.module.css"
+import { Some } from "oxide.ts";
 
 export type ChapterCommentsSidebarProps = 
 | { status: "loading"}
@@ -16,28 +17,40 @@ export type ChapterCommentsSidebarProps =
 
 export function ChapterCommentsSidebar(props: ChapterCommentsSidebarProps) {
     switch (props.status) {
+        case "empty":
         case "idle": {
             return <Nothing />
         }
         case "loading": { // TODO: this needs a proper loading skeleton
             return (
-                <div>
-                    Loading... 
-                </div>
-            )
-        }
-        case "empty": { // TODO: this needs to be a proper empty state
-            return (
-                <div>
-                    No comments yet.
-                </div>
+                <aside className={styles['content']}>
+                    <LoadingSkeleton className={Some(`${styles['h-30']} ${styles['w-full']}`)} />
+                    <div className={styles['items-container']}>
+                        <LoadingSkeleton className={Some(`${styles['h-15']} ${styles['w-full']}`)} />
+                        <LoadingSkeleton className={Some(`${styles['h-15']} ${styles['w-full']}`)} />
+                        <LoadingSkeleton className={Some(`${styles['h-15']} ${styles['w-full']}`)} />
+                        <LoadingSkeleton className={Some(`${styles['h-15']} ${styles['w-full']}`)} />
+                    </div>
+                </aside>
             )
         }
         case "error": { // TODO: proper error state needed here.
             return (
-                <div>
-                    Error
-                </div>
+                <aside className={styles['content']}>
+                    <ErrorState 
+                        headline="Error"
+                        title="Failed to fetch your comments"
+                        description={Some("Something went wrong. The server might be experiencing issues.")}
+                        action={Some(
+                            <Button
+                                variant="primary"
+                                onClick={props.onRetry}
+                            >
+                                Retry
+                            </Button>
+                        )}
+                    />
+                </aside>
             )
         }
         case "ready": {

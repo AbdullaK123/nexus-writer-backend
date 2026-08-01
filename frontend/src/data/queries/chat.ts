@@ -82,7 +82,12 @@ export function useDeleteThread(storyId: string, threadId: string) {
     const qc = useQueryClient()
     const navigate = useNavigate()
     return useMutation({
-        onMutate: async () => {
+        mutationFn: () => unwrapResultAsync(api.chat.deleteThread(storyId, threadId)),
+        onSuccess: async () => {
+            qc.removeQueries({
+                queryKey: chatKeys.messages(storyId, threadId),
+            })
+            qc.invalidateQueries({ queryKey: chatKeys.threads(storyId) })
             await navigate({ 
                 to: "/stories/$storyId/chat/new",
                 params: {
@@ -90,12 +95,6 @@ export function useDeleteThread(storyId: string, threadId: string) {
                 }
             })
         },
-        mutationFn: () => unwrapResultAsync(api.chat.deleteThread(storyId, threadId)),
-        onSuccess: () => {
-            qc.removeQueries({
-                queryKey: chatKeys.messages(storyId, threadId),
-            })
-            qc.invalidateQueries({ queryKey: chatKeys.threads(storyId) })
-        },
+        
     })
 }

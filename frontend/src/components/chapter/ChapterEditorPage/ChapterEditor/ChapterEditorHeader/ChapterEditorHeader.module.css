@@ -19,6 +19,8 @@
 }
 
 .loading-pill {
+    width: 10rem;
+    height: 3rem;
     display: inline-block;
     padding: var(--space-4);
     text-align: center;
