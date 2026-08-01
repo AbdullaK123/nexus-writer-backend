@@ -91,9 +91,9 @@ export function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
                         </div>
                     </div>
                     <div className={styles['items-container']}>
-                        {props.items.map((item, idx) => (
+                        {props.items.map((item) => (
                             <ChapterSidebarItem
-                                key={idx}
+                                key={item.chapterId}
                                 {...item}
                              />
                         ))}

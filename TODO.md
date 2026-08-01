@@ -1,4 +1,3 @@
-- [] Wire up side rail
 - [] Search across all of a user's stories. Not just one at a time.
 - [] Settings page
 - [] Wire scene search palette shortcuts and its 'ask nexus' button

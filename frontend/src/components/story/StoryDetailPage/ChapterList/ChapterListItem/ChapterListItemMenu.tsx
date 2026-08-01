@@ -52,7 +52,7 @@ export function ChapterListItemMenu({ storyId, chapterId, chapterStatus }: Chapt
         })
 
     const onDeleteChapter = () => 
-        deleteChapter(void {
+        deleteChapter(undefined, {
             onSuccess: () => {
                 success("Success!", "Your chapter has been deleted.")
             },
@@ -119,7 +119,7 @@ export function ChapterListItemMenu({ storyId, chapterId, chapterStatus }: Chapt
                             )}
                             <Menu.Item
                                 className={styles['menu-item']}
-                                value="unpublish-chapter"
+                                value="delete-chapter"
                                 onClick={(e) => {
                                     e.stopPropagation()
                                     setOpen(false)
@@ -185,7 +185,10 @@ export function ChapterListItemMenu({ storyId, chapterId, chapterStatus }: Chapt
                             </Button>
                             <Button
                                 variant="danger"
-                                onClick={() => onDeleteChapter()}
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    onDeleteChapter()
+                                }}
                             >
                                 Yes I'm sure
                             </Button>
