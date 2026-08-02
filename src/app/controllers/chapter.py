@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends
-
 from src.app.dependencies import get_current_user, get_chapter_service
 from src.data.schemas import UserRow
 from src.data.schemas.chapter import (
@@ -45,7 +44,7 @@ async def update_chapter(
 async def delete_chapter(
     chapter_id: str,
     current_user: UserRow = Depends(get_current_user),
-    chapter_service: ChapterService = Depends(get_chapter_service),
+    chapter_service: ChapterService = Depends(get_chapter_service)
 ) -> dict:
     return await chapter_service.delete_chapter(
         chapter_id=chapter_id,
