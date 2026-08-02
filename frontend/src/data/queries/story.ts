@@ -204,6 +204,8 @@ export function useReorderChapters(storyId: string) {
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
             // Per-chapter prev/next pointers shift on reorder.
             qc.invalidateQueries({ queryKey: chapterKeys.all })
+            qc.invalidateQueries({ queryKey: storyKeys.path(storyId)})
+            qc.invalidateQueries({ queryKey: storyKeys.chapters(storyId)})
             qc.invalidateQueries({ queryKey: authKeys.dashboard()})
             qc.invalidateQueries({ queryKey: [storyKeys.path(storyId)] })
         },

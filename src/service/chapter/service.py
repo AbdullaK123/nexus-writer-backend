@@ -187,6 +187,7 @@ class ChapterService:
         return ChapterListResponse.from_story(story, items)
 
     # ─── writes (transactional) ────────────────────────────────────────────
+    @handle_service_errors
     async def _on_chapter_delete(
         self,
         chapter_id: str,
@@ -210,6 +211,96 @@ class ChapterService:
             f"suggestion:world:context-v2:{story_id}:{user_id}"
         )
 
+    @handle_service_errors
+    async def _on_chapter_reorder(
+        self,
+        story_id: str,
+        user_id: str,
+        from_pos: int,
+        to_pos: int
+    ) -> None:
+         story = await self._story_repo.get(story_id, user_id)
+
+         if story is None:
+            raise NotFoundError("Story not found")
+
+         if story.path_array is None:
+            return
+
+         await self._cache.delete(
+            f"pulse:{story_id}:{user_id}",
+            f"plot_threads:{story_id}:{user_id}",
+            f"act_segmentation:{story_id}:{user_id}",
+            f"contradictions:{story_id}:{user_id}",
+            f"entities:{story_id}:{user_id}",
+            f"suggestion:character:context-v2:{story_id}:{user_id}",
+            f"suggestion:plot:context-v2:{story_id}:{user_id}",
+            f"suggestion:structure:context-v2:{story_id}:{user_id}",
+            f"suggestion:world:context-v2:{story_id}:{user_id}"
+         )
+
+         start = min(from_pos, to_pos)
+
+         affected_chapter_ids = story.path_array[start:]
+
+         for chapter_id in affected_chapter_ids:
+
+              await self._cache.delete(
+                   f"summary:{chapter_id}:{user_id}",
+                   f"chapter:editorial_plan:{user_id}:{chapter_id}",
+                   f"chapter:comments:{chapter_id}"
+               )
+
+              pending_key = f"chapter:chapter-reanalysis-pending:{chapter_id}"
+
+              claimed = await self._cache.set(
+                  pending_key,
+                  "1",
+                  nx=True,
+                  ex=1800,
+              )
+            
+              if claimed:
+                try:
+                    await queue.enqueue(
+                        "chapter_reanalysis_job",
+                        story_id=story_id,
+                        user_id=user_id,
+                        chapter_id=chapter_id,
+                        timeout=900,
+                    )
+                except Exception:
+                    # Do not leave the chapter blocked until the lock TTL expires
+                    # when enqueueing itself fails.
+                    await self._cache.delete(pending_key)
+                    raise
+
+         story_pending_key = f"story:reanalysis-pending:{story.id}"
+
+         claimed = await self._cache.set(
+            story_pending_key,
+            "1",
+            nx=True,
+            ex=1800,
+         )
+
+         if claimed:
+            try:
+                await queue.enqueue(
+                    "story_reanalysis_job",
+                    story_id=story_id,
+                    user_id=user_id,
+                    story_title=story.title,
+                    timeout=900
+                )
+            except Exception:
+                await self._cache.delete(story_pending_key)
+                raise
+         
+
+
+         
+        
     @handle_service_errors
     async def create_chapter(
         self,
@@ -432,6 +523,9 @@ class ChapterService:
                         data.to_pos,
                         conn=conn,
                     )
+
+            await self._on_chapter_reorder(story_id, user_id, data.from_pos, data.to_pos)
+
         except Exception as e:
             logger.error(
                 "chapter.reorder_failed",
@@ -621,6 +715,13 @@ class ChapterService:
         scenes = await self._scene_repo.list_by_story(
             story_id=story_id, user_id=user_id, chapter_id=chapter_id
         )
+
+        path_array = await self._story_repo.get_path_array(story_id)
+
+        if path_array is None:
+            raise NotFoundError("Story not found")
+
+        scenes = sorted(scenes, key=lambda scene: path_array.index(scene.chapter_id))
 
         story_ctx = self._format_scenes(scenes)
 

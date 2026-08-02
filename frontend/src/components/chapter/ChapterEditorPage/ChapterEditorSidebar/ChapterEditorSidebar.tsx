@@ -4,12 +4,22 @@ import { PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import styles from "./ChapterEditorSidebar.module.css"
 import { Some } from "oxide.ts";
 import { useNavigate } from "@tanstack/react-router"
+import { DragDropProvider } from "@dnd-kit/react"
+import { isSortable } from "@dnd-kit/react/sortable";
 
 export type ChapterEditorSidebarProps = 
 | { status: "error", onRetry: () => void }
 | { status: "empty" }
 | { status: "loading"}
-| { status: "ready", open: boolean, storyId: string; storyTitle: string; items: ChapterSidebarItemProps[], onOpenChange: (e: boolean) => void}
+| { 
+    status: "ready", 
+    open: boolean, 
+    storyId: string; 
+    storyTitle: string; 
+    items: ChapterSidebarItemProps[], 
+    onReorder: (fromPos: number, toPos: number) => void
+    onOpenChange: (e: boolean) => void
+ }
 
 
 export function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
@@ -92,14 +102,30 @@ export function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
                             </span>
                         </div>
                     </div>
-                    <div className={styles['items-container']}>
-                        {props.items.map((item) => (
-                            <ChapterSidebarItem
-                                key={item.chapterId}
-                                {...item}
-                             />
-                        ))}
-                    </div>
+                    <DragDropProvider
+                        onDragEnd={(event) => {
+
+                            if (event.canceled) return
+                            
+                            const { source } = event.operation
+
+                            if (!isSortable(source)) return
+
+                            const fromPos = source.initialIndex
+                            const toPos = source.index
+
+                            props.onReorder(fromPos, toPos)       
+                        }}
+                    >
+                         <div className={styles['items-container']}>
+                            {props.items.map((item) => (
+                                <ChapterSidebarItem
+                                    key={item.chapterId}
+                                    {...item}
+                                />
+                            ))}
+                        </div>
+                    </DragDropProvider>
                 </aside>
             )
         }
