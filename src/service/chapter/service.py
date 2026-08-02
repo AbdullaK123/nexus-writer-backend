@@ -187,6 +187,28 @@ class ChapterService:
         return ChapterListResponse.from_story(story, items)
 
     # ─── writes (transactional) ────────────────────────────────────────────
+    async def _on_chapter_delete(
+        self,
+        chapter_id: str,
+        story_id: str,
+        user_id: str
+    ) -> None:
+        await self._cache.delete(
+            f"chapter:baseline:{chapter_id}",
+            f"chapter:extraction-pending:{chapter_id}",
+            f"chapter:editorial_plan:{user_id}:{chapter_id}",
+            f"summary:{chapter_id}:{user_id}",
+            f"chapter:comments:{chapter_id}",
+            f"pulse:{story_id}:{user_id}",
+            f"plot_threads:{story_id}:{user_id}",
+            f"act_segmentation:{story_id}:{user_id}",
+            f"contradictions:{story_id}:{user_id}",
+            f"entities:{story_id}:{user_id}",
+            f"suggestion:character:context-v2:{story_id}:{user_id}",
+            f"suggestion:plot:context-v2:{story_id}:{user_id}",
+            f"suggestion:structure:context-v2:{story_id}:{user_id}",
+            f"suggestion:world:context-v2:{story_id}:{user_id}"
+        )
 
     @handle_service_errors
     async def create_chapter(
@@ -362,6 +384,8 @@ class ChapterService:
                     chapter_id,
                     conn=conn,
                 )
+
+        await self._on_chapter_delete(chapter_id, story_id, user_id)
 
         logger.info(
             "chapter.delete.done",

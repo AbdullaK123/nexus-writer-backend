@@ -1,8 +1,6 @@
 - [] Search across all of a user's stories. Not just one at a time.
 - [] Settings page
-- [] Wire scene search palette shortcuts and its 'ask nexus' button
 - [] Comment dismissal system
-- [] app shortcuts
 - [] Comment card interactivity and editor decorations (clicking a card should scroll the quote and highlight it)
 - [] Drag and drop support for chapter editor sidebar and its re-indexing consequences.
 - [] Deleting a chapter should wipe everything related to it in redis.

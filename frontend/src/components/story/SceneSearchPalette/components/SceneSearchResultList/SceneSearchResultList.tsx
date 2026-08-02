@@ -1,4 +1,4 @@
-import { None, Some, type Option } from "oxide.ts";
+import { None, Some } from "oxide.ts";
 import { Button, EmptyState, ErrorState } from "../../../../common";
 import { SceneSearchLoadingSkeleton } from "../SceneSearchLoadingSkeleton";
 import { SceneSearchResultItem } from "../SceneSearchResultItem"
