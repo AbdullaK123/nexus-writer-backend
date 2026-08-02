@@ -1,9 +1,11 @@
+import { useSortable } from "@dnd-kit/react/sortable";
 import { ChapterListItemMenu } from "../../../../story/StoryDetailPage/ChapterList/ChapterListItem/ChapterListItemMenu";
 import styles from "./ChapterSidebarItem.module.css"
 
 export type ChapterSidebarItemProps = 
 | {
         status: "idle"
+        index: number
         chapterId: string
         storyId: string
         chapterTitle: string
@@ -13,6 +15,7 @@ export type ChapterSidebarItemProps =
   }
 | {
         status: "selected"
+        index: number
         chapterId: string
         storyId: string
         chapterTitle: string
@@ -31,11 +34,18 @@ const getStyles = (chapterStatus: "draft" | "published") => {
 
 
 export function ChapterSidebarItem(props: ChapterSidebarItemProps) {
+
+    const {ref, isDragging, isDropTarget} = useSortable({
+        id: props.chapterId,
+        index: props.index
+    })
+
     switch (props.status) {
         case "idle": {
             return (
                 <div
-                    className={styles['content']}
+                    ref={ref}
+                    className={`${styles['content']} ${isDragging ? styles['dragging'] : ""} ${isDropTarget ? styles['drop-target'] : ""}`}
                     onClick={props.onClick}
                 >
                     <span className={getStyles(props.chapterStatus)}>
@@ -60,7 +70,8 @@ export function ChapterSidebarItem(props: ChapterSidebarItemProps) {
         case "selected": {
             return (
                 <div
-                    className={`${styles['content']} ${styles['selected']}`}
+                    ref={ref}
+                    className={`${styles['content']} ${isDragging ? styles['dragging'] : ""} ${isDropTarget ? styles['drop-target'] : ""} ${styles['selected']}`}
                     onClick={props.onClick}
                 >
                     <span className={styles['editing']}>

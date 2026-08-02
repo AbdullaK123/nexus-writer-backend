@@ -2,10 +2,13 @@ import { useState } from "react";
 import type { AsyncState, ChapterListResponse } from "../../../../infrastructure/api/types";
 import type { ApiError } from "../../../../shared/types";
 import type { ChapterEditorSidebarProps } from "./ChapterEditorSidebar";
+import { useReorderChapters } from "../../../../data/queries";
+import { useToast } from "../../../common";
 
 
 export type UseChapterEditorSidebarProps = 
 {
+    storyId: string
     state: AsyncState<ChapterListResponse, ApiError>
     selectedChapterId: string
     onSelectChapter: (chapterId: string) => void
@@ -14,6 +17,7 @@ export type UseChapterEditorSidebarProps =
 
 
 export function useChapterEditorSidebarProps({
+    storyId,
     state,
     selectedChapterId,
     onSelectChapter,
@@ -21,6 +25,26 @@ export function useChapterEditorSidebarProps({
 }: UseChapterEditorSidebarProps): ChapterEditorSidebarProps {
 
     const [sidebarOpen, setSidebarOpen] = useState(true)
+
+    const { error, success } = useToast()
+
+    const {
+        mutate: reorderChapters
+    } = useReorderChapters(storyId)
+
+    const onReorderChapters = (fromPos: number, toPos: number) => {
+        reorderChapters(
+            { fromPos: fromPos, toPos: toPos},
+            {
+                onError: () => {
+                    error("Failed to reorder chapters", "Something went wrong. The server might be experiencing issues.")
+                },
+                onSuccess: () => {
+                    success("Successfully reordered chapters!", "")
+                }
+            }
+        )
+    }
 
     switch (state.status) {
         case "idle":
@@ -45,10 +69,12 @@ export function useChapterEditorSidebarProps({
                 onOpenChange: (prev: boolean) => setSidebarOpen(!prev),
                 storyId: data.storyId,
                 storyTitle: data.storyTitle,
-                items: data.chapters.map((chapter) => {
+                onReorder: onReorderChapters,
+                items: data.chapters.map((chapter, idx) => {
                     if (chapter.chapterId === selectedChapterId) 
                         return {
                             status: "selected",
+                            index: idx,
                             chapterId: chapter.chapterId,
                             storyId: chapter.storyId,
                             chapterTitle: chapter.chapterTitle,
@@ -59,6 +85,7 @@ export function useChapterEditorSidebarProps({
                     else
                         return {
                             status: "idle",
+                            index: idx,
                             chapterId: chapter.chapterId,
                             storyId: chapter.storyId,
                             chapterTitle: chapter.chapterTitle,

@@ -37,8 +37,8 @@ class UpdateChapterRequest(ApiModel):
 
 
 class ReorderChapterRequest(ApiModel):
-    from_pos: int
-    to_pos: int
+    from_pos: int = Field(alias="fromPos")
+    to_pos: int = Field(alias="toPos")
 
 
 class ChapterListItem(ApiModel):

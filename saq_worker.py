@@ -117,6 +117,97 @@ async def shutdown(ctx: Context) -> None:
 
     logger.info("Goodbye...")
 
+
+async def story_reanalysis_job(
+    ctx: Context, *, story_id: str, user_id: str, story_title: str
+) -> None:
+    with tracer.start_as_current_span("saq.story_reanalysis_job") as span:
+        try:
+            await asyncio.gather(
+                ctx['worker'].context['story_service'].get_pulse(
+                    user_id=user_id,
+                    story_id=story_id,
+                    ignore_cache=True
+                ),
+                ctx['worker'].context['analytics_service'].extract_plot_threads(
+                    story_id=story_id,
+                    user_id=user_id,
+                    ignore_cache=True
+                ),
+                ctx['worker'].context['analytics_service'].extract_acts(
+                    story_id=story_id,
+                    user_id=user_id,
+                    ignore_cache=True
+                ),
+                ctx['worker'].context['analytics_service'].extract_contradictions(
+                    story_id=story_id,
+                    user_id=user_id,
+                    ignore_cache=True
+                ),
+                ctx['worker'].context['analytics_service'].extract_entities(
+                    story_id=story_id,
+                    user_id=user_id,
+                    ignore_cache=True
+                )
+            )
+
+            await ctx['worker'].context['pubsub'].publish(
+                f"notifications:{user_id}",
+                Notification(
+                    kind="analysis_ready",
+                    story_id=story_id,
+                    chapter_id="",
+                    message=f"New pulse and analysis for {story_title} are ready."
+                )
+            )
+            span.set_status(trace.StatusCode.OK)
+        except Exception as e:
+            logger.exception("saq.story_reanalysis_job.failed")
+            span.record_exception(e)
+            span.set_status(trace.StatusCode.ERROR, str(e))
+            raise
+        finally:
+            await client.delete(f"story:reanalysis-pending:{story_id}")
+            HEARTBEAT_FILE.touch()
+
+async def chapter_reanalysis_job(
+    ctx: Context, *, chapter_id: str, story_id: str, user_id: str
+) -> None:
+    with tracer.start_as_current_span("saq.chapter_reanalysis_job") as span:
+        try:
+            await ctx['worker'].context['chapter_service'].summarize_chapter(
+                    user_id=user_id,
+                    chapter_id=chapter_id,
+                    ignore_cache=True
+                )
+        
+            comments_extraction: CommentExtractionResponse =  \
+                await ctx['worker'].context['chapter_service'].generate_comments(
+                    user_id,
+                    chapter_id,
+                    ignore_cache=True
+                )
+            
+            await ctx['worker'].context['pubsub'].publish(
+                f"notifications:{user_id}",
+                Notification(
+                    kind="comments_ready",
+                    story_id=story_id,
+                    chapter_id=chapter_id,
+                    message=f"{len(comments_extraction.extraction.comments)} comments are ready for chapter {comments_extraction.chapter_number} of {comments_extraction.story_title}"
+                )
+            )
+            span.set_status(trace.StatusCode.OK)
+        except Exception as e:
+            logger.exception("saq.chapter_reanalysis_job.failed")
+            span.record_exception(e)
+            span.set_status(trace.StatusCode.ERROR, str(e))
+            raise
+        finally:
+            await client.delete(f"chapter:chapter-reanalysis-pending:{chapter_id}")
+            HEARTBEAT_FILE.touch()
+        
+
 async def scene_and_embedding_job(
     ctx: Context, *, chapter_id: str, story_id: str, user_id: str, content: str | None = None
 ) -> None:
@@ -207,18 +298,20 @@ async def scene_and_embedding_job(
             span.set_status(trace.StatusCode.OK)
         except Exception as e:
             logger.exception("saq.scene_and_embedding_job.failed")
-            await client.delete(f"chapter:extraction-pending:{chapter_id}")
             span.record_exception(e)
             span.set_status(trace.StatusCode.ERROR, str(e))
             raise
         finally:
+            await client.delete(f"chapter:extraction-pending:{chapter_id}")
             HEARTBEAT_FILE.touch()
             
 
 settings = {
     "queue": queue,
     "functions": [
-        scene_and_embedding_job
+        scene_and_embedding_job,
+        chapter_reanalysis_job,
+        story_reanalysis_job
     ],
     "concurrency": 5,
     "startup": startup,

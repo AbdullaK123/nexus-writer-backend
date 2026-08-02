@@ -103,6 +103,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
 
 
     const sidebarProps = useChapterEditorSidebarProps({
+        storyId: params.storyId,
         state: storyChaptersState,
         selectedChapterId: params.chapterId,
         onChaptersRetry: refetchChapterList,
