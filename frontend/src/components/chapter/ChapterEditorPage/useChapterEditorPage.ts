@@ -78,7 +78,9 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     }, [debouncedUpdate]);
 
     const editor = useEditor({
-        extensions: [StarterKit],
+        extensions: [
+            StarterKit
+        ],
         content: "",
         onUpdate: ({ editor }) => {
             const html = editor.getHTML()

@@ -41,7 +41,7 @@ class AnalyticsRepository:
             sc.pov AS character_a,
             exploded.character_b AS character_b,
             COUNT(*) AS scene_count,
-            SUM(word_count) AS word_count
+            SUM(sc.word_count) AS word_count
         FROM "scene" sc
         CROSS JOIN LATERAL UNNEST(sc.mentioned_entities) AS exploded(character_b)
         WHERE 
@@ -138,7 +138,7 @@ class AnalyticsRepository:
                 END
             ) AS avg_pacing,
             COUNT(*) AS scene_count,
-            SUM(word_count) AS word_count
+            SUM(sc.word_count) AS word_count
         FROM "scene" sc
         INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
         INNER JOIN "story" s ON (sc.story_id = s.id)
@@ -188,7 +188,7 @@ class AnalyticsRepository:
                 END
             ) AS avg_pacing,
             COUNT(*) AS scene_count,
-            SUM(word_count) AS word_count
+            SUM(sc.word_count) AS word_count
         FROM "scene" sc
         INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
         INNER JOIN "story" s ON (sc.story_id = s.id)
