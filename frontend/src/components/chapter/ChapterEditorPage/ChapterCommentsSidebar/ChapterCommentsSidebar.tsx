@@ -74,9 +74,9 @@ export function ChapterCommentsSidebar(props: ChapterCommentsSidebarProps) {
                                     return comment.comment.category === props.header.activeCategory
                                 }
                             })
-                            .map((comment, idx) => (
+                            .map((comment) => (
                                 <ChapterCommentCard 
-                                    key={idx}
+                                    key={comment.comment.issue_key}
                                     {...comment}
                                 />
                             ))

@@ -56,7 +56,7 @@ const getActiveCount = (category: CommentCategory | "all", counts: FilterCounts,
         case "not-available":
             return 0
         case "pacing":
-            return counts.pacing > 0 ? counts.character - dismissedComments.filter((comment) => comment.category === "character").length : 0
+            return counts.pacing > 0 ? counts.character - dismissedComments.filter((comment) => comment.category === "pacing").length : 0
         case "plot":
             return counts.plot > 0 ? counts.plot - dismissedComments.filter((comment) => comment.category === "plot").length : 0
         case "prose":
