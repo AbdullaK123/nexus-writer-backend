@@ -9,7 +9,9 @@ export type ChapterCommentCardProps =
 {
     chapterNumber: number,
     comment: ExtractedComment,
+    view: "active" | "dismissed"
     onDismiss: () => void
+    onRestore: () => void
     onDigIntoThis: (
         comment: ExtractedComment, 
         chapterNumber: number,
@@ -100,12 +102,21 @@ export function ChapterCommentCard(props: ChapterCommentCardProps) {
                 {props.comment.priority}
             </span>
             <div className={styles['ccard-actions']}>
-                <Button 
-                    variant="ghost"
-                    onClick={props.onDismiss}
-                >
-                    Dismiss
-                </Button>
+                {(props.view === "active") ? (
+                    <Button 
+                        variant="ghost"
+                        onClick={props.onDismiss}
+                    >
+                        Dismiss
+                    </Button>
+                ): (
+                     <Button
+                        variant="ghost"
+                        onClick={props.onRestore}
+                    >
+                        Restore
+                    </Button>
+                )}
                 <Button
                     variant="secondary"
                     disabled={threadCreationPending}
