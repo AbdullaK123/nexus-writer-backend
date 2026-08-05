@@ -1,4 +1,4 @@
-import { AvatarBadge, SectionTag } from "../../../common";
+import { SectionTag } from "../../../common";
 import styles from "./WelcomeHeader.module.css"
 import { Option } from "oxide.ts"
 import { WelcomeHeaderLoadingSkeleton } from "./WelcomeHeaderLoadingSkeleton"
