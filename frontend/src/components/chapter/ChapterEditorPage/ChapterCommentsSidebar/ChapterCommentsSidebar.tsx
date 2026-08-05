@@ -65,14 +65,18 @@ export function ChapterCommentsSidebar(props: ChapterCommentsSidebarProps) {
                         {props
                             .comments
                             .filter((comment) => {
+                                return props.header.view === comment.view
+                            })
+                            .filter((comment) => {
                                 if (props.header.activeCategory === "all") {
                                     return true
                                 } else {
                                     return comment.comment.category === props.header.activeCategory
                                 }
                             })
-                            .map((comment) => (
+                            .map((comment, idx) => (
                                 <ChapterCommentCard 
+                                    key={idx}
                                     {...comment}
                                 />
                             ))

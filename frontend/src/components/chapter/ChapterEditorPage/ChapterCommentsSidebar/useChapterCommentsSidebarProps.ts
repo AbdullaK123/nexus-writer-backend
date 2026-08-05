@@ -17,6 +17,12 @@ export type UseChapterCommentsSidebarPropsArgs =
     onRefetchComments: () => void
 }
 
+export type CommentView = "active" | "dismissed"
+export type DismissedComment = {
+    issueKey: string
+    category: CommentCategory
+}
+
 export function useChapterCommentsSidebarProps({
     storyId,
     state,
@@ -30,6 +36,23 @@ export function useChapterCommentsSidebarProps({
     } = useCreateThread(storyId)
     const navigate = useNavigate()
     const { error } = useToast()
+
+    const [commentView, setCommentView] = useState<CommentView>("active")
+    const [dismissedKeys, setDismissedKeys] = useState<DismissedComment[]>([])
+
+    const dismissComment = (issueKey: string, category: CommentCategory) => {
+        setDismissedKeys((prev) => 
+            prev.map((comment) => comment.issueKey).includes(issueKey)
+            ? prev
+            : [...prev, { issueKey: issueKey, category: category }]
+        )
+    }
+
+    const restoreComment = (issueKey: string) => {
+        setDismissedKeys((prev) => 
+            prev.filter((comment) => comment.issueKey !== issueKey)
+        )
+    }
 
 
     const onDigIntoThis = (
@@ -134,6 +157,9 @@ export function useChapterCommentsSidebarProps({
                     activeCategory: activeCategory,
                     filterCounts: filterCounts as FilterCounts,
                     sidebarOpen: sidebarOpen,
+                    dismissedKeys: dismissedKeys,
+                    view: commentView,
+                    onViewChange: (view: CommentView) => setCommentView(view),
                     onSidebarOpenChange: (e: boolean) => setSidebarOpen(!e),
                     onClickAll: () => setActiveCategory("all"),
                     onClickCharacter: () => setActiveCategory("character"),
@@ -149,7 +175,9 @@ export function useChapterCommentsSidebarProps({
                 comments: data.extraction.comments.map((comment) => ({
                     chapterNumber: data.chapterNumber,
                     comment: comment,
-                    onDismiss: () => {},
+                    view: dismissedKeys.map((comment) => comment.issueKey).includes(comment.issue_key) ? "dismissed" : "active",
+                    onDismiss: () => dismissComment(comment.issue_key, comment.category),
+                    onRestore: () => restoreComment(comment.issue_key),
                     onDigIntoThis: onDigIntoThis
                 }))
             }
