@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AsyncState, CommentCategory, CommentExtractionResponse, ExtractedComment } from "../../../../infrastructure/api/types";
 import type { ApiError } from "../../../../shared/types";
 import type { ChapterCommentsSidebarProps } from "./ChapterCommentsSidebar";
@@ -39,6 +39,7 @@ export function useChapterCommentsSidebarProps({
 
     const [commentView, setCommentView] = useState<CommentView>("active")
     const [dismissedKeys, setDismissedKeys] = useState<DismissedComment[]>([])
+
 
     const dismissComment = (issueKey: string, category: CommentCategory) => {
         setDismissedKeys((prev) => 
@@ -124,6 +125,24 @@ export function useChapterCommentsSidebarProps({
             }
         )
     }
+
+    const commentBatchKey = useMemo(() => {
+        if (state.status === "success") {
+
+            const data = state.data.unwrap().unwrap()
+
+            return `${data.chapterId}:${data.generatedAt.toISOString()}`
+        }
+    }, [state])
+
+    useEffect(() => {
+        if (commentBatchKey) {
+            requestAnimationFrame(() => {
+                setCommentView("active")
+                setDismissedKeys([])
+            })
+        }
+    }, [commentBatchKey])
 
 
     switch (state.status) {
