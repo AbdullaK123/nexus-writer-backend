@@ -8,8 +8,9 @@ from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai_harness import CodeMode
 
 from src.data.schemas.chapter import ChapterContentResponse, ChapterListItem
+from src.data.schemas.enums import StoryStatus
 from src.data.schemas.scene import SceneSearchResponse
-from src.infrastructure.ai.prompts import STORY_ASSISTANT_PROMPT
+from src.infrastructure.ai.prompts import STORY_ASSISTANT_PROMPT, STORY_STATUS_PROMPTS
 from src.service.analytics.service import AnalyticsService
 from src.service.chapter import ChapterService
 from src.service.exceptions import ServiceError
@@ -39,6 +40,7 @@ def _service_errors_as_text(
 class ChatDeps:
     user_id: str
     story_id: str
+    story_status: StoryStatus
     chapter_service: ChapterService
     analytics_service: AnalyticsService
     story_service: StoryService
@@ -88,6 +90,12 @@ def build_agent(model_name: str, system_prompt: str = STORY_ASSISTANT_PROMPT ) -
         system_prompt=system_prompt,
         capabilities=[CodeMode()],
     )
+
+    @agent.instructions
+    def story_lifecycle(
+        ctx: RunContext[ChatDeps],
+    ) -> str:
+        return STORY_STATUS_PROMPTS[ctx.deps.story_status]
 
     @agent.tool
     @_service_errors_as_text

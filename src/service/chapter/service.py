@@ -1,5 +1,4 @@
 from __future__ import annotations
-import asyncio
 import textwrap
 from typing import TYPE_CHECKING, List, Optional, Union
 
@@ -22,12 +21,13 @@ from src.data.schemas import (
     ChapterListResponse,
 )
 from src.data.schemas.chapter import ChapterSummaryResponse
+from src.data.schemas.enums import StoryStatus
 from src.data.schemas.extraction import CommentExtraction, CommentExtractionResponse
 from src.data.schemas.scene import SceneRow
 from src.infrastructure.config import config
 from src.infrastructure.ai.prompts import COMMENTS_EXTRACTION_PROMPT, COMMENTS_PLANNER_PROMPT, SUMMARIZATION_PROMPT
 from src.infrastructure.ai.providers.protocol import AIProvider
-from src.service.exceptions import NoContentError, NotFoundError, ValidationError, InternalError
+from src.service.exceptions import NotFoundError, ValidationError, InternalError
 from src.service.utils.decorators import handle_service_errors
 from functools import cached_property, lru_cache
 from src.infrastructure.redis.queue import queue
@@ -40,6 +40,7 @@ from src.shared.utils.html import (
     get_word_count,
     html_to_plain_text,
 )
+from src.service.utils.decorators import retry_enqueue
 
 if TYPE_CHECKING:
     from src.service.extraction.service import ExtractionService
@@ -114,12 +115,13 @@ class ChapterService:
 
     @lru_cache
     def get_agent_chat_deps(
-        self, user_id: str, story_id: str
+        self, user_id: str, story_id: str, story_status: StoryStatus
     ) -> "ChatDeps":
         from src.service.chat.agent import ChatDeps
         return ChatDeps(
             user_id=user_id,
             story_id=story_id,
+            story_status=story_status,
             chapter_service=self,
             analytics_service=self.analytics_service,
             story_service=self.story_service
@@ -188,7 +190,7 @@ class ChapterService:
 
     # ─── writes (transactional) ────────────────────────────────────────────
     @handle_service_errors
-    async def _on_chapter_delete(
+    async def _invalidate_chapter_analysis(
         self,
         chapter_id: str,
         story_id: str,
@@ -242,16 +244,20 @@ class ChapterService:
          start = min(from_pos, to_pos)
 
          affected_chapter_ids = story.path_array[start:]
+         affected_chapters = await self._chapter_repo.list_by_ids(affected_chapter_ids)
 
-         for chapter_id in affected_chapter_ids:
+         for chapter in affected_chapters:
+
+              if not chapter.published:
+                  continue
 
               await self._cache.delete(
-                   f"summary:{chapter_id}:{user_id}",
-                   f"chapter:editorial_plan:{user_id}:{chapter_id}",
-                   f"chapter:comments:{chapter_id}"
+                   f"summary:{chapter.id}:{user_id}",
+                   f"chapter:editorial_plan:{user_id}:{chapter.id}",
+                   f"chapter:comments:{chapter.id}"
                )
 
-              pending_key = f"chapter:chapter-reanalysis-pending:{chapter_id}"
+              pending_key = f"chapter:chapter-reanalysis-pending:{chapter.id}"
 
               claimed = await self._cache.set(
                   pending_key,
@@ -266,7 +272,7 @@ class ChapterService:
                         "chapter_reanalysis_job",
                         story_id=story_id,
                         user_id=user_id,
-                        chapter_id=chapter_id,
+                        chapter_id=chapter.id,
                         timeout=900,
                     )
                 except Exception:
@@ -355,6 +361,61 @@ class ChapterService:
             as_html=True,
         )
 
+    @retry_enqueue
+    async def _enqueue_extraction_job(
+        self,
+        *,
+        chapter_id: str,
+        story_id: str,
+        user_id: str,
+        content: str | None,
+    ) -> None:
+        await queue.enqueue(
+            "scene_and_embedding_job",
+            story_id=story_id,
+            user_id=user_id,
+            chapter_id=chapter_id,
+            content=content,
+            timeout=900,
+        )
+
+
+    @handle_service_errors
+    async def queue_extraction_job(
+        self,
+        chapter_id: str,
+        story_id: str,
+        user_id: str,
+        content: str | None = None,
+    ) -> None:
+        pending_key = f"chapter:extraction-pending:{chapter_id}"
+
+        claimed = await self._cache.set(
+            pending_key,
+            "1",
+            nx=True,
+            ex=1800,
+        )
+
+        if not claimed:
+            return
+
+        try:
+            await self._cache.delete(
+                f"chapter:editorial_plan:{user_id}:{chapter_id}"
+            )
+
+            await self._enqueue_extraction_job(
+                chapter_id=chapter_id,
+                story_id=story_id,
+                user_id=user_id,
+                content=content,
+            )
+        except Exception:
+            await self._cache.delete(pending_key)
+            raise
+    
+
     @handle_service_errors
     async def update_chapter(
         self,
@@ -362,6 +423,7 @@ class ChapterService:
         user_id: str,
         data: UpdateChapterRequest,
     ) -> ChapterContentResponse:
+        
         triple = await self._chapter_repo.get_with_story_title(
             chapter_id,
             user_id,
@@ -394,9 +456,39 @@ class ChapterService:
                 "We couldn't find this chapter. It may have been deleted."
             )
 
-        if plain_text is not None and updated.content:
+        was_published = chapter.published
+        is_published = updated.published
+
+        became_published = not was_published and is_published
+        became_draft = was_published and not is_published
+        remained_published = was_published and is_published
+
+        analysis_content = (
+            plain_text
+            if plain_text is not None
+            else html_to_plain_text(updated.content or "")
+        )
+
+
+        if became_published and updated.word_count >= 1000:
+            await self.queue_extraction_job(
+                chapter_id,
+                chapter.story_id,
+                chapter.user_id,
+                analysis_content
+            )
+
+        if became_draft:
+            await self._invalidate_chapter_analysis(
+                chapter_id,
+                chapter.story_id,
+                chapter.user_id
+            )
+        
+
+        if plain_text is not None and remained_published and updated.content:
+
             baseline_key = f"chapter:baseline:{chapter_id}"
-            pending_key = f"chapter:extraction-pending:{chapter_id}"
 
             baseline = await self._cache.get(baseline_key)
 
@@ -411,34 +503,12 @@ class ChapterService:
                 )
 
             if should_extract:
-
-                claimed = await self._cache.set(
-                    pending_key,
-                    "1",
-                    nx=True,
-                    ex=1800,
+                await self.queue_extraction_job(
+                    chapter_id,
+                    chapter.story_id,
+                    chapter.user_id,
+                    analysis_content
                 )
-
-                if claimed:
-                    
-                    await self._cache.delete(
-                        f"chapter:editorial_plan:{user_id}:{chapter_id}"
-                    )
-
-                    try:
-                        await queue.enqueue(
-                            "scene_and_embedding_job",
-                            story_id=chapter.story_id,
-                            user_id=chapter.user_id,
-                            chapter_id=chapter_id,
-                            content=plain_text,
-                            timeout=900,
-                        )
-                    except Exception:
-                        # Do not leave the chapter blocked until the lock TTL expires
-                        # when enqueueing itself fails.
-                        await self._cache.delete(pending_key)
-                        raise
 
         logger.info(
             "chapter.update.done",
@@ -476,7 +546,7 @@ class ChapterService:
                     conn=conn,
                 )
 
-        await self._on_chapter_delete(chapter_id, story_id, user_id)
+        await self._invalidate_chapter_analysis(chapter_id, story_id, user_id)
 
         logger.info(
             "chapter.delete.done",
@@ -733,8 +803,14 @@ class ChapterService:
     ) -> ChapterSummaryResponse:
         chapter_to_summarize = await self._chapter_repo.get(chapter_id, user_id)
 
+
         if chapter_to_summarize is None:
             raise NotFoundError("Chapter not found")
+
+        if not chapter_to_summarize.published:
+            raise ValidationError(
+                message="Publish this chapter before generating manuscript analysis."
+            )
 
         if get_word_count(chapter_to_summarize.content or "") <= 500:
             return ChapterSummaryResponse(summary="")
@@ -790,6 +866,16 @@ class ChapterService:
 
         chapter, story_title, chapter_number = triple
 
+        if not chapter.published:
+            raise ValidationError(
+                message="Publish this chapter before generating manuscript analysis."
+            )
+
+        story = await self._story_repo.get(chapter.story_id, user_id)
+
+        if story is None:
+            raise NotFoundError("Story not found")
+
         if not ignore_cache:
             if plan := (await self._cache.get(f"chapter:editorial_plan:{user_id}:{chapter_id}")):
                 return plan.decode() if isinstance(plan, bytes) else plan
@@ -805,7 +891,7 @@ class ChapterService:
                 </inputs>
                 """
             ),
-            deps=self.get_agent_chat_deps(user_id, chapter.story_id)
+            deps=self.get_agent_chat_deps(user_id, chapter.story_id, story.status)
         )
 
         plan = result.output
@@ -828,6 +914,11 @@ class ChapterService:
             raise NotFoundError("Chapter not found")
         
         chapter, story_title, chapter_number = triple
+
+        if not chapter.published:
+            raise ValidationError(
+                message="Publish this chapter before generating manuscript analysis."
+            )
 
         if not ignore_cache:
             if raw_data := (await self._cache.get(f"chapter:comments:{chapter_id}")):
@@ -880,6 +971,16 @@ class ChapterService:
             raise NotFoundError("Chapter not found")
                 
         chapter, story_title, chapter_number = triple
+
+        if not chapter.published:
+            return CommentExtractionResponse(
+                story_id=chapter.story_id,
+                story_title=story_title,
+                chapter_id=chapter_id,
+                chapter_number=chapter_number,
+                generated_at=datetime.now(tz=tz.utc),
+                extraction=CommentExtraction(comments=[]),
+            )
 
         raw_data = await self._cache.get(f"chapter:comments:{chapter_id}")
 

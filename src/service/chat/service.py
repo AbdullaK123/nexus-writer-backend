@@ -178,6 +178,7 @@ class ChatService:
         deps = ChatDeps(
             user_id=user_id,
             story_id=payload.story_id,
+            story_status=story.status,
             chapter_service=self._chapter_svc,
             story_service=self._story_svc,
             analytics_service=self._analytics_svc,

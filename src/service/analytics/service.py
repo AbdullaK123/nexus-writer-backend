@@ -5,6 +5,7 @@ from typing import Literal, TYPE_CHECKING
 import redis.asyncio as aioredis
 from src.data.repositories.chapter import ChapterRepository
 from src.data.repositories.scene import SceneRepository
+from src.data.schemas.enums import StoryStatus
 from src.service.exceptions import NotFoundError, ServiceError
 from src.data.repositories.analytics import AnalyticsRepository
 from src.data.repositories.story import StoryRepository
@@ -43,6 +44,7 @@ from src.infrastructure.ai.prompts import (
     CHARACTER_ANALYTICS_SUGGESTION_PROMPT,
     CONTRADICTION_EXTRACTION_PROMPT,
     PLOT_ANALYTICS_SUGGESTION_PROMPT,
+    STORY_STATUS_PROMPTS,
     STRUCTURE_ANALYTICS_SUGGESTION_PROMPT,
     WORLD_ANALYTICS_SUGGESTION_PROMPT,
     PLOT_THREADS_EXTRACTION_PROMPT,
@@ -145,6 +147,18 @@ class AnalyticsService:
         self._scene_repo = scene_repo
         self._provider = provider
         self._cache = redis
+
+    def _with_story_status(
+            self,
+            base_prompt: str,
+            status: StoryStatus,
+        ) -> str:
+            return "\n\n".join(
+                [
+                    STORY_STATUS_PROMPTS[status].strip(),
+                    base_prompt.strip(),
+                ]
+            )
 
     def _get_cache_key(
         self,
@@ -450,7 +464,7 @@ class AnalyticsService:
         prompt = prompt_template.format(**inputs)
 
         suggestion = await self._provider.extract(
-            system_prompt=system_prompt,
+            system_prompt=self._with_story_status(system_prompt, story.status),
             text=prompt,
             max_tokens=config.ai.suggestion_max_tokens,
             schema=AnalyticsSuggestionExtraction,
@@ -691,7 +705,7 @@ class AnalyticsService:
         story_context = await self.story_service.get_story_context(user_id, story_id)
 
         extraction = await self._provider.extract(
-            system_prompt=ACT_SEGMENTATION_EXTRACTION_PROMPT,
+            system_prompt=self._with_story_status(ACT_SEGMENTATION_EXTRACTION_PROMPT, story.status),
             text=f"""\
             <story_context>
                 {story_context}

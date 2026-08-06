@@ -9,6 +9,35 @@ from src.service.exceptions import (
     AuthError,
 )
 from loguru import logger
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential_jitter,
+)
+from redis.exceptions import (
+    ConnectionError as RedisConnectionError,
+    TimeoutError as RedisTimeoutError,
+)
+
+
+TRANSIENT_QUEUE_ERRORS = (
+    ConnectionError,
+    TimeoutError,
+    RedisConnectionError,
+    RedisTimeoutError,
+)
+
+
+retry_enqueue = retry(
+    retry=retry_if_exception_type(TRANSIENT_QUEUE_ERRORS),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential_jitter(
+        initial=0.5,
+        max=5,
+    ),
+    reraise=True,
+)
 
 
 def handle_service_errors(func):

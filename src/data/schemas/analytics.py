@@ -88,30 +88,50 @@ class PlotThreadsResponse(ApiModel):
 
 
 class Act(BaseModel):
-    number: Literal[1, 2, 3, 4] = Field(
-        description="The sequential act number assigned to this broad structural phase of the story."
+    number: Literal[1, 2, 3] = Field(
+        description=(
+            "The sequential act number in the traditional three-act structure."
+        )
     )
+
     chapter_started: int = Field(
-        description="The 1-based chapter number where this act begins, inclusive."
+        description=(
+            "The 1-based chapter number where this act begins, inclusive."
+        )
     )
+
     chapter_ended: Optional[int] = Field(
         default=None,
-        description="The 1-based chapter number where this act ends, inclusive; null only when this is the currently unfinished act.",
+        description=(
+            "The 1-based chapter number where this act ends, inclusive; "
+            "null only when this is the currently unfinished act."
+        ),
     )
+
     current_chapter: Optional[int] = Field(
         default=None,
-        description="The latest available 1-based chapter number within this act when it is still in progress; null for completed acts.",
+        description=(
+            "The latest available 1-based chapter number within this act "
+            "when it is still in progress; null for completed acts."
+        ),
     )
 
 
 class ActSegmentationExtraction(BaseModel):
     acts: Optional[List[Act]] = Field(
         default_factory=lambda: [],
-        description="""
-        The story's broad structural phases in chronological order.
-        Acts must be sequential, contiguous, and non-overlapping, with boundaries placed at meaningful changes in objective, conflict, stakes, direction, or narrative function.
-        Do not force the story into four acts when the supplied material supports fewer, especially when the manuscript is unfinished. Return an empty list when no responsible segmentation can be made.
-        """,
+        description="""\
+The manuscript's traditional three-act structure in chronological order.
+
+Act I contains the inciting incident and ends with the first plot point.
+Act II contains the midpoint and ends with the second plot point.
+Act III contains the climax and any aftermath or denouement.
+
+Return only the acts reached by the supplied material. Acts must be sequential,
+contiguous across the supplied chapter sequence, and non-overlapping. Only the
+final returned act may be unfinished. Return an empty list when no responsible
+segmentation can be made.
+""",
     )
 
 

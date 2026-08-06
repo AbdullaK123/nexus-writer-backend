@@ -125,6 +125,19 @@ class ChapterRepository:
 
         return results
 
+    async def list_by_ids(
+        self,
+        chapter_ids: Sequence[str]
+    ) -> list[ChapterRow]:
+        if not chapter_ids:
+            return []
+        sql = f"""
+        SELECT {_CHAPTER_COLUMNS} FROM "chapter"
+        WHERE id = ANY($1::TEXT[])
+        """
+        rows = await self._pool.fetch(sql, list(chapter_ids))
+        return [ChapterRow.model_validate(dict(r)) for r in rows]
+
     async def list_by_story_ids(
         self,
         story_ids: Sequence[str],

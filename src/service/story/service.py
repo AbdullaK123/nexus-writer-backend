@@ -30,6 +30,7 @@ from src.data.schemas.story import (
 from src.infrastructure.ai.prompts import (
     CHARACTER_PULSE_PROMPT,
     PLOT_PULSE_PROMPT,
+    STORY_STATUS_PROMPTS,
     STRUCTURE_PULSE_PROMPT,
     WORLD_PULSE_PROMPT,
 )
@@ -58,6 +59,33 @@ class StoryService:
         self._search_config = search_config
         self._cache = redis
 
+    def _with_story_status(
+        self,
+        base_prompt: str,
+        status: StoryStatus,
+    ) -> str:
+        return "\n\n".join(
+            [
+                STORY_STATUS_PROMPTS[status].strip(),
+                base_prompt.strip(),
+            ]
+        )
+
+    async def _invalidate_status_dependent_analysis(
+        self,
+        *,
+        story_id: str,
+        user_id: str,
+    ) -> None:
+        await self._cache.delete(
+            f"pulse:{story_id}:{user_id}",
+            f"act_segmentation:{story_id}:{user_id}",
+            f"suggestion:character:context-v2:{story_id}:{user_id}",
+            f"suggestion:plot:context-v2:{story_id}:{user_id}",
+            f"suggestion:structure:context-v2:{story_id}:{user_id}",
+            f"suggestion:world:context-v2:{story_id}:{user_id}",
+        )
+
     @handle_service_errors
     async def create_story(
         self,
@@ -85,7 +113,23 @@ class StoryService:
         story_id: str,
         update_info: UpdateStoryRequest,
     ) -> dict:
+        existing_story = await self._story_repo.get(story_id, user_id)
+
+        if existing_story is None:
+            raise NotFoundError("Story not found")
+        
         fields = update_info.model_dump(exclude_unset=True)
+
+        status_changed = (
+            update_info.status is not None
+            and update_info.status != existing_story.status
+        )
+
+        if status_changed:
+            await self._invalidate_status_dependent_analysis(
+                story_id=story_id,
+                user_id=user_id
+            )
 
         updated = await self._story_repo.update(
             story_id=story_id,
@@ -426,7 +470,7 @@ class StoryService:
             return INSUFFICIENT_CONTEXT
 
         character_pulse_task = self._provider.extract(
-            system_prompt=CHARACTER_PULSE_PROMPT,
+            system_prompt=self._with_story_status(CHARACTER_PULSE_PROMPT, story.status),
             text=f"""\
             <story_context>
             {story_ctx}
@@ -436,7 +480,7 @@ class StoryService:
             schema=PulseDimension,
         )
         plot_pulse_task = self._provider.extract(
-            system_prompt=PLOT_PULSE_PROMPT,
+            system_prompt=self._with_story_status(PLOT_PULSE_PROMPT, story.status),
             text=f"""\
             <story_context>
             {story_ctx}
@@ -446,7 +490,7 @@ class StoryService:
             schema=PulseDimension,
         )
         structure_pulse_task = self._provider.extract(
-            system_prompt=STRUCTURE_PULSE_PROMPT,
+            system_prompt=self._with_story_status(STRUCTURE_PULSE_PROMPT, story.status),
             text=f"""\
             <story_context>
             {story_ctx}
@@ -456,7 +500,7 @@ class StoryService:
             schema=PulseDimension,
         )
         world_pulse_task = self._provider.extract(
-            system_prompt=WORLD_PULSE_PROMPT,
+            system_prompt=self._with_story_status(WORLD_PULSE_PROMPT, story.status),
             text=f"""\
             <story_context>
             {story_ctx}
