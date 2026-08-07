@@ -3,7 +3,7 @@ import { Menu } from "@ark-ui/react/menu"
 import { EllipsisVertical } from "lucide-react";
 import styles from "./ChapterListItem.module.css"
 import { useState } from "react"
-import { Button, TriggerlessModal, useToast } from "../../../../common";
+import { Button, Tooltip, TriggerlessModal, useToast } from "../../../../common";
 import { None, Some } from "oxide.ts";
 import { useDeleteChapter, useUpdateChapter } from "../../../../../data/queries";
 
@@ -106,7 +106,11 @@ export function ChapterListItemMenu({ storyId, chapterId, chapterStatus }: Chapt
                                     value="unpublish-chapter"
                                     onClick={() => onUpdateChapterStatus(false)}
                                 >
-                                    Unpublish
+                                    <Tooltip
+                                        message="Hide this chapter from Nexus"
+                                    >
+                                        Unpublish
+                                    </Tooltip>
                                 </Menu.Item>
                             ): (
                                 <Menu.Item
@@ -114,7 +118,11 @@ export function ChapterListItemMenu({ storyId, chapterId, chapterStatus }: Chapt
                                     value="publish-chapter"
                                     onClick={() => onUpdateChapterStatus(true)}
                                 >
-                                    Publish
+                                    <Tooltip
+                                        message="Hand off this chapter to Nexus for analysis"
+                                    >
+                                        Publish
+                                    </Tooltip>
                                 </Menu.Item>
                             )}
                             <Menu.Item

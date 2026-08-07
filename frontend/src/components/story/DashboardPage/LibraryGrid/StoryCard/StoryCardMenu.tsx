@@ -3,7 +3,7 @@ import { Menu } from "@ark-ui/react/menu"
 import { EllipsisVertical } from "lucide-react";
 import styles from "./StoryCard.module.css"
 import { useState } from "react"
-import { Button, TriggerlessModal, useToast } from "../../../../common";
+import { Button, Tooltip, TriggerlessModal, useToast } from "../../../../common";
 import { None, Some } from "oxide.ts";
 import { useUpdateStory } from "../../../../../data/queries";
 import type { StoryStatus } from "../../../../../infrastructure/api/types";
@@ -98,19 +98,31 @@ export function StoryCardMenu({ storyId }: { storyId: string }) {
                                                 onClick={() => onUpdateStoryStatus("Ongoing")}
                                                 className={styles['menu-item']} value="ongoing"
                                             >
-                                                <span className="status-badge status-badge--ongoing" /> To Ongoing
+                                                <Tooltip
+                                                    message="Nexus will focus on evaluating your story as an in-progress draft."
+                                                >
+                                                    <span className={`status-badge status-badge--ongoing ${styles['m-right']}`} /> To Ongoing
+                                                </Tooltip>
                                             </Menu.Item>
                                             <Menu.Item 
                                                 onClick={() => onUpdateStoryStatus("On Hiatus")}
                                                 className={styles['menu-item']} value="hiatus"
                                             >
-                                                <span className="status-badge status-badge--hiatus" /> To Hiatus
+                                                <Tooltip 
+                                                    message="Nexus will focus on evaluating your story as an incomplete draft"
+                                                >
+                                                    <span className={`status-badge status-badge--hiatus ${styles['m-right']}`}  />  To Hiatus
+                                                </Tooltip>
                                             </Menu.Item>
                                             <Menu.Item 
                                                 onClick={() => onUpdateStoryStatus("Complete")}
                                                 className={styles['menu-item']} value="complete"
                                             >
-                                                <span className="status-badge status-badge--complete" /> To Complete
+                                                <Tooltip
+                                                    message="Nexus will evaluate your story as a completed manuscript ready for polish"
+                                                >
+                                                    <span className={`status-badge status-badge--complete ${styles['m-right']}`}  />  To Complete
+                                                </Tooltip>
                                             </Menu.Item>
                                         </Menu.Content>
                                     </Menu.Positioner>

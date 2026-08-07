@@ -14,6 +14,10 @@
     justify-content: space-between;
 }
 
+.m-right {
+    margin-right: var(--space-2)
+}
+
 .color-cyan {
     color: var(--color-cyan)
 }
