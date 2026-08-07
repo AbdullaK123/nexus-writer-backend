@@ -89,7 +89,8 @@ async def startup(ctx: Context) -> None:
     )
 
     heartbeat_task = asyncio.create_task(heartbeat_loop())
-    
+
+    ctx['chapter_repo'] = chapter_repo
     ctx['heartbeat_task'] = heartbeat_task
     ctx['extraction_service'] = extraction_service
     ctx['embedding_service'] = embedding_service
@@ -119,10 +120,21 @@ async def shutdown(ctx: Context) -> None:
 
 
 async def story_reanalysis_job(
-    ctx: Context, *, story_id: str, user_id: str, story_title: str
+    ctx: Context, 
+    *, 
+    story_id: str, 
+    chapter_id: str,
+    user_id: str, 
+    story_title: str
 ) -> None:
     with tracer.start_as_current_span("saq.story_reanalysis_job") as span:
         try:
+
+            chapter = await ctx['worker'].context['chapter_repo'].get(chapter_id, user_id)
+
+            if chapter is None or not chapter.published:
+                return
+
             await asyncio.gather(
                 ctx['worker'].context['story_service'].get_pulse(
                     user_id=user_id,

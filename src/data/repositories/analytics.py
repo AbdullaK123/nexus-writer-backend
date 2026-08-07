@@ -23,8 +23,9 @@ class AnalyticsRepository:
             pov,
             COUNT(*) AS scene_count,
             SUM(word_count) AS word_count
-        FROM scene
-        WHERE story_id=$1 AND user_id=$2
+        FROM "scene" sc 
+        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
+        WHERE story_id=$1 AND user_id=$2 AND c.published = TRUE
         GROUP BY pov
         ORDER BY scene_count DESC, word_count DESC
         """
@@ -43,12 +44,14 @@ class AnalyticsRepository:
             COUNT(*) AS scene_count,
             SUM(sc.word_count) AS word_count
         FROM "scene" sc
+        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
         CROSS JOIN LATERAL UNNEST(sc.mentioned_entities) AS exploded(character_b)
         WHERE 
             sc.story_id=$1 
             AND sc.user_id=$2
             AND sc.pov = ANY(sc.mentioned_entities)
             AND exploded.character_b != sc.pov
+            AND c.published = TRUE
         GROUP BY character_a, character_b
         ORDER BY scene_count DESC, word_count DESC
         LIMIT 10
@@ -73,7 +76,8 @@ class AnalyticsRepository:
             SUM(sc.word_count) AS word_count
         FROM "scene" sc 
         INNER JOIN "story" s ON (sc.story_id = s.id)
-        WHERE sc.story_id=$1 AND sc.user_id=$2
+        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
+        WHERE sc.story_id=$1 AND sc.user_id=$2 AND c.published = TRUE
         GROUP BY chapter_id, chapter_number, character
         ORDER BY chapter_number
         """
@@ -107,8 +111,9 @@ class AnalyticsRepository:
                 END
             ) AS scene_length,
             COUNT(*) AS scene_count
-        FROM "scene"
-        WHERE story_id=$1 AND user_id=$2
+        FROM "scene" sc 
+        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
+        WHERE story_id=$1 AND user_id=$2 AND c.published = TRUE
         GROUP BY scene_length
         """
 
@@ -142,7 +147,7 @@ class AnalyticsRepository:
         FROM "scene" sc
         INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
         INNER JOIN "story" s ON (sc.story_id = s.id)
-        WHERE sc.story_id = $1 AND sc.user_id = $2
+        WHERE sc.story_id = $1 AND sc.user_id = $2 AND c.published = TRUE
         GROUP BY chapter_id, chapter_number
         ORDER BY chapter_number
         """
@@ -192,7 +197,7 @@ class AnalyticsRepository:
         FROM "scene" sc
         INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
         INNER JOIN "story" s ON (sc.story_id = s.id)
-        WHERE sc.story_id = $1 AND sc.user_id = $2
+        WHERE sc.story_id = $1 AND sc.user_id = $2 AND c.published = TRUE
         GROUP BY chapter_id, chapter_number
         ORDER BY chapter_number DESC
         LIMIT $3
@@ -221,8 +226,9 @@ class AnalyticsRepository:
                 entity,
                 description,
                 ROW_NUMBER() OVER (PARTITION BY entity ORDER BY position ASC) AS rn
-            FROM "scene", unnest(mentioned_entities) AS entity
-            WHERE user_id = $1 AND story_id = $2
+            FROM "scene" sc 
+            INNER JOIN "chapter" c ON (sc.chapter_id = c.id), unnest(mentioned_entities) AS entity
+            WHERE user_id = $1 AND story_id = $2 AND c.published = TRUE
         )
         SELECT
             r.entity,
@@ -248,8 +254,9 @@ class AnalyticsRepository:
             question_raised
         FROM "scene" sc
         INNER JOIN "story" s ON (sc.story_id = s.id)
+        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
         CROSS JOIN LATERAL UNNEST(sc.questions_raised) AS question_raised
-        WHERE sc.story_id = $1 AND sc.user_id = $2
+        WHERE sc.story_id = $1 AND sc.user_id = $2 AND c.published = TRUE
         ORDER BY chapter_number, sc.position
         """
 

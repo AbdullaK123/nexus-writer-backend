@@ -127,11 +127,33 @@ class SceneRepository:
                 FROM story
                 WHERE id = $1
             )
-            SELECT {_SCENE_COLUMNS}
-            FROM "scene"
+            SELECT 
+                sc.id AS id, 
+                sc.chapter_id AS chapter_id, 
+                sc.story_id AS story_id, 
+                sc.user_id AS user_id, 
+                sc.position AS position,
+                sc.title AS title, 
+                sc.start_quote AS start_quote, 
+                sc.end_quote AS end_quote, 
+                sc.description AS description, 
+                sc.pov AS pov,
+                sc.tension AS tension, 
+                sc.pacing AS pacing, 
+                sc.mentioned_entities AS mentioned_entities, 
+                sc.tags AS tags, 
+                sc.questions_raised AS questions_raised,
+                sc.embedding_model AS embedding_model, 
+                sc.embedded_at AS embedded_at, 
+                sc.created_at AS created_at, 
+                sc.updated_at AS updated_At, 
+                sc.word_count AS word_count
+            FROM "scene" sc
+            INNER JOIN "chapter" c ON (c.id = sc.chapter_id)
             WHERE story_id = $1 
                 AND user_id = $2
                 AND chapter_id IN (SELECT chapter_id FROM story_ids)
+                AND c.published = TRUE
             ORDER BY chapter_id, position ASC
         """
         rows = await self._exe(executor).fetch(sql, story_id, user_id, chapter_id)
@@ -146,9 +168,31 @@ class SceneRepository:
         """Scenes with no embedding yet — input for the embedding worker.
         Ordered oldest-first so old work doesn't starve."""
         sql = f"""
-            SELECT {_SCENE_COLUMNS}
-              FROM "scene"
+            SELECT 
+                sc.id AS id, 
+                sc.chapter_id AS chapter_id, 
+                sc.story_id AS story_id, 
+                sc.user_id AS user_id, 
+                sc.position AS position,
+                sc.title AS title, 
+                sc.start_quote AS start_quote, 
+                sc.end_quote AS end_quote, 
+                sc.description AS description, 
+                sc.pov AS pov,
+                sc.tension AS tension, 
+                sc.pacing AS pacing, 
+                sc.mentioned_entities AS mentioned_entities, 
+                sc.tags AS tags, 
+                sc.questions_raised AS questions_raised,
+                sc.embedding_model AS embedding_model, 
+                sc.embedded_at AS embedded_at, 
+                sc.created_at AS created_at, 
+                sc.updated_at AS updated_At, 
+                sc.word_count AS word_count
+             FROM "scene" sc
+             INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
              WHERE embedding IS NULL
+             AND chapter.published = TRUE
              ORDER BY created_at ASC
              LIMIT $1
         """
@@ -335,6 +379,7 @@ class SceneRepository:
               FROM "chapter"
              WHERE scenes_need_reextraction = TRUE
                AND updated_at <= $1
+               AND published = TRUE
              ORDER BY updated_at ASC
              LIMIT $2
         """
@@ -374,7 +419,7 @@ class SceneRepository:
 
         sql = """
             WITH fts AS (
-                SELECT id,
+                SELECT sc.id,
                     ROW_NUMBER() OVER (
                         ORDER BY ts_rank_cd(
                             to_tsvector(
@@ -384,8 +429,10 @@ class SceneRepository:
                             websearch_to_tsquery('english', $3::text)
                         ) DESC
                     ) AS rank
-                FROM "scene"
-                WHERE user_id = $1
+                FROM "scene" sc
+                INNER JOIN "chapter" c ON (c.id = sc.chapter_id)
+                WHERE c.published = TRUE
+                AND user_id = $1
                 AND ($2::text IS NULL OR story_id = $2)
                 AND ($7::text IS NULL OR tension = $7)
                 AND ($8::text IS NULL OR pacing = $8)
@@ -407,10 +454,13 @@ class SceneRepository:
                 LIMIT $5
             ),
             vec AS (
-                SELECT id,
+                SELECT sc.id,
                     ROW_NUMBER() OVER (ORDER BY embedding <=> $4::vector) AS rank
                 FROM "scene"
-                WHERE user_id = $1
+                FROM "scene" sc
+                INNER JOIN "chapter" c ON (c.id = sc.chapter_id)
+                WHERE c.published = TRUE
+                AND user_id = $1
                 AND ($7::text IS NULL OR tension = $7)
                 AND ($8::text IS NULL OR pacing = $8)
                 AND ($9::text[] IS NULL OR tags && $9::text[])
@@ -526,9 +576,12 @@ class SceneRepository:
         executor: Executor | None = None,
     ) -> list[tuple[str, int]]:
         sql = """
-            SELECT tag, COUNT(*) AS n
-            FROM "scene", unnest(tags) AS tag
-            WHERE user_id = $1 AND story_id = $2
+            SELECT 
+                sc.tag AS tag, 
+                COUNT(*) AS n
+            FROM "scene" sc
+            INNER JOIN "chapter" c ON (sc.chapter_id = c.id), unnest(tags) AS tag
+            WHERE user_id = $1 AND story_id = $2 AND c.published = TRUE
             GROUP BY tag
             ORDER BY n DESC, tag ASC
         """
@@ -543,9 +596,12 @@ class SceneRepository:
         executor: Executor | None = None,
     ) -> list[tuple[str, int]]:
         sql = """
-            SELECT entity, COUNT(*) AS n
-            FROM "scene", unnest(mentioned_entities) AS entity
-            WHERE user_id = $1 AND story_id = $2
+            SELECT 
+                sc.entity AS entity, 
+                COUNT(*) AS n
+            FROM "scene" sc 
+            INNER JOIN "chapter" c ON (sc.chapter_id = c.id), unnest(mentioned_entities) AS entity
+            WHERE user_id = $1 AND story_id = $2 AND c.published = TRUE
             GROUP BY entity
             ORDER BY n DESC, entity ASC
         """
@@ -556,9 +612,12 @@ class SceneRepository:
         self, *, user_id: str, story_id: str, executor: Executor | None = None
     ) -> list[tuple[str, int]]:
         sql = """\
-        SELECT pov, COUNT(*) AS n
-        FROM "scene"
-        WHERE user_id = $1 AND story_id = $2
+        SELECT 
+            sc.pov AS pov, 
+            COUNT(*) AS n
+        FROM "scene" sc 
+        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
+        WHERE user_id = $1 AND story_id = $2 AND c.published = TRUE
         GROUP BY pov
         ORDER BY n DESC
         """
