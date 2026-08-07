@@ -120,21 +120,10 @@ async def shutdown(ctx: Context) -> None:
 
 
 async def story_reanalysis_job(
-    ctx: Context, 
-    *, 
-    story_id: str, 
-    chapter_id: str,
-    user_id: str, 
-    story_title: str
+    ctx: Context, *, story_id: str, user_id: str, story_title: str
 ) -> None:
     with tracer.start_as_current_span("saq.story_reanalysis_job") as span:
         try:
-
-            chapter = await ctx['worker'].context['chapter_repo'].get(chapter_id, user_id)
-
-            if chapter is None or not chapter.published:
-                return
-
             await asyncio.gather(
                 ctx['worker'].context['story_service'].get_pulse(
                     user_id=user_id,
@@ -187,6 +176,11 @@ async def chapter_reanalysis_job(
 ) -> None:
     with tracer.start_as_current_span("saq.chapter_reanalysis_job") as span:
         try:
+            chapter = await ctx['worker'].context['chapter_repo'].get(chapter_id, user_id)
+
+            if chapter is None or not chapter.published:
+                return
+
             await ctx['worker'].context['chapter_service'].summarize_chapter(
                     user_id=user_id,
                     chapter_id=chapter_id,
@@ -225,10 +219,20 @@ async def scene_and_embedding_job(
 ) -> None:
     with tracer.start_as_current_span("saq.scene_and_embedding_job") as span:
         try:
+            chapter = await ctx['worker'].context['chapter_repo'].get(chapter_id, user_id)
+
+            if chapter is None or not chapter.published:
+                return
+
             result: Optional[SceneExtractionResult] = \
                 await ctx['worker'].context['extraction_service'].extract_scenes(
                     chapter_id, user_id, content
                 )
+
+            chapter = await ctx['worker'].context['chapter_repo'].get(chapter_id, user_id)
+
+            if chapter is None or not chapter.published:
+                return
             
             await ctx['worker'].context['embedding_service'].embed_scenes(chapter_id)
 

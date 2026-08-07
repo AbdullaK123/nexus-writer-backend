@@ -79,7 +79,7 @@ def _format_chapter_item(item: ChapterListItem) -> str:
     return f"TITLE: {item.chapter_title} (chapter_id={item.chapter_id})"
 
 
-def build_agent(model_name: str, system_prompt: str = STORY_ASSISTANT_PROMPT ) -> Agent[ChatDeps, str]:
+def build_agent(model_name: str, system_prompt: str = STORY_ASSISTANT_PROMPT) -> Agent[ChatDeps, str]:
     model = OpenRouterModel(
         model_name, provider=OpenRouterProvider(api_key=settings.open_router_api_key)
     )
@@ -91,11 +91,12 @@ def build_agent(model_name: str, system_prompt: str = STORY_ASSISTANT_PROMPT ) -
         capabilities=[CodeMode()],
     )
 
-    @agent.instructions
-    def story_lifecycle(
-        ctx: RunContext[ChatDeps],
-    ) -> str:
-        return STORY_STATUS_PROMPTS[ctx.deps.story_status]
+    if system_prompt == STORY_ASSISTANT_PROMPT:
+        @agent.instructions
+        def story_lifecycle(
+            ctx: RunContext[ChatDeps],
+        ) -> str:
+            return STORY_STATUS_PROMPTS[ctx.deps.story_status]
 
     @agent.tool
     @_service_errors_as_text
