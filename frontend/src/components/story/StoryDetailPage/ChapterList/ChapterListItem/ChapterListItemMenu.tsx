@@ -101,29 +101,29 @@ export function ChapterListItemMenu({ storyId, chapterId, chapterStatus }: Chapt
                                 Update Title
                             </Menu.Item>
                             {(chapterStatus === "published") ? (
-                                <Menu.Item
-                                    className={styles['menu-item']}
-                                    value="unpublish-chapter"
-                                    onClick={() => onUpdateChapterStatus(false)}
+                                <Tooltip
+                                    message="Hide this chapter from Nexus"
                                 >
-                                    <Tooltip
-                                        message="Hide this chapter from Nexus"
+                                    <Menu.Item
+                                        className={styles['menu-item']}
+                                        value="unpublish-chapter"
+                                        onClick={() => onUpdateChapterStatus(false)}
                                     >
                                         Unpublish
-                                    </Tooltip>
-                                </Menu.Item>
+                                    </Menu.Item>
+                                 </Tooltip>
                             ): (
-                                <Menu.Item
-                                    className={styles['menu-item']}
-                                    value="publish-chapter"
-                                    onClick={() => onUpdateChapterStatus(true)}
+                                <Tooltip
+                                    message="Hand off this chapter to Nexus for analysis"
                                 >
-                                    <Tooltip
-                                        message="Hand off this chapter to Nexus for analysis"
+                                    <Menu.Item
+                                        className={styles['menu-item']}
+                                        value="publish-chapter"
+                                        onClick={() => onUpdateChapterStatus(true)}
                                     >
-                                        Publish
-                                    </Tooltip>
-                                </Menu.Item>
+                                            Publish
+                                    </Menu.Item>
+                                </Tooltip>
                             )}
                             <Menu.Item
                                 className={styles['menu-item']}

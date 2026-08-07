@@ -94,36 +94,36 @@ export function StoryCardMenu({ storyId }: { storyId: string }) {
                                 <Portal>
                                     <Menu.Positioner>
                                         <Menu.Content className={styles['menu-container']}>
-                                            <Menu.Item 
-                                                onClick={() => onUpdateStoryStatus("Ongoing")}
-                                                className={styles['menu-item']} value="ongoing"
+                                            <Tooltip
+                                                message="Nexus will evaluate this as an actively developing story."
                                             >
-                                                <Tooltip
-                                                    message="Nexus will focus on evaluating your story as an in-progress draft."
+                                                <Menu.Item 
+                                                    onClick={() => onUpdateStoryStatus("Ongoing")}
+                                                    className={styles['menu-item']} value="ongoing"
                                                 >
                                                     <span className={`status-badge status-badge--ongoing ${styles['m-right']}`} /> To Ongoing
-                                                </Tooltip>
-                                            </Menu.Item>
-                                            <Menu.Item 
-                                                onClick={() => onUpdateStoryStatus("On Hiatus")}
-                                                className={styles['menu-item']} value="hiatus"
+                                                </Menu.Item>
+                                            </Tooltip>
+                                            <Tooltip 
+                                                message="Nexus will treat this as a paused story that may resume later."
                                             >
-                                                <Tooltip 
-                                                    message="Nexus will focus on evaluating your story as an incomplete draft"
+                                                <Menu.Item 
+                                                    onClick={() => onUpdateStoryStatus("On Hiatus")}
+                                                    className={styles['menu-item']} value="hiatus"
                                                 >
                                                     <span className={`status-badge status-badge--hiatus ${styles['m-right']}`}  />  To Hiatus
-                                                </Tooltip>
-                                            </Menu.Item>
-                                            <Menu.Item 
-                                                onClick={() => onUpdateStoryStatus("Complete")}
-                                                className={styles['menu-item']} value="complete"
+                                                </Menu.Item>
+                                            </Tooltip>
+                                            <Tooltip
+                                                message="Nexus will evaluate this as a finished story, including its closure and payoffs."
                                             >
-                                                <Tooltip
-                                                    message="Nexus will evaluate your story as a completed manuscript ready for polish"
+                                                <Menu.Item 
+                                                    onClick={() => onUpdateStoryStatus("Complete")}
+                                                    className={styles['menu-item']} value="complete"
                                                 >
                                                     <span className={`status-badge status-badge--complete ${styles['m-right']}`}  />  To Complete
-                                                </Tooltip>
-                                            </Menu.Item>
+                                                </Menu.Item>
+                                            </Tooltip>
                                         </Menu.Content>
                                     </Menu.Positioner>
                                 </Portal>

@@ -19,7 +19,10 @@ export function Tooltip({ message, children }: TooltipProps) {
                 }
             }}
         >
-            <ArcToolTip.Trigger  className={styles['trigger']}>
+            <ArcToolTip.Trigger  
+                className={styles['trigger']}
+                asChild
+            >
                 {children}
             </ArcToolTip.Trigger>
             <Portal>
