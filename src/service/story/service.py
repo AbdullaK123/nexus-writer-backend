@@ -66,8 +66,8 @@ class StoryService:
     ) -> str:
         return "\n\n".join(
             [
-                STORY_STATUS_PROMPTS[status].strip(),
                 base_prompt.strip(),
+                STORY_STATUS_PROMPTS[status].strip(),
             ]
         )
 
@@ -125,12 +125,6 @@ class StoryService:
             and update_info.status != existing_story.status
         )
 
-        if status_changed:
-            await self._invalidate_status_dependent_analysis(
-                story_id=story_id,
-                user_id=user_id
-            )
-
         updated = await self._story_repo.update(
             story_id=story_id,
             user_id=user_id,
@@ -139,6 +133,12 @@ class StoryService:
         if updated is None:
             raise NotFoundError(
                 "We couldn't find this story. It may have been deleted."
+            )
+
+        if status_changed:
+            await self._invalidate_status_dependent_analysis(
+                story_id=story_id,
+                user_id=user_id,
             )
 
         logger.info(
@@ -412,13 +412,13 @@ class StoryService:
     @staticmethod
     def _normalize_pulse_evidence(
         dimension: PulseDimension,
-        chapter_count: int,
+        valid_chapter_numbers: set[int],
     ) -> PulseDimension:
         evidence_chapters = sorted(
             {
                 chapter
                 for chapter in dimension.evidence_chapters
-                if 1 <= chapter <= chapter_count
+                if chapter in valid_chapter_numbers
             }
         )
         return dimension.model_copy(
@@ -524,18 +524,29 @@ class StoryService:
             return_exceptions=False,
         )
 
-        chapter_count = len(story.path_array or [])
+        chapter_rows = await self._chapter_repo.list_by_story(story_id, user_id)
+        published_chapter_ids = {
+            chapter.id
+            for chapter, _, _ in chapter_rows
+            if chapter.published
+        }
+        valid_chapter_numbers = {
+            index
+            for index, chapter_id in enumerate(story.path_array or [], start=1)
+            if chapter_id in published_chapter_ids
+        }
+
         response = BookPulseResponse(
             characters=self._normalize_pulse_evidence(
                 character_result,
-                chapter_count,
+                valid_chapter_numbers,
             ),
-            plot=self._normalize_pulse_evidence(plot_result, chapter_count),
+            plot=self._normalize_pulse_evidence(plot_result, valid_chapter_numbers),
             structure=self._normalize_pulse_evidence(
                 structure_result,
-                chapter_count,
+                valid_chapter_numbers,
             ),
-            world=self._normalize_pulse_evidence(world_result, chapter_count),
+            world=self._normalize_pulse_evidence(world_result, valid_chapter_numbers),
         )
 
         await self._cache.set(
