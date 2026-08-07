@@ -20,13 +20,15 @@ class AnalyticsRepository:
     ) -> list[tuple[str, int, int]]:
         sql = """\
         SELECT
-            pov,
+            sc.pov,
             COUNT(*) AS scene_count,
-            SUM(word_count) AS word_count
+            SUM(sc.word_count) AS word_count
         FROM "scene" sc 
-        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
-        WHERE story_id=$1 AND user_id=$2 AND c.published = TRUE
-        GROUP BY pov
+        INNER JOIN "chapter" c ON sc.chapter_id = c.id
+        WHERE sc.story_id = $1
+          AND sc.user_id = $2
+          AND c.published = TRUE
+        GROUP BY sc.pov
         ORDER BY scene_count DESC, word_count DESC
         """
 
@@ -44,11 +46,11 @@ class AnalyticsRepository:
             COUNT(*) AS scene_count,
             SUM(sc.word_count) AS word_count
         FROM "scene" sc
-        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
+        INNER JOIN "chapter" c ON sc.chapter_id = c.id
         CROSS JOIN LATERAL UNNEST(sc.mentioned_entities) AS exploded(character_b)
         WHERE 
-            sc.story_id=$1 
-            AND sc.user_id=$2
+            sc.story_id = $1 
+            AND sc.user_id = $2
             AND sc.pov = ANY(sc.mentioned_entities)
             AND exploded.character_b != sc.pov
             AND c.published = TRUE
@@ -75,9 +77,11 @@ class AnalyticsRepository:
             COUNT(*) AS scene_count,
             SUM(sc.word_count) AS word_count
         FROM "scene" sc 
-        INNER JOIN "story" s ON (sc.story_id = s.id)
-        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
-        WHERE sc.story_id=$1 AND sc.user_id=$2 AND c.published = TRUE
+        INNER JOIN "story" s ON sc.story_id = s.id
+        INNER JOIN "chapter" c ON sc.chapter_id = c.id
+        WHERE sc.story_id = $1
+          AND sc.user_id = $2
+          AND c.published = TRUE
         GROUP BY chapter_id, chapter_number, character
         ORDER BY chapter_number
         """
@@ -102,18 +106,20 @@ class AnalyticsRepository:
         SELECT
             (
                 CASE
-                    WHEN word_count <= 200 THEN '≤ 200'
-                    WHEN word_count BETWEEN 201 AND 500 THEN '201-500'
-                    WHEN word_count BETWEEN 501 AND 1000 THEN '501-1000'
-                    WHEN word_count BETWEEN 1001 AND 2000 THEN '1001-2000'
-                    WHEN word_count BETWEEN 2001 AND 4000 THEN '2001-4000'
+                    WHEN sc.word_count <= 200 THEN '≤ 200'
+                    WHEN sc.word_count BETWEEN 201 AND 500 THEN '201-500'
+                    WHEN sc.word_count BETWEEN 501 AND 1000 THEN '501-1000'
+                    WHEN sc.word_count BETWEEN 1001 AND 2000 THEN '1001-2000'
+                    WHEN sc.word_count BETWEEN 2001 AND 4000 THEN '2001-4000'
                     ELSE '4000+'
                 END
             ) AS scene_length,
             COUNT(*) AS scene_count
         FROM "scene" sc 
-        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
-        WHERE story_id=$1 AND user_id=$2 AND c.published = TRUE
+        INNER JOIN "chapter" c ON sc.chapter_id = c.id
+        WHERE sc.story_id = $1
+          AND sc.user_id = $2
+          AND c.published = TRUE
         GROUP BY scene_length
         """
 
@@ -130,24 +136,26 @@ class AnalyticsRepository:
             ARRAY_POSITION(s.path_array, sc.chapter_id) AS chapter_number,
             AVG(
                 CASE
-                    WHEN tension = 'low' THEN 1.0
-                    WHEN tension = 'medium' THEN 2.0
-                    WHEN tension = 'high' THEN 3.0
+                    WHEN sc.tension = 'low' THEN 1.0
+                    WHEN sc.tension = 'medium' THEN 2.0
+                    WHEN sc.tension = 'high' THEN 3.0
                 END
             ) AS avg_tension,
             AVG(
                 CASE
-                    WHEN pacing = 'slow' THEN 1.0
-                    WHEN pacing = 'steady' THEN 2.0
-                    WHEN pacing = 'fast' THEN 3.0
+                    WHEN sc.pacing = 'slow' THEN 1.0
+                    WHEN sc.pacing = 'steady' THEN 2.0
+                    WHEN sc.pacing = 'fast' THEN 3.0
                 END
             ) AS avg_pacing,
             COUNT(*) AS scene_count,
             SUM(sc.word_count) AS word_count
         FROM "scene" sc
-        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
-        INNER JOIN "story" s ON (sc.story_id = s.id)
-        WHERE sc.story_id = $1 AND sc.user_id = $2 AND c.published = TRUE
+        INNER JOIN "chapter" c ON sc.chapter_id = c.id
+        INNER JOIN "story" s ON sc.story_id = s.id
+        WHERE sc.story_id = $1
+          AND sc.user_id = $2
+          AND c.published = TRUE
         GROUP BY chapter_id, chapter_number
         ORDER BY chapter_number
         """
@@ -180,24 +188,26 @@ class AnalyticsRepository:
             ARRAY_POSITION(s.path_array, sc.chapter_id) AS chapter_number,
             AVG(
                 CASE
-                    WHEN tension = 'low' THEN 1.0
-                    WHEN tension = 'medium' THEN 2.0
-                    WHEN tension = 'high' THEN 3.0
+                    WHEN sc.tension = 'low' THEN 1.0
+                    WHEN sc.tension = 'medium' THEN 2.0
+                    WHEN sc.tension = 'high' THEN 3.0
                 END
             ) AS avg_tension,
             AVG(
                 CASE
-                    WHEN pacing = 'slow' THEN 1.0
-                    WHEN pacing = 'steady' THEN 2.0
-                    WHEN pacing = 'fast' THEN 3.0
+                    WHEN sc.pacing = 'slow' THEN 1.0
+                    WHEN sc.pacing = 'steady' THEN 2.0
+                    WHEN sc.pacing = 'fast' THEN 3.0
                 END
             ) AS avg_pacing,
             COUNT(*) AS scene_count,
             SUM(sc.word_count) AS word_count
         FROM "scene" sc
-        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
-        INNER JOIN "story" s ON (sc.story_id = s.id)
-        WHERE sc.story_id = $1 AND sc.user_id = $2 AND c.published = TRUE
+        INNER JOIN "chapter" c ON sc.chapter_id = c.id
+        INNER JOIN "story" s ON sc.story_id = s.id
+        WHERE sc.story_id = $1
+          AND sc.user_id = $2
+          AND c.published = TRUE
         GROUP BY chapter_id, chapter_number
         ORDER BY chapter_number DESC
         LIMIT $3
@@ -223,12 +233,18 @@ class AnalyticsRepository:
         sql = """\
        WITH ranked AS (
             SELECT
-                entity,
-                description,
-                ROW_NUMBER() OVER (PARTITION BY entity ORDER BY position ASC) AS rn
-            FROM "scene" sc 
-            INNER JOIN "chapter" c ON (sc.chapter_id = c.id), unnest(mentioned_entities) AS entity
-            WHERE user_id = $1 AND story_id = $2 AND c.published = TRUE
+                e.entity,
+                sc.description,
+                ROW_NUMBER() OVER (
+                    PARTITION BY e.entity
+                    ORDER BY sc.position ASC
+                ) AS rn
+            FROM "scene" sc
+            INNER JOIN "chapter" c ON sc.chapter_id = c.id
+            CROSS JOIN LATERAL UNNEST(sc.mentioned_entities) AS e(entity)
+            WHERE sc.user_id = $1
+              AND sc.story_id = $2
+              AND c.published = TRUE
         )
         SELECT
             r.entity,
@@ -253,10 +269,12 @@ class AnalyticsRepository:
             ARRAY_POSITION(s.path_array, sc.chapter_id) AS chapter_number,
             question_raised
         FROM "scene" sc
-        INNER JOIN "story" s ON (sc.story_id = s.id)
-        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
+        INNER JOIN "story" s ON sc.story_id = s.id
+        INNER JOIN "chapter" c ON sc.chapter_id = c.id
         CROSS JOIN LATERAL UNNEST(sc.questions_raised) AS question_raised
-        WHERE sc.story_id = $1 AND sc.user_id = $2 AND c.published = TRUE
+        WHERE sc.story_id = $1
+          AND sc.user_id = $2
+          AND c.published = TRUE
         ORDER BY chapter_number, sc.position
         """
 
