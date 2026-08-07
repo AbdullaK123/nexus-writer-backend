@@ -146,15 +146,15 @@ class SceneRepository:
                 sc.embedding_model AS embedding_model, 
                 sc.embedded_at AS embedded_at, 
                 sc.created_at AS created_at, 
-                sc.updated_at AS updated_At, 
+                sc.updated_at AS updated_at, 
                 sc.word_count AS word_count
             FROM "scene" sc
-            INNER JOIN "chapter" c ON (c.id = sc.chapter_id)
-            WHERE story_id = $1 
-                AND user_id = $2
-                AND chapter_id IN (SELECT chapter_id FROM story_ids)
+            INNER JOIN "chapter" c ON c.id = sc.chapter_id
+            WHERE sc.story_id = $1 
+                AND sc.user_id = $2
+                AND sc.chapter_id IN (SELECT chapter_id FROM story_ids)
                 AND c.published = TRUE
-            ORDER BY chapter_id, position ASC
+            ORDER BY sc.chapter_id, sc.position ASC
         """
         rows = await self._exe(executor).fetch(sql, story_id, user_id, chapter_id)
         return [SceneRow.model_validate(dict(r)) for r in rows]
@@ -187,13 +187,13 @@ class SceneRepository:
                 sc.embedding_model AS embedding_model, 
                 sc.embedded_at AS embedded_at, 
                 sc.created_at AS created_at, 
-                sc.updated_at AS updated_At, 
+                sc.updated_at AS updated_at, 
                 sc.word_count AS word_count
              FROM "scene" sc
-             INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
-             WHERE embedding IS NULL
-             AND chapter.published = TRUE
-             ORDER BY created_at ASC
+             INNER JOIN "chapter" c ON sc.chapter_id = c.id
+             WHERE sc.embedding IS NULL
+               AND c.published = TRUE
+             ORDER BY sc.created_at ASC
              LIMIT $1
         """
         rows = await self._exe(executor).fetch(sql, limit)
@@ -424,30 +424,30 @@ class SceneRepository:
                         ORDER BY ts_rank_cd(
                             to_tsvector(
                                 'english'::regconfig,
-                                coalesce(title, '') || ' ' || coalesce(description, '')
+                                coalesce(sc.title, '') || ' ' || coalesce(sc.description, '')
                             ),
                             websearch_to_tsquery('english', $3::text)
                         ) DESC
                     ) AS rank
                 FROM "scene" sc
-                INNER JOIN "chapter" c ON (c.id = sc.chapter_id)
+                INNER JOIN "chapter" c ON c.id = sc.chapter_id
                 WHERE c.published = TRUE
-                AND user_id = $1
-                AND ($2::text IS NULL OR story_id = $2)
-                AND ($7::text IS NULL OR tension = $7)
-                AND ($8::text IS NULL OR pacing = $8)
-                AND ($9::text[] IS NULL OR tags && $9::text[])
-                AND ($10::text[] IS NULL OR mentioned_entities && $10::text[])
-                AND ($11::text[] IS NULL OR chapter_id = ANY($11::text[]))
-                AND ($12::text IS NULL OR pov = $12)
-                AND to_tsvector(
+                  AND sc.user_id = $1
+                  AND ($2::text IS NULL OR sc.story_id = $2)
+                  AND ($7::text IS NULL OR sc.tension = $7)
+                  AND ($8::text IS NULL OR sc.pacing = $8)
+                  AND ($9::text[] IS NULL OR sc.tags && $9::text[])
+                  AND ($10::text[] IS NULL OR sc.mentioned_entities && $10::text[])
+                  AND ($11::text[] IS NULL OR sc.chapter_id = ANY($11::text[]))
+                  AND ($12::text IS NULL OR sc.pov = $12)
+                  AND to_tsvector(
                         'english'::regconfig,
-                        coalesce(title, '') || ' ' || coalesce(description, '')
+                        coalesce(sc.title, '') || ' ' || coalesce(sc.description, '')
                     ) @@ websearch_to_tsquery('english', $3::text)
                 ORDER BY ts_rank_cd(
                     to_tsvector(
                         'english'::regconfig,
-                        coalesce(title, '') || ' ' || coalesce(description, '')
+                        coalesce(sc.title, '') || ' ' || coalesce(sc.description, '')
                     ),
                     websearch_to_tsquery('english', $3::text)
                 ) DESC
@@ -455,21 +455,20 @@ class SceneRepository:
             ),
             vec AS (
                 SELECT sc.id,
-                    ROW_NUMBER() OVER (ORDER BY embedding <=> $4::vector) AS rank
-                FROM "scene"
+                    ROW_NUMBER() OVER (ORDER BY sc.embedding <=> $4::vector) AS rank
                 FROM "scene" sc
-                INNER JOIN "chapter" c ON (c.id = sc.chapter_id)
+                INNER JOIN "chapter" c ON c.id = sc.chapter_id
                 WHERE c.published = TRUE
-                AND user_id = $1
-                AND ($7::text IS NULL OR tension = $7)
-                AND ($8::text IS NULL OR pacing = $8)
-                AND ($9::text[] IS NULL OR tags && $9::text[])
-                AND ($10::text[] IS NULL OR mentioned_entities && $10::text[])
-                AND ($11::text[] IS NULL OR chapter_id = ANY($11::text[]))
-                AND ($12::text IS NULL OR pov = $12)
-                AND ($2::text IS NULL OR story_id = $2)
-                AND embedding IS NOT NULL
-                ORDER BY embedding <=> $4::vector
+                  AND sc.user_id = $1
+                  AND ($7::text IS NULL OR sc.tension = $7)
+                  AND ($8::text IS NULL OR sc.pacing = $8)
+                  AND ($9::text[] IS NULL OR sc.tags && $9::text[])
+                  AND ($10::text[] IS NULL OR sc.mentioned_entities && $10::text[])
+                  AND ($11::text[] IS NULL OR sc.chapter_id = ANY($11::text[]))
+                  AND ($12::text IS NULL OR sc.pov = $12)
+                  AND ($2::text IS NULL OR sc.story_id = $2)
+                  AND sc.embedding IS NOT NULL
+                ORDER BY sc.embedding <=> $4::vector
                 LIMIT $5
             ),
             ranked AS (
@@ -504,8 +503,8 @@ class SceneRepository:
                 c.title AS chapter_title,
                 r.score AS score
             FROM "scene" s
-            INNER JOIN "chapter" c ON (s.chapter_id = c.id)
-            JOIN ranked r ON (s.id = r.id) 
+            INNER JOIN "chapter" c ON s.chapter_id = c.id
+            JOIN ranked r ON s.id = r.id 
             ORDER BY r.score DESC
         """
         t0 = perf_counter()
@@ -576,14 +575,15 @@ class SceneRepository:
         executor: Executor | None = None,
     ) -> list[tuple[str, int]]:
         sql = """
-            SELECT 
-                sc.tag AS tag, 
-                COUNT(*) AS n
+            SELECT t.tag, COUNT(*) AS n
             FROM "scene" sc
-            INNER JOIN "chapter" c ON (sc.chapter_id = c.id), unnest(tags) AS tag
-            WHERE user_id = $1 AND story_id = $2 AND c.published = TRUE
-            GROUP BY tag
-            ORDER BY n DESC, tag ASC
+            INNER JOIN "chapter" c ON sc.chapter_id = c.id
+            CROSS JOIN LATERAL UNNEST(sc.tags) AS t(tag)
+            WHERE sc.user_id = $1
+              AND sc.story_id = $2
+              AND c.published = TRUE
+            GROUP BY t.tag
+            ORDER BY n DESC, t.tag ASC
         """
         rows = await self._exe(executor).fetch(sql, user_id, story_id)
         return [(r["tag"], r["n"]) for r in rows]
@@ -596,14 +596,15 @@ class SceneRepository:
         executor: Executor | None = None,
     ) -> list[tuple[str, int]]:
         sql = """
-            SELECT 
-                sc.entity AS entity, 
-                COUNT(*) AS n
-            FROM "scene" sc 
-            INNER JOIN "chapter" c ON (sc.chapter_id = c.id), unnest(mentioned_entities) AS entity
-            WHERE user_id = $1 AND story_id = $2 AND c.published = TRUE
-            GROUP BY entity
-            ORDER BY n DESC, entity ASC
+            SELECT e.entity, COUNT(*) AS n
+            FROM "scene" sc
+            INNER JOIN "chapter" c ON sc.chapter_id = c.id
+            CROSS JOIN LATERAL UNNEST(sc.mentioned_entities) AS e(entity)
+            WHERE sc.user_id = $1
+              AND sc.story_id = $2
+              AND c.published = TRUE
+            GROUP BY e.entity
+            ORDER BY n DESC, e.entity ASC
         """
         rows = await self._exe(executor).fetch(sql, user_id, story_id)
         return [(r["entity"], r["n"]) for r in rows]
@@ -616,9 +617,11 @@ class SceneRepository:
             sc.pov AS pov, 
             COUNT(*) AS n
         FROM "scene" sc 
-        INNER JOIN "chapter" c ON (sc.chapter_id = c.id)
-        WHERE user_id = $1 AND story_id = $2 AND c.published = TRUE
-        GROUP BY pov
+        INNER JOIN "chapter" c ON sc.chapter_id = c.id
+        WHERE sc.user_id = $1
+          AND sc.story_id = $2
+          AND c.published = TRUE
+        GROUP BY sc.pov
         ORDER BY n DESC
         """
         rows = await self._exe(executor).fetch(sql, user_id, story_id)
