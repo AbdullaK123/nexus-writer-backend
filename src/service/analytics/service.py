@@ -149,16 +149,16 @@ class AnalyticsService:
         self._cache = redis
 
     def _with_story_status(
-            self,
-            base_prompt: str,
-            status: StoryStatus,
-        ) -> str:
-            return "\n\n".join(
-                [
-                    STORY_STATUS_PROMPTS[status].strip(),
-                    base_prompt.strip(),
-                ]
-            )
+        self,
+        base_prompt: str,
+        status: StoryStatus,
+    ) -> str:
+        return "\n\n".join(
+            [
+                base_prompt.strip(),
+                STORY_STATUS_PROMPTS[status].strip(),
+            ]
+        )
 
     def _get_cache_key(
         self,
