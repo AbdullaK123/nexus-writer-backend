@@ -9,6 +9,7 @@ import {
     type DashboardResponse,
     type UserNavigationResponse,
     type StoryNavigationResponse,
+    type SettingsPayload,
 } from "../../infrastructure/api/types"
 import { ApiError, unwrapResultAsync } from "../../shared/types"
 import { toAsyncState } from "../../infrastructure/api/utils";
@@ -39,6 +40,17 @@ export function useDashboard() {
         staleTime: 5*60*100
     })
     return [toAsyncState<DashboardResponse>(result), result.refetch] as const
+}
+
+export function useUpdateSettings() {
+    const api = useApi()
+    const qc = useQueryClient()
+    return useMutation<UserResponse, ApiError, SettingsPayload> ({
+        mutationFn: (payload) => unwrapResultAsync(api.auth.updateSettings(payload)),
+        onSuccess: (user) => {
+            qc.setQueryData(authKeys.me(), user)
+        }
+    })
 }
 
 export function useEditorLinks() {
