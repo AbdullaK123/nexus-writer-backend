@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Request, Response, Depends, Cookie
 from fastapi.responses import StreamingResponse
-
-from src.app.dependencies.redis import get_pubsub
 from src.data.schemas.auth import (
     DashboardResponse,
+    SettingsPayload,
     StoryNavigationResponse,
     UserNavigationResponse,
     UserResponse,
@@ -14,7 +13,6 @@ from src.data.schemas.auth import (
 from src.data.schemas import UserRow
 from src.app.dependencies import get_current_user, get_auth_service
 from src.infrastructure.config import settings, config as app_config
-from src.infrastructure.redis.pubsub import RedisPubSub
 from src.service.auth import AuthService
 
 user_controller = APIRouter(prefix="/auth")
@@ -72,7 +70,7 @@ async def logout_user(
 async def get_active_user(
     request: Request, user: UserRow = Depends(get_current_user)
 ) -> UserResponse:
-    return UserResponse.model_validate(user, from_attributes=True)
+    return UserResponse.from_user_row(user)
 
 
 @user_controller.get("/me/dashboard", response_model=DashboardResponse)
@@ -114,3 +112,12 @@ async def get_chat_links(
     auth_service: AuthService = Depends(get_auth_service)
 ) -> StoryNavigationResponse:
     return await auth_service.get_chat_links(current_user.id)
+
+@user_controller.patch("/me/settings")
+async def update_settings(
+    request: Request,
+    payload: SettingsPayload,
+    current_user: UserRow = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service)
+) -> UserResponse:
+    return await auth_service.update_settings(current_user.id, payload)

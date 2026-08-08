@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic import EmailStr
-from typing import List, Literal, Optional
+from typing import Annotated, List, Literal, Optional
 from datetime import datetime
 import re
 from src.data.schemas._base import ApiModel
@@ -30,13 +30,6 @@ class AuthCredentials(ApiModel):
     password: str
 
 
-class UserResponse(ApiModel):
-    id: str
-    username: str
-    email: str
-    profile_img: Optional[str]
-
-
 class ConnectionDetails(BaseModel):
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
@@ -57,6 +50,7 @@ class UserRow(BaseModel):
     username: str
     email: str
     password_hash: str
+    settings: dict
     profile_img: Optional[str]
     created_at: datetime
     updated_at: datetime
@@ -106,3 +100,78 @@ class UserNavigationResponse(ApiModel):
 
 class StoryNavigationResponse(ApiModel):
     links: List[StoryNavigationRow]
+
+
+class AppearanceSettings(BaseModel):
+    theme: Literal['system', 'light', 'dark'] = 'system'
+    reduced_motion: bool = False
+
+
+class EditorSettings(BaseModel):
+    font_family: str = "Literata"
+    font_size: int = 18
+    line_height: float = 1.7
+    content_width: int = 760
+    spellcheck: bool = True
+
+class NotificationSettings(BaseModel):
+    analysis_ready: bool = True
+    comments_ready: bool = True
+    job_failures: bool = True
+
+
+class AppearanceSettingsPayload(ApiModel):
+    kind: Literal["appearance"]
+    appearance: AppearanceSettings
+
+
+class EditorSettingsPayload(ApiModel):
+    kind: Literal["editor"]
+    editor: EditorSettings
+
+
+class NotificationSettingsPayload(ApiModel):
+    kind: Literal["notifications"]
+    notifications: NotificationSettings
+
+SettingsPayload = Annotated[
+    AppearanceSettingsPayload
+    | EditorSettingsPayload
+    | NotificationSettingsPayload,
+    Field(discriminator="kind"),
+]
+
+
+class UserSettings(BaseModel):
+    appearance: AppearanceSettings = Field(
+        default_factory=lambda: AppearanceSettings()
+    )
+    editor: EditorSettings = Field(
+        default_factory=EditorSettings
+    )
+    notifications: NotificationSettings = Field(
+        default_factory=NotificationSettings
+    )
+
+class UserResponse(ApiModel):
+    id: str
+    username: str
+    email: str
+    profile_img: Optional[str]
+    settings: UserSettings
+
+    @classmethod
+    def from_user_row(
+        cls,
+        user: UserRow
+    ) -> "UserResponse":
+
+        settings = UserSettings.model_validate(user.settings)
+
+        return cls(
+            id=user.id,
+            username=user.username,
+            email=user.email,
+            profile_img=user.profile_img,
+            settings = settings
+        )

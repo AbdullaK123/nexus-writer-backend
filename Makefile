@@ -122,22 +122,22 @@ shell: ## Open a bash shell in the API container
 .PHONY: start-worker stop-worker restart-worker rebuild-worker logs-worker worker-status
 
 start-worker: ## Start the worker container
-	docker compose up -d worker
+	docker compose up -d saq-worker
 
 stop-worker: ## Stop the worker container
-	docker compose stop worker
+	docker compose stop saq-worker
 
 restart-worker: ## Restart the worker container
-	docker compose restart worker
+	docker compose restart saq-worker
 
 rebuild-worker: ## Rebuild and restart the worker container
-	docker compose up -d --build worker
+	docker compose up -d --build saq-worker
 
 logs-worker: ## Follow logs for the worker
-	docker compose logs -f worker
+	docker compose logs -f saq-worker
 
 worker-status: ## Show health status of the worker
-	@docker compose ps worker --format "table {{.Name}}\t{{.Status}}"
+	@docker compose ps saq-worker --format "table {{.Name}}\t{{.Status}}"
 
 ## --- Code Quality
 .PHONY: lint format typecheck

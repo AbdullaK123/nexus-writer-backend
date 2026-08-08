@@ -10,6 +10,7 @@ from src.data.schemas.auth import (
     DashboardResponse,
     Notification,
     RegistrationData,
+    SettingsPayload,
     StoryNavigationResponse,
     StoryNavigationRow,
     UserNavigationResponse,
@@ -21,7 +22,7 @@ from src.data.schemas.auth import (
 from src.infrastructure.auth.password import hash_password, verify_password
 from src.infrastructure.auth.session import generate_session_id
 from src.infrastructure.redis.pubsub import RedisPubSub
-from src.service.exceptions import AuthError, ForbiddenError, ConflictError
+from src.service.exceptions import AuthError, ForbiddenError, ConflictError, NotFoundError
 from src.service.utils.decorators import handle_service_errors, handle_service_errors_stream
 from src.shared.utils.correlation import set_user_id
 
@@ -251,3 +252,17 @@ class AuthService:
                 for row in rows
             ]
         )
+
+    @handle_service_errors
+    async def update_settings(
+        self,
+        user_id: str,
+        payload: SettingsPayload
+    ) -> UserResponse:
+
+        row = await self._user_repo.update_settings(user_id, payload.model_dump(exclude={"kind"}))
+
+        if row is None:
+            raise NotFoundError("User not found")
+
+        return UserResponse.from_user_row(row)
