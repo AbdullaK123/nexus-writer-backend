@@ -10,7 +10,7 @@ from src.data.schemas.enums import generate_uuid
 
 
 _USER_COLUMNS = """
-    id, username, email, password_hash, profile_img, settings
+    id, username, email, password_hash, profile_img, settings,
     created_at, updated_at
 """
 
