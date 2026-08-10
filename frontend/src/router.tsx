@@ -16,6 +16,7 @@ import { ChapterEditorPage } from "./components/chapter/ChapterEditorPage";
 import { StoryChatPage } from "./components/chat";
 import { NewStoryChatPage } from "./components/chat/StoryChatPage/NewStoryChatPage";
 import { z } from "zod";
+import { SettingsPage } from "./components/settings";
 
 interface RouterContext {
     auth: AuthContextValue
@@ -76,11 +77,7 @@ const appRoute = createRoute({
     },
     component: () => {
         return (
-            <AppShell
-                sideRail={{
-                    onClickSet: () => {}
-                }}
-            >
+            <AppShell>
                 <Outlet />
             </AppShell>
         )
@@ -120,6 +117,12 @@ const newStoryChatRoute = createRoute({
     component: NewStoryChatPage
 })
 
+const settingsPage = createRoute({
+    getParentRoute: () => appRoute,
+    path: "/settings",
+    component: SettingsPage
+})
+
 const routeTree = rootRoute.addChildren([
     loginRoute,
     signupRoute,
@@ -128,7 +131,8 @@ const routeTree = rootRoute.addChildren([
         storyDetailRoute,
         chapterEditorRoute,
         storyChatRoute,
-        newStoryChatRoute
+        newStoryChatRoute,
+        settingsPage
     ])
 ])
 

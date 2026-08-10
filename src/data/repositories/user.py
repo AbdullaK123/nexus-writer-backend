@@ -42,7 +42,7 @@ class UserRepository:
         """
 
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(sql, user_id, json.dumps(update))
+            row = await conn.fetchrow(sql, user_id, update)
 
         return UserRow.model_validate(dict(row)) if row else None
 
