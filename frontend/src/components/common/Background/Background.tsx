@@ -4,6 +4,8 @@ import { initCanvas2D, createRenderer, handleCanvas2DResize } from "./canvas/ren
 import { generateNodes } from "./canvas/nodes"
 import { triangulate } from "./canvas/triangulation"
 import { DEFAULT_BACKGROUND_CONFIG } from "./canvas/config"
+import { useSettings } from "../../../data/providers";
+import { Nothing } from "../Nothing";
 
 
 
@@ -11,6 +13,9 @@ import { DEFAULT_BACKGROUND_CONFIG } from "./canvas/config"
 export function Background() {
 
     const canvasRef = useRef<HTMLCanvasElement>(null)
+    const { settings } = useSettings()
+
+    const motionReduced = settings.isSome() ? settings.unwrap().appearance.reduced_motion : false    
 
     useEffect(() => {
 
@@ -54,6 +59,11 @@ export function Background() {
             renderer.stop()
         }
     }, [])
+
+    
+    if (motionReduced) {
+        return <Nothing />
+    }
 
     return <canvas ref={canvasRef} className={styles.canvas} />
 }

@@ -82,6 +82,8 @@ export function EditorSettings() {
                     <Field.Input 
                         type="number"
                         className="field__input"
+                        min={10}
+                        max={36}
                         {...register("font_size")}
                     />
                     {errors.font_size && (
@@ -96,6 +98,9 @@ export function EditorSettings() {
                     </Field.Label>
                     <Field.Input 
                         type="number"
+                        min={1}
+                        max={2}
+                        step={0.1}
                         className="field__input"
                         {...register("line_height")}
                     />
@@ -112,6 +117,8 @@ export function EditorSettings() {
                     <Field.Input 
                         type="number"
                         className="field__input"
+                        min={760}
+                        max={1024}
                         {...register("content_width")}
                     />
                     {errors.content_width && (
