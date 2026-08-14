@@ -1,5 +1,5 @@
 import { RouterProvider } from "@tanstack/react-router";
-import { useAuthOrThrow } from "./data/providers";
+import { useAuthOrThrow, useSettings } from "./data/providers";
 import { router } from "./router";
 import { useEffect, useRef } from "react";
 import { None, Some, streamSse } from "./infrastructure/sse";
@@ -17,12 +17,13 @@ export function AppRouter() {
   
   const auth = useAuthOrThrow();
   const qc = useQueryClient();
-  const { info } = useToast();
+  const { info, error } = useToast();
 
   const controllerRef = useRef<AbortController | null>(null);
   const timerRef = useRef<number | null>(null);
   const retriesRef = useRef(0);
   const stoppedRef = useRef(false);
+  const { settings } = useSettings()
 
   // Invalidate router immediately when auth changes
   useEffect(() => {
@@ -97,13 +98,21 @@ export function AppRouter() {
                 qc.invalidateQueries({ queryKey: authKeys.dashboard() });
                 break;
               case "analysis_ready":
-                info("Analysis ready!", notification.data.message);
-                qc.invalidateQueries({ queryKey: storyKeys.pulse(notification.data.story_id) });
+                if (settings.isSome() ? settings.unwrap().notifications.analysis_ready : false) {
+                    info("Analysis ready!", notification.data.message);
+                    qc.invalidateQueries({ queryKey: storyKeys.pulse(notification.data.story_id) }); 
+                }
                 break;
               case "comments_ready":
-                info("Comments ready!", notification.data.message)
-                qc.invalidateQueries({ queryKey: chapterKeys.comments(notification.data.chapter_id)})
-                break
+                if (settings.isSome() ? settings.unwrap().notifications.comments_ready : false ) {
+                    info("Comments ready!", notification.data.message)
+                    qc.invalidateQueries({ queryKey: chapterKeys.comments(notification.data.chapter_id)})
+                }
+                break;
+              case "job_failed":
+                if (settings.isSome() ? settings.unwrap().notifications.job_failures : false) {
+                    error("Error!", notification.data.message)
+                }
             }
           },
           onClose: Some(() => {

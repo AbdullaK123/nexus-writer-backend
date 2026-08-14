@@ -11,6 +11,7 @@ import { None, Some } from "oxide.ts";
 import { useToast } from "../../common";
 import type { ChapterCommentsSidebarProps } from "./ChapterCommentsSidebar/ChapterCommentsSidebar";
 import { useChapterCommentsSidebarProps } from "./ChapterCommentsSidebar";
+import { useSettings } from "../../../data/providers";
 export type ChapterEditorPageProps = {
     sidebar: ChapterEditorSidebarProps
     editorProps: ChapterEditorProps
@@ -33,6 +34,8 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
         mutate: createThread
     } = useCreateThread(params.storyId)
     const navigate = useNavigate()
+
+    const { settings } = useSettings()
 
     const { error } = useToast()
 
@@ -82,11 +85,44 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
             StarterKit
         ],
         content: "",
+        editorProps: {
+            attributes: {
+                style: settings.isSome() ? `
+                        font-family: "${settings.unwrap().editor.font_family}";
+                        font-size: ${settings.unwrap().editor.font_size}px;
+                        line-height: ${settings.unwrap().editor.line_height};
+                        max-width: ${settings.unwrap().editor.content_width}px;
+                        width: 100%;
+                        margin: 0 auto;
+                    `: '',
+                spellcheck: settings.isSome() ? settings.unwrap().editor.spellcheck ? "true" : "false" : "false",
+            }
+        },
         onUpdate: ({ editor }) => {
             const html = editor.getHTML()
             debouncedUpdate(html)
         }
     })
+
+    useEffect(() => {
+        if (!editor) return
+
+        editor.setOptions({
+            editorProps: {
+                attributes: {
+                    style: settings.isSome() ? `
+                    font-family: "${settings.unwrap().editor.font_family}";
+                    font-size: ${settings.unwrap().editor.font_size}px;
+                    line-height: ${settings.unwrap().editor.line_height};
+                    max-width: ${settings.unwrap().editor.content_width}px;
+                    width: 100%;
+                    margin: 0 auto;
+                `: '',
+                spellcheck: settings.isSome() ? settings.unwrap().editor.spellcheck ? "true" : "false" : "false",
+            },
+        },
+    })
+    }, [editor, settings])
 
    useEffect(() => {
         // 1. Guard check: Ensure editor and data are fully loaded

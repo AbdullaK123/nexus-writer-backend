@@ -7,5 +7,5 @@
     user-select: none;
     filter: blur(1.5px) brightness(0.8);
     z-index: 0;
-    background: #000000;
+    background: var(--surface-0);
 }

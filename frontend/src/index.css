@@ -133,7 +133,7 @@
 
 body {
   margin: 0;
-  background: none;
+  background: var(--surface-0);
   min-height: 100svh;
 }
 

@@ -75,58 +75,91 @@ export function EditorSettings() {
                         />
                     )}
                />
-               <Field.Root invalid={!!errors.font_size} className="field">
-                    <Field.Label className="field__label">
-                        Font size
-                    </Field.Label>
-                    <Field.Input 
-                        type="number"
-                        className="field__input"
-                        min={10}
-                        max={36}
-                        {...register("font_size")}
-                    />
-                    {errors.font_size && (
-                        <Field.ErrorText className="field__error">
-                            {errors.font_size.message}
-                        </Field.ErrorText>
+               <Controller
+                    control={control}
+                    name="font_size"
+                    render={({ field }) => (
+                        <Field.Root
+                            invalid={!!errors.font_size}
+                            className="field"
+                        >
+                            <Field.Label className="field__label">
+                                Font size
+                            </Field.Label>
+
+                            <Field.Input
+                                ref={field.ref}
+                                name={field.name}
+                                type="number"
+                                min={10}
+                                max={36}
+                                className="field__input"
+                                value={field.value}
+                                onBlur={field.onBlur}
+                                onChange={(e) =>
+                                    field.onChange(e.currentTarget.valueAsNumber)
+                                }
+                            />
+                        </Field.Root>
                     )}
-               </Field.Root>
-               <Field.Root invalid={!!errors.line_height} className="field">
-                    <Field.Label className="field__label">
-                        Line height
-                    </Field.Label>
-                    <Field.Input 
-                        type="number"
-                        min={1}
-                        max={2}
-                        step={0.1}
-                        className="field__input"
-                        {...register("line_height")}
-                    />
-                    {errors.line_height && (
-                        <Field.ErrorText className="field__error">
-                            {errors.line_height.message}
-                        </Field.ErrorText>
+                />
+               <Controller
+                    control={control}
+                    name="line_height"
+                    render={({ field }) => (
+                        <Field.Root
+                            invalid={!!errors.line_height}
+                            className="field"
+                        >
+                            <Field.Label className="field__label">
+                                Line height
+                            </Field.Label>
+
+                            <Field.Input
+                                ref={field.ref}
+                                name={field.name}
+                                type="number"
+                                min={1}
+                                max={2}
+                                step={0.1}
+                                className="field__input"
+                                value={field.value}
+                                onBlur={field.onBlur}
+                                onChange={(e) =>
+                                    field.onChange(e.currentTarget.valueAsNumber)
+                                }
+                            />
+                        </Field.Root>
                     )}
-               </Field.Root>
-               <Field.Root invalid={!!errors.content_width} className="field">
-                    <Field.Label className="field__label">
-                        Content width
-                    </Field.Label>
-                    <Field.Input 
-                        type="number"
-                        className="field__input"
-                        min={760}
-                        max={1024}
-                        {...register("content_width")}
-                    />
-                    {errors.content_width && (
-                        <Field.ErrorText className="field__error">
-                            {errors.content_width.message}
-                        </Field.ErrorText>
+                />
+               <Controller
+                    control={control}
+                    name="content_width"
+                    render={({ field }) => (
+                        <Field.Root
+                            invalid={!!errors.content_width}
+                            className="field"
+                        >
+                            <Field.Label className="field__label">
+                                Content width
+                            </Field.Label>
+
+                            <Field.Input
+                                ref={field.ref}
+                                name={field.name}
+                                type="number"
+                                min={760}
+                                max={1024}
+                                className="field__input"
+                                value={field.value}
+                                onBlur={field.onBlur}
+                                onChange={(e) =>
+                                    field.onChange(e.currentTarget.valueAsNumber)
+                                }
+                            />
+                        </Field.Root>
                     )}
-               </Field.Root>
+                />
                <Controller
                     control={control}
                     name="spellcheck"

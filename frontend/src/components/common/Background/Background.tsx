@@ -20,6 +20,8 @@ export function Background() {
     useEffect(() => {
 
         if (!canvasRef.current) return 
+        if (motionReduced) return
+
 
         const rect = canvasRef.current.getBoundingClientRect()
 
@@ -58,7 +60,7 @@ export function Background() {
             observer.disconnect()
             renderer.stop()
         }
-    }, [])
+    }, [motionReduced])
 
     
     if (motionReduced) {
