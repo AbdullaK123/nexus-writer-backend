@@ -18,7 +18,6 @@ export type StoryChatHeaderProps =
     deleteModalOpen: boolean
     onDeleteModalOpenChange: (e: boolean) => void
     onRename: () => void
-    onExport: () => void
     onDelete: () => void
   }
 
@@ -112,12 +111,6 @@ export function StoryChatHeader(props: StoryChatHeaderProps) {
                                 Rename
                             </Button>
                         </ModalWithTrigger>
-                        <Button
-                            variant="ghost"
-                            onClick={props.onExport}
-                        >
-                            Export
-                        </Button>
                         <ModalWithTrigger
                             open={props.deleteModalOpen}
                             onOpenChange={props.onDeleteModalOpenChange}

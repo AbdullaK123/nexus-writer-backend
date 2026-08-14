@@ -107,8 +107,7 @@ export function useStoryChatHeaderProps({
                 deleteModalOpen: deleteModalOpen,
                 onDeleteModalOpenChange: (e: boolean) => setDeleteModalOpen(e),
                 onRename: onRename,
-                onDelete: onDelete,
-                onExport: () => {}
+                onDelete: onDelete
             }
         }
     }

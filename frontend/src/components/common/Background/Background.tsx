@@ -3,7 +3,7 @@ import styles from "./Background.module.css"
 import { initCanvas2D, createRenderer, handleCanvas2DResize } from "./canvas/renderer"
 import { generateNodes } from "./canvas/nodes"
 import { triangulate } from "./canvas/triangulation"
-import { DEFAULT_BACKGROUND_CONFIG } from "./canvas/config"
+import { DEFAULT_BACKGROUND_CONFIG, LIGHT_BACKGROUND_CONFIG  } from "./canvas/config"
 import { useSettings } from "../../../data/providers";
 import { Nothing } from "../Nothing";
 
@@ -15,17 +15,17 @@ export function Background() {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const { settings } = useSettings()
 
-    const motionReduced = settings.isSome() ? settings.unwrap().appearance.reduced_motion : false    
-
     useEffect(() => {
 
         if (!canvasRef.current) return 
-        if (motionReduced) return
+        if (settings.isSome() ? settings.unwrap().appearance.reduced_motion : false) return
+
+        const theme = settings.isSome() ? settings.unwrap().appearance.theme : "system"
 
 
         const rect = canvasRef.current.getBoundingClientRect()
 
-        const config = DEFAULT_BACKGROUND_CONFIG
+        const config = (theme !== "light") ? DEFAULT_BACKGROUND_CONFIG : LIGHT_BACKGROUND_CONFIG
 
         const ctx = initCanvas2D(
             canvasRef.current, 
@@ -60,10 +60,10 @@ export function Background() {
             observer.disconnect()
             renderer.stop()
         }
-    }, [motionReduced])
+    }, [settings])
 
     
-    if (motionReduced) {
+    if (settings.isSome() ? settings.unwrap().appearance.reduced_motion : false) {
         return <Nothing />
     }
 

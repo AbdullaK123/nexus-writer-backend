@@ -4,54 +4,37 @@
  * Dark HUD / cyberpunk surface with cyan accent.
  * ============================================================ */
 
+/* ============================================================
+ * DESIGN TOKENS — THEME INDEPENDENT
+ * ============================================================ */
+
 :root {
-  /* ---- Brand & accent ---- */
-  --color-cyan: #00d4ff;
-  --color-cyan-bright: #0ff;
-  --color-success: #00ff41;
-  --color-warning: #ff8000;
-  --color-danger: #ff0040;
-
-  /* ---- Surfaces (dark stack) ---- */
-  --surface-0: #0a0a0a; /* page background */
-  --surface-1: #101010; /* elevated rows */
-  --surface-2: #1a1a1a; /* cards, inputs */
-  --surface-glass: rgba(26, 26, 26, 0.92); /* HUD pills over canvas */
-
-  /* ---- Text ---- */
-  --text-primary: #ffffff;
-  --text-secondary: #b3b3b3;
-  --text-muted: #666666;
-  --text-on-accent: #0a0a0a;
-
-  /* ---- Borders ---- */
-  --border-subtle: rgba(0, 212, 255, 0.2);
-  --border-default: rgba(0, 212, 255, 0.3);
-  --border-strong: rgba(0, 212, 255, 0.5);
-  --border-focus: rgba(0, 255, 255, 0.7);
-  --border-danger: rgba(255, 0, 64, 0.7);
-
-  /* ---- Tinted fills (status / state) ---- */
-  --fill-cyan-soft: rgba(0, 212, 255, 0.08);
-  --fill-cyan: rgba(0, 212, 255, 0.1);
-  --fill-cyan-strong: rgba(0, 212, 255, 0.12);
-  --fill-success: rgba(0, 255, 65, 0.12);
-  --fill-success-border: rgba(0, 255, 65, 0.5);
-  --fill-warning: rgba(255, 128, 0, 0.12);
-  --fill-warning-border: rgba(255, 128, 0, 0.5);
-  --fill-danger: rgba(255, 0, 64, 0.12);
-  --fill-danger-border: rgba(255, 0, 64, 0.5);
-  --fill-danger-soft: rgba(255, 0, 64, 0.08);
-  --fill-neutral: rgba(102, 102, 102, 0.12);
-  --fill-neutral-border: rgba(102, 102, 102, 0.5);
-
   /* ---- Typography ---- */
-  --font-display: 'Orbitron', 'Segoe UI', system-ui, sans-serif; /* chrome titles */
-  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace; /* labels, HUD */
-  --font-ui: 'Oxanium', 'Segoe UI', system-ui, sans-serif; /* body / UI prose */
-  --font-content: 'Exo 2', Georgia, serif; /* user content (story titles) */
+  --font-display:
+    'Orbitron',
+    'Segoe UI',
+    system-ui,
+    sans-serif;
 
-  /* ---- Type scale (px from Figma) ---- */
+  --font-mono:
+    'JetBrains Mono',
+    ui-monospace,
+    Consolas,
+    monospace;
+
+  --font-ui:
+    'Oxanium',
+    'Segoe UI',
+    system-ui,
+    sans-serif;
+
+  --font-content:
+    'Exo 2',
+    Georgia,
+    serif;
+
+
+  /* ---- Type scale ---- */
   --fs-xs: 11px;
   --fs-sm: 12px;
   --fs-base: 13px;
@@ -62,7 +45,8 @@
   --fs-3xl: 36px;
   --fs-4xl: 48px;
 
-  /* ---- Letter spacing (mono labels carry heavy tracking) ---- */
+
+  /* ---- Letter spacing ---- */
   --tracking-tight: -0.24px;
   --tracking-normal: 0;
   --tracking-wide: 1.4px;
@@ -70,7 +54,8 @@
   --tracking-widest: 2.4px;
   --tracking-mega: 2.8px;
 
-  /* ---- Spacing scale (8px grid) ---- */
+
+  /* ---- Spacing scale ---- */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -81,33 +66,195 @@
   --space-8: 64px;
   --space-9: 96px;
 
+
   /* ---- Radii ---- */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-pill: 9999px;
 
-  /* ---- Elevation (Figma effects) ---- */
-  --elevation-card:
-    0 4px 16px rgba(0, 0, 0, 0.4),
-    0 0 10px rgba(0, 212, 255, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  --elevation-modal:
-    0 12px 32px rgba(0, 0, 0, 0.6),
-    0 0 50px rgba(0, 212, 255, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  --glow-cyan: 0 0 24px rgba(0, 212, 255, 0.45);
 
+  /* ---- Layers ---- */
   --popover-z-index: 50;
 
-  /* ---- Base ---- */
-  color-scheme: dark;
+
+  /* ---- Base rendering ---- */
   color: var(--text-secondary);
-  font: 400 var(--fs-lg) / 1.5 var(--font-ui);
+
+  font:
+    400
+    var(--fs-lg) / 1.5
+    var(--font-ui);
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+
+/* ============================================================
+ * DARK THEME
+ * ============================================================ */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+
+  /* ---- Brand & accent ---- */
+  --color-cyan: #00d4ff;
+  --color-cyan-bright: #00ffff;
+
+  --color-success: #00ff41;
+  --color-warning: #ff8000;
+  --color-danger: #ff0040;
+
+
+  /* ---- Surfaces ---- */
+  --surface-0: #0a0a0a;
+  --surface-1: #101010;
+  --surface-2: #1a1a1a;
+
+  --surface-glass: rgba(26, 26, 26, 0.92);
+
+
+  /* ---- Text ---- */
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-muted: #666666;
+  --text-on-accent: #0a0a0a;
+
+
+  /* ---- Borders ---- */
+  --border-subtle: rgba(0, 212, 255, 0.20);
+  --border-default: rgba(0, 212, 255, 0.30);
+  --border-strong: rgba(0, 212, 255, 0.50);
+  --border-focus: rgba(0, 255, 255, 0.70);
+
+  --border-danger: rgba(255, 0, 64, 0.70);
+
+
+  /* ---- Tinted fills ---- */
+  --fill-cyan-soft: rgba(0, 212, 255, 0.08);
+  --fill-cyan: rgba(0, 212, 255, 0.10);
+  --fill-cyan-strong: rgba(0, 212, 255, 0.12);
+
+  --fill-success: rgba(0, 255, 65, 0.12);
+  --fill-success-border: rgba(0, 255, 65, 0.50);
+
+  --fill-warning: rgba(255, 128, 0, 0.12);
+  --fill-warning-border: rgba(255, 128, 0, 0.50);
+
+  --fill-danger: rgba(255, 0, 64, 0.12);
+  --fill-danger-soft: rgba(255, 0, 64, 0.08);
+  --fill-danger-border: rgba(255, 0, 64, 0.50);
+
+  --fill-neutral: rgba(102, 102, 102, 0.12);
+  --fill-neutral-border: rgba(102, 102, 102, 0.50);
+
+
+  /* ---- Elevation ---- */
+  --elevation-card:
+    0 4px 16px rgba(0, 0, 0, 0.40),
+    0 0 10px rgba(0, 212, 255, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+
+  --elevation-modal:
+    0 12px 32px rgba(0, 0, 0, 0.60),
+    0 0 50px rgba(0, 212, 255, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+  --glow-cyan:
+    0 0 24px rgba(0, 212, 255, 0.45);
+}
+
+
+/* ============================================================
+ * LIGHT THEME
+ * ============================================================ */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* ---- Brand & accent ---- */
+  --color-cyan: #006f89;
+  --color-cyan-bright: #005c73;
+
+  --color-success: #08713a;
+  --color-warning: #9a5200;
+  --color-danger: #b52046;
+
+
+  /* ---- Surfaces ---- */
+  --surface-0: #dfe7eb;
+  --surface-1: #e9eff2;
+  --surface-2: #f3f6f7;
+
+  --surface-glass: rgba(233, 239, 242, 0.94);
+
+
+  /* ---- Text ---- */
+  --text-primary: #11181c;
+  --text-secondary: #3f4e55;
+  --text-muted: #69777d;
+  --text-on-accent: #ffffff;
+
+
+  /* ---- Borders ---- */
+  --border-subtle: rgba(0, 92, 115, 0.16);
+  --border-default: rgba(0, 92, 115, 0.28);
+  --border-strong: rgba(0, 92, 115, 0.46);
+  --border-focus: rgba(0, 92, 115, 0.68);
+
+  --border-danger: rgba(181, 32, 70, 0.62);
+
+
+  /* ---- Tinted fills ---- */
+  --fill-cyan-soft: rgba(0, 111, 137, 0.06);
+  --fill-cyan: rgba(0, 111, 137, 0.09);
+  --fill-cyan-strong: rgba(0, 111, 137, 0.13);
+
+  --fill-success: rgba(8, 113, 58, 0.10);
+  --fill-success-border: rgba(8, 113, 58, 0.38);
+
+  --fill-warning: rgba(154, 82, 0, 0.10);
+  --fill-warning-border: rgba(154, 82, 0, 0.38);
+
+  --fill-danger: rgba(181, 32, 70, 0.10);
+  --fill-danger-soft: rgba(181, 32, 70, 0.06);
+  --fill-danger-border: rgba(181, 32, 70, 0.38);
+
+  --fill-neutral: rgba(63, 78, 85, 0.08);
+  --fill-neutral-border: rgba(63, 78, 85, 0.28);
+
+
+  /* ---- Misc themed effects ---- */
+  --selection-bg: rgba(0, 111, 137, 0.22);
+
+  --focus-ring:
+    0 0 0 3px rgba(0, 92, 115, 0.14);
+
+  --glow-cyan-sm:
+    0 0 6px rgba(0, 111, 137, 0.20);
+
+  --fill-accent-control:
+    rgba(0, 111, 137, 0.10);
+
+
+  /* ---- Elevation ---- */
+  --elevation-card:
+    0 4px 16px rgba(20, 35, 42, 0.12),
+    0 0 8px rgba(0, 111, 137, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+
+  --elevation-modal:
+    0 14px 36px rgba(20, 35, 42, 0.18),
+    0 0 24px rgba(0, 111, 137, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+
+  --glow-cyan:
+    0 0 16px rgba(0, 111, 137, 0.16);
 }
 
 

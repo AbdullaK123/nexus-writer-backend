@@ -9,6 +9,7 @@ import { NotificationSchema } from "./infrastructure/api/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { authKeys, chapterKeys, storyKeys } from "./data/queries";
 import { isRetryable, isTerminal } from "./infrastructure/sse/notifications";
+import { useTheme } from "./hooks";
 
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;
@@ -24,6 +25,13 @@ export function AppRouter() {
   const retriesRef = useRef(0);
   const stoppedRef = useRef(false);
   const { settings } = useSettings()
+
+  const theme =
+        settings.isSome()
+            ? settings.unwrap().appearance.theme
+            : "system"
+
+  useTheme(theme)
 
   // Invalidate router immediately when auth changes
   useEffect(() => {
@@ -162,7 +170,7 @@ export function AppRouter() {
       stoppedRef.current = true;
       clearAll();
     };
-  }, [auth.status, info, qc]); // React query and layout helpers stay immutable, triggering updates correctly only when auth shifts
+  }, [auth.status, info, qc, error, settings]); // React query and layout helpers stay immutable, triggering updates correctly only when auth shifts
 
   return <RouterProvider router={router} context={{ auth }} />;
 }

@@ -7,9 +7,7 @@ import styles from "./SettingsPage.module.css"
 export function SettingsPage() {
     return (
         <div className={styles['content']}>
-            <span className="system-badge system-badge__nobg">
-                [APP SETTINGS]
-            </span>
+            <h2>App Settings</h2>
             <AppearanceSettings />
             <EditorSettings />
             <NotificationSettings />
