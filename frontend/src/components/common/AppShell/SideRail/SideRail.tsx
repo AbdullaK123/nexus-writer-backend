@@ -8,14 +8,7 @@ import { EditModalContent } from "./EditModalContent";
 import { ChatModalContent } from "./ChatModalContent/ChatModalContent";
 
 
-export type SideRailProps = {
-    onClickSet: () => void
-}
-
-
-export function SideRail({
-    onClickSet
-}: SideRailProps) {
+export function SideRail() {
 
     const navigate = useNavigate()
     const [editOpen, setEditOpen] = useState(false)
@@ -91,7 +84,7 @@ export function SideRail({
             </ModalWithTrigger>
             <button 
                 className={styles['siderail-item']}
-                onClick={onClickSet}
+                onClick={() => navigate({ to: "/settings"})}
             >
                 SET
             </button>

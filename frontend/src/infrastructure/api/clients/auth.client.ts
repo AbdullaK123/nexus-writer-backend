@@ -14,6 +14,7 @@ import {
     UserNavigationResponseSchema,
     type StoryNavigationResponse,
     StoryNavigationResponseSchema,
+    type SettingsPayload
 } from "../types"
 import type { Result, ApiError } from "../../../shared/types"
 
@@ -95,6 +96,18 @@ export class AuthClient {
         return this.api.getJson(
             "auth/me/links/chat",
             StoryNavigationResponseSchema,
+            options
+        )
+    }
+
+    public updateSettings(
+        payload: SettingsPayload,
+        options: RequestOptions = noRequestOptions
+    ): Promise<Result<UserResponse, ApiError>> {
+        return this.api.patchJson(
+            'auth/me/settings',
+            payload,
+            UserResponseSchema,
             options
         )
     }

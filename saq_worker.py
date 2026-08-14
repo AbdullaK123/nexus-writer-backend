@@ -165,6 +165,15 @@ async def story_reanalysis_job(
         except Exception as e:
             logger.exception("saq.story_reanalysis_job.failed")
             span.record_exception(e)
+            await ctx['worker'].context['pubsub'].publish(
+                f"notifications:{user_id}",
+                Notification(
+                    kind="job_failed",
+                    story_id=story_id,
+                    chapter_id="",
+                    message=f"Analysis job for {story_title} has failed. The server might be experiencing issues."
+                )
+            )
             span.set_status(trace.StatusCode.ERROR, str(e))
             raise
         finally:
@@ -207,6 +216,15 @@ async def chapter_reanalysis_job(
         except Exception as e:
             logger.exception("saq.chapter_reanalysis_job.failed")
             span.record_exception(e)
+            await ctx['worker'].context['pubsub'].publish(
+                f"notifications:{user_id}",
+                Notification(
+                    kind="job_failed",
+                    story_id=story_id,
+                    chapter_id="",
+                    message=f"Chapter analysis job has failed. The server might be experiencing issues."
+                )
+            )
             span.set_status(trace.StatusCode.ERROR, str(e))
             raise
         finally:
@@ -315,6 +333,15 @@ async def scene_and_embedding_job(
         except Exception as e:
             logger.exception("saq.scene_and_embedding_job.failed")
             span.record_exception(e)
+            await ctx['worker'].context['pubsub'].publish(
+                f"notifications:{user_id}",
+                Notification(
+                    kind="job_failed",
+                    story_id=story_id,
+                    chapter_id="",
+                    message=f"Extraction job failed. The server might be experiencing issues."
+                )
+            )
             span.set_status(trace.StatusCode.ERROR, str(e))
             raise
         finally:

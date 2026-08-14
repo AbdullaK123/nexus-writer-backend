@@ -4,13 +4,13 @@ from __future__ import annotations
 from typing import List, Tuple
 
 import asyncpg
-
+import json
 from src.data.schemas import UserRow
 from src.data.schemas.enums import generate_uuid
 
 
 _USER_COLUMNS = """
-    id, username, email, password_hash, profile_img,
+    id, username, email, password_hash, profile_img, settings,
     created_at, updated_at
 """
 
@@ -29,6 +29,21 @@ class UserRepository:
         sql = f'SELECT {_USER_COLUMNS} FROM "user" WHERE email = $1'
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(sql, email)
+        return UserRow.model_validate(dict(row)) if row else None
+
+
+    async def update_settings(self, user_id: str, update: dict) -> UserRow | None:
+
+        sql = f"""\
+        UPDATE "user"
+        SET settings = settings || $2::JSONB
+        WHERE id = $1
+        RETURNING {_USER_COLUMNS}
+        """
+
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(sql, user_id, update)
+
         return UserRow.model_validate(dict(row)) if row else None
 
     async def create(
@@ -103,7 +118,7 @@ class UserRepository:
                 m.scenes_tracked,
                 a.current_streak_days AS streak_days
             FROM user_metrics m
-        CROSS JOIN active_streak a;
+            CROSS JOIN active_streak a;
             """
 
             agg_result = await conn.fetchrow(agg_sql, user_id)

@@ -1,5 +1,5 @@
 import { RouterProvider } from "@tanstack/react-router";
-import { useAuthOrThrow } from "./data/providers";
+import { useAuthOrThrow, useSettings } from "./data/providers";
 import { router } from "./router";
 import { useEffect, useRef } from "react";
 import { None, Some, streamSse } from "./infrastructure/sse";
@@ -9,6 +9,7 @@ import { NotificationSchema } from "./infrastructure/api/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { authKeys, chapterKeys, storyKeys } from "./data/queries";
 import { isRetryable, isTerminal } from "./infrastructure/sse/notifications";
+import { useTheme } from "./hooks";
 
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;
@@ -17,12 +18,20 @@ export function AppRouter() {
   
   const auth = useAuthOrThrow();
   const qc = useQueryClient();
-  const { info } = useToast();
+  const { info, error } = useToast();
 
   const controllerRef = useRef<AbortController | null>(null);
   const timerRef = useRef<number | null>(null);
   const retriesRef = useRef(0);
   const stoppedRef = useRef(false);
+  const { settings } = useSettings()
+
+  const theme =
+        settings.isSome()
+            ? settings.unwrap().appearance.theme
+            : "system"
+
+  useTheme(theme)
 
   // Invalidate router immediately when auth changes
   useEffect(() => {
@@ -97,13 +106,21 @@ export function AppRouter() {
                 qc.invalidateQueries({ queryKey: authKeys.dashboard() });
                 break;
               case "analysis_ready":
-                info("Analysis ready!", notification.data.message);
-                qc.invalidateQueries({ queryKey: storyKeys.pulse(notification.data.story_id) });
+                if (settings.isSome() ? settings.unwrap().notifications.analysis_ready : false) {
+                    info("Analysis ready!", notification.data.message);
+                    qc.invalidateQueries({ queryKey: storyKeys.pulse(notification.data.story_id) }); 
+                }
                 break;
               case "comments_ready":
-                info("Comments ready!", notification.data.message)
-                qc.invalidateQueries({ queryKey: chapterKeys.comments(notification.data.chapter_id)})
-                break
+                if (settings.isSome() ? settings.unwrap().notifications.comments_ready : false ) {
+                    info("Comments ready!", notification.data.message)
+                    qc.invalidateQueries({ queryKey: chapterKeys.comments(notification.data.chapter_id)})
+                }
+                break;
+              case "job_failed":
+                if (settings.isSome() ? settings.unwrap().notifications.job_failures : false) {
+                    error("Error!", notification.data.message)
+                }
             }
           },
           onClose: Some(() => {
@@ -153,7 +170,7 @@ export function AppRouter() {
       stoppedRef.current = true;
       clearAll();
     };
-  }, [auth.status, info, qc]); // React query and layout helpers stay immutable, triggering updates correctly only when auth shifts
+  }, [auth.status, info, qc, error, settings]); // React query and layout helpers stay immutable, triggering updates correctly only when auth shifts
 
   return <RouterProvider router={router} context={{ auth }} />;
 }

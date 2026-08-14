@@ -101,6 +101,34 @@ export const DEFAULT_BACKGROUND_CONFIG: BackgroundConfig =
         respectReducedMotion: true
     })
 
+export const LIGHT_BACKGROUND_CONFIG: BackgroundConfig = {
+    ...DEFAULT_BACKGROUND_CONFIG,
+
+    node: {
+        ...DEFAULT_BACKGROUND_CONFIG.node,
+        color: "#416b7a",
+        baseOpacity: 0.42,
+        pulseAmplitude: 0.10,
+    },
+
+    edge: {
+        ...DEFAULT_BACKGROUND_CONFIG.edge,
+        color: "#5f8793",
+        baseOpacity: 0.16,
+    },
+
+    path: {
+        ...DEFAULT_BACKGROUND_CONFIG.path,
+        color: "#25677c",
+        baseOpacity: 0.30,
+    },
+
+    packet: {
+        ...DEFAULT_BACKGROUND_CONFIG.packet,
+        color: "#006f89",
+    },
+}
+
 // Convenience for the React boundary: accept any partial override, validate.
 export const parseBackgroundConfig = (
     input: unknown = {},

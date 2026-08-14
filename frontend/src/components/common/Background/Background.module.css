@@ -5,7 +5,15 @@
     height: 100%;
     pointer-events: none;
     user-select: none;
-    filter: blur(1.5px) brightness(0.8);
+    filter: var(--canvas-filter);
     z-index: 0;
-    background: #000000;
+    background: var(--surface-0);
+}
+
+:root[data-theme="dark"] {
+    --canvas-filter: blur(1.5px) brightness(0.8);
+}
+
+:root[data-theme="light"] {
+    --canvas-filter: blur(1.25px) brightness(1);
 }

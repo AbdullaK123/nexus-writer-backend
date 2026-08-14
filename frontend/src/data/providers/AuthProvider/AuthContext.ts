@@ -1,11 +1,14 @@
 import { createContext, useContext } from "react"
-import type { UserResponse } from "../../../infrastructure/api/types"
+import type { SettingsPayload, UserResponse, UserSettings } from "../../../infrastructure/api/types"
+import { Option, Some, None} from "oxide.ts"
 import {
     Err,
     Ok,
     fromNullable,
     type Result,
 } from "../../../shared/types"
+import { useUpdateSettings } from "../../queries";
+import { useToast } from "../../../components";
 
 export type AuthStatus =
     | "loading"
@@ -18,6 +21,13 @@ export type AuthContextValue =
     | { status: "unauthenticated" }
     | { status: "error"; error: Error }
     | { status: "authenticated"; user: UserResponse }
+
+
+export type SettingsContextValue = 
+{
+    settings: Option<UserSettings>,
+    updateSettings: (payload: SettingsPayload) => void
+}
 
 export class AuthContextMissingError extends Error {
     readonly _tag = "AuthContextMissingError" as const
@@ -49,4 +59,39 @@ export function useAuth(): Result<AuthContextValue, AuthContextMissingError> {
  */
 export function useAuthOrThrow(): AuthContextValue {
     return useAuth().unwrap()
+}
+
+export function useSettings(): SettingsContextValue {
+    const auth = useAuthOrThrow()
+
+    const {
+        mutate: updateSettings,
+    } = useUpdateSettings()
+
+    const { error, success } = useToast()
+
+    const settings =
+        auth.status === "authenticated"
+            ? Some(auth.user.settings)
+            : None
+
+    return {
+        settings,
+
+        updateSettings: (payload) =>
+            updateSettings(payload, {
+                onSuccess: () => {
+                    success(
+                        "Successfully updated settings",
+                        "",
+                    )
+                },
+                onError: () => {
+                    error(
+                        "Failed to update settings",
+                        "Something went wrong. The server might be experiencing issues.",
+                    )
+                },
+            }),
+    }
 }
