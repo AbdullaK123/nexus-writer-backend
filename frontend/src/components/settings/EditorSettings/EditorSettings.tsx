@@ -24,7 +24,6 @@ export function EditorSettings() {
     const { settings, updateSettings } = useSettings()
     const {
         control,
-        register,
         handleSubmit,
         reset,
         formState: { isDirty, isSubmitting, errors }
