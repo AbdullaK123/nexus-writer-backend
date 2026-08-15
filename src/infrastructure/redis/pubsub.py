@@ -3,7 +3,8 @@ from typing import AsyncGenerator
 
 import redis.asyncio as aioredis
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
+
 
 
 class RedisPubSub:
@@ -40,7 +41,15 @@ class RedisPubSub:
                         channel=channel,
                         schema=schema.__name__,
                     )
-                    yield schema.model_validate_json(message['data'])
+                    try:
+                        yield schema.model_validate_json(message['data'])
+                    except ValidationError:
+                        logger.warning(
+                            "infra.redis_pubsub.bad_payload",
+                            channel=channel,
+                            payload=message['data']
+                        )
+                        continue
         except asyncio.CancelledError:
             logger.debug(
                 "infra.redis_pubsub.listen_cancelled",

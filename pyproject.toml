@@ -43,6 +43,7 @@ dev = [
     "pytest-asyncio>=0.23",
     "pytest-mock>=3.12",
     "python-docx>=1.2.0",
+    "testcontainers[postgres,redis]>=4.15.0",
 ]
 
 [tool.pytest.ini_options]

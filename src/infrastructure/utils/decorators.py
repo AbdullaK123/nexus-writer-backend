@@ -8,21 +8,6 @@ from src.infrastructure.exceptions import (
 )
 from loguru import logger
 
-
-def handle_db_errors(func):
-    @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
-        try:
-            return await func(*args, **kwargs)
-        except DatabaseError:
-            raise
-        except Exception as e:
-            logger.error("infra.db_error", func=func.__qualname__, error=str(e))
-            raise DatabaseError(str(e), original=e)
-
-    return wrapper
-
-
 def handle_openai_errors(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
