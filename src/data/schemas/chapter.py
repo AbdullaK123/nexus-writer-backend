@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime
 from src.data.schemas._base import ApiModel
 from src.data.schemas.enums import StoryStatus
+from src.shared.text_types import ChapterContent, ChapterTitle
 
 
 class ChapterRow(BaseModel):
@@ -27,12 +28,12 @@ class ChapterRow(BaseModel):
 
 
 class CreateChapterRequest(ApiModel):
-    title: str = Field(min_length=1, max_length=255)
+    title: ChapterTitle
 
 
 class UpdateChapterRequest(ApiModel):
-    title: Optional[str] = Field(default=None, min_length=1, max_length=255)
-    content: Optional[str] = None
+    title: Optional[ChapterTitle] = None
+    content: Optional[ChapterContent] = None
     published: Optional[bool] = None
 
 

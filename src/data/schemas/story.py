@@ -4,14 +4,15 @@ from datetime import datetime
 from src.data.schemas._base import ApiModel
 from src.data.schemas.enums import StoryStatus
 from src.data.schemas.chapter import ChapterListItem, ChapterRow
+from src.shared.text_types import StoryTitle
 
 
 class CreateStoryRequest(ApiModel):
-    title: str = Field(min_length=1, max_length=255)
+    title: StoryTitle
 
 
 class UpdateStoryRequest(ApiModel):
-    title: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    title: Optional[StoryTitle] = None
     status: Optional[StoryStatus] = None
 
 

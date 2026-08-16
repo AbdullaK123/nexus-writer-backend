@@ -159,7 +159,7 @@ export function useUpdateStory(storyId: string) {
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: storyKeys.all })
             qc.invalidateQueries({ queryKey: authKeys.dashboard()})
-            qc.invalidateQueries({ queryKey: authKeys.dashboard()})
+            qc.invalidateQueries({ queryKey: authKeys.editorLinks()})
         },
     })
 }
@@ -190,6 +190,7 @@ export function useCreateChapter(storyId: string) {
             qc.invalidateQueries({ queryKey: authKeys.dashboard()})
             qc.invalidateQueries({ queryKey: [storyKeys.path(storyId)] })
             qc.invalidateQueries({ queryKey: chapterKeys.all})
+            qc.invalidateQueries({ queryKey: authKeys.editorLinks()})
         },
     })
 }
@@ -208,6 +209,7 @@ export function useReorderChapters(storyId: string) {
             qc.invalidateQueries({ queryKey: storyKeys.chapters(storyId)})
             qc.invalidateQueries({ queryKey: authKeys.dashboard()})
             qc.invalidateQueries({ queryKey: [storyKeys.path(storyId)] })
+            qc.invalidateQueries({ queryKey: authKeys.editorLinks()})
         },
     })
 }

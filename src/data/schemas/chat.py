@@ -2,6 +2,7 @@ from typing import List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from src.data.schemas._base import ApiModel
+from src.shared.text_types import ChatMessage, ThreadTitle
 
 
 # ---------------------------------------------------------------------------
@@ -45,7 +46,7 @@ class ChatMessageRow(BaseModel):
 class CreateThreadRequest(ApiModel):
     model_config = ConfigDict(populate_by_name=True)
     story_id: str = Field(validation_alias="story_id", alias="storyId")
-    first_message: str = Field(validation_alias="first_message", alias="firstMessage")
+    first_message: ChatMessage = Field(validation_alias="first_message", alias="firstMessage")
 
 
 class ThreadResponse(ApiModel):
@@ -76,7 +77,7 @@ class ChatMessageListResponse(ApiModel):
 class ConversationTurnRequest(ApiModel):
     story_id: str
     thread_id: str
-    user_message: str
+    user_message: ChatMessage
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +86,7 @@ class ConversationTurnRequest(ApiModel):
 
 
 class CreateThreadBody(ApiModel):
-    first_message: str = Field(alias="firstMessage")
+    first_message: ChatMessage = Field(alias="firstMessage")
 
 
 class TurnBody(ApiModel):
@@ -93,4 +94,4 @@ class TurnBody(ApiModel):
 
 
 class RenameThreadBody(ApiModel):
-    title: str
+    title: ThreadTitle

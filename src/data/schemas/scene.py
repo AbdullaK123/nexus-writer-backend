@@ -2,6 +2,7 @@ from datetime import datetime
 from pydantic import Field, BaseModel, ConfigDict, field_validator
 from typing import Literal, List, Optional
 from src.data.schemas._base import ApiModel
+from src.shared.text_types import SearchQuery
 
 
 # ─── LLM I/O models (used as JSON schema for structured generation) ─────────
@@ -129,7 +130,7 @@ class SceneSearchRequest(ApiModel):
     them unset.
     """
 
-    query: str = Field(min_length=1, max_length=500)
+    query: SearchQuery = Field(min_length=1, max_length=500)
     k: int | None = Field(default=None, ge=1, le=50)
     candidate_pool: int | None = Field(default=None, ge=1, le=500)
     tension: Literal["low", "medium", "high"] | None = None

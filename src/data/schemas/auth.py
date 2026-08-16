@@ -6,12 +6,13 @@ import re
 from src.data.schemas._base import ApiModel
 from src.data.schemas.chapter import ChapterListItem
 from src.infrastructure.config import config
+from src.shared.text_types import PasswordInput, Username
 
 
 class RegistrationData(ApiModel):
-    username: str = Field(min_length=1, max_length=100)
+    username: Username
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    password: PasswordInput
     profile_img: Optional[str] = None
 
     @field_validator("password")
@@ -27,7 +28,7 @@ class RegistrationData(ApiModel):
 
 class AuthCredentials(ApiModel):
     email: EmailStr
-    password: str
+    password: PasswordInput
 
 
 class ConnectionDetails(BaseModel):

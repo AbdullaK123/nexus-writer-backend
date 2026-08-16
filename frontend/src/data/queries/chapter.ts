@@ -157,6 +157,7 @@ export function useDeleteChapter(chapterId: string, storyId: string) {
             qc.invalidateQueries({ queryKey: [storyKeys.path(storyId)] })
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
             qc.invalidateQueries({ queryKey: authKeys.dashboard() })
+            qc.invalidateQueries({ queryKey: authKeys.editorLinks()})
         },
     })
 }
