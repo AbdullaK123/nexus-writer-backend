@@ -1,13 +1,15 @@
 
 from src.data.schemas.auth import RegistrationData
 from src.data.schemas.enums import StoryStatus
+from src.data.schemas.extraction import INSUFFICIENT_CONTEXT
 from src.data.schemas.story import CreateStoryRequest, UpdateStoryRequest
 from src.infrastructure.exceptions import DatabaseError
 from src.service.auth.service import AuthService
+from src.service.chapter.service import ChapterService
 from src.service.exceptions import ConflictError, NotFoundError, ServiceError
 from src.service.story.service import StoryService
 import pytest
-from tests.service.mocks import FakeRedis, FakeStoryRepository
+from tests.service.mocks import FakeRedis, FakeStoryRepository, FakeSceneRepository, FakeAIProvider, FakeChapterRepository
 
 
 async def test_create_story_duplicates(
@@ -205,3 +207,104 @@ async def test_update_story_no_status_change_preserves_cache(
     # all keys should still be there
     for key in cache_keys:
         assert await fake_redis.get(key) == "cached_data"
+
+
+async def test_delete_story_not_found_path(
+    story_service: StoryService,
+    auth_service: AuthService
+):
+    user = await auth_service.register_user(
+        registration_data=RegistrationData(
+            username="test_user",
+            email="email@test.com",
+            password="testpassword123@ABC"
+        )
+    )
+
+    with pytest.raises(NotFoundError):
+        result = await story_service.delete_story(
+            user_id=user.id,
+            story_id="I don't exist"
+        )
+
+
+async def test_get_pulse_not_found_path(
+    story_service: StoryService,
+    auth_service: AuthService
+):
+
+    user = await auth_service.register_user(
+        registration_data=RegistrationData(
+            username="test_user",
+            email="email@test.com",
+            password="testpassword123@ABC"
+        )
+    )
+
+    with pytest.raises(NotFoundError):
+        result = await story_service.get_pulse(
+            user_id=user.id,
+            story_id="I don't exist"
+        )
+
+
+async def test_get_pulse_insufficient_context_path(
+    story_service: StoryService,
+    auth_service: AuthService,
+    fake_story_repo: FakeStoryRepository,
+    fake_scene_repo: FakeSceneRepository,
+    fake_chapter_repo: FakeChapterRepository,
+    fake_provider: FakeAIProvider
+):
+    user = await auth_service.register_user(
+        registration_data=RegistrationData(
+            username="test_user",
+            email="email@test.com",
+            password="testpassword123@ABC"
+        )
+    )
+
+    story = await fake_story_repo.create(user_id=user.id, title="Test Story")
+
+    chapter = await fake_chapter_repo.create(story_id=story.id, user_id=user.id, title="test chapter", content="test content", word_count=2)
+
+    await fake_scene_repo.replace_for_chapter(
+        chapter_id=chapter.id, 
+        story_id=story.id, 
+        user_id=user.id, 
+        scenes=[
+            "scene_1",
+            "scene_2"
+        ]
+    )
+
+    result = await story_service.get_pulse(
+        user_id=user.id,
+        story_id=story.id
+    )
+
+    assert result == INSUFFICIENT_CONTEXT and fake_provider.call_count == 0
+
+
+async def test_get_pulse_cache_hit_path(
+    story_service: StoryService,
+    auth_service: AuthService,
+    fake_redis: FakeRedis,
+    fake_story_repo: FakeStoryRepository,
+    fake_provider: FakeAIProvider
+):
+    user = await auth_service.register_user(
+        registration_data=RegistrationData(
+            username="test_user",
+            email="email@test.com",
+            password="testpassword123@ABC"
+        )
+    )
+
+    story = await fake_story_repo.create(user_id=user.id, title="Test Story")
+
+    await fake_redis.set(f"pulse:{story.id}:{user.id}", INSUFFICIENT_CONTEXT.model_dump_json())
+
+    result = await story_service.get_pulse(user_id=user.id, story_id=story.id)
+
+    assert result is not None and fake_provider.call_count == 0

@@ -6,8 +6,11 @@ from testcontainers.redis import AsyncRedisContainer
 from redis.asyncio import Redis
 from src.infrastructure.redis.pubsub import RedisPubSub
 from src.infrastructure.db.pool import _setup_connection, close_pool
+from src.infrastructure.redis.pool import close_pool as close_redis_pool
 from src.infrastructure.config import config
 import asyncpg
+import logging
+from loguru import logger
 
 @pytest.fixture(scope="session")
 def postgres_container() -> Iterator[PostgresContainer]:
@@ -101,6 +104,30 @@ async def clean_pool_state(
 
 
 @pytest_asyncio.fixture
+async def clean_infra_state(
+    postgres_url: str,
+    redis_url: str,
+    monkeypatch: pytest.MonkeyPatch
+):
+    from src.infrastructure.config import settings
+    
+    test_settings = settings.model_copy(update={"database_url": postgres_url, "redis_url": redis_url})
+
+    monkeypatch.setattr("src.infrastructure.db.pool.settings", test_settings)
+
+    yield
+    
+    try:
+        await close_pool()
+    except Exception:
+        pass
+
+    try:
+        await close_redis_pool()
+    except Exception:
+        pass
+
+@pytest_asyncio.fixture
 async def jsonb_table(db_pool: asyncpg.Pool):
     await db_pool.execute("""
         CREATE TABLE IF NOT EXISTS _test_jsonb (
@@ -110,3 +137,19 @@ async def jsonb_table(db_pool: asyncpg.Pool):
     """)
     yield
     await db_pool.execute("DROP TABLE IF EXISTS _test_jsonb")
+
+@pytest.fixture(autouse=True)
+def propagate_logs_to_caplog():
+    """Propagate Loguru logs to standard logging so pytest caplog works."""
+    # Define a handler that sends log records to standard logging
+    class PropagateHandler(logging.Handler):
+        def emit(self, record):
+            logging.getLogger(record.name).handle(record)
+
+    # Add the handler to Loguru
+    sink_id = logger.add(PropagateHandler(), format="{message}")
+    
+    yield
+    
+    # Clean up the handler after the test ends
+    logger.remove(sink_id)

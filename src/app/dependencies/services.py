@@ -34,6 +34,7 @@ from src.infrastructure.redis.pool import (
     close_pool as close_redis_pool,
 )
 from src.infrastructure.redis.pubsub import RedisPubSub
+from src.infrastructure.exceptions import InfrastructureError
 from src.service.analytics.service import AnalyticsService
 from src.service.auth import AuthService
 from src.service.chapter import ChapterService
@@ -45,16 +46,37 @@ from src.service.story import StoryService
 
 
 async def init_infrastructure() -> None:
-    # AsyncPGInstrumentor().instrument()
-    await init_db_pool()
-    init_redis_pool()
-    logger.info("infra.db.connected")
+
+    try:
+        await init_db_pool()
+    except Exception as e:
+        logger.error("init_infrastructure.failed", error=str(e))
+        raise InfrastructureError("Failed to initialize database pool. Please check your connection settings.")
+    
+    try:
+        init_redis_pool()
+    except Exception as e:
+
+        try:
+            await close_db_pool()
+        except Exception:
+            logger.error("init_infrastructure.cleanup_failed", component="db_pool")
+            
+        logger.error("init_infrastructure.failed", error=str(e))
+        raise InfrastructureError("Failed to initialize redis pool. Please check your connection settings.")
 
 
 async def shutdown_infrastructure() -> None:
-    await close_db_pool()
-    await close_redis_pool()
-    logger.info("infra.db.disconnected")
+    
+    try:
+        await close_db_pool()
+    except Exception:
+        logger.error("shutdown_infrastructure.failed", component="db_pool")
+
+    try:
+        await close_redis_pool()
+    except Exception:
+        logger.error("shutdown_infrastructure.failed", component="redis_pool")
 
 
 @lru_cache
