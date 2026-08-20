@@ -176,7 +176,7 @@ class ChapterService:
                 row = lookup[cid]
                 item = ChapterListItem(
                     story_id=row.story_id,
-                    chapter_id=row.id,  # Manually mapping 'id' to 'chapter_id'
+                    chapter_id=row.id,  
                     chapter_number=i + 1,
                     word_count=row.word_count,
                     story_title=story.title,

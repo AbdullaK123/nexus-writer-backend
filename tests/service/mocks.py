@@ -12,6 +12,41 @@ from src.data.schemas.chapter import ChapterRow
 from src.data.schemas.scene import SceneRow, SceneSearchResult
 from src.data.schemas.enums import StoryStatus
 
+class FakeQueue:
+    def __init__(self):
+        self.enqueued: list[tuple[str, dict]] = []
+        self.error: Exception | None = None
+
+    async def enqueue(self, job_name: str, **kwargs):
+        if self.error:
+            raise self.error
+        self.enqueued.append((job_name, kwargs))
+
+class FakeTransaction:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        pass
+
+
+class FakeConnection:
+    def transaction(self):
+        return FakeTransaction()
+
+
+class FakePool:
+    def acquire(self):
+        return FakePoolContext()
+
+
+class FakePoolContext:
+    async def __aenter__(self):
+        return FakeConnection()
+
+    async def __aexit__(self, *args):
+        pass
+
 
 # ── helpers ───────────────────────────────────────────
 
@@ -42,6 +77,9 @@ class FakeRedis:
                 del self._store[key]
                 count += 1
         return count
+
+    async def flush(self):
+        self._store.clear()
 
     async def keys(self, pattern: str = "*") -> list[str]:
         prefix = pattern.rstrip("*")
@@ -280,6 +318,8 @@ class FakeChapterRepository:
     def __init__(self):
         self._chapters: dict[str, ChapterRow] = {}
         self.error: Exception | None = None
+        self.force_return_none: bool = False
+        self.pool = FakePool()
 
     def seed(self, chapter: ChapterRow):
         self._chapters[chapter.id] = chapter
@@ -327,6 +367,7 @@ class FakeChapterRepository:
 
     async def update(self, *, chapter_id: str, user_id: str, fields: dict, executor=None) -> ChapterRow | None:
         if self.error: raise self.error
+        if self.force_return_none: return None
         ch = await self.get(chapter_id, user_id)
         if not ch: return None
         updated = ch.model_copy(update={**fields, "updated_at": _now()})

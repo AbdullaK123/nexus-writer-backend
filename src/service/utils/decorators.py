@@ -1,8 +1,9 @@
 import functools
 from uuid import UUID
 from src.data.exceptions import NotFoundError as DataNotFound, DuplicateError
-from src.infrastructure.exceptions import DatabaseError
+from src.infrastructure.exceptions import DatabaseError, LLMConfigError, LLMServiceError, InfrastructureError
 from src.service.exceptions import (
+    InternalError,
     ServiceError,
     NotFoundError,
     ConflictError,
@@ -57,7 +58,28 @@ def handle_service_errors(func):
                 func=func.__qualname__,
                 error=str(e.original),
             )
-            raise ServiceError("A database error occurred")
+            raise InternalError("A database error occurred")
+        except LLMServiceError as e:
+            logger.error(
+                "service.infrastructure_failure",
+                func=func.__qualname__,
+                error=str(e.original)
+            )
+            raise InternalError("LLM service failure occurred")
+        except LLMConfigError as e:
+            logger.error(
+                "service.infrastructure_failure",
+                func=func.__qualname__,
+                error=str(e.original)
+            )
+            raise InternalError("LLM config failure occurred")
+        except InfrastructureError as e:
+            logger.error(
+                "service.infrastructure_failure",
+                func=func.__qualname__,
+                error=str(e)
+            )
+            raise InternalError("Uncaught infrastructure failure.")
 
     return wrapper
 
