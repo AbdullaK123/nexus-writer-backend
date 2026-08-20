@@ -3,7 +3,7 @@ import { FilterChip } from "./FilterChip/FilterChip";
 import { StoryCard, type StoryCardProps } from "./StoryCard/StoryCard";
 import styles from './LibraryGrid.module.css'
 
-import { Button, EmptyState, ErrorState, ModalWithTrigger } from "../../../common";
+import { Button, EmptyState, ModalWithTrigger } from "../../../common";
 import { None, Some } from "oxide.ts";
 import { LibraryLoadingSkeleton } from "../LibraryLoadingSkeleton";
 

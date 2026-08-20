@@ -81,7 +81,7 @@ export function useStoryChapters(storyId: string) {
             unwrapResultAsync(api.story.getStoryChapters(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
     })
-    return [toAsyncState<ChapterListResponse>(result), result.refetch] as const
+    return toAsyncState<ChapterListResponse>(result)
 }
 
 export function useStoryTags(storyId: string) {
@@ -222,7 +222,7 @@ export function useStoryPulse(storyId: string) {
         enabled: Boolean(storyId),
         staleTime: 10*1000
     })
-    return [toAsyncState<BookPulseResponse>(result), result.refetch] as const
+    return toAsyncState<BookPulseResponse>(result)
 }
 
 export function useStoryStats(storyId: string) {
@@ -232,5 +232,5 @@ export function useStoryStats(storyId: string) {
         queryFn: ({ signal }) => unwrapResultAsync(api.story.getStats(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId)
     })
-    return [toAsyncState<StoryStatsResponse>(result), result.refetch] as const
+    return toAsyncState<StoryStatsResponse>(result)
 }

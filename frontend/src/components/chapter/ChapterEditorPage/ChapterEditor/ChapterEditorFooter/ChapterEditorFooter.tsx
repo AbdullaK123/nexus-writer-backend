@@ -3,7 +3,6 @@ import { Button, LoadingSkeleton, ModalWithTrigger, Nothing } from "../../../../
 import { SceneSearchPalette, type SceneSearchPaletteProps } from "../../../../story/SceneSearchPalette";
 import styles from "./ChapterEditorFooter.module.css"
 export type ChapterEditorFooterProps = 
-| { status: "error" }
 | { status: "empty" }
 | { 
     status: "loading"
@@ -25,8 +24,7 @@ export type ChapterEditorFooterProps =
 
 export function ChapterEditorFooter(props: ChapterEditorFooterProps) {
     switch (props.status) {
-        case "empty":
-        case "error": {
+        case "empty": {
             return <Nothing />
         }
         case "loading": {

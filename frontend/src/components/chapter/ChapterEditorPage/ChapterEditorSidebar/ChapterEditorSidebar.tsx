@@ -8,7 +8,6 @@ import { DragDropProvider } from "@dnd-kit/react"
 import { isSortable } from "@dnd-kit/react/sortable";
 
 export type ChapterEditorSidebarProps = 
-| { status: "error", onRetry: () => void }
 | { status: "empty" }
 | { status: "loading"}
 | { 
@@ -29,27 +28,6 @@ export function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
     switch (props.status) {
         case "empty": {
             return <Nothing />
-        }
-        case "error": {
-            return (
-                <aside className={styles['content']}>
-                    <ErrorState 
-                        headline="Error"
-                        title="Failed to fetch your chapters"
-                        description={Some(
-                            "Something went wrong. The server might be experiencing issues."
-                        )}
-                        action={Some(
-                            <Button
-                                variant="primary"
-                                onClick={props.onRetry}
-                            >
-                                Retry
-                            </Button>
-                        )}
-                    />
-                </aside>
-            )
         }
         case "loading": {
             return (

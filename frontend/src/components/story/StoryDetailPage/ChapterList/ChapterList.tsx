@@ -1,4 +1,4 @@
-import { Button, EmptyState, ErrorState } from "../../../common";
+import { Button, EmptyState } from "../../../common";
 import { ChapterListFilterBar, type ChapterListFilterBarProps } from "./ChapterListFilterBar/ChapterListFilterBar";
 import { ChapterListItem, type ChapterListItemProps } from "./ChapterListItem/ChapterListItem";
 import styles from "./ChapterList.module.css"
@@ -7,7 +7,6 @@ import { ChapterListLoadingSkeleton } from "./ChapterListLoadingSkeleton";
 
 export type ChapterListProps =
   | { status: 'loading' }
-  | { status: 'error'; headline: string; title: string; onRetry: () => void }
   | { status: 'empty'; filterBar: ChapterListFilterBarProps }
   | { status: 'ready'; filterBar: ChapterListFilterBarProps; items: ChapterListItemProps[], selected: 'all' | 'draft' | 'published' }
 
@@ -16,19 +15,6 @@ export function ChapterList(props: ChapterListProps) {
     case 'loading':
       return (
         <ChapterListLoadingSkeleton />
-      )
-    case 'error':
-      return (
-        <div className={styles['content']}>
-          <ErrorState
-            headline={props.headline}
-            title={props.title}
-            description={None}
-            action={Some(
-              <Button variant="primary" onClick={props.onRetry}>Retry</Button>
-            )}
-          />
-        </div>
       )
     case 'empty':
       return (

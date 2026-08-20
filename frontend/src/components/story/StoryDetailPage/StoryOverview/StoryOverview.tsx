@@ -1,6 +1,6 @@
 import type { StatusBadgeVariant } from "../../../common";
-import { Button, ErrorState, StatusBadge } from "../../../common";
-import { Some, Option } from "oxide.ts";
+import { StatusBadge } from "../../../common";
+import { Option } from "oxide.ts";
 import styles from "./StoryOverview.module.css";
 import { StoryOverviewLoadingSkeleton } from "./StoryOverviewLoadingSkeleton";
 
@@ -13,14 +13,6 @@ export type StoryOverviewProps =
       stats: { totalChapters: number; totalWords: number; totalScenes: number; streakDays: number }
     }
   | { status: 'loading' }
-  | {
-      status: 'error'
-      headline: string
-      title: string
-      description: string
-      onRetryStats: () => void
-      onRetrySummary: () => void
-    }
   | {
       status: 'empty'
       badge: StatusBadgeVariant
@@ -74,22 +66,6 @@ export function StoryOverview(props: StoryOverviewProps) {
       return (
         <StoryOverviewLoadingSkeleton />
       )
-
-    case 'error':
-      return (
-        <ErrorState
-          headline={props.headline}
-          title={props.title}
-          description={Some(props.description)}
-          action={Some(
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <Button variant="primary" onClick={props.onRetryStats}>Retry Stats</Button>
-              <Button variant="secondary" onClick={props.onRetrySummary}>Retry Summary</Button>
-            </div>
-          )}
-        />
-      )
-
     case 'empty':
       return (
         <div className={styles['overview-container']}>

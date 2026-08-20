@@ -8,7 +8,6 @@ export function useChapterListProps(args: {
   selectedChapterId: Option<string>,
   selectedFilter: 'all' | 'draft' | 'published',
   onFilterChange: (filter: 'all' | 'draft' | 'published') => void,
-  onRetry: () => void,
   onChapterClick: (chapterId: string) => void,
   onChapterDoubleClick: (chapterId: string) => void
 }): ChapterListProps {
@@ -17,7 +16,6 @@ export function useChapterListProps(args: {
     selectedChapterId, 
     selectedFilter, 
     onFilterChange, 
-    onRetry, 
     onChapterClick, 
     onChapterDoubleClick 
   } = args;
@@ -26,8 +24,6 @@ export function useChapterListProps(args: {
     case 'idle':
     case 'loading':
       return { status: 'loading' };
-    case 'error':
-      return { status: 'error', headline: 'Chapters Error', title: 'Failed to load chapters', onRetry };
     case 'empty':
       return {
         status: 'empty',

@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from "react"
+import { useState } from "react"
 import { useStoryPulse } from "../../../../data/queries/story"
 import type { BookPulseResponse, PulseDimension } from "../../../../infrastructure/api/types"
 import type { BookPulseProps } from "./BookPulse"
@@ -10,17 +10,9 @@ export function useBookPulse(storyId: string): BookPulseProps {
 
   const [threadCreationPending, setThreadCreationPending] = useState(false)
 
-  const [pulseState, refetch] = useStoryPulse(storyId)
+  const pulseState = useStoryPulse(storyId)
 
   const { error, info } = useToast()
-
-  const onError = useEffectEvent(() => {
-    error("Failed to load book pulse.", "Something went wrong. The server might be experiencing issues.")
-  })
-
-  useEffect(() => {
-    if (pulseState.status === 'error') onError()
-  }, [pulseState.status])
 
   const {
     mutate: createThread
@@ -89,8 +81,6 @@ export function useBookPulse(storyId: string): BookPulseProps {
     case 'idle':
     case 'loading':
       return { status: 'loading' }
-    case 'error':
-      return { status: 'error', onRetry: () => { void refetch() } }
     case 'empty':
       return { status: 'empty' }
     case 'success': {

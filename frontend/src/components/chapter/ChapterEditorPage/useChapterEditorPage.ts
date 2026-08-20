@@ -2,7 +2,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { useChapter, useChapterComments, useCreateThread, useStoryChapters, useUpdateChapter } from "../../../data/queries";
 import type { ChapterEditorProps } from "./ChapterEditor";
 import { useChapterEditorSidebarProps, type ChapterEditorSidebarProps } from "./ChapterEditorSidebar";
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Editor, useEditor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { debounce } from "lodash"
@@ -23,9 +23,9 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
 
     const params = useParams({ from: "/app/stories/$storyId/$chapterId" })
 
-    const [storyChaptersState, refetchChapterList] = useStoryChapters(params.storyId)
-    const [chapterState, refetchChapter] = useChapter(params.chapterId)
-    const [commentsState, refetchComments] = useChapterComments(params.chapterId)
+    const storyChaptersState = useStoryChapters(params.storyId)
+    const chapterState = useChapter(params.chapterId)
+    const commentsState = useChapterComments(params.chapterId)
     const updateChapterMutation = useUpdateChapter(params.chapterId)
     const [updating, setUpdating] = useState(false)
     const [query, setQuery] = useState("")
@@ -38,30 +38,6 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     const { settings } = useSettings()
 
     const { error } = useToast()
-
-    const onStoryChaptersError = useEffectEvent(() => {
-        error("Failed to fetch your chapters", "Somthing went wrong. The server might be experiencing issues.")
-    })
-
-    const onChapterError = useEffectEvent(() => {
-        error("Failed to load your chapter", "Something went wrong. The server might be experiencing issues.")
-    })
-
-    const onCommentsError = useEffectEvent(() => {
-        error("Failed to load your comments", "Something went wrong. The server might be experiencing issues.")
-    })
-
-    useEffect(() => {
-        if (storyChaptersState.status === "error") onStoryChaptersError()
-    }, [storyChaptersState.status])
-
-    useEffect(() => {
-        if (chapterState.status === "error") onChapterError()
-    }, [chapterState.status])
-
-    useEffect(() => {
-        if (commentsState.status === "error") onCommentsError()
-    }, [commentsState.status])
 
     const debouncedUpdate = useMemo(
         () => debounce((htmlContent: string) => {
@@ -144,7 +120,6 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
         storyId: params.storyId,
         state: storyChaptersState,
         selectedChapterId: params.chapterId,
-        onChaptersRetry: refetchChapterList,
         onSelectChapter: (chapterId: string) => {
             navigate({
                 to: "/stories/$storyId/$chapterId",
@@ -189,8 +164,6 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
         threadCreationPending: threadCreationPending,
         onQueryChange: (query: string) => setQuery(query),
         onAskAgent: onAskAgent,
-        onRetryChapter: refetchChapter,
-        onRetryStory: refetchChapterList,
         editor: editor ? Some(editor) : None,
         storyId: params.storyId,
         state: chapterState
@@ -198,8 +171,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
 
     const commentsSidebarProps = useChapterCommentsSidebarProps({
         storyId: params.storyId,
-        state: commentsState,
-        onRefetchComments: refetchComments
+        state: commentsState
     })
 
     return {

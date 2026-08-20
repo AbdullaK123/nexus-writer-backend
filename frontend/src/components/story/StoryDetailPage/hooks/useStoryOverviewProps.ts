@@ -11,17 +11,13 @@ import {None, Some} from 'oxide.ts'
 export type UseStoryOverviewArgs = {
     storyState: AsyncState<ChapterListResponse, ApiError>,
     summaryState: AsyncState<ChapterSummaryResponse, ApiError>,
-    statsState: AsyncState<StoryStatsResponse, ApiError>,
-    onRetryStats: () => void;
-    onRetrySummary: () => void;
+    statsState: AsyncState<StoryStatsResponse, ApiError>
 }
 
 export function useStoryOverviewProps({
     storyState,
     summaryState,
-    statsState,
-    onRetryStats,
-    onRetrySummary
+    statsState
 }: UseStoryOverviewArgs): StoryOverviewProps {
 
 
@@ -36,15 +32,6 @@ export function useStoryOverviewProps({
         case "loading":
             return {
                 status: "loading"
-            }
-        case "error":
-            return {
-                status: "error",
-                headline: "Error",
-                title: "Failed to fetch story info",
-                description: "Something went wrong. The server might be experiencing issues.",
-                onRetryStats: onRetryStats,
-                onRetrySummary: onRetrySummary
             }
         case "empty":
             return {
@@ -62,7 +49,6 @@ export function useStoryOverviewProps({
                 summaryText: (() => {
                     switch (summaryState.status) {
                         case "idle":
-                        case "error":
                         case "empty": 
                             return None
                         case "loading": 

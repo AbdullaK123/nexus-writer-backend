@@ -12,7 +12,6 @@ export type UseChapterEditorSidebarProps =
     state: AsyncState<ChapterListResponse, ApiError>
     selectedChapterId: string
     onSelectChapter: (chapterId: string) => void
-    onChaptersRetry: () => void
 }
 
 
@@ -20,8 +19,7 @@ export function useChapterEditorSidebarProps({
     storyId,
     state,
     selectedChapterId,
-    onSelectChapter,
-    onChaptersRetry
+    onSelectChapter
 }: UseChapterEditorSidebarProps): ChapterEditorSidebarProps {
 
     const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -52,9 +50,6 @@ export function useChapterEditorSidebarProps({
             return {
                 status: "loading"
             }
-        }
-        case "error": {
-            return { status: "error", onRetry: onChaptersRetry} 
         }
         case "empty": {
             return { status: "empty" }

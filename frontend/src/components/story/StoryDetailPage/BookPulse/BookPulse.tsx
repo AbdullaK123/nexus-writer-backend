@@ -7,7 +7,6 @@ import { FilterChipNoCounts } from "../../DashboardPage/LibraryGrid/FilterChip/F
 
 export type BookPulseProps =
   | { status: 'loading' }
-  | { status: 'error'; onRetry: () => void }
   | { status: 'empty' }
   | {
       status: 'ready'
@@ -113,15 +112,6 @@ export function BookPulse(props: BookPulseProps) {
             ))}
           </div>
         </div>
-      )
-    case 'error':
-      return (
-        <ErrorState
-          headline="Error"
-          title="Failed to load book pulse."
-          description={None}
-          action={Some(<Button variant="primary" onClick={props.onRetry}>Retry</Button>)}
-        />
       )
     case 'empty':
       return (

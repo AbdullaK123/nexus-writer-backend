@@ -39,7 +39,7 @@ export function useChapter(chapterId: string, asHtml: boolean = true) {
             unwrapResultAsync(api.chapter.getChapter(chapterId, asHtml, requestOptions({ signal }))),
         enabled: Boolean(chapterId),
     })
-    return [toAsyncState<ChapterContentResponse>(result), result.refetch] as const
+    return toAsyncState<ChapterContentResponse>(result)
 }
 
 // ─── Mutations ─────────────────────────────────────────────────────────────
@@ -180,7 +180,7 @@ export function useChapterSummary(chapterId: Option<string>) {
     staleTime: 1000*10
   })
 
-  return [toAsyncState<ChapterSummaryResponse>(result), result.refetch] as const
+  return toAsyncState<ChapterSummaryResponse>(result)
 }
 
 export function useChapterComments(chapterId: string) {
@@ -196,5 +196,5 @@ export function useChapterComments(chapterId: string) {
         staleTime: 1000*10
     })
 
-    return [toAsyncState<CommentExtractionResponse>(result), result.refetch] as const
+    return toAsyncState<CommentExtractionResponse>(result)
 }

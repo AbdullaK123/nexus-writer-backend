@@ -6,7 +6,7 @@ import { useSceneSearchPaletteProps } from "../../../story/SceneSearchPalette/us
 import type { ChapterEditorProps } from "./ChapterEditor";
 import { type Editor } from "@tiptap/react";
 import { None, Option, Some } from "oxide.ts"
-import { useEffect, useEffectEvent, useState } from "react";
+import { useState } from "react";
 import { useToast } from "../../../common";
 import { useShortcut } from "../../../../hooks/useShortcut";
 export type UseChapterEditorPropsArgs = 
@@ -16,8 +16,6 @@ export type UseChapterEditorPropsArgs =
     threadCreationPending: boolean
     onQueryChange: (query: string) => void
     onAskAgent: (query: string) => void
-    onRetryStory: () => void
-    onRetryChapter: () => void
     editor: Option<Editor>,
     storyId: string
     state: AsyncState<ChapterContentResponse, ApiError>
@@ -30,8 +28,6 @@ export function useChapterEditorProps({
     threadCreationPending,
     onQueryChange,
     onAskAgent,
-    onRetryChapter,
-    onRetryStory,
     editor,
     storyId,
     state
@@ -52,10 +48,6 @@ export function useChapterEditorProps({
     const [modalOpen, setModalOpen] = useState(false)
     const { success, error } = useToast()
     const navigate = useNavigate()
-
-    const onSearchError = useEffectEvent(() => {
-        error("Failed to search your story", "Something went wrong. The server might be experiencing issues.")
-    })
 
     useShortcut(
         "ArrowLeft",
@@ -112,10 +104,6 @@ export function useChapterEditorProps({
         }
     )
 
-    useEffect(() => {   
-        if (sceneSearchState.status === "error") onSearchError()
-    }, [sceneSearchState.status])
-
     switch (state.status) {
         case "idle":
         case "loading": {
@@ -141,21 +129,6 @@ export function useChapterEditorProps({
                 },
                 footer: {
                     status: "empty"  
-                }
-            }
-        }
-        case "error": {
-            return {
-                header: {
-                    status: "error"
-                },
-                content: {
-                    status: "error",
-                    onRetryChapter: onRetryChapter,
-                    onRetryStory: onRetryStory
-                },
-                footer: {
-                    status: "error"
                 }
             }
         }

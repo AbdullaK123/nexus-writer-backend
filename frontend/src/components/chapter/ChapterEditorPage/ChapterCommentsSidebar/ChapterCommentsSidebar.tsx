@@ -1,4 +1,4 @@
-import { Button, ErrorState, LoadingSkeleton, Nothing } from "../../../common";
+import { LoadingSkeleton, Nothing } from "../../../common";
 import { ChapterCommentCard, type ChapterCommentCardProps } from "./ChapterCommentCard";
 import { ChapterCommentsSidebarHeader, type ChapterCommentsSidebarHeaderProps } from "./ChapterCommentsSidebarHeader";
 import styles from "./ChapterCommentsSidebar.module.css"
@@ -8,7 +8,6 @@ export type ChapterCommentsSidebarProps =
 | { status: "loading"}
 | { status: "empty" }
 | { status: "idle" }
-| { status: "error", onRetry: () => void}
 | {
     status: "ready"
     header: ChapterCommentsSidebarHeaderProps,
@@ -31,25 +30,6 @@ export function ChapterCommentsSidebar(props: ChapterCommentsSidebarProps) {
                         <LoadingSkeleton className={Some(`${styles['h-15']} ${styles['w-full']}`)} />
                         <LoadingSkeleton className={Some(`${styles['h-15']} ${styles['w-full']}`)} />
                     </div>
-                </aside>
-            )
-        }
-        case "error": { // TODO: proper error state needed here.
-            return (
-                <aside className={styles['content']}>
-                    <ErrorState 
-                        headline="Error"
-                        title="Failed to fetch your comments"
-                        description={Some("Something went wrong. The server might be experiencing issues.")}
-                        action={Some(
-                            <Button
-                                variant="primary"
-                                onClick={props.onRetry}
-                            >
-                                Retry
-                            </Button>
-                        )}
-                    />
                 </aside>
             )
         }

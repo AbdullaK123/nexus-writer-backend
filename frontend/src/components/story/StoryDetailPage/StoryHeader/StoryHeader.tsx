@@ -17,15 +17,6 @@ export type StoryHeaderProps =
       onNewChapter: (title: string) => void
     } 
   | {
-      status: 'error'
-      message: string
-      onRetry: () => void
-      onNavigateToLibrary: () => void
-      onClickSettings: () => void
-      onAskNexus: () => void
-      onNewChapter: () => void
-    }
-  | {
       status: 'empty'
       onNavigateToLibrary: () => void
       onClickSettings: () => void
@@ -51,19 +42,6 @@ export function StoryHeader(props: StoryHeaderProps) {
   switch (props.status) {
     case 'loading':
       return <StoryHeaderLoadingSkeleton />
-    case 'error':
-      return (
-        <div className={styles['header-container']}>
-          <Button variant="ghost" onClick={props.onNavigateToLibrary}>{`← YOUR LIBRARY`}</Button>
-          <div className={styles['btn-container']}>
-            <p className={styles['red-text']}>X {props.message}</p>
-            <Button variant="secondary" onClick={props.onRetry}>Retry</Button>
-            <Button variant="secondary" onClick={props.onClickSettings}>Settings</Button>
-            <Button variant="primary" onClick={props.onAskNexus}>Ask Nexus</Button>
-            <Button variant="primary" onClick={props.onNewChapter}>+ New Chapter</Button>
-          </div>
-        </div>
-      )
     case 'empty':
       return (
         <div className={styles['header-container']}>

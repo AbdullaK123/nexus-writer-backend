@@ -14,7 +14,6 @@ export type UseChapterCommentsSidebarPropsArgs =
 {
     storyId: string,
     state: AsyncState<CommentExtractionResponse, ApiError>,
-    onRefetchComments: () => void
 }
 
 export type CommentView = "active" | "dismissed"
@@ -26,7 +25,6 @@ export type DismissedComment = {
 export function useChapterCommentsSidebarProps({
     storyId,
     state,
-    onRefetchComments
 }: UseChapterCommentsSidebarPropsArgs): ChapterCommentsSidebarProps {
 
     const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -154,9 +152,6 @@ export function useChapterCommentsSidebarProps({
         }
         case "loading": {
             return { status: "loading" }
-        }
-        case "error": {
-            return { status: "error", onRetry: onRefetchComments}
         }
         case "success": {
 

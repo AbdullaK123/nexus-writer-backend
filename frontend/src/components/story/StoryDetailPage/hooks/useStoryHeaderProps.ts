@@ -12,7 +12,6 @@ export function useStoryHeaderProps(args: {
   onClickSettings: () => void,
   onAskNexus: () => void,
   onNewChapter: () => void,
-  onRetry: () => void
 }): StoryHeaderProps {
 
   const { 
@@ -24,23 +23,12 @@ export function useStoryHeaderProps(args: {
     onNavigateToLibrary, 
     onClickSettings, 
     onAskNexus, 
-    onNewChapter, 
-    onRetry
+    onNewChapter
    } = args;
 
 
 
   switch (chaptersState.status) {
-    case 'error':
-      return {
-        status: 'error',
-        message: 'Failed to load story header',
-        onRetry,
-        onNavigateToLibrary,
-        onClickSettings,
-        onAskNexus,
-        onNewChapter,
-      }
     case "idle":
     case "loading":
       return {

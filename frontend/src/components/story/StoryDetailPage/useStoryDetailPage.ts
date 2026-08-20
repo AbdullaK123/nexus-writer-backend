@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from "react";
+import { useState } from "react";
 import { useChapterSummary, useCreateChapter, useStoryChapters, useStoryStats } from "../../../data/queries";
 import type { ChapterListProps } from "./ChapterList/ChapterList";
 import type { StoryHeaderProps } from "./StoryHeader/StoryHeader";
@@ -30,36 +30,12 @@ export function useStoryDetailPage(): StoryDetailPageProps {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'draft' | 'published'>('all')
   const { error, success } = useToast()
 
-  const [storyState, refetchStory] = useStoryChapters(storyId)
-  const [statsState, refetchStats] = useStoryStats(storyId)
-  const [summaryState, refetchSummary] = useChapterSummary(selectedChapterId)
+  const storyState = useStoryChapters(storyId)
+  const statsState = useStoryStats(storyId)
+  const summaryState = useChapterSummary(selectedChapterId)
   const { 
     mutate: createChapter
   } = useCreateChapter(storyId)
-
-  const onStoryError = useEffectEvent(() => {
-    error("Failed to fetch story data.", "Something went wrong. The server might be experiencing issues.")
-  })
-
-  const onStatsError = useEffectEvent(() => {
-    error("Failed to fetch story stats.", "Something went wrong. The server might be experiencing issues.")
-  })
-
-  const onSummaryError = useEffectEvent(() => {
-    error("Failed to fetch chapterSummary.", "Something went wrong. The server might be experiencing issues.")
-  })
-
-  useEffect(() => {
-    if (storyState.status === "error") onStoryError()
-  }, [storyState.status])
-
-  useEffect(() => {
-    if (statsState.status === "error") onStatsError()
-  }, [statsState.status])
-
-  useEffect(() => {
-    if (summaryState.status === "error") onSummaryError()
-  }, [summaryState.status])
 
   const handleChapterCreate = () => createChapter(
     { title: chapterTitle },
@@ -86,16 +62,13 @@ export function useStoryDetailPage(): StoryDetailPageProps {
     onNavigateToLibrary: () => navigate({ to: "/" }),
     onClickSettings: () => navigate({ to: "/settings" }),
     onAskNexus: () => navigate({ to: "/stories/$storyId/chat/new", params:{ storyId: storyId} }),
-    onNewChapter: handleChapterCreate,
-    onRetry: refetchStory
+    onNewChapter: handleChapterCreate
   })
 
   const storyOverview: StoryOverviewProps = useStoryOverviewProps({
     storyState: storyState,
     summaryState: summaryState,
-    statsState: statsState,
-    onRetryStats: refetchStats,
-    onRetrySummary: refetchSummary
+    statsState: statsState
   })
 
 
@@ -104,7 +77,6 @@ export function useStoryDetailPage(): StoryDetailPageProps {
     selectedChapterId: selectedChapterId,
     selectedFilter: selectedFilter,
     onFilterChange: (filter: 'all' | 'draft' | 'published') => setSelectedFilter(filter),
-    onRetry: refetchStory,
     onChapterClick: (chapterId: string) => setSelectedChapterId(Some(chapterId)),
     onChapterDoubleClick: (chapterId: string) => navigate({ to: `/stories/${storyId}/${chapterId}` })
   })

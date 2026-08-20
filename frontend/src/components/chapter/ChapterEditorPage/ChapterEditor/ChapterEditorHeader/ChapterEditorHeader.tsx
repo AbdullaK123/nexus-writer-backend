@@ -7,7 +7,6 @@ import { useTiptapState } from "@tiptap/react";
 export type ChapterEditorHeaderProps =
 | { status: "loading" }
 | { status: "empty" }
-| { status: "error" }
 | {
     status: "ready"
     saving: boolean
@@ -23,8 +22,7 @@ export function ChapterEditorHeader(props: ChapterEditorHeaderProps) {
     })
 
     switch (props.status) {
-        case "empty":
-        case "error": {
+        case "empty": {
             return <Nothing />
         }
         case "loading": {
