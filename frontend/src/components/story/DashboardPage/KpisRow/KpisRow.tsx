@@ -5,7 +5,6 @@ import { KpisRowLoadingSkeleton } from "./KpisRowLoadingSkeleton";
 
 export type KpisRowProps =
   | { status: 'loading' }
-  | { status: 'error'; onRetry: () => void }
   | { status: 'empty' }
   | {
       status: 'ready'
@@ -21,15 +20,6 @@ export function KpisRow(props: KpisRowProps) {
   switch (props.status) {
     case 'loading':
       return <KpisRowLoadingSkeleton />
-    case 'error':
-      return (
-        <ErrorState
-          headline="Error"
-          title="Failed to load your progress."
-          description={None}
-          action={Some(<Button variant="primary" onClick={props.onRetry}>Retry</Button>)}
-        />
-      )
     case 'empty':
       return (
         <div className={styles['row-container']}>

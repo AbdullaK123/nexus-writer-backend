@@ -59,7 +59,7 @@ export function useStories() {
         queryKey: storyKeys.list(),
         queryFn: ({ signal }) => unwrapResultAsync<StoryGridResponse, ApiError>(api.story.getStories(requestOptions({ signal }))),
     })
-    return [toAsyncState<StoryGridResponse>(result), result.refetch] as const
+    return toAsyncState<StoryGridResponse>(result)
 }
 
 export function useStoryDetails(storyId: string) {

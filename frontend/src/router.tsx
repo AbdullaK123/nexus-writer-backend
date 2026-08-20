@@ -17,6 +17,8 @@ import { StoryChatPage } from "./components/chat";
 import { NewStoryChatPage } from "./components/chat/StoryChatPage/NewStoryChatPage";
 import { z } from "zod";
 import { SettingsPage } from "./components/settings";
+import { ErrorPage } from "./components/common/ErrorPage";
+import { NotFoundPage } from "./components/common/NotFoundPage";
 
 interface RouterContext {
     auth: AuthContextValue
@@ -57,6 +59,24 @@ const signupRoute = createRoute({
         redirect: typeof s.redirect === "string" ? s.redirect : undefined
     }),
     component: SignupPage
+})
+
+export const errorRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/error",
+    validateSearch: (s: Record<string, unknown>) => ({
+        redirect: typeof s.redirect === "string" ? s.redirect : undefined
+    }),
+    component: ErrorPage
+})
+
+export const notFoundRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/404",
+    validateSearch: (s: Record<string, unknown>) => ({
+        redirect: typeof s.redirect === "string" ? s.redirect : undefined
+    }),
+    component: NotFoundPage
 })
 
 
@@ -126,6 +146,8 @@ const settingsPage = createRoute({
 const routeTree = rootRoute.addChildren([
     loginRoute,
     signupRoute,
+    errorRoute,
+    notFoundRoute,
     appRoute.addChildren([
         dashboardRoute, 
         storyDetailRoute,

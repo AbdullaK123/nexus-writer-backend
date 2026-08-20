@@ -39,7 +39,7 @@ export function useDashboard() {
         queryFn: ({ signal }) => unwrapResultAsync(api.auth.getDashboard(requestOptions({ signal }))),
         staleTime: 5*60*100
     })
-    return [toAsyncState<DashboardResponse>(result), result.refetch] as const
+    return toAsyncState<DashboardResponse>(result)
 }
 
 export function useUpdateSettings() {

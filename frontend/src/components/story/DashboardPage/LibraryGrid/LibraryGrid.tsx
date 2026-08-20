@@ -9,7 +9,6 @@ import { LibraryLoadingSkeleton } from "../LibraryLoadingSkeleton";
 
 export type LibraryGridProps =
   | { status: 'loading' }
-  | { status: 'error'; onRetry: () => void }
   | {
       status: 'empty'
       modalOpen: boolean
@@ -35,19 +34,6 @@ export function LibraryGrid(props: LibraryGridProps) {
   switch (props.status) {
     case 'loading':
       return <LibraryLoadingSkeleton />
-    case 'error':
-      return (
-        <ErrorState
-          headline="Error"
-          title="Failed to load your stories."
-          description={Some("Sorry we couldn't load your stories. The server might be experiencing issues. Please try again.")}
-          action={Some(
-            <Button variant="primary" onClick={props.onRetry}>
-              Try Again
-            </Button>
-          )}
-        />
-      )
     case 'empty':
       return (
         <EmptyState

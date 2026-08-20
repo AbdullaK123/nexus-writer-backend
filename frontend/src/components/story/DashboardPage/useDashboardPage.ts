@@ -21,14 +21,13 @@ export type DashboardPageProps = {
   welcomeHeader: WelcomeHeaderProps,
   kpisRow: KpisRowProps,
   jumpBackInRow: JumpBackInRowProps,
-  libraryGrid: LibraryGridProps,
-  refetch: RefetchProps
+  libraryGrid: LibraryGridProps
 }
 
 export function useDashboardPage(): DashboardPageProps {
   const ctx = useRouteContext({ from: "/app" });
-  const [storiesState, refetchStories] = useStories();
-  const [dashboardState, refetchDashboard] = useDashboard();
+  const storiesState = useStories();
+  const dashboardState = useDashboard();
 
   const welcomeHeader = useWelcomeHeaderProps({
     username: (ctx.auth.status === "authenticated") ? ctx.auth.user.username : "",
@@ -36,28 +35,21 @@ export function useDashboardPage(): DashboardPageProps {
   });
 
   const kpisRow = useKpisRowProps({
-    dashboardState,
-    onRetry: () => { void refetchDashboard(); },
+    dashboardState
   });
 
   const jumpBackInRow = useJumpBackInRowProps({
-    dashboardState,
-    onRetry: () => { void refetchDashboard(); },
+    dashboardState
   });
 
   const libraryGrid = useLibraryGridProps({
-    storiesState,
-    onRetry: () => { void refetchStories(); },
+    storiesState
   });
 
   return {
     welcomeHeader,
     kpisRow,
     jumpBackInRow,
-    libraryGrid,
-    refetch: {
-      dashboard: refetchDashboard,
-      stories: refetchStories,
-    },
+    libraryGrid
   };
 }

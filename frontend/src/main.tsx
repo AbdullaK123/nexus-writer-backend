@@ -5,10 +5,11 @@ import { AppRouter} from "./AppRouter.tsx"
 import { loadConfig } from './infrastructure/config'
 import { createApi } from './infrastructure/api'
 import { ApiProvider, AuthProvider, QueryProvider } from './data/providers'
-import { match, fromNullable } from './shared/types'
-import { QueryClient } from '@tanstack/react-query';
+import { match, fromNullable, ApiError } from './shared/types'
+import { QueryCache, QueryClient } from '@tanstack/react-query';
 import { queryClientDefaults } from './data/providers/QueryProvider/config.ts';
 import { Toast } from './components/common/Toast/Toast.tsx';
+import { router } from "./router"
 
 // ─── Composition root ───────────────────────────────────────
 //
@@ -47,7 +48,31 @@ match(rootOpt, {
             },
             Ok: (config) => {
                 const api = createApi(config)
-                const queryClient = new QueryClient({ defaultOptions: queryClientDefaults })
+                const queryClient = new QueryClient({ 
+                    defaultOptions: queryClientDefaults,
+                    queryCache: new QueryCache({
+                        onError: (error) => {
+
+                            const from = router.state.location.pathname
+
+                            if (error instanceof ApiError) {
+                                switch (error.status) {
+                                    case 401: 
+                                        router.navigate({ to: "/login", search: { redirect: from }})
+                                        break
+                                    case 404: 
+                                        router.navigate({ to: "/404", search: { redirect: from }})
+                                        break
+                                    default: 
+                                        router.navigate({ to: "/error", search: { redirect: from }})
+                                }
+                            } else {
+                                router.navigate({ to: "/error", search: { redirect: from }})
+                            }
+
+                        }
+                    })
+                 })
                 createRoot(rootEl).render(
                     <StrictMode>
                         <QueryProvider client={queryClient}>

@@ -6,7 +6,6 @@ import { JumpBackInRowLoadingSkeleton } from "./JumpBackInRowLoadingSkeleton";
 
 export type JumpBackInRowProps =
   | { status: 'loading' }
-  | { status: 'error'; onRetry: () => void }
   | { status: 'empty' }
   | { status: 'ready'; chapterCards: ChapterCardProps[] }
 
@@ -14,15 +13,6 @@ export function JumpBackInRow(props: JumpBackInRowProps) {
   switch (props.status) {
     case 'loading':
       return <JumpBackInRowLoadingSkeleton />
-    case 'error':
-      return (
-        <ErrorState
-          headline="Error"
-          title="Failed to load recent chapters."
-          description={None}
-          action={Some(<Button variant="primary" onClick={props.onRetry}>Retry</Button>)}
-        />
-      )
     case 'empty':
       return (
         <div className={styles['main-content']}>

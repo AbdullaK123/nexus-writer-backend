@@ -1,0 +1,28 @@
+.logo {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 48px;
+    height: 48px;
+    color: var(--color-cyan);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--fill-cyan);
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    width: 30rem;
+}
+
+.content-container {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}

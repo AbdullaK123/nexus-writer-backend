@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from "react";
+import { useState } from "react";
 import type { LibraryGridProps } from "../LibraryGrid/LibraryGrid";
 import type { AsyncState, StoryGridResponse } from "../../../../infrastructure/api/types";
 import type { ApiError } from "../../../../shared/types";
@@ -6,8 +6,8 @@ import { useCreateStory} from "../../../../data/queries";
 import { useToast } from "../../../common";
 import { useNavigate } from "@tanstack/react-router"
 
-export function useLibraryGridProps(args: { storiesState: AsyncState<StoryGridResponse, ApiError>; onRetry: () => void }): LibraryGridProps {
-  const { storiesState, onRetry } = args;
+export function useLibraryGridProps(args: { storiesState: AsyncState<StoryGridResponse, ApiError> }): LibraryGridProps {
+  const { storiesState } = args;
   const { error, success } = useToast();
   const { mutate: createStory } = useCreateStory();
   const navigate = useNavigate()
@@ -15,14 +15,6 @@ export function useLibraryGridProps(args: { storiesState: AsyncState<StoryGridRe
   const [modalOpen, setModalOpen] = useState(false);
   const [storyTitle, setStoryTitle] = useState("");
   const [libraryFilter, setLibraryFilter] = useState<'all' | 'ongoing' | 'hiatus' | 'complete'>("all");
-
-  const onStoriesError = useEffectEvent(() => {
-    error("Failed to load your stories.", "Something went wrong. If the problem persists, please contact support.");
-  });
-
-  useEffect(() => {
-    if (storiesState.status === 'error') onStoriesError();
-  }, [storiesState.status]);
 
   const onNewStory = (title: string) => 
     createStory({ title }, {
@@ -41,8 +33,6 @@ export function useLibraryGridProps(args: { storiesState: AsyncState<StoryGridRe
     case 'idle':
     case 'loading':
       return { status: 'loading' };
-    case 'error':
-      return { status: 'error', onRetry };
     case 'empty':
       return {
         status: 'empty',

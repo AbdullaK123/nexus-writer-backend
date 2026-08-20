@@ -77,7 +77,6 @@ export interface Api {
 export type AsyncState<T, E> = 
     | { status: "idle"; data: Option<never> } 
     | { status: "loading"; data: Option<never> }
-    | { status: "error"; data: Some<Err<E>> }
     | { status: "empty"; data: Some<Ok<[]>> }
     | { status: "success"; data: Some<Ok<T>> };
 
