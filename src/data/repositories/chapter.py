@@ -13,6 +13,7 @@ applies cleanly without intermediate-state violations.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any, Sequence
 
 import asyncpg
@@ -280,3 +281,59 @@ class ChapterRepository:
                AND c.story_id = $1
         """
         await self._exe(executor).execute(sql, story_id, list(path))
+
+    
+    async def mark_chapter_stale(
+        self,
+        chapter_id: str,
+        *,
+        executor: Executor | None = None,
+    ) -> None:
+        """Flag a chapter for re-extraction. Idempotent."""
+        sql = """
+            UPDATE "chapter"
+               SET scenes_need_reextraction = TRUE,
+                   updated_at = NOW()
+             WHERE id = $1
+        """
+        await self._exe(executor).execute(sql, chapter_id)
+
+    async def mark_chapter_extracted(
+        self,
+        chapter_id: str,
+        *,
+        executor: Executor | None = None,
+    ) -> None:
+        """Clear the stale flag and stamp `scenes_extracted_at`. Called at
+        the end of a successful extraction, inside the same transaction."""
+        sql = """
+            UPDATE "chapter"
+               SET scenes_need_reextraction = FALSE,
+                   scenes_extracted_at = NOW(),
+                   updated_at = NOW()
+             WHERE id = $1
+        """
+        await self._exe(executor).execute(sql, chapter_id)
+
+    async def list_stale_chapter_ids(
+        self,
+        *,
+        window_seconds: int,
+        limit: int,
+        executor: Executor | None = None,
+    ) -> tuple[list[str], str]:
+        """Chapters flagged for re-extraction whose last edit is older than
+        `window_seconds` (debounce — don't re-extract while the user is
+        actively typing). Ordered oldest-first."""
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=window_seconds)
+        sql = """
+            SELECT id, user_id
+              FROM "chapter"
+             WHERE scenes_need_reextraction = TRUE
+               AND updated_at <= $1
+               AND published = TRUE
+             ORDER BY updated_at ASC
+             LIMIT $2
+        """
+        rows = await self._exe(executor).fetch(sql, cutoff, limit)
+        return [r["id"] for r in rows], rows[0]["user_id"]

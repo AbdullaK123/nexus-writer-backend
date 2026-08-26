@@ -147,7 +147,7 @@ class ExtractionService:
                         scenes=[],
                         executor=conn,
                     )
-                    await self._scene_repo.mark_chapter_extracted(
+                    await self._chapter_repo.mark_chapter_extracted(
                         chapter.id, executor=conn
                     )
             return None
@@ -163,7 +163,7 @@ class ExtractionService:
                     scenes=extraction.scenes,
                     executor=conn,
                 )
-                await self._scene_repo.mark_chapter_extracted(
+                await self._chapter_repo.mark_chapter_extracted(
                     chapter.id,
                     executor=conn,
                 )
@@ -183,7 +183,7 @@ class ExtractionService:
         logged and skipped."""
         total_reextracted = 0
 
-        stale_chapter_ids, user_id = await self._scene_repo.list_stale_chapter_ids(
+        stale_chapter_ids, user_id = await self._chapter_repo.list_stale_chapter_ids(
             window_seconds=config.jobs.scene_extraction_window_seconds,
             limit=4 * batch_size,
         )

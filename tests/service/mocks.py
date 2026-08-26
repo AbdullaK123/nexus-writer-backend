@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Sequence
 from uuid_extensions import uuid7str
 
@@ -385,6 +385,43 @@ class FakeChapterRepository:
     async def sync_pointers(self, path: Sequence[str], *, executor=None) -> None:
         if self.error: raise self.error
 
+    async def mark_schapter_stale(
+        self,
+        chapter_id: str,
+        *,
+        executor=None
+    ) -> None:
+        if self.error: raise self.error
+        ch = self._chapters.get(chapter_id)
+        if not ch: return None
+        updated = ch.model_copy(update={"scenes_need_reextraction": True})
+        self._chapters[chapter_id] = updated
+
+    async def mark_chapter_extracted(
+        self,
+        chapter_id: str,
+        *,
+        executor=None
+    ) -> None:
+        print("This fired")
+        if self.error: raise self.error
+        ch = self._chapters.get(chapter_id)
+        if not ch: return None
+        updated = ch.model_copy(update={"scenes_extracted_at": _now()})
+        self._chapters[chapter_id] = updated
+
+    async def list_stale_chapter_ids(
+        self,
+        *,
+        window_seconds: int,
+        limit: int,
+        executor = None
+    ) -> tuple[list[str], str]:
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=window_seconds)
+        results = [ch for ch in self._chapters.values() if ch.scenes_need_reextraction and ch.updated_at <= cutoff and ch.published]
+        return [ch.id for ch in results], results[0].user_id
+        
+
 
 # ── Fake Scene Repository ────────────────────────────
 
@@ -393,6 +430,7 @@ class FakeSceneRepository:
     def __init__(self):
         self._scenes: dict[str, SceneRow] = {}
         self.error: Exception | None = None
+        self.pool: FakePool = FakePool()
 
     def seed(self, scene: SceneRow):
         self._scenes[scene.id] = scene
