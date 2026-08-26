@@ -105,13 +105,15 @@ def html_to_plain_text(html: str) -> str:
     """
     Convert TipTap HTML to clean plain text for AI processing.
 
-    Preserves paragraph structure without formatting.
+    Preserves paragraph structure without formatting. If the input is already
+    plain text (or contains no paragraph tags), return its textual content
+    instead of silently collapsing it to an empty string.
 
     USE FOR: Extraction jobs, line edits, AI analysis
     DON'T USE FOR: Display (use get_preview_content instead)
 
     Args:
-        html: TipTap HTML content
+        html: TipTap HTML content or already-plain text
 
     Returns:
         Clean plain text with paragraphs separated by double newlines
@@ -137,7 +139,11 @@ def html_to_plain_text(html: str) -> str:
         if text:
             paragraphs.append(text)
 
-    return "\n\n".join(paragraphs)
+    if paragraphs:
+        return "\n\n".join(paragraphs)
+
+    # Be tolerant of already-plain text and HTML that does not use <p> tags.
+    return soup.get_text(separator=" ", strip=True)
 
 
 def html_to_paragraphs(html: str) -> List[str]:
