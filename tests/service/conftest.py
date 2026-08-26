@@ -2,31 +2,35 @@
 
 import pytest
 import pytest_asyncio
-from src.data.schemas.auth import RegistrationData, UserResponse
-from src.data.schemas.chapter import ChapterRow
-from src.data.schemas.extraction import Scene, SceneExtraction
-from src.data.schemas.story import StoryRow
-from src.infrastructure.config.settings import SearchConfig
-from src.service.story.service import StoryService
-from src.service.chapter.service import ChapterService
-from src.service.auth.service import AuthService
-from src.service.extraction.service import ExtractionService
-from src.service.embedding.service import EmbeddingService
-from src.service.analytics.service import AnalyticsService
 from lorem_text import lorem
 
+from src.data.schemas.auth import RegistrationData, UserResponse
+from src.data.schemas.chapter import ChapterRow
+from src.data.schemas.story import StoryRow
+from src.infrastructure.config.settings import SearchConfig
+from src.service.analytics.service import AnalyticsService
+from src.service.auth.service import AuthService
+from src.service.chapter.service import ChapterService
+from src.service.embedding.service import EmbeddingService
+from src.service.extraction.service import ExtractionService
+from src.service.story.service import StoryService
 from tests.service.mocks import (
+    FakeAIProvider,
+    FakeAnalyticsRepository,
+    FakeChapterRepository,
+    FakeChatRepository,
+    FakePubSub,
     FakeQueue,
     FakeRedis,
-    FakePubSub,
-    FakeAIProvider,
-    FakeUserRepository,
+    FakeSceneRepository,
     FakeSessionRepository,
     FakeStoryRepository,
-    FakeChapterRepository,
-    FakeSceneRepository,
-    FakeAnalyticsRepository,
-    FakeChatRepository,
+    FakeUserRepository,
+)
+from tests.service.mocks.extraction import (
+    ExtractionChapterRepository,
+    ExtractionSceneRepository,
+    RecordingLogger,
 )
 
 
@@ -156,6 +160,24 @@ def extraction_service(
 
 
 @pytest.fixture
+def extraction_context():
+    chapter_repo = ExtractionChapterRepository()
+    scene_repo = ExtractionSceneRepository(chapter_repo)
+    provider = FakeAIProvider()
+    service = ExtractionService(
+        provider=provider,
+        chapter_repo=chapter_repo,
+        scene_repo=scene_repo,
+    )
+    return service, provider, chapter_repo, scene_repo
+
+
+@pytest.fixture
+def recording_logger() -> RecordingLogger:
+    return RecordingLogger()
+
+
+@pytest.fixture
 def embedding_service(
     fake_scene_repo,
     fake_provider,
@@ -185,22 +207,23 @@ def analytics_service(
     )
 
 
+# ── Domain data fixtures ─────────────────────────────
+
 @pytest_asyncio.fixture
-async def test_user(
-    auth_service: AuthService
-) -> UserResponse:
+async def test_user(auth_service: AuthService) -> UserResponse:
     return await auth_service.register_user(
         registration_data=RegistrationData(
             username="test_user",
             email="testuser@email.com",
-            password="mypassword123@ABC"
+            password="mypassword123@ABC",
         )
     )
+
 
 @pytest_asyncio.fixture
 async def test_story(
     test_user: UserResponse,
-    fake_story_repo: FakeStoryRepository
+    fake_story_repo: FakeStoryRepository,
 ) -> StoryRow:
     return await fake_story_repo.create(user_id=test_user.id, title="Test")
 
@@ -209,107 +232,70 @@ async def test_story(
 async def test_chapter(
     test_user: UserResponse,
     test_story: StoryRow,
-    fake_chapter_repo: FakeChapterRepository
+    fake_chapter_repo: FakeChapterRepository,
 ) -> ChapterRow:
     return await fake_chapter_repo.create(
         story_id=test_story.id,
         user_id=test_user.id,
         title="test",
         content="test content",
-        word_count=2
+        word_count=2,
     )
+
 
 @pytest_asyncio.fixture
 async def chapter_with_enough_content(
     test_user: UserResponse,
     test_story: StoryRow,
-    fake_chapter_repo: FakeChapterRepository
+    fake_chapter_repo: FakeChapterRepository,
 ) -> ChapterRow:
     return await fake_chapter_repo.create(
         story_id=test_story.id,
         user_id=test_user.id,
         title=lorem.words(10),
         content=lorem.words(1100),
-        word_count=1100
+        word_count=1100,
     )
+
 
 @pytest_asyncio.fixture
 async def chapter_with_not_enough_content(
     test_user: UserResponse,
     test_story: StoryRow,
-    fake_chapter_repo: FakeChapterRepository
+    fake_chapter_repo: FakeChapterRepository,
 ) -> ChapterRow:
     return await fake_chapter_repo.create(
         story_id=test_story.id,
         user_id=test_user.id,
         title=lorem.words(10),
         content=lorem.words(900),
-        word_count=900
+        word_count=900,
     )
+
 
 @pytest_asyncio.fixture
 async def published_chapter_with_enough_content(
     chapter_with_enough_content: ChapterRow,
-    fake_chapter_repo: FakeChapterRepository
+    fake_chapter_repo: FakeChapterRepository,
 ) -> ChapterRow:
-    updated =  await fake_chapter_repo.update(
+    updated = await fake_chapter_repo.update(
         chapter_id=chapter_with_enough_content.id,
         user_id=chapter_with_enough_content.user_id,
-        fields={
-            "published": True
-        }
+        fields={"published": True},
     )
     if updated is None:
         raise RuntimeError("Misconfigured fixture. Published chapter can not be None")
     return updated
 
-@pytest.fixture
-def test_extraction() -> SceneExtraction:
-    return SceneExtraction(
-        scenes=[
-            Scene(
-                title=lorem.words(10),
-                start_quote=lorem.words(20),
-                end_quote=lorem.words(10),
-                description=lorem.words(100),
-                pov=lorem.words(5),
-                tension="high",
-                pacing="fast",
-                mentioned_entities=[lorem.words(5) for _ in range(3)],
-                tags=[lorem.words(5) for _ in range(3)],
-                questions_raised=[lorem.words(10) for _ in range(5)]
-            )
-            for _ in range(3)
-        ]
-    )
-
-@pytest.fixture
-def fake_extraction_service(
-    test_extraction: SceneExtraction,
-    monkeypatch: pytest.MonkeyPatch,
-    extraction_service: ExtractionService
-) -> ExtractionService:
-    async def fake_extract_with_feedback(chapter_content: str) -> SceneExtraction:
-        return test_extraction
-
-    monkeypatch.setattr(
-        extraction_service,
-        "_extract_with_feedback",
-        fake_extract_with_feedback,
-    )
-
-    return extraction_service
-
 
 @pytest.fixture
 def fake_queue(monkeypatch: pytest.MonkeyPatch) -> FakeQueue:
-    fq = FakeQueue()
-    monkeypatch.setattr("src.service.chapter.service.queue", fq)
-    return fq
+    queue = FakeQueue()
+    monkeypatch.setattr("src.service.chapter.service.queue", queue)
+    return queue
+
 
 @pytest.fixture
-async def clear_cache(
-    fake_redis: FakeRedis
-):
+async def clear_cache(fake_redis: FakeRedis):
     yield
     await fake_redis.flush()
