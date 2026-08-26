@@ -1,7 +1,6 @@
 import pytest
 from src.data.schemas.auth import UserRow
 from src.data.schemas.chapter import ChapterRow
-from src.data.schemas.extraction import Scene, SceneExtraction
 from src.service.exceptions import NotFoundError
 from src.service.extraction.service import ExtractionService
 from lorem_text import lorem
@@ -54,24 +53,18 @@ async def test_chapter_not_long_enough(
 
 async def test_chapter_with_enough_content(
     chapter_with_enough_content: ChapterRow,
-    fake_provider: FakeAIProvider,
-    fake_scene_repo: FakeSceneRepository,
     fake_chapter_repo: FakeChapterRepository,
-    fake_extraction_service: ExtractionService 
+    fake_extraction_service: ExtractionService,
 ):
-    
     result = await fake_extraction_service.extract_scenes(
         chapter_id=chapter_with_enough_content.id,
-        user_id=chapter_with_enough_content.user_id
+        user_id=chapter_with_enough_content.user_id,
     )
 
     assert result is not None
-    assert fake_provider.call_count > 0
-
-    scenes = await fake_scene_repo.list_by_chapter(
-        chapter_id=chapter_with_enough_content.id
-    )
-    assert len(scenes) > 0
+    assert result.scenes_extracted == 3
+    assert result.chapter_number == 1
+    assert result.story_title == "Test Story"
 
     updated_chapter = await fake_chapter_repo.get(
         chapter_with_enough_content.id,
