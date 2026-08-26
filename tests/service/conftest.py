@@ -4,6 +4,7 @@ import pytest
 import pytest_asyncio
 from src.data.schemas.auth import RegistrationData, UserResponse
 from src.data.schemas.chapter import ChapterRow
+from src.data.schemas.extraction import Scene, SceneExtraction
 from src.data.schemas.story import StoryRow
 from src.infrastructure.config.settings import SearchConfig
 from src.service.story.service import StoryService
@@ -261,6 +262,38 @@ async def published_chapter_with_enough_content(
     if updated is None:
         raise RuntimeError("Misconfigured fixture. Published chapter can not be None")
     return updated
+
+@pytest.fixture
+def test_extraction() -> SceneExtraction:
+    return SceneExtraction(
+        scenes=[
+            Scene(
+                title=lorem.words(10),
+                start_quote=lorem.words(20),
+                end_quote=lorem.words(10),
+                description=lorem.words(100),
+                pov=lorem.words(5),
+                tension="high",
+                pacing="fast",
+                mentioned_entities=[lorem.words(5) for _ in range(3)],
+                tags=[lorem.words(5) for _ in range(3)],
+                questions_raised=[lorem.words(10) for _ in range(5)]
+            )
+            for _ in range(3)
+        ]
+    )
+
+@pytest.fixture
+def fake_extraction_service(
+    test_extraction: SceneExtraction,
+    monkeypatch: pytest.MonkeyPatch,
+    extraction_service: ExtractionService
+) -> ExtractionService:
+    test_service = extraction_service
+    
+    monkeypatch.setattr(test_service, "_extract_with_feedback", lambda : test_extraction)
+
+    return test_service
 
 
 @pytest.fixture
