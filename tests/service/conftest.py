@@ -74,8 +74,8 @@ def fake_chapter_repo() -> FakeChapterRepository:
 
 
 @pytest.fixture
-def fake_scene_repo() -> FakeSceneRepository:
-    return FakeSceneRepository()
+def fake_scene_repo(fake_chapter_repo: FakeChapterRepository) -> FakeSceneRepository:
+    return FakeSceneRepository(fake_chapter_repo)
 
 
 @pytest.fixture
