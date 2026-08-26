@@ -403,7 +403,6 @@ class FakeChapterRepository:
         *,
         executor=None
     ) -> None:
-        print("This fired")
         if self.error: raise self.error
         ch = self._chapters.get(chapter_id)
         if not ch: return None
@@ -427,8 +426,9 @@ class FakeChapterRepository:
 
 class FakeSceneRepository:
 
-    def __init__(self):
+    def __init__(self, chapter_repo: FakeChapterRepository):
         self._scenes: dict[str, SceneRow] = {}
+        self._chapter_repo = chapter_repo
         self.error: Exception | None = None
         self.pool: FakePool = FakePool()
 
@@ -471,9 +471,21 @@ class FakeSceneRepository:
 
     async def mark_chapter_stale(self, chapter_id: str, *, executor=None) -> None:
         if self.error: raise self.error
+        chapter = self._chapter_repo._chapters.get(chapter_id)
+        if chapter is None:
+            return
+        chapter.scenes_need_reextraction = True
+        chapter.updated_at = _now()
 
     async def mark_chapter_extracted(self, chapter_id: str, *, executor=None) -> None:
         if self.error: raise self.error
+        chapter = self._chapter_repo._chapters.get(chapter_id)
+        if chapter is None:
+            return
+        now = _now()
+        chapter.scenes_need_reextraction = False
+        chapter.scenes_extracted_at = now
+        chapter.updated_at = now
 
     async def list_stale_chapter_ids(self, story_id: str, *, executor=None) -> tuple[list[str], str]:
         if self.error: raise self.error
