@@ -1,5 +1,4 @@
 import asyncio
-from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -10,8 +9,7 @@ from src.infrastructure.config import config
 from src.infrastructure.exceptions import DatabaseError, LLMServiceError
 from src.service.exceptions import InternalError, NotFoundError
 from src.service.extraction import service as extraction_module
-from src.service.extraction.service import ExtractionService, scenes_are_stale
-from tests.service.mocks import FakeAIProvider, FakeChapterRepository, FakeSceneRepository
+from src.service.extraction.service import scenes_are_stale
 
 
 USER_ID = "user-1"
@@ -152,203 +150,7 @@ def _scene_row(
     )
 
 
-class ExtractionChapterRepository(FakeChapterRepository):
-    def __init__(self) -> None:
-        super().__init__()
-        self.mark_extracted_error: Exception | None = None
-        self.last_mark_executor = None
-        self.last_stale_query: tuple[int, int] | None = None
-
-    async def mark_chapter_extracted(self, chapter_id: str, *, executor=None) -> None:
-        self.last_mark_executor = executor
-        if self.mark_extracted_error:
-            raise self.mark_extracted_error
-        if self.error:
-            raise self.error
-
-        chapter = self._chapters.get(chapter_id)
-        if chapter is None:
-            return
-
-        now = _now()
-        self._chapters[chapter_id] = chapter.model_copy(
-            update={
-                "scenes_need_reextraction": False,
-                "scenes_extracted_at": now,
-                "updated_at": now,
-            }
-        )
-
-    async def list_stale_chapter_ids(
-        self,
-        *,
-        window_seconds: int,
-        limit: int,
-        executor=None,
-    ) -> tuple[list[str], str]:
-        self.last_stale_query = (window_seconds, limit)
-        cutoff = _now() - timedelta(seconds=window_seconds)
-        results = [
-            chapter
-            for chapter in self._chapters.values()
-            if chapter.scenes_need_reextraction
-            and chapter.updated_at <= cutoff
-            and chapter.published
-        ]
-        results.sort(key=lambda chapter: chapter.updated_at)
-        results = results[:limit]
-        return [chapter.id for chapter in results], results[0].user_id if results else ""
-
-
-class SnapshotTransaction:
-    def __init__(
-        self,
-        chapter_repo: ExtractionChapterRepository,
-        scene_repo: "ExtractionSceneRepository",
-    ) -> None:
-        self._chapter_repo = chapter_repo
-        self._scene_repo = scene_repo
-        self._chapter_snapshot: dict[str, ChapterRow] = {}
-        self._scene_snapshot: dict[str, SceneRow] = {}
-
-    async def __aenter__(self):
-        self._chapter_snapshot = deepcopy(self._chapter_repo._chapters)
-        self._scene_snapshot = deepcopy(self._scene_repo._scenes)
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        if exc_type is not None:
-            self._chapter_repo._chapters = self._chapter_snapshot
-            self._scene_repo._scenes = self._scene_snapshot
-        return False
-
-
-class SnapshotConnection:
-    def __init__(
-        self,
-        chapter_repo: ExtractionChapterRepository,
-        scene_repo: "ExtractionSceneRepository",
-    ) -> None:
-        self._chapter_repo = chapter_repo
-        self._scene_repo = scene_repo
-
-    def transaction(self) -> SnapshotTransaction:
-        return SnapshotTransaction(self._chapter_repo, self._scene_repo)
-
-
-class SnapshotAcquireContext:
-    def __init__(
-        self,
-        chapter_repo: ExtractionChapterRepository,
-        scene_repo: "ExtractionSceneRepository",
-    ) -> None:
-        self._connection = SnapshotConnection(chapter_repo, scene_repo)
-
-    async def __aenter__(self) -> SnapshotConnection:
-        return self._connection
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-
-class SnapshotPool:
-    def __init__(
-        self,
-        chapter_repo: ExtractionChapterRepository,
-        scene_repo: "ExtractionSceneRepository",
-    ) -> None:
-        self._chapter_repo = chapter_repo
-        self._scene_repo = scene_repo
-
-    def acquire(self) -> SnapshotAcquireContext:
-        return SnapshotAcquireContext(self._chapter_repo, self._scene_repo)
-
-
-class ExtractionSceneRepository(FakeSceneRepository):
-    def __init__(self, chapter_repo: ExtractionChapterRepository) -> None:
-        super().__init__(chapter_repo)
-        self.fail_after_delete: Exception | None = None
-        self.last_replace_executor = None
-        self.pool = SnapshotPool(chapter_repo, self)
-
-    async def replace_for_chapter(
-        self,
-        *,
-        chapter_id: str,
-        story_id: str,
-        user_id: str,
-        scenes: list[Scene],
-        executor=None,
-    ) -> None:
-        self.last_replace_executor = executor
-        if self.error:
-            raise self.error
-
-        self._scenes = {
-            scene_id: scene
-            for scene_id, scene in self._scenes.items()
-            if scene.chapter_id != chapter_id
-        }
-
-        if self.fail_after_delete:
-            raise self.fail_after_delete
-
-        now = _now()
-        for position, scene in enumerate(scenes):
-            row = SceneRow(
-                id=f"scene-{chapter_id}-{position}",
-                chapter_id=chapter_id,
-                story_id=story_id,
-                user_id=user_id,
-                position=position,
-                title=scene.title,
-                start_quote=scene.start_quote,
-                end_quote=scene.end_quote,
-                description=scene.description,
-                pov=scene.pov,
-                word_count=len(scene.description.split()),
-                tension=scene.tension,
-                pacing=scene.pacing,
-                mentioned_entities=scene.mentioned_entities,
-                tags=scene.tags,
-                questions_raised=scene.questions_raised,
-                embedding_model=None,
-                embedded_at=None,
-                created_at=now,
-                updated_at=now,
-            )
-            self._scenes[row.id] = row
-
-
-class RecordingLogger:
-    def __init__(self) -> None:
-        self.infos: list[tuple[str, dict]] = []
-        self.warnings: list[tuple[str, dict]] = []
-
-    def info(self, event: str, **kwargs) -> None:
-        self.infos.append((event, kwargs))
-
-    def warning(self, event: str, **kwargs) -> None:
-        self.warnings.append((event, kwargs))
-
-
-@pytest.fixture
-def extraction_context():
-    chapter_repo = ExtractionChapterRepository()
-    scene_repo = ExtractionSceneRepository(chapter_repo)
-    provider = FakeAIProvider()
-    service = ExtractionService(
-        provider=provider,
-        chapter_repo=chapter_repo,
-        scene_repo=scene_repo,
-    )
-    return service, provider, chapter_repo, scene_repo
-
-
-def _seed_stale_chapters(
-    chapter_repo: ExtractionChapterRepository,
-    count: int,
-) -> list[str]:
+def _seed_stale_chapters(chapter_repo, count: int) -> list[str]:
     ids: list[str] = []
     for index in range(count):
         chapter_id = f"stale-{index}"
@@ -672,12 +474,12 @@ async def test_regeneration_queries_four_batches_and_never_exceeds_batch_concurr
 
 async def test_regeneration_isolates_failures_continues_later_batches_and_counts_successes(
     extraction_context,
+    recording_logger,
     monkeypatch: pytest.MonkeyPatch,
 ):
     service, _, chapter_repo, _ = extraction_context
     stale_ids = _seed_stale_chapters(chapter_repo, 5)
     attempted: list[str] = []
-    recorder = RecordingLogger()
 
     async def fake_extract(chapter_id: str, user_id: str):
         attempted.append(chapter_id)
@@ -686,14 +488,14 @@ async def test_regeneration_isolates_failures_continues_later_batches_and_counts
         return None
 
     monkeypatch.setattr(service, "extract_scenes", fake_extract)
-    monkeypatch.setattr(extraction_module, "logger", recorder)
+    monkeypatch.setattr(extraction_module, "logger", recording_logger)
 
     await service.regenerate_stale_batched(batch_size=2)
 
     assert attempted == stale_ids
-    assert len(recorder.warnings) == 1
-    assert recorder.warnings[0][1]["chapter_id"] == stale_ids[0]
-    assert recorder.infos == [
+    assert len(recording_logger.warnings) == 1
+    assert recording_logger.warnings[0][1]["chapter_id"] == stale_ids[0]
+    assert recording_logger.infos == [
         (
             "regenerate_stale_extractions_batched.complete",
             {"extractions_regenerated": 4},
@@ -703,10 +505,10 @@ async def test_regeneration_isolates_failures_continues_later_batches_and_counts
 
 async def test_regeneration_with_no_stale_chapters_exits_cleanly(
     extraction_context,
+    recording_logger,
     monkeypatch: pytest.MonkeyPatch,
 ):
     service, _, chapter_repo, _ = extraction_context
-    recorder = RecordingLogger()
     called = False
 
     async def fake_extract(chapter_id: str, user_id: str):
@@ -714,7 +516,7 @@ async def test_regeneration_with_no_stale_chapters_exits_cleanly(
         called = True
 
     monkeypatch.setattr(service, "extract_scenes", fake_extract)
-    monkeypatch.setattr(extraction_module, "logger", recorder)
+    monkeypatch.setattr(extraction_module, "logger", recording_logger)
 
     await service.regenerate_stale_batched(batch_size=3)
 
@@ -723,5 +525,5 @@ async def test_regeneration_with_no_stale_chapters_exits_cleanly(
         12,
     )
     assert called is False
-    assert recorder.warnings == []
-    assert recorder.infos == []
+    assert recording_logger.warnings == []
+    assert recording_logger.infos == []
