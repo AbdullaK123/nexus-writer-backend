@@ -26,18 +26,26 @@ async def test_chapter_not_long_enough(
     chapter_with_not_enough_content: ChapterRow,
     extraction_service: ExtractionService,
     fake_provider: FakeAIProvider,
-    fake_scene_repo: FakeSceneRepository
+    fake_scene_repo: FakeSceneRepository,
+    fake_chapter_repo: FakeChapterRepository,
 ):
-    
     result = await extraction_service.extract_scenes(
         chapter_id=chapter_with_not_enough_content.id,
         user_id=chapter_with_not_enough_content.user_id
     )
 
+    assert result is None
     assert fake_provider.call_count == 0
 
-    scenes = await fake_scene_repo.list_by_chapter(chapter_id=chapter_with_not_enough_content.id)
-
+    scenes = await fake_scene_repo.list_by_chapter(
+        chapter_id=chapter_with_not_enough_content.id
+    )
     assert scenes == []
 
-    assert chapter_with_not_enough_content.scenes_extracted_at is not None
+    updated_chapter = await fake_chapter_repo.get(
+        chapter_with_not_enough_content.id,
+        chapter_with_not_enough_content.user_id,
+    )
+
+    assert updated_chapter is not None
+    assert updated_chapter.scenes_extracted_at is not None
