@@ -289,11 +289,16 @@ def fake_extraction_service(
     monkeypatch: pytest.MonkeyPatch,
     extraction_service: ExtractionService
 ) -> ExtractionService:
-    test_service = extraction_service
-    
-    monkeypatch.setattr(test_service, "_extract_with_feedback", lambda : test_extraction)
+    async def fake_extract_with_feedback(chapter_content: str) -> SceneExtraction:
+        return test_extraction
 
-    return test_service
+    monkeypatch.setattr(
+        extraction_service,
+        "_extract_with_feedback",
+        fake_extract_with_feedback,
+    )
+
+    return extraction_service
 
 
 @pytest.fixture
