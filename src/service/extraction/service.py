@@ -70,19 +70,55 @@ class ExtractionService:
         if len(content.strip().split()) < self.MIN_SCENE_EXTRACTION_WORDS:
             return ["There is not enough chapter content for a valid extraction."]
 
-        errors = []
+        errors: list[str] = []
+        previous_start_idx: int | None = None
+        previous_end_idx: int | None = None
+        previous_end_len = 0
 
-        for scene in extraction.scenes:
-            if not scene.start_quote.strip():
+        for index, scene in enumerate(extraction.scenes, start=1):
+            start_quote = scene.start_quote
+            end_quote = scene.end_quote
+
+            if not start_quote.strip():
                 errors.append("start_quote can not be empty")
-            if not scene.end_quote.strip():
+            if not end_quote.strip():
                 errors.append("end_quote can not be empty")
-            if scene.start_quote not in content:
-                errors.append(f"start_quote not found verbatim: {scene.start_quote!r}")
-            if scene.end_quote not in content:
-                errors.append(f"end_quote not found verbatim: {scene.end_quote!r}")
+
+            start_idx = content.find(start_quote) if start_quote.strip() else -1
+            end_idx = content.find(end_quote) if end_quote.strip() else -1
+
+            if start_idx == -1 and start_quote.strip():
+                errors.append(f"start_quote not found verbatim: {start_quote!r}")
+            if end_idx == -1 and end_quote.strip():
+                errors.append(f"end_quote not found verbatim: {end_quote!r}")
+
             if scene.pov not in scene.mentioned_entities:
                 errors.append(f"pov '{scene.pov}' not in mentioned_entities")
+
+            if start_idx != -1 and end_idx != -1:
+                if end_idx < start_idx:
+                    errors.append(
+                        f"scene {index} end_quote occurs before its start_quote"
+                    )
+
+                if previous_start_idx is not None and start_idx <= previous_start_idx:
+                    errors.append("scene start_quotes must follow chapter order")
+
+                if previous_end_idx is not None and end_idx <= previous_end_idx:
+                    errors.append("scene end_quotes must follow chapter order")
+
+                if (
+                    previous_end_idx is not None
+                    and start_idx < previous_end_idx + previous_end_len
+                ):
+                    errors.append(
+                        "scenes must be non-overlapping and each start_quote must "
+                        "occur after the previous end_quote"
+                    )
+
+                previous_start_idx = start_idx
+                previous_end_idx = end_idx
+                previous_end_len = len(end_quote)
 
         return errors
 
@@ -124,7 +160,7 @@ class ExtractionService:
         self, chapter_id: str, user_id: str, content: str | None = None
     ) -> Optional[SceneExtractionResult]:
 
-        result =  await self._chapter_repo.get_with_story_title(chapter_id, user_id)
+        result = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
 
         if result is None:
             raise NotFoundError("Chapter not found")
@@ -167,11 +203,11 @@ class ExtractionService:
                     chapter.id,
                     executor=conn,
                 )
-        
+
         return SceneExtractionResult(
             scenes_extracted=len(extraction.scenes),
             chapter_number=chapter_number,
-            story_title=story_title
+            story_title=story_title,
         )
 
     async def regenerate_stale_batched(
