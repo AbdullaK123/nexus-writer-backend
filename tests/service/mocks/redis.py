@@ -1,9 +1,11 @@
+from datetime import timedelta
 from typing import Any
 
 
 class FakeRedis:
     def __init__(self):
         self._store: dict[str, Any] = {}
+        self.set_calls: list[tuple[str, Any, int | timedelta | None]] = []
 
     async def get(self, key: str) -> Any | None:
         return self._store.get(key)
@@ -13,12 +15,13 @@ class FakeRedis:
         key: str,
         value: Any,
         *,
-        ex: int | None = None,
+        ex: int | timedelta | None = None,
         nx: bool = False,
     ) -> bool | None:
         if nx and key in self._store:
             return None
         self._store[key] = value
+        self.set_calls.append((key, value, ex))
         return True
 
     async def delete(self, *keys: str) -> int:
@@ -31,6 +34,7 @@ class FakeRedis:
 
     async def flush(self):
         self._store.clear()
+        self.set_calls.clear()
 
     async def keys(self, pattern: str = "*") -> list[str]:
         prefix = pattern.rstrip("*")
@@ -38,6 +42,9 @@ class FakeRedis:
 
     def poison(self, key: str, value: Any):
         self._store[key] = value
+
+    def peek(self, key: str) -> Any | None:
+        return self._store.get(key)
 
 
 class FakePubSub:
