@@ -35,13 +35,15 @@ class FakePubSub:
 
 
 class FakeChapterRepository:
-    def __init__(self, chapter: PublishedChapter | None = None) -> None:
-        self.chapter = chapter
+    def __init__(self) -> None:
+        self.rows: list[PublishedChapter | None] = []
         self.get_calls: list[tuple[str, str]] = []
 
     async def get(self, chapter_id: str, user_id: str) -> PublishedChapter | None:
         self.get_calls.append((chapter_id, user_id))
-        return self.chapter
+        if self.rows:
+            return self.rows.pop(0)
+        return None
 
 
 class FakeExtractionService:
@@ -54,12 +56,7 @@ class FakeExtractionService:
         )
         self.error: Exception | None = None
 
-    async def extract_scenes(
-        self,
-        chapter_id: str,
-        user_id: str,
-        content: str | None = None,
-    ) -> SceneExtractionResult | None:
+    async def extract_scenes(self, chapter_id: str, user_id: str, content: str | None = None) -> SceneExtractionResult | None:
         self.calls.append((chapter_id, user_id, content))
         if self.error:
             raise self.error
@@ -92,23 +89,18 @@ class FakeChapterService:
     def __init__(self) -> None:
         self.summary_calls: list[dict[str, Any]] = []
         self.comment_calls: list[tuple[str, str, bool]] = []
-        self.error: Exception | None = None
+        self.summary_error: Exception | None = None
+        self.comment_error: Exception | None = None
 
     async def summarize_chapter(self, **kwargs: Any) -> None:
         self.summary_calls.append(kwargs)
-        if self.error:
-            raise self.error
+        if self.summary_error:
+            raise self.summary_error
 
-    async def generate_comments(
-        self,
-        user_id: str,
-        chapter_id: str,
-        *,
-        ignore_cache: bool,
-    ) -> Any:
+    async def generate_comments(self, user_id: str, chapter_id: str, *, ignore_cache: bool) -> Any:
         self.comment_calls.append((user_id, chapter_id, ignore_cache))
-        if self.error:
-            raise self.error
+        if self.comment_error:
+            raise self.comment_error
         return SimpleNamespace(
             extraction=SimpleNamespace(comments=[object(), object()]),
             chapter_number=3,
@@ -137,3 +129,8 @@ class FakeAnalyticsService:
 
     async def extract_entities(self, **kwargs: Any) -> None:
         await self._record("entities", **kwargs)
+
+
+class FakeWorker:
+    def __init__(self, context: dict[str, Any]) -> None:
+        self.context = context
