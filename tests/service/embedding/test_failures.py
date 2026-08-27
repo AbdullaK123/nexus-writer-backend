@@ -17,7 +17,10 @@ async def test_provider_failure_does_not_mark_scenes_current(
         await embedding_service.embed_pending_batched()
 
     assert fake_scene_repo.embedding_updates == []
-    assert all(fake_scene_repo.get(scene.id).embedded_at is None for scene in pending_scenes)
+    for scene in pending_scenes:
+        stored = fake_scene_repo.get(scene.id)
+        assert stored is not None
+        assert stored.embedded_at is None
 
 
 async def test_persistence_failure_leaves_failed_scene_pending_and_continues_batch(
