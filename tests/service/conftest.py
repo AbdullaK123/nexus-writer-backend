@@ -1,16 +1,28 @@
 # tests/service/conftest.py
 
+from typing import Any, cast
+
 import pytest
 import pytest_asyncio
 from lorem_text import lorem
+from pydantic_ai import ModelMessagesTypeAdapter
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    UserPromptPart,
+)
 
 from src.data.schemas.auth import RegistrationData, UserResponse
 from src.data.schemas.chapter import ChapterRow
+from src.data.schemas.chat import ChatThreadRow, ConversationTurnRequest
 from src.data.schemas.story import StoryRow
 from src.infrastructure.config.settings import SearchConfig
 from src.service.analytics.service import AnalyticsService
 from src.service.auth.service import AuthService
 from src.service.chapter.service import ChapterService
+from src.service.chat.service import ChatService
 from src.service.embedding.service import EmbeddingService
 from src.service.extraction.service import ExtractionService
 from src.service.story.service import StoryService
@@ -18,6 +30,7 @@ from tests.service.mocks import (
     FakeAIProvider,
     FakeAnalyticsRepository,
     FakeChapterRepository,
+    FakeChatAgent,
     FakeChatRepository,
     FakePubSub,
     FakeQueue,
@@ -49,6 +62,11 @@ def fake_pubsub() -> FakePubSub:
 @pytest.fixture
 def fake_provider() -> FakeAIProvider:
     return FakeAIProvider()
+
+
+@pytest.fixture
+def fake_chat_agent() -> FakeChatAgent:
+    return FakeChatAgent()
 
 
 @pytest.fixture
@@ -207,6 +225,27 @@ def analytics_service(
     )
 
 
+@pytest.fixture
+def chat_service(
+    fake_provider: FakeAIProvider,
+    fake_chat_repo: FakeChatRepository,
+    fake_story_repo: FakeStoryRepository,
+    chapter_service: ChapterService,
+    story_service: StoryService,
+    analytics_service: AnalyticsService,
+    fake_chat_agent: FakeChatAgent,
+) -> ChatService:
+    return ChatService(
+        provider=cast(Any, fake_provider),
+        chat_repo=cast(Any, fake_chat_repo),
+        story_repo=cast(Any, fake_story_repo),
+        chapter_service=chapter_service,
+        story_service=story_service,
+        analytics_service=analytics_service,
+        agent=cast(Any, fake_chat_agent),
+    )
+
+
 # ── Domain data fixtures ─────────────────────────────
 
 @pytest_asyncio.fixture
@@ -226,6 +265,14 @@ async def test_story(
     fake_story_repo: FakeStoryRepository,
 ) -> StoryRow:
     return await fake_story_repo.create(user_id=test_user.id, title="Test")
+
+
+@pytest_asyncio.fixture
+async def other_story(
+    test_user: UserResponse,
+    fake_story_repo: FakeStoryRepository,
+) -> StoryRow:
+    return await fake_story_repo.create(user_id=test_user.id, title="Other Story")
 
 
 @pytest_asyncio.fixture
@@ -286,6 +333,65 @@ async def published_chapter_with_enough_content(
     if updated is None:
         raise RuntimeError("Misconfigured fixture. Published chapter can not be None")
     return updated
+
+
+@pytest_asyncio.fixture
+async def chat_thread(
+    test_user: UserResponse,
+    test_story: StoryRow,
+    fake_chat_repo: FakeChatRepository,
+) -> ChatThreadRow:
+    return await fake_chat_repo.create_thread(
+        test_user.id,
+        test_story.id,
+        "Test Thread",
+    )
+
+
+@pytest.fixture
+def conversation_turn(
+    test_story: StoryRow,
+    chat_thread: ChatThreadRow,
+) -> ConversationTurnRequest:
+    return ConversationTurnRequest(
+        story_id=test_story.id,
+        thread_id=chat_thread.id,
+        user_message="What happens next?",
+    )
+
+
+@pytest.fixture
+def chat_history_messages() -> list[ModelMessage]:
+    return [
+        ModelRequest(parts=[UserPromptPart(content="What happened before?")]),
+        ModelResponse(parts=[TextPart(content="The gate opened.")]),
+    ]
+
+
+@pytest.fixture
+def chat_new_messages() -> list[ModelMessage]:
+    return [
+        ModelRequest(parts=[UserPromptPart(content="What happens next?")]),
+        ModelResponse(parts=[TextPart(content="The council meets.")]),
+    ]
+
+
+@pytest_asyncio.fixture
+async def seeded_chat_history(
+    test_user: UserResponse,
+    chat_thread: ChatThreadRow,
+    fake_chat_repo: FakeChatRepository,
+    chat_history_messages: list[ModelMessage],
+) -> list[ModelMessage]:
+    serialized = ModelMessagesTypeAdapter.dump_python(chat_history_messages, mode="json")
+    for message, dumped in zip(chat_history_messages, serialized, strict=True):
+        await fake_chat_repo.append_message(
+            thread_id=chat_thread.id,
+            user_id=test_user.id,
+            kind=message.kind,
+            message=dumped,
+        )
+    return chat_history_messages
 
 
 @pytest.fixture
