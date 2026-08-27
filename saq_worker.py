@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 
 from saq.types import Context
 from src.app.dependencies.redis import get_redis
@@ -35,6 +36,15 @@ HEARTBEAT_FILE = Path("/tmp/saq_worker_heartbeat")
 HEARTBEAT_INTERVAL_SECONDS = 30
 
 tracer = trace.get_tracer(__name__)
+
+
+def _validate_job_ids(**ids: str) -> None:
+    for name, value in ids.items():
+        try:
+            UUID(value)
+        except (TypeError, ValueError, AttributeError) as exc:
+            raise ValueError(f"Invalid {name}") from exc
+
 
 async def heartbeat_loop() -> None:
     while True:
@@ -122,6 +132,8 @@ async def shutdown(ctx: Context) -> None:
 async def story_reanalysis_job(
     ctx: Context, *, story_id: str, user_id: str, story_title: str
 ) -> None:
+    _validate_job_ids(story_id=story_id, user_id=user_id)
+
     with tracer.start_as_current_span("saq.story_reanalysis_job") as span:
         try:
             await asyncio.gather(
@@ -183,6 +195,8 @@ async def story_reanalysis_job(
 async def chapter_reanalysis_job(
     ctx: Context, *, chapter_id: str, story_id: str, user_id: str
 ) -> None:
+    _validate_job_ids(chapter_id=chapter_id, story_id=story_id, user_id=user_id)
+
     with tracer.start_as_current_span("saq.chapter_reanalysis_job") as span:
         try:
             chapter = await ctx['worker'].context['chapter_repo'].get(chapter_id, user_id)
@@ -235,6 +249,8 @@ async def chapter_reanalysis_job(
 async def scene_and_embedding_job(
     ctx: Context, *, chapter_id: str, story_id: str, user_id: str, content: str | None = None
 ) -> None:
+    _validate_job_ids(chapter_id=chapter_id, story_id=story_id, user_id=user_id)
+
     with tracer.start_as_current_span("saq.scene_and_embedding_job") as span:
         try:
             chapter = await ctx['worker'].context['chapter_repo'].get(chapter_id, user_id)
