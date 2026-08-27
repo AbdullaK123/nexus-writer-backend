@@ -82,7 +82,7 @@ class TestCreateThread:
         assert stored.title == first_message[:20] + "..."
 
 
-class TestThreadOwnership:
+class TestThreadAccess:
     async def test_cannot_rename_another_users_thread(
         self,
         chat_service: ChatService,
@@ -118,6 +118,21 @@ class TestThreadOwnership:
     ) -> None:
         with pytest.raises(NotFoundError, match="Story not found"):
             await chat_service.get_threads(test_story.id, "another-user")
+
+    async def test_messages_are_returned_in_sequence_order(
+        self,
+        chat_service: ChatService,
+        test_user: UserResponse,
+        chat_thread,
+        seeded_chat_history,
+    ) -> None:
+        result = await chat_service.get_thread_messages(chat_thread.id, test_user.id)
+
+        assert result.thread_id == chat_thread.id
+        assert [message.sequence for message in result.messages or []] == [0, 1]
+        assert [message.kind for message in result.messages or []] == [
+            message.kind for message in seeded_chat_history
+        ]
 
 
 class TestRunTurn:
@@ -187,7 +202,9 @@ class TestRunTurn:
             test_user.id,
         )
         assert [row.sequence for row in stored] == list(range(4))
-        assert [row.kind for row in stored[-2:]] == [message.kind for message in chat_new_messages]
+        assert [row.kind for row in stored[-2:]] == [
+            message.kind for message in chat_new_messages
+        ]
         assert fake_chat_repo.touched_threads == [conversation_turn.thread_id]
         assert fake_chat_repo.last_append_executor is not None
         assert fake_chat_repo.last_append_executor is fake_chat_repo.last_touch_executor
@@ -206,6 +223,32 @@ class TestRunTurn:
         fake_chat_repo.append_error_after = 1
 
         with pytest.raises(RuntimeError, match="append failed"):
+            _ = [
+                delta
+                async for delta in chat_service.run_turn(test_user.id, conversation_turn)
+            ]
+
+        stored = await fake_chat_repo.list_messages(
+            conversation_turn.thread_id,
+            test_user.id,
+        )
+        assert stored == []
+        assert fake_chat_repo.touched_threads == []
+
+    async def test_touch_failure_rolls_back_all_new_messages(
+        self,
+        chat_service: ChatService,
+        test_user: UserResponse,
+        conversation_turn: ConversationTurnRequest,
+        chat_new_messages,
+        fake_chat_agent: FakeChatAgent,
+        fake_chat_repo: FakeChatRepository,
+    ) -> None:
+        fake_chat_agent.deltas = ["complete"]
+        fake_chat_agent.messages = chat_new_messages
+        fake_chat_repo.touch_error = RuntimeError("touch failed")
+
+        with pytest.raises(RuntimeError, match="touch failed"):
             _ = [
                 delta
                 async for delta in chat_service.run_turn(test_user.id, conversation_turn)
