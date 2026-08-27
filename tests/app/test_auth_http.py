@@ -23,13 +23,18 @@ async def test_valid_registration_maps_to_success_response(
     assert len(service.registration_calls) == 1
 
 
-async def test_invalid_registration_body_returns_422(app_client: AsyncClient) -> None:
-    response = await app_client.post(
+async def test_invalid_registration_body_returns_422(
+    auth_http_context: tuple[AsyncClient, StubAuthService],
+) -> None:
+    client, service = auth_http_context
+
+    response = await client.post(
         "/api/auth/register",
         json={"username": "x", "email": "not-an-email", "password": "weak"},
     )
 
     assert response.status_code == 422
+    assert service.registration_calls == []
 
 
 async def test_missing_authentication_returns_401(
