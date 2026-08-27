@@ -46,8 +46,7 @@ def request_shutdown(crons: list[Cron]) -> None:
     shutdown_event.set()
 
 
-@crontab(config.jobs.session_cleanup_cron_expression, start=False)
-async def run_session_cleanup():
+async def run_session_cleanup_once() -> None:
     with tracer.start_as_current_span("cron.session_cleanup") as span:
         pool = get_pool()
         auth_service = AuthService(UserRepository(pool), SessionRepository(pool))
@@ -62,8 +61,12 @@ async def run_session_cleanup():
             HEARTBEAT_FILE.touch()
 
 
-@crontab(config.jobs.scene_extraction_cron_expression, start=False)
-async def run_reextraction_job():
+@crontab(config.jobs.session_cleanup_cron_expression, start=False)
+async def run_session_cleanup():
+    await run_session_cleanup_once()
+
+
+async def run_reextraction_once() -> None:
     with tracer.start_as_current_span("cron.scene_extraction") as span:
         provider = build_ai_provider()
         pool = get_pool()
@@ -81,8 +84,12 @@ async def run_reextraction_job():
             HEARTBEAT_FILE.touch()
 
 
-@crontab(config.jobs.scene_embedding_cron_expression, start=False)
-async def run_embedding_job():
+@crontab(config.jobs.scene_extraction_cron_expression, start=False)
+async def run_reextraction_job():
+    await run_reextraction_once()
+
+
+async def run_embedding_once() -> None:
     with tracer.start_as_current_span("cron.scene_embedding") as span:
         provider = build_ai_provider()
         pool = get_pool()
@@ -97,6 +104,11 @@ async def run_embedding_job():
             span.set_status(trace.StatusCode.ERROR, str(e))
         finally:
             HEARTBEAT_FILE.touch()
+
+
+@crontab(config.jobs.scene_embedding_cron_expression, start=False)
+async def run_embedding_job():
+    await run_embedding_once()
 
 
 async def main():
