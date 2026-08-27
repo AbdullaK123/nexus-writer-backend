@@ -25,8 +25,12 @@ async def test_pending_scenes_receive_embeddings_and_model_metadata(
         model == fake_provider.embedding_model
         for _, _, model in fake_scene_repo.embedding_updates
     )
-    assert fake_scene_repo.get(pending_scenes[0].id).embedded_at is not None
-    assert fake_scene_repo.get(pending_scenes[1].id).embedded_at is not None
+    first = fake_scene_repo.get(pending_scenes[0].id)
+    second = fake_scene_repo.get(pending_scenes[1].id)
+    assert first is not None
+    assert second is not None
+    assert first.embedded_at is not None
+    assert second.embedded_at is not None
 
 
 async def test_embedding_text_contains_scene_grounding_fields(
@@ -54,9 +58,11 @@ async def test_current_embeddings_are_not_regenerated(
 ) -> None:
     await embedding_service.embed_pending_batched()
 
+    stored = fake_scene_repo.get(current_scene.id)
+    assert stored is not None
     assert fake_provider.call_count == 0
     assert fake_scene_repo.embedding_updates == []
-    assert fake_scene_repo.get(current_scene.id).embedded_at == current_scene.embedded_at
+    assert stored.embedded_at == current_scene.embedded_at
 
 
 async def test_pending_query_respects_configured_batch_size(
