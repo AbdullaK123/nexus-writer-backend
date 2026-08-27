@@ -150,7 +150,7 @@ class ChatRepository:
             thread_id,
             user_id,
             kind,
-            json.dumps(message),
+            message,
         )
 
         parsed = dict(row)
