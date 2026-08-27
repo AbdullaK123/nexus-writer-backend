@@ -28,15 +28,17 @@ async def test_create_and_get_thread_are_scoped_to_owner(
     assert foreign_result is None
 
 
-async def test_list_threads_for_story_is_owner_scoped_and_newest_first(
+async def test_list_threads_for_story_is_scoped_and_newest_first(
     chat_repo: ChatRepository,
     repo_user: UserRow,
     repo_other_user: UserRow,
     repo_story: StoryRow,
+    repo_other_story: StoryRow,
 ) -> None:
     first = await chat_repo.create_thread(repo_user.id, repo_story.id, "First")
     await asyncio.sleep(0.01)
     second = await chat_repo.create_thread(repo_user.id, repo_story.id, "Second")
+    await chat_repo.create_thread(repo_user.id, repo_other_story.id, "Other Story")
 
     owner_threads = await chat_repo.list_threads_for_story(repo_user.id, repo_story.id)
     foreign_threads = await chat_repo.list_threads_for_story(
@@ -45,6 +47,7 @@ async def test_list_threads_for_story_is_owner_scoped_and_newest_first(
     )
 
     assert [thread.id for thread in owner_threads] == [second.id, first.id]
+    assert all(thread.story_id == repo_story.id for thread in owner_threads)
     assert foreign_threads == []
 
 
