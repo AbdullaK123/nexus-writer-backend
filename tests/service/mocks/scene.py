@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from src.data.schemas.scene import SceneRow, SceneSearchResult
 
 from .chapter import FakeChapterRepository
@@ -11,9 +13,15 @@ class FakeSceneRepository:
         self._chapter_repo = chapter_repo
         self.error: Exception | None = None
         self.pool: FakePool = FakePool()
+        self.embedding_updates: list[tuple[str, list[float], str]] = []
+        self.update_embedding_errors: dict[str, Exception] = {}
+        self.pending_limit: int | None = None
 
-    def seed(self, scene: SceneRow):
+    def seed(self, scene: SceneRow) -> None:
         self._scenes[scene.id] = scene
+
+    def get(self, scene_id: str) -> SceneRow | None:
+        return self._scenes.get(scene_id)
 
     async def list_by_chapter(self, chapter_id: str, *, executor=None) -> list[SceneRow]:
         if self.error:
@@ -70,23 +78,45 @@ class FakeSceneRepository:
 
     async def update_embedding(
         self,
+        *,
         scene_id: str,
         embedding: list[float],
-        model: str,
-        *,
+        embedding_model: str,
         executor=None,
     ) -> None:
         if self.error:
             raise self.error
+        if error := self.update_embedding_errors.get(scene_id):
+            raise error
 
-    async def list_pending_embeddings(self, chapter_id: str, *, executor=None) -> list[SceneRow]:
+        self.embedding_updates.append((scene_id, list(embedding), embedding_model))
+        scene = self._scenes.get(scene_id)
+        if scene is not None:
+            current = datetime.now(timezone.utc)
+            self._scenes[scene_id] = scene.model_copy(
+                update={
+                    "embedding_model": embedding_model,
+                    "embedded_at": current,
+                    "updated_at": current,
+                }
+            )
+
+    async def list_pending_embeddings(
+        self,
+        *,
+        limit: int,
+        executor=None,
+    ) -> list[SceneRow]:
         if self.error:
             raise self.error
-        return [
+        self.pending_limit = limit
+        pending = [
             scene
             for scene in self._scenes.values()
-            if scene.chapter_id == chapter_id and scene.embedded_at is None
+            if scene.embedded_at is None
         ]
+        pending.sort(key=lambda scene: scene.created_at)
+        return pending[:limit]
 
     async def mark_chapter_stale(self, chapter_id: str, *, executor=None) -> None:
         if self.error:
