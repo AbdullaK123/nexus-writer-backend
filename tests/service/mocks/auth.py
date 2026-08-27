@@ -11,10 +11,16 @@ class FakeUserRepository:
         self._users: dict[str, UserRow] = {}
         self._by_email: dict[str, str] = {}
         self.error: Exception | None = None
+        self.create_error: Exception | None = None
 
-    def seed(self, user: UserRow):
+    def seed(self, user: UserRow) -> None:
         self._users[user.id] = user
         self._by_email[user.email] = user.id
+
+    def remove(self, user_id: str) -> None:
+        user = self._users.pop(user_id, None)
+        if user is not None:
+            self._by_email.pop(user.email, None)
 
     async def get_by_id(self, user_id: str) -> UserRow | None:
         if self.error:
@@ -35,6 +41,8 @@ class FakeUserRepository:
         password_hash: str,
         profile_img: str | None,
     ) -> UserRow:
+        if self.create_error:
+            raise self.create_error
         if self.error:
             raise self.error
         user = UserRow(
@@ -81,8 +89,9 @@ class FakeSessionRepository:
     def __init__(self):
         self._sessions: dict[str, SessionRow] = {}
         self.error: Exception | None = None
+        self.create_error: Exception | None = None
 
-    def seed(self, session: SessionRow):
+    def seed(self, session: SessionRow) -> None:
         self._sessions[session.session_id] = session
 
     async def get(self, session_id: str) -> SessionRow | None:
@@ -99,6 +108,8 @@ class FakeSessionRepository:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> SessionRow:
+        if self.create_error:
+            raise self.create_error
         if self.error:
             raise self.error
         session = SessionRow(
@@ -122,7 +133,7 @@ class FakeSessionRepository:
         if self.error:
             raise self.error
         current = now()
-        expired = [k for k, v in self._sessions.items() if v.expires_at < current]
+        expired = [key for key, value in self._sessions.items() if value.expires_at < current]
         for key in expired:
             del self._sessions[key]
         return len(expired)
