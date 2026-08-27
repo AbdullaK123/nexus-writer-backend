@@ -10,10 +10,14 @@ from tests.workers.mocks import (
     FakeAnalyticsService,
     FakeChapterRepository,
     FakeChapterService,
+    FakeCronEmbeddingService,
     FakeEmbeddingService,
     FakeExtractionService,
+    FakeHeartbeatPath,
     FakePubSub,
     FakeRedisClient,
+    FakeReextractionService,
+    FakeSessionCleanupService,
     FakeStoryService,
     FakeWorker,
 )
@@ -61,8 +65,26 @@ def saq_context(
 @pytest.fixture
 def cron_runtime(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
 ) -> SimpleNamespace:
-    heartbeat = tmp_path / "cron-heartbeat"
+    heartbeat = FakeHeartbeatPath()
+    session_cleanup = FakeSessionCleanupService()
+    reextraction = FakeReextractionService()
+    embedding = FakeCronEmbeddingService()
+
     monkeypatch.setattr(cron_worker, "HEARTBEAT_FILE", heartbeat)
-    return SimpleNamespace(heartbeat=heartbeat)
+    monkeypatch.setattr(cron_worker, "get_pool", lambda: object())
+    monkeypatch.setattr(cron_worker, "build_ai_provider", lambda: object())
+    monkeypatch.setattr(cron_worker, "UserRepository", lambda pool: object())
+    monkeypatch.setattr(cron_worker, "SessionRepository", lambda pool: object())
+    monkeypatch.setattr(cron_worker, "ChapterRepository", lambda pool: object())
+    monkeypatch.setattr(cron_worker, "SceneRepository", lambda pool: object())
+    monkeypatch.setattr(cron_worker, "AuthService", lambda *args: session_cleanup)
+    monkeypatch.setattr(cron_worker, "ExtractionService", lambda *args, **kwargs: reextraction)
+    monkeypatch.setattr(cron_worker, "EmbeddingService", lambda *args, **kwargs: embedding)
+
+    return SimpleNamespace(
+        heartbeat=heartbeat,
+        session_cleanup=session_cleanup,
+        reextraction=reextraction,
+        embedding=embedding,
+    )
