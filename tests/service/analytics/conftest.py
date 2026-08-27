@@ -1,4 +1,5 @@
 import pytest
+import pytest_asyncio
 
 from src.data.schemas.analytics import (
     Act,
@@ -112,6 +113,6 @@ def configured_analytics_provider(
     return fake_provider
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def foreign_story(fake_story_repo: FakeStoryRepository) -> StoryRow:
     return await fake_story_repo.create(user_id="foreign-user", title="Foreign Story")
