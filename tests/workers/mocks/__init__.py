@@ -1,4 +1,10 @@
-from tests.workers.mocks.services import (
+from tests.workers.mocks.cron import (
+    FakeCronEmbeddingService,
+    FakeHeartbeatPath,
+    FakeReextractionService,
+    FakeSessionCleanupService,
+)
+from tests.workers.mocks.saq import (
     FakeAnalyticsService,
     FakeChapterRepository,
     FakeChapterService,
@@ -8,16 +14,22 @@ from tests.workers.mocks.services import (
     FakeRedisClient,
     FakeStoryService,
     FakeWorker,
+    PublishedChapter,
 )
 
 __all__ = [
     "FakeAnalyticsService",
     "FakeChapterRepository",
     "FakeChapterService",
+    "FakeCronEmbeddingService",
     "FakeEmbeddingService",
     "FakeExtractionService",
+    "FakeHeartbeatPath",
     "FakePubSub",
     "FakeRedisClient",
+    "FakeReextractionService",
+    "FakeSessionCleanupService",
     "FakeStoryService",
     "FakeWorker",
+    "PublishedChapter",
 ]
