@@ -53,6 +53,19 @@ async def test_suggestion_cache_hit_skips_ai(
     assert configured_analytics_provider.call_count == 1
 
 
+async def test_extraction_cache_hit_skips_ai(
+    analytics_service: AnalyticsService,
+    test_user: UserResponse,
+    test_story: StoryRow,
+    configured_analytics_provider: FakeAIProvider,
+) -> None:
+    first = await analytics_service.extract_plot_threads(test_story.id, test_user.id)
+    second = await analytics_service.extract_plot_threads(test_story.id, test_user.id)
+
+    assert second == first
+    assert configured_analytics_provider.call_count == 1
+
+
 async def test_ignore_cache_forces_fresh_suggestion(
     analytics_service: AnalyticsService,
     test_user: UserResponse,
