@@ -7,6 +7,17 @@ from src.data.schemas.chat import ChatMessageRow, ChatThreadRow
 Executor = Any
 
 
+def _decode_message(value: Any) -> dict:
+    if isinstance(value, str):
+        decoded = json.loads(value)
+        if not isinstance(decoded, dict):
+            raise TypeError("Persisted chat message must decode to an object")
+        return decoded
+    if isinstance(value, dict):
+        return value
+    raise TypeError("Persisted chat message must be a JSON object")
+
+
 class ChatRepository:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -143,7 +154,7 @@ class ChatRepository:
         )
 
         parsed = dict(row)
-        parsed["message"] = json.loads(parsed["message"])
+        parsed["message"] = _decode_message(parsed["message"])
         return ChatMessageRow.model_validate(parsed)
 
     async def list_messages(
@@ -164,7 +175,7 @@ class ChatRepository:
 
         out: List[ChatMessageRow] = []
         for row in rows:
-            d = dict(row)
-            d["message"] = json.loads(d["message"])
-            out.append(ChatMessageRow.model_validate(d))
+            data = dict(row)
+            data["message"] = _decode_message(data["message"])
+            out.append(ChatMessageRow.model_validate(data))
         return out
