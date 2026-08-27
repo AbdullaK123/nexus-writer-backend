@@ -78,6 +78,11 @@ async def repo_story(clean_db: asyncpg.Pool, repo_user: UserRow) -> StoryRow:
 
 
 @pytest_asyncio.fixture
+async def repo_other_story(clean_db: asyncpg.Pool, repo_user: UserRow) -> StoryRow:
+    return await make_story(clean_db, user_id=repo_user.id)
+
+
+@pytest_asyncio.fixture
 async def repo_chat_thread(
     chat_repo: ChatRepository,
     repo_user: UserRow,
