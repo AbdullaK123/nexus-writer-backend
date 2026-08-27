@@ -1,10 +1,15 @@
 from typing import List
+
+from loguru import logger
+
 from src.data.repositories.scene import SceneRepository
 from src.data.schemas.scene import SceneRow
 from src.infrastructure.ai.providers.protocol import AIProvider
 from src.infrastructure.config import config
 from src.service.exceptions import ServiceError
-from loguru import logger
+
+
+EMBEDDING_DIMENSION = 1536
 
 
 class EmbeddingService:
@@ -21,11 +26,24 @@ class EmbeddingService:
         {" ".join(row.mentioned_entities)}
         """
 
+    @staticmethod
+    def _validate_embedding(embedding: list[float]) -> None:
+        if not embedding:
+            raise ServiceError("AI provider returned an empty embedding.")
+
+        if len(embedding) != EMBEDDING_DIMENSION:
+            raise ServiceError(
+                f"AI provider returned embedding dimension {len(embedding)}; "
+                f"expected {EMBEDDING_DIMENSION}."
+            )
+
     async def embed_scenes(self, chapter_id: str) -> None:
         scenes: List[SceneRow] = await self._scene_repo.list_by_chapter(chapter_id)
 
-        texts = [self._format_scene(scene) for scene in scenes]
+        if not scenes:
+            return
 
+        texts = [self._format_scene(scene) for scene in scenes]
         embeddings = await self._provider.embed_many(texts, with_batching=True)
 
         if len(embeddings) != len(scenes):
@@ -36,7 +54,9 @@ class EmbeddingService:
             )
             raise ServiceError("AI provider returned malformed embedding batch.")
 
-            # update embeddings
+        for embedding in embeddings:
+            self._validate_embedding(embedding)
+
         updated = 0
         for scene, embedding in zip(scenes, embeddings):
             try:
@@ -60,10 +80,7 @@ class EmbeddingService:
         )
 
     async def embed_pending_batched(self) -> None:
-        # grab scenes with no embeddings
-        scenes_to_embed: List[
-            SceneRow
-        ] = await self._scene_repo.list_pending_embeddings(
+        scenes_to_embed: List[SceneRow] = await self._scene_repo.list_pending_embeddings(
             limit=config.ai.embedding_batch_size
         )
 
@@ -76,9 +93,7 @@ class EmbeddingService:
             embedding_model=self._provider.embedding_model,
         )
 
-        # grab text to embed and embed them
         texts = [self._format_scene(scene) for scene in scenes_to_embed]
-
         embeddings = await self._provider.embed_many(texts, with_batching=True)
 
         if len(embeddings) != len(scenes_to_embed):
@@ -89,7 +104,9 @@ class EmbeddingService:
             )
             raise ServiceError("AI provider returned malformed embedding batch.")
 
-        # update embeddings
+        for embedding in embeddings:
+            self._validate_embedding(embedding)
+
         updated = 0
         for scene, embedding in zip(scenes_to_embed, embeddings):
             try:
