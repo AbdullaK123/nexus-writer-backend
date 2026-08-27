@@ -5,6 +5,8 @@ class FakeAIProvider:
     def __init__(self):
         self.generate_response: str = "Generated text"
         self.extract_response: Any = None
+        self.extract_responses: dict[type, Any] = {}
+        self.extract_calls: list[dict[str, Any]] = []
         self.embed_response: list[float] = [0.1] * 1536
         self.embed_many_response: list[list[float]] | None = None
         self.error: Exception | None = None
@@ -26,9 +28,17 @@ class FakeAIProvider:
         schema: type,
     ):
         self.call_count += 1
+        self.extract_calls.append(
+            {
+                "system_prompt": system_prompt,
+                "text": text,
+                "max_tokens": max_tokens,
+                "schema": schema,
+            }
+        )
         if self.error:
             raise self.error
-        return self.extract_response
+        return self.extract_responses.get(schema, self.extract_response)
 
     async def embed(self, text: str) -> list[float]:
         self.call_count += 1
