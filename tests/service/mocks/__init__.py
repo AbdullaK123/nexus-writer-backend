@@ -3,6 +3,7 @@ from .analytics import FakeAnalyticsRepository
 from .auth import FakeSessionRepository, FakeUserRepository
 from .chapter import FakeChapterRepository
 from .chat import FakeChatRepository
+from .chat_agent import FakeChatAgent, FakeChatAgentStream
 from .db import FakeConnection, FakePool, FakePoolContext, FakeTransaction
 from .queue import FakeQueue
 from .redis import FakePubSub, FakeRedis
@@ -13,6 +14,8 @@ __all__ = [
     "FakeAIProvider",
     "FakeAnalyticsRepository",
     "FakeChapterRepository",
+    "FakeChatAgent",
+    "FakeChatAgentStream",
     "FakeChatRepository",
     "FakeConnection",
     "FakePool",
