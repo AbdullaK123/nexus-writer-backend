@@ -18,7 +18,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from src.data.schemas.auth import RegistrationData, UserResponse
+from src.data.schemas.auth import RegistrationData, UserResponse, UserRow
 from src.data.schemas.chapter import ChapterRow
 from src.data.schemas.chat import ChatThreadRow, ConversationTurnRequest
 from src.data.schemas.story import StoryRow
@@ -26,6 +26,7 @@ from src.infrastructure.config.settings import SearchConfig
 from src.service.analytics.service import AnalyticsService
 from src.service.auth.service import AuthService
 from src.service.chapter.service import ChapterService
+from src.service.chat.agent import ChatDeps, build_agent
 from src.service.chat.service import ChatService
 from src.service.embedding.service import EmbeddingService
 from src.service.extraction.service import ExtractionService
@@ -51,43 +52,6 @@ from tests.service.mocks.extraction import (
 )
 
 models.ALLOW_MODEL_REQUESTS = False
-
-@pytest.fixture
-def test_agent() -> Agent:
-
-    async def model_func(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-
-        if len(messages) == 1:
-            return ModelResponse(
-                parts=[
-                    ToolCallPart(
-                        tool_name="get_number",
-                        args={},
-                        tool_call_id="call-1"
-                    )
-                ]
-            )
-
-        latest_message = messages[-1]
-
-        if isinstance(latest_message, ModelRequest):
-            for part in latest_message.parts:
-                if isinstance(part, ToolReturnPart) and part.content == 42:
-                    return ModelResponse(parts=[TextPart('done')])
-        
-        raise AssertionError("Expected tool call to return 42")
-
-    model = FunctionModel(function=model_func)
-
-    agent = Agent(model=model)
-
-    @agent.tool_plain
-    def get_number():
-        return 42
-
-    return agent
-
-
 
 # ── Infrastructure fakes ─────────────────────────────
 
@@ -447,3 +411,26 @@ def fake_queue(monkeypatch: pytest.MonkeyPatch) -> FakeQueue:
 async def clear_cache(fake_redis: FakeRedis):
     yield
     await fake_redis.flush()
+
+
+@pytest.fixture
+def chat_deps(
+    test_user: UserRow,
+    test_story: StoryRow,
+    chapter_service: ChapterService,
+    analytics_service: AnalyticsService,
+    story_service: StoryService
+) -> ChatDeps:
+    return ChatDeps(
+        user_id=test_user.id, 
+        story_id=test_story.id,
+        story_status=test_story.status,
+        chapter_service=chapter_service,
+        analytics_service=analytics_service,
+        story_service=story_service
+    )
+
+
+@pytest.fixture
+def test_agent() -> Agent[ChatDeps, str]:
+    return build_agent("openai/gpt-5.4")
