@@ -5,7 +5,7 @@ from typing import Any, cast
 import pytest
 import pytest_asyncio
 from lorem_text import lorem
-from pydantic_ai import ModelMessagesTypeAdapter
+from pydantic_ai import ModelMessagesTypeAdapter, ToolCallPart
 from pydantic_ai import models, Agent
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
@@ -56,11 +56,29 @@ models.ALLOW_MODEL_REQUESTS = False
 def test_agent() -> Agent:
 
     async def model_func(messages: list, info: AgentInfo) -> ModelResponse:
-        return ModelResponse(parts=[TextPart("Hello from fake model")])
+
+        if len(messages) == 1:
+            return ModelResponse(
+                parts=[
+                    ToolCallPart(
+                        tool_name="get_number",
+                        args={},
+                        tool_call_id="call-1"
+                    )
+                ]
+            )
+        
+        return ModelResponse(parts=[TextPart("done")])
 
     model = FunctionModel(function=model_func)
 
-    return Agent(model=model)
+    agent = Agent(model=model)
+
+    @agent.tool_plain
+    def get_number():
+        return 42
+
+    return agent
 
 
 
