@@ -75,7 +75,7 @@ def test_agent() -> Agent:
                 if isinstance(part, ToolReturnPart) and part.content == 42:
                     return ModelResponse(parts=[TextPart('done')])
         
-        return ModelResponse(parts=[TextPart("done")])
+        raise AssertionError("Expected tool call to return 42")
 
     model = FunctionModel(function=model_func)
 
