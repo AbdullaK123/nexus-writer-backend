@@ -36,7 +36,7 @@ def _print_failed_cases(report: Any) -> None:
     failed_cases = [
         case
         for case in report.cases
-        if any(passed is False for passed in case.assertions.values())
+        if any(result.value is False for result in case.assertions.values())
     ]
 
     if not failed_cases:
@@ -48,8 +48,8 @@ def _print_failed_cases(report: Any) -> None:
     for case in failed_cases:
         failed_assertions = [
             name
-            for name, passed in case.assertions.items()
-            if passed is False
+            for name, result in case.assertions.items()
+            if result.value is False
         ]
 
         print(f"\nCASE: {case.name}")
