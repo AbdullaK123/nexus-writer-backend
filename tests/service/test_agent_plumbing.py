@@ -601,13 +601,6 @@ async def test_custom_system_prompt_does_not_get_story_lifecycle_instruction(
     assert result.output == "done"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "get_chapter/get_scene_text currently scope chapter lookup by user_id only; "
-        "same-user chapters from another story are readable through the agent"
-    ),
-)
 async def test_get_chapter_cannot_escape_current_story(
     test_agent: Agent,
     chat_deps: ChatDeps,
@@ -645,8 +638,8 @@ async def test_get_chapter_cannot_escape_current_story(
             for part in latest.parts:
                 if (
                     isinstance(part, ToolReturnPart)
-                    and isinstance(part.content, str)
-                    and part.content.startswith("Tool error:")
+                    and part.content
+                    == "Tool error: chapter does not belong to the current story."
                 ):
                     return ModelResponse(parts=[TextPart("done")])
 
@@ -657,6 +650,65 @@ async def test_get_chapter_cannot_escape_current_story(
     with test_agent.override(model=fake_model):
         result = await test_agent.run(
             "Read that chapter",
+            deps=chat_deps,  # type: ignore
+        )
+
+    assert result.output == "done"
+
+
+async def test_get_scene_text_cannot_escape_current_story(
+    test_agent: Agent,
+    chat_deps: ChatDeps,
+    other_story: StoryRow,
+    fake_chapter_repo: FakeChapterRepository,
+):
+    foreign_chapter = await fake_chapter_repo.create(
+        story_id=other_story.id,
+        user_id=chat_deps.user_id,
+        title="Other story secret",
+        content="SECRET START\nforeign prose\nSECRET END",
+        word_count=5,
+    )
+
+    async def model_func(
+        messages: list[ModelMessage],
+        info: AgentInfo,
+    ) -> ModelResponse:
+        if len(messages) == 1:
+            return ModelResponse(
+                parts=[
+                    ToolCallPart(
+                        tool_name="run_code",
+                        args={
+                            "code": f"""await get_scene_text(
+    chapter_id={foreign_chapter.id!r},
+    start_quote="SECRET START",
+    end_quote="SECRET END",
+)"""
+                        },
+                        tool_call_id="call-1",
+                    )
+                ]
+            )
+
+        latest = messages[-1]
+
+        if isinstance(latest, ModelRequest):
+            for part in latest.parts:
+                if (
+                    isinstance(part, ToolReturnPart)
+                    and part.content
+                    == "Tool error: chapter does not belong to the current story."
+                ):
+                    return ModelResponse(parts=[TextPart("done")])
+
+        raise AssertionError("Expected cross-story scene access to be rejected")
+
+    fake_model = FunctionModel(function=model_func)
+
+    with test_agent.override(model=fake_model):
+        result = await test_agent.run(
+            "Read that scene",
             deps=chat_deps,  # type: ignore
         )
 
