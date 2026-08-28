@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 from collections.abc import Sequence
-from typing import cast
+from typing import Any, cast
 
 from pydantic_evals import Case, Dataset
 
@@ -11,7 +11,7 @@ from src.infrastructure.config import config
 
 from .dataset import StoryAgentEvalInput, dataset
 from .evaluators import BinaryBehaviorJudge, RequiredTools
-from .runtime import make_task
+from .runtime import StoryAgentRun, make_task
 
 
 Metadata = dict[str, str]
@@ -30,6 +30,51 @@ def build_eval_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, object,
             BinaryBehaviorJudge(model_name=judge_model),
         ],
     )
+
+
+def _print_failed_cases(report: Any) -> None:
+    failed_cases = [
+        case
+        for case in report.cases
+        if any(passed is False for passed in case.assertions.values())
+    ]
+
+    if not failed_cases:
+        return
+
+    print("\nFAILED CASE DETAILS")
+    print("=" * 80)
+
+    for case in failed_cases:
+        failed_assertions = [
+            name
+            for name, passed in case.assertions.items()
+            if passed is False
+        ]
+
+        print(f"\nCASE: {case.name}")
+        print(f"FAILED: {', '.join(failed_assertions)}")
+
+        expected = case.expected_output
+        if expected is not None:
+            behavior = getattr(expected, "behavior", None)
+            rationale = getattr(expected, "rationale", None)
+            if behavior:
+                print(f"EXPECTED BEHAVIOR: {behavior}")
+            if rationale:
+                print(f"RATIONALE: {rationale}")
+
+        output = case.output
+        if isinstance(output, StoryAgentRun):
+            called_tools = ", ".join(output.called_tools) or "none"
+            print(f"CALLED TOOLS: {called_tools}")
+            print("ANSWER:")
+            print(output.answer)
+        else:
+            print("OUTPUT:")
+            print(output)
+
+        print("-" * 80)
 
 
 async def run_suite(
@@ -51,6 +96,7 @@ async def run_suite(
         },
     )
     report.print()
+    _print_failed_cases(report)
 
 
 def _parse_args() -> argparse.Namespace:
