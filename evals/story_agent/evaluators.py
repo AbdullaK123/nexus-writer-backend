@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from pydantic_ai import Agent, ModelSettings
+from pydantic_ai import Agent
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext
@@ -55,7 +55,6 @@ class BinaryBehaviorJudge(Evaluator):
                 "checked separately, so judge only the semantic quality of the final answer. "
                 "Answer only yes or no."
             ),
-            model_settings=ModelSettings(temperature=0.0),
         )
         result = await judge.run(
             _judge_prompt(
