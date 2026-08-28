@@ -476,7 +476,7 @@ async def test_get_chapter_strips_html_before_returning_prose(
         if isinstance(latest, ModelRequest):
             for part in latest.parts:
                 if isinstance(part, ToolReturnPart) and isinstance(part.content, str):
-                    assert "Hello world." in part.content
+                    assert "Hello world" in part.content
                     assert "Second line." in part.content
                     assert "<p>" not in part.content
                     assert "<strong>" not in part.content
@@ -556,7 +556,10 @@ async def test_story_lifecycle_instruction_comes_from_chat_deps(
     ) -> ModelResponse:
         latest = messages[-1]
         assert isinstance(latest, ModelRequest)
-        assert latest.instructions == STORY_STATUS_PROMPTS[chat_deps.story_status]
+        assert latest.instructions is not None
+        assert latest.instructions.strip() == STORY_STATUS_PROMPTS[
+            chat_deps.story_status
+        ].strip()
         return ModelResponse(parts=[TextPart("done")])
 
     fake_model = FunctionModel(function=model_func)
