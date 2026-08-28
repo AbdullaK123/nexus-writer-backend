@@ -2,34 +2,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from collections.abc import Sequence
-from typing import Any, cast
-
-from pydantic_evals import Case, Dataset
+from typing import Any
 
 from src.infrastructure.config import config
 
-from .dataset import StoryAgentEvalInput, dataset
-from .evaluators import BinaryBehaviorJudge, RequiredTools
+from .dataset import build_dataset
 from .runtime import StoryAgentRun, make_task
-
-
-Metadata = dict[str, str]
-
-
-def build_eval_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, object, Metadata]:
-    cases = cast(
-        Sequence[Case[StoryAgentEvalInput, object, Metadata]],
-        dataset.cases,
-    )
-    return Dataset(
-        name=dataset.name,
-        cases=cases,
-        evaluators=[
-            RequiredTools(),
-            BinaryBehaviorJudge(model_name=judge_model),
-        ],
-    )
 
 
 def _print_failed_cases(report: Any) -> None:
@@ -55,15 +33,6 @@ def _print_failed_cases(report: Any) -> None:
         print(f"\nCASE: {case.name}")
         print(f"FAILED: {', '.join(failed_assertions)}")
 
-        expected = case.expected_output
-        if expected is not None:
-            behavior = getattr(expected, "behavior", None)
-            rationale = getattr(expected, "rationale", None)
-            if behavior:
-                print(f"EXPECTED BEHAVIOR: {behavior}")
-            if rationale:
-                print(f"RATIONALE: {rationale}")
-
         output = case.output
         if isinstance(output, StoryAgentRun):
             called_tools = ", ".join(output.called_tools) or "none"
@@ -84,8 +53,7 @@ async def run_suite(
     max_concurrency: int,
     repeat: int,
 ) -> None:
-    eval_dataset = build_eval_dataset(judge_model)
-    report = await eval_dataset.evaluate(
+    report = await build_dataset(judge_model).evaluate(
         make_task(model),
         name=f"story-agent:{model}",
         max_concurrency=max_concurrency,
@@ -111,7 +79,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--judge-model",
         default=None,
-        help="OpenRouter model name for the binary yes/no judge. Defaults to --model.",
+        help="Model name for the binary LLM judges. Defaults to --model.",
     )
     parser.add_argument(
         "--max-concurrency",

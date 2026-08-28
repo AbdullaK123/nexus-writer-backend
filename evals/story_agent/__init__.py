@@ -1,3 +1,3 @@
-from .dataset import dataset
+from .dataset import build_dataset
 
-__all__ = ["dataset"]
+__all__ = ["build_dataset"]
