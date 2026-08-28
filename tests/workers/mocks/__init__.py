@@ -1,10 +1,10 @@
-from tests.workers.mocks.cron import (
+from .cron import (
     FakeCronEmbeddingService,
     FakeHeartbeatPath,
     FakeReextractionService,
     FakeSessionCleanupService,
 )
-from tests.workers.mocks.saq import (
+from .saq import (
     FakeAnalyticsService,
     FakeChapterRepository,
     FakeChapterService,

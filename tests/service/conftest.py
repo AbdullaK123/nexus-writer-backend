@@ -184,8 +184,8 @@ def extraction_context():
     provider = FakeAIProvider()
     service = ExtractionService(
         provider=provider,
-        chapter_repo=chapter_repo,
-        scene_repo=scene_repo,
+        chapter_repo=chapter_repo, # type: ignore
+        scene_repo=scene_repo, # type: ignore
     )
     return service, provider, chapter_repo, scene_repo
 

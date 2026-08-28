@@ -128,9 +128,9 @@ class ExtractionSceneRepository(FakeSceneRepository):
         super().__init__(chapter_repo)
         self.fail_after_delete: Exception | None = None
         self.last_replace_executor = None
-        self.pool = SnapshotPool(chapter_repo, self)
+        self.pool = SnapshotPool(chapter_repo, self) # type: ignore
 
-    async def replace_for_chapter(
+    async def replace_for_chapter( #type: ignore
         self,
         *,
         chapter_id: str,
