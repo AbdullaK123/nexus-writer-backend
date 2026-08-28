@@ -285,6 +285,8 @@ def build_agent(model_name: str, system_prompt: str = STORY_ASSISTANT_PROMPT) ->
             user_id=ctx.deps.user_id,
             as_html=True,
         )
+        if chapter.story_id != ctx.deps.story_id:
+            return "Tool error: chapter does not belong to the current story."
         return _format_chapter(chapter, content=html_to_plain_text(chapter.content))
 
     @agent.tool
@@ -308,6 +310,8 @@ def build_agent(model_name: str, system_prompt: str = STORY_ASSISTANT_PROMPT) ->
             user_id=ctx.deps.user_id,
             as_html=True,
         )
+        if chapter.story_id != ctx.deps.story_id:
+            return "Tool error: chapter does not belong to the current story."
         content = html_to_plain_text(chapter.content)
         start_idx = content.find(start_quote)
         if start_idx == -1:
