@@ -6,6 +6,9 @@ import pytest
 import pytest_asyncio
 from lorem_text import lorem
 from pydantic_ai import ModelMessagesTypeAdapter
+from pydantic_ai import models, Agent
+from pydantic_ai.models.openrouter import OpenRouterModel
+from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -45,6 +48,19 @@ from tests.service.mocks.extraction import (
     ExtractionSceneRepository,
     RecordingLogger,
 )
+
+models.ALLOW_MODEL_REQUESTS = False
+
+@pytest.fixture
+def test_agent() -> Agent:
+
+    model = OpenRouterModel(
+        "openai/gpt-5.4",
+        provider=OpenRouterProvider(api_key="fake-test-key"),
+    )
+
+    return Agent(model=model)
+
 
 
 # ── Infrastructure fakes ─────────────────────────────

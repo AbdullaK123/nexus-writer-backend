@@ -1,6 +1,7 @@
 import pytest
 from src.service.chat.agent import _service_errors_as_text
 from src.service.exceptions import NotFoundError
+from pydantic_ai import Agent
 
 async def test_service_errors_as_text():
 
@@ -12,7 +13,7 @@ async def test_service_errors_as_text():
 
     assert result == "Tool error: Chapter not found"
 
-async def test_service_errors_as_text_throws_on_infra_failure():
+async def test_service_errors_as_text_propagates_unexpected_errors():
 
     @_service_errors_as_text
     async def broken_tool():
@@ -20,3 +21,10 @@ async def test_service_errors_as_text_throws_on_infra_failure():
 
     with pytest.raises(RuntimeError, match="BOOM! The database blew up!"):
         await broken_tool()
+
+
+async def test_model_requests_are_disabled(
+    test_agent: Agent
+):
+    with pytest.raises(RuntimeError):
+        await test_agent.run("testing")
