@@ -40,6 +40,7 @@ ignore_missing_imports = true
 [dependency-groups]
 dev = [
     "lorem-text>=3.0",
+    "pydantic-evals>=1.89.1",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-mock>=3.12",
