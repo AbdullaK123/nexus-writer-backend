@@ -11,7 +11,7 @@ from pydantic_evals.evaluators import Evaluator, EvaluatorContext
 from src.infrastructure.config import settings
 
 from .dataset import StoryAgentEvalInput, StoryAgentExpectation
-from .runtime import StoryAgentRun
+from .runtime import StoryAgentRun # type: ignore
 
 
 JudgeAnswer = Literal["yes", "no"]
@@ -46,7 +46,7 @@ class BinaryBehaviorJudge(Evaluator):
         )
         judge = Agent(
             model=model,
-            output_type=JudgeAnswer,
+            output_type=JudgeAnswer, #type: ignore
             system_prompt=(
                 "You are a strict binary evaluator for a manuscript-aware writing assistant. "
                 "Evaluate only whether the candidate answer satisfies the supplied behavioral "
@@ -57,7 +57,7 @@ class BinaryBehaviorJudge(Evaluator):
                 "violates the contract, invents unsupported manuscript facts, asserts forbidden "
                 "claims, omits required conclusions, or expresses unjustified certainty. "
                 "Answer only yes or no."
-            ),
+            ), #type: ignore
         )
         result = await judge.run(
             _judge_prompt(

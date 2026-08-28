@@ -249,7 +249,7 @@ def make_task(model_name: str):
         result = await agent.run(inputs.user_message, deps=make_deps(inputs))
         return StoryAgentRun(
             answer=result.output,
-            called_tools=_extract_called_tools(result.all_messages()),
+            called_tools=_extract_called_tools(result.all_messages()), # type: ignore
         )
 
     return run_story_agent
