@@ -5,7 +5,7 @@ from typing import Any, cast
 import pytest
 import pytest_asyncio
 from lorem_text import lorem
-from pydantic_ai import ModelMessagesTypeAdapter, ToolCallPart
+from pydantic_ai import ModelMessagesTypeAdapter, ToolCallPart, ToolReturnPart
 from pydantic_ai import models, Agent
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
@@ -55,7 +55,7 @@ models.ALLOW_MODEL_REQUESTS = False
 @pytest.fixture
 def test_agent() -> Agent:
 
-    async def model_func(messages: list, info: AgentInfo) -> ModelResponse:
+    async def model_func(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
 
         if len(messages) == 1:
             return ModelResponse(
@@ -67,6 +67,13 @@ def test_agent() -> Agent:
                     )
                 ]
             )
+
+        latest_message = messages[-1]
+
+        if isinstance(latest_message, ModelRequest):
+            for part in latest_message.parts:
+                if isinstance(part, ToolReturnPart) and part.content == 42:
+                    return ModelResponse(parts=[TextPart('done')])
         
         return ModelResponse(parts=[TextPart("done")])
 
