@@ -9,6 +9,7 @@ from pydantic_ai import ModelMessagesTypeAdapter
 from pydantic_ai import models, Agent
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -54,10 +55,10 @@ models.ALLOW_MODEL_REQUESTS = False
 @pytest.fixture
 def test_agent() -> Agent:
 
-    model = OpenRouterModel(
-        "openai/gpt-5.4",
-        provider=OpenRouterProvider(api_key="fake-test-key"),
-    )
+    async def model_func(messages: list, info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[TextPart("Hello from fake model")])
+
+    model = FunctionModel(function=model_func)
 
     return Agent(model=model)
 

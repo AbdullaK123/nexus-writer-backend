@@ -23,8 +23,8 @@ async def test_service_errors_as_text_propagates_unexpected_errors():
         await broken_tool()
 
 
-async def test_model_requests_are_disabled(
+async def test_fake_agent_works(
     test_agent: Agent
 ):
-    with pytest.raises(RuntimeError):
-        await test_agent.run("testing")
+   result = await test_agent.run("testing")
+   assert result.output == "Hello from fake model"
