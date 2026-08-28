@@ -1,15 +1,10 @@
 # tests/service/conftest.py
-
 from typing import Any, cast
-
 import pytest
 import pytest_asyncio
 from lorem_text import lorem
-from pydantic_ai import ModelMessagesTypeAdapter, ToolCallPart, ToolReturnPart
+from pydantic_ai import ModelMessagesTypeAdapter
 from pydantic_ai import models, Agent
-from pydantic_ai.models.openrouter import OpenRouterModel
-from pydantic_ai.providers.openrouter import OpenRouterProvider
-from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -17,7 +12,6 @@ from pydantic_ai.messages import (
     TextPart,
     UserPromptPart,
 )
-
 from src.data.schemas.auth import RegistrationData, UserResponse, UserRow
 from src.data.schemas.chapter import ChapterRow
 from src.data.schemas.chat import ChatThreadRow, ConversationTurnRequest
