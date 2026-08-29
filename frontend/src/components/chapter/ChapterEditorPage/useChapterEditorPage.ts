@@ -2,7 +2,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { useChapter, useChapterComments, useCreateThread, useStoryChapters, useUpdateChapter } from "../../../data/queries";
 import type { ChapterEditorProps } from "./ChapterEditor";
 import { useChapterEditorSidebarProps, type ChapterEditorSidebarProps } from "./ChapterEditorSidebar";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Editor, useEditor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { debounce } from "lodash"
@@ -12,6 +12,9 @@ import { useToast } from "../../common";
 import type { ChapterCommentsSidebarProps } from "./ChapterCommentsSidebar/ChapterCommentsSidebar";
 import { useChapterCommentsSidebarProps } from "./ChapterCommentsSidebar";
 import { useSettings } from "../../../data/providers";
+import { LatestOperation } from "../../../shared/latestOperation";
+import { SingleFlightGate } from "../../../shared/singleFlight";
+
 export type ChapterEditorPageProps = {
     sidebar: ChapterEditorSidebarProps
     editorProps: ChapterEditorProps
@@ -20,9 +23,7 @@ export type ChapterEditorPageProps = {
 }
 
 export function useChapterEditorPage(): ChapterEditorPageProps {
-
     const params = useParams({ from: "/app/stories/$storyId/$chapterId" })
-
     const storyChaptersState = useStoryChapters(params.storyId)
     const chapterState = useChapter(params.chapterId)
     const commentsState = useChapterComments(params.chapterId)
@@ -30,36 +31,40 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     const [updating, setUpdating] = useState(false)
     const [query, setQuery] = useState("")
     const [threadCreationPending, setThreadCreationPending] = useState(false)
-    const {
-        mutate: createThread
-    } = useCreateThread(params.storyId)
+    const saveTrackerRef = useRef(new LatestOperation())
+    const threadGateRef = useRef(new SingleFlightGate())
+    const { mutate: createThread } = useCreateThread(params.storyId)
     const navigate = useNavigate()
-
     const { settings } = useSettings()
-
     const { error } = useToast()
 
     const debouncedUpdate = useMemo(
         () => debounce((htmlContent: string) => {
+            const revision = saveTrackerRef.current.start()
             setUpdating(true)
             updateChapterMutation.mutate(
                 { content: htmlContent },
                 {
-                    onSettled: () => setUpdating(false)
+                    onSettled: () => {
+                        if (saveTrackerRef.current.isLatest(revision)) {
+                            setUpdating(false)
+                        }
+                    }
                 }
             );
         }, 500),
-        [updateChapterMutation] 
+        [params.chapterId, updateChapterMutation.mutate]
     );
-    
+
     useEffect(() => {
+        saveTrackerRef.current.invalidate()
+        setUpdating(false)
+        debouncedUpdate.cancel()
         return () => debouncedUpdate.cancel();
-    }, [debouncedUpdate]);
+    }, [params.chapterId, debouncedUpdate]);
 
     const editor = useEditor({
-        extensions: [
-            StarterKit
-        ],
+        extensions: [StarterKit],
         content: "",
         editorProps: {
             attributes: {
@@ -75,14 +80,12 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
             }
         },
         onUpdate: ({ editor }) => {
-            const html = editor.getHTML()
-            debouncedUpdate(html)
+            debouncedUpdate(editor.getHTML())
         }
     })
 
     useEffect(() => {
         if (!editor) return
-
         editor.setOptions({
             editorProps: {
                 attributes: {
@@ -100,21 +103,13 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     })
     }, [editor, settings])
 
-   useEffect(() => {
-        // 1. Guard check: Ensure editor and data are fully loaded
+    useEffect(() => {
         if (!editor || chapterState.status !== "success") return;
-        
         const data = chapterState.data.unwrap().unwrap();
-        
-        // 2. Update editor content if it doesn't match the database content
         if (editor.getHTML() !== data.content) {
-            // We use a transaction fallback callback or queue to ensure order
             editor.commands.setContent(data.content);
         }
-
     }, [editor, chapterState]);
-
-
 
     const sidebarProps = useChapterEditorSidebarProps({
         storyId: params.storyId,
@@ -128,16 +123,16 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
         }
     })
 
-    const onAskAgent = (query: string) => {
-        const message = `I’m looking into “${query}” in my story. Find the most relevant scenes, explain how they connect, and point out anything inconsistent or worth developing.`
+    const onAskAgent = (agentQuery: string) => {
+        if (!threadGateRef.current.tryStart()) return
+        const message = `I’m looking into “${agentQuery}” in my story. Find the most relevant scenes, explain how they connect, and point out anything inconsistent or worth developing.`
 
         setThreadCreationPending(true)
         createThread(
-            {
-                firstMessage: message
-            },
+            { firstMessage: message },
             {
                 onSuccess: async (newThread) => {
+                    threadGateRef.current.finish()
                     setThreadCreationPending(false)
                     await navigate({
                         to: "/stories/$storyId/chat/$threadId",
@@ -145,12 +140,11 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
                             storyId: params.storyId,
                             threadId: newThread.threadId
                         },
-                        search: {
-                            prompt: message
-                        }
+                        search: { prompt: message }
                     })
                 },
                 onError: () => {
+                    threadGateRef.current.finish()
                     setThreadCreationPending(false)
                     error("Error", "Something went wrong and we could not investigate your pulse finding. The server might be experiencing issues.")
                 }
@@ -159,11 +153,11 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     }
 
     const editorProps = useChapterEditorProps({
-        updating: updating,
-        query: query,
-        threadCreationPending: threadCreationPending,
-        onQueryChange: (query: string) => setQuery(query),
-        onAskAgent: onAskAgent,
+        updating,
+        query,
+        threadCreationPending,
+        onQueryChange: setQuery,
+        onAskAgent,
         editor: editor ? Some(editor) : None,
         storyId: params.storyId,
         state: chapterState
@@ -176,7 +170,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
 
     return {
         sidebar: sidebarProps,
-        editorProps: editorProps,
+        editorProps,
         tipTapEditor: editor,
         commentsSidebar: commentsSidebarProps
     }
