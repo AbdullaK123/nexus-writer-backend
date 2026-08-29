@@ -5,7 +5,8 @@ import type { StoryChatWindowProps, ConversationMessage } from "./StoryChatWindo
 import { streamSse } from "../../../../infrastructure/sse";
 import { buildChatTurnRequest, completeChatTurn } from "../../../../infrastructure/chat-stream";
 import { SingleFlightGate } from "../../../../shared/singleFlight";
-import { None, Some, Option } from "oxide.ts";
+import { AbortControllerSlot } from "../../../../shared/abortControllerSlot";
+import { Some, Option } from "oxide.ts";
 import type { EventSourceMessage } from "eventsource-parser";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useToast } from "../../../common";
@@ -25,9 +26,9 @@ export function useStoryChatWindowProps({
     user,
     onRetry,
 }: UseStoryChatWindowPropsArgs): StoryChatWindowProps {
-
     const [threadCreationPending, setThreadCreationPending] = useState(false)
     const turnGateRef = useRef(new SingleFlightGate())
+    const streamSlotRef = useRef(new AbortControllerSlot())
     const [query, setQuery] = useState("");
     const navigate = useNavigate({ from: "/stories/$storyId/chat/$threadId"})
     const search = useSearch({ from: "/app/stories/$storyId/chat/$threadId" })
@@ -40,7 +41,7 @@ export function useStoryChatWindowProps({
         streamingBufferRef.current = []
         flushScheduledRef.current = false
         setStreamingMessages(prev => prev.map((msg, idx) => {
-              if (idx === prev.length -1 && msg.type === "assistant" && msg.props.status !== "done") {
+            if (idx === prev.length -1 && msg.type === "assistant" && msg.props.status !== "done") {
                 return {
                     type: "assistant",
                     props: {
@@ -48,12 +49,11 @@ export function useStoryChatWindowProps({
                         message: msg.props.status === "loading" ? joinedText : msg.props.message + joinedText
                     }
                 }
-              }
-              return msg;
+            }
+            return msg;
         }));
     }
-    
-    const streamCancellerRef = useRef<AbortController | null>(null);
+
     const { error } = useToast()
     const isAtBottomRef = useRef(true);
 
@@ -128,7 +128,7 @@ export function useStoryChatWindowProps({
 
     useEffect(() => {
         return () => {
-            streamCancellerRef.current?.abort();
+            streamSlotRef.current.abort();
             turnGateRef.current.finish();
         }
     }, []);
@@ -141,9 +141,7 @@ export function useStoryChatWindowProps({
     const onUserPromptSubmitted = useCallback((query: string) => {
         if (!turnGateRef.current.tryStart()) return
         setThreadCreationPending(true)
-
-        streamCancellerRef.current?.abort();
-        streamCancellerRef.current = new AbortController();
+        const controller = streamSlotRef.current.replace()
 
         const started = performance.now();
         setQuery("");
@@ -154,7 +152,7 @@ export function useStoryChatWindowProps({
         ]);
 
         streamSse(
-            buildChatTurnRequest(storyId, threadId, query, streamCancellerRef.current.signal),
+            buildChatTurnRequest(storyId, threadId, query, controller.signal),
             {
                 onEvent: (event: EventSourceMessage) => {
                     if (event.event !== "token") return
