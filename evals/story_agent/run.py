@@ -5,6 +5,8 @@ import asyncio
 import os
 from typing import Any
 
+import logfire
+
 from src.infrastructure.config import config, settings
 
 from .dataset import build_dataset
@@ -47,6 +49,12 @@ async def run_suite(
     repeat: int,
 ) -> None:
     os.environ["OPENROUTER_API_KEY"] = settings.open_router_api_key
+
+    logfire.configure(
+        service_name="nexus-story-agent-evals",
+        environment=settings.env,
+    )
+    logfire.instrument_pydantic_ai()
 
     report = await build_dataset(f"openrouter:{judge_model}").evaluate(
         make_task(model),
