@@ -1,15 +1,13 @@
-import { Button, LoadingSkeleton, Nothing } from "../../../common";
+import { LoadingSkeleton, Nothing } from "../../../common";
 import { AssistantMessage, type AssistantMessageProps } from "./AssistantMessage/AssistantMessage";
 import { ChatComposer, type ChatComposerProps } from "./ChatComposer/ChatComposer";
 import { UserMessage, type UserMessageProps } from "./UserMessage/UserMessage";
 import styles from "./StoryChatWindow.module.css"
 import { None } from "oxide.ts";
 
-
 export type ConversationMessage = 
 | { type: "user", props: UserMessageProps }
 | { type: "assistant", props: AssistantMessageProps }
-
 
 export type StoryChatWindowProps = 
 | { status: "idle" }
@@ -22,20 +20,17 @@ export type StoryChatWindowProps =
     composer: ChatComposerProps
   }
 
-
 export function StoryChatWindow(props: StoryChatWindowProps) {
     switch (props.status) {
-        case "idle": {
+        case "idle":
             return <Nothing />
-        }
-        case "empty": {
+        case "empty":
             return (
                 <div className={styles['content']}>
                     <ChatComposer {...props.composer} />
                 </div>
             )
-        }
-        case "loading": {
+        case "loading":
             return (
                 <div className={styles['content']}>
                     <div className={styles['messages-container']}>
@@ -46,15 +41,10 @@ export function StoryChatWindow(props: StoryChatWindowProps) {
                     </div>
                 </div>
             )
-        }
-        case "ready": {
+        case "ready":
             return (
                 <div className={styles['content']}>
-                    <div 
-                        id="messages-container" 
-                        className={styles['messages-container']}
-                        onScroll={props.onMessagesScroll}
-                    >
+                    <div id="messages-container" className={styles['messages-container']} onScroll={props.onMessagesScroll}>
                         {props.messages.map((msg, idx) => {
                             switch (msg.type) {
                                 case "user": return <UserMessage key={idx} {...msg.props} />
@@ -65,6 +55,5 @@ export function StoryChatWindow(props: StoryChatWindowProps) {
                     <ChatComposer {...props.composer} />
                 </div>
             )
-        }
     }
 }

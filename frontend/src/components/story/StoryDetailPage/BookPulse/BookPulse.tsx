@@ -1,5 +1,5 @@
 import type { PulseDimension } from "../../../../infrastructure/api/types";
-import { Button, EmptyState, ErrorState, LoadingSkeleton } from "../../../common";
+import { Button, EmptyState, LoadingSkeleton } from "../../../common";
 import { None, Some, Option } from "oxide.ts";
 import { useMemo, useState } from "react"
 import styles from "./BookPulse.module.css"
@@ -19,20 +19,16 @@ export type BookPulseProps =
     }
 
 export function BookPulse(props: BookPulseProps) {
-
   const [selectedLense, setSelectedLense] = useState<"characters" | "plot" | "structure" | "world">("characters")
 
   const selectedDimension: Option<PulseDimension> = useMemo(() => {
-
     if (props.status !== "ready") return None
-
     switch (selectedLense) {
       case "characters": return Some(props.characters)
       case "plot": return Some(props.plot)
       case "structure": return Some(props.structure)
       case "world": return Some(props.world)
     }
-    
   }, [props, selectedLense])
 
   const getLabelStyles = (label: "healthy" | "needs-attention" | "watch" | "unavailable") => {
@@ -62,9 +58,7 @@ export function BookPulse(props: BookPulseProps) {
     <div className={styles['pulse-card']}>
       <div className={styles['pulse-card-header']}>
         <p className={styles['all-caps']}>{lense}</p>
-        <p className={getLabelStyles(dimension.label)}>
-          {getLabelText(dimension.label)}
-        </p>
+        <p className={getLabelStyles(dimension.label)}>{getLabelText(dimension.label)}</p>
       </div>
       <h3>{dimension.headline}</h3>
       <div className={styles['pulse-section']}>
@@ -123,9 +117,7 @@ export function BookPulse(props: BookPulseProps) {
         />
       )
     case 'ready': {
-
       const unwrappedDimension = selectedDimension.unwrap()
-
       return (
         <div className={styles['content-container']}>
           <div className={styles['content-header']}>
@@ -135,34 +127,13 @@ export function BookPulse(props: BookPulseProps) {
             </div>
           </div>
           <div className={styles['actions-container']}>
-            <FilterChipNoCounts 
-                label="characters"
-                onClick={() => setSelectedLense("characters")}
-                status={(selectedLense === "characters") ? "selected" : "idle"}
-              />
-            <FilterChipNoCounts 
-                label="plot"
-                onClick={() => setSelectedLense("plot")}
-                status={(selectedLense === "plot") ? "selected" : "idle"}
-              />
-            <FilterChipNoCounts 
-                label="structure"
-                onClick={() => setSelectedLense("structure")}
-                status={(selectedLense === "structure") ? "selected" : "idle"}
-              />
-            <FilterChipNoCounts 
-                label="world"
-                onClick={() => setSelectedLense("world")}
-                status={(selectedLense === "world") ? "selected" : "idle"}
-            />
+            <FilterChipNoCounts label="characters" onClick={() => setSelectedLense("characters")} status={selectedLense === "characters" ? "selected" : "idle"} />
+            <FilterChipNoCounts label="plot" onClick={() => setSelectedLense("plot")} status={selectedLense === "plot" ? "selected" : "idle"} />
+            <FilterChipNoCounts label="structure" onClick={() => setSelectedLense("structure")} status={selectedLense === "structure" ? "selected" : "idle"} />
+            <FilterChipNoCounts label="world" onClick={() => setSelectedLense("world")} status={selectedLense === "world" ? "selected" : "idle"} />
           </div>
           <div className={styles['content']}>
-            {renderPulseCard(
-              selectedLense, 
-              unwrappedDimension, 
-              props.onDigIntoThis,
-              props.threadCreationPending
-            )}
+            {renderPulseCard(selectedLense, unwrappedDimension, props.onDigIntoThis, props.threadCreationPending)}
           </div>
         </div>
       )

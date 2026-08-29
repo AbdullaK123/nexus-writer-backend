@@ -1,5 +1,5 @@
 import { None, Some } from "oxide.ts";
-import { Button, ErrorState, LoadingSkeleton, ModalWithTrigger, Nothing } from "../../../common";
+import { Button, LoadingSkeleton, ModalWithTrigger, Nothing } from "../../../common";
 import styles from "./StoryChatHeader.module.css"
 
 export type StoryChatHeaderProps = 
@@ -19,7 +19,6 @@ export type StoryChatHeaderProps =
     onRename: () => void
     onDelete: () => void
   }
-
 
 export function StoryChatHeader(props: StoryChatHeaderProps) {
     switch (props.status) {
@@ -47,14 +46,10 @@ export function StoryChatHeader(props: StoryChatHeaderProps) {
                 <div className={styles['content']}>
                     <div className={styles['info-container']}>
                         <div className={styles['flex-row']}>
-                            <span className="system-badge system-badge__nobg">
-                                [THREAD]
-                            </span>
+                            <span className="system-badge system-badge__nobg">[THREAD]</span>
                             <p className={styles['all-caps']}>{props.storyTitle}</p>
                         </div>
-                        <h3>
-                            {props.threadTitle}
-                        </h3>
+                        <h3>{props.threadTitle}</h3>
                     </div>
                     <div className={styles['action-container']}>
                         <ModalWithTrigger
@@ -75,21 +70,12 @@ export function StoryChatHeader(props: StoryChatHeaderProps) {
                                                 if (e.key === "Enter") props.onRename()
                                             }}
                                         />
-                                        <Button
-                                            variant="primary"
-                                            onClick={props.onRename}
-                                        >
-                                            Submit
-                                        </Button>
+                                        <Button variant="primary" onClick={props.onRename}>Submit</Button>
                                     </div>
                                 </div>
                             }
                         >
-                            <Button
-                                variant="ghost"
-                            >
-                                Rename
-                            </Button>
+                            <Button variant="ghost">Rename</Button>
                         </ModalWithTrigger>
                         <ModalWithTrigger
                             open={props.deleteModalOpen}
@@ -101,27 +87,13 @@ export function StoryChatHeader(props: StoryChatHeaderProps) {
                                 <div className="flex-col">
                                     <h2>Are you sure? This action can not be undone.</h2>
                                     <div className="flex-row">
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() =>props.onDeleteModalOpenChange(false)}
-                                        >
-                                            Delete
-                                        </Button>
-                                        <Button
-                                            variant="danger"
-                                            onClick={props.onDelete}
-                                        >
-                                            Yes I'm sure
-                                        </Button>
+                                        <Button variant="secondary" onClick={() =>props.onDeleteModalOpenChange(false)}>Delete</Button>
+                                        <Button variant="danger" onClick={props.onDelete}>Yes I'm sure</Button>
                                     </div>
                                 </div>
                             }
                         >
-                            <Button
-                                variant="ghost"
-                            >
-                                Delete
-                            </Button>
+                            <Button variant="ghost">Delete</Button>
                         </ModalWithTrigger>
                     </div>
                 </div>

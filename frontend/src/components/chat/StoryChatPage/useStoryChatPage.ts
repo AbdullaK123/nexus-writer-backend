@@ -5,58 +5,43 @@ import { useStoryChatWindowProps, type StoryChatWindowProps } from "./StoryChatW
 import { useStoryDetails, useThreadMessages, useThreads } from "../../../data/queries";
 import { Some, None } from "oxide.ts"
 import { useStoryChatHeaderProps } from "./StoryChatHeader/useStoryChatHeaderProps";
-import { useEffect, useEffectEvent } from "react";
-import { useToast } from "../../common";
 
-
-
-export type StoryChatPageProps = 
-{
+export type StoryChatPageProps = {
     header: StoryChatHeaderProps
     sidebar: StoryChatSidebarProps
     window: StoryChatWindowProps
 }
 
-
 export function useStoryChatPage(): StoryChatPageProps {
-
     const params = useParams({ from: "/app/stories/$storyId/chat/$threadId" })
-
     const ctx = useRouteContext({ from: "/app/stories/$storyId/chat/$threadId" })
-
-    const [
-        conversationState, 
-        refetchMessages
-    ] = useThreadMessages(params.storyId, params.threadId)
-
+    const [conversationState, refetchMessages] = useThreadMessages(params.storyId, params.threadId)
     const threadsState = useThreads(params.storyId)
-
     const storyState = useStoryDetails(params.storyId)
 
     const headerProps = useStoryChatHeaderProps({
         storyId: params.storyId,
         threadId: params.threadId,
-        conversationState: conversationState,
-        storyState: storyState
+        conversationState,
+        storyState
     })
 
     const sidebarProps = useStoryChatSidebarProps({
         storyId: params.storyId,
         threadId: Some(params.threadId),
-        storyState: storyState,
-        threadsState: threadsState
+        storyState,
+        threadsState
     })
 
     const windowProps = useStoryChatWindowProps({
         storyId: params.storyId,
         threadId: params.threadId,
-        user: (ctx.auth.status === "authenticated") ? Some(ctx.auth.user) : None,
-        conversationState: conversationState,
+        user: ctx.auth.status === "authenticated" ? Some(ctx.auth.user) : None,
+        conversationState,
         onRetry: () => {
             refetchMessages()
         }
     })
-
 
     return {
         header: headerProps,
