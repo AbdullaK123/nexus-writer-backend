@@ -4,6 +4,7 @@ import {
     AuthContext,
     type AuthContextValue,
 } from "./AuthContext"
+import { ApiError } from "../../../shared/types"
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const authState = useCurrentUser()
@@ -18,9 +19,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         case "empty":
             ctx = { status: "unauthenticated" }
             break
-        case "error":
-            ctx = { status: "error", error: authState.data.unwrap().unwrapErr() }
+        case "error": {
+            const error = authState.data.unwrap().unwrapErr()
+            ctx =
+                error instanceof ApiError && error.status === 401
+                    ? { status: "unauthenticated" }
+                    : { status: "error", error }
             break
+        }
         case "success":
             ctx = { status: "authenticated", user: authState.data.unwrap().unwrap() }
             break
@@ -28,4 +34,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return <AuthContext.Provider value={ctx}>{children}</AuthContext.Provider>
 }
-
