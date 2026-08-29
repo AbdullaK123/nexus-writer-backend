@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query"
 import { useApi } from "../providers/ApiProvider"
 import {
     type ChapterContentResponse,
@@ -7,6 +7,7 @@ import {
     type UpdateChapterRequest,
     requestOptions,
 } from "../../infrastructure/api/types"
+import type { AppApi } from "../../infrastructure/api"
 import { storyKeys } from "./story"
 import { ApiError, unwrapResultAsync } from "../../shared/types"
 import { toAsyncState } from "../../infrastructure/api/utils";
@@ -35,13 +36,15 @@ export function useChapter(chapterId: string, asHtml: boolean = true) {
     return toAsyncState<ChapterContentResponse>(result)
 }
 
-export function useUpdateChapter(chapterId: string) {
-    const api = useApi()
-    const qc = useQueryClient()
-    return useMutation({
+export function createUpdateChapterMutationOptions(
+    api: AppApi,
+    qc: QueryClient,
+    chapterId: string,
+) {
+    return {
         mutationFn: (payload: UpdateChapterRequest) =>
             unwrapResultAsync(api.chapter.updateChapter(chapterId, payload)),
-        onMutate: async (updatedContent) => {
+        onMutate: async (updatedContent: UpdateChapterRequest) => {
             const key = chapterKeys.detail(chapterId, true)
             await qc.cancelQueries({ queryKey: key })
             const prevContent = qc.getQueryData<ChapterContentResponse>(key)
@@ -66,10 +69,10 @@ export function useUpdateChapter(chapterId: string) {
             qc.setQueryData<ChapterContentResponse>(key, optimisticContent)
             return { prevContent }
         },
-        onError: (_, __, context ) => {
+        onError: (_: unknown, __: UpdateChapterRequest, context?: { prevContent?: ChapterContentResponse }) => {
             qc.setQueryData(chapterKeys.detail(chapterId, true), context?.prevContent)
         },
-        onSuccess: (chapter) => {
+        onSuccess: (chapter: ChapterContentResponse) => {
             qc.invalidateQueries({
                 queryKey: [...chapterKeys.all, "detail", chapterId],
             })
@@ -81,7 +84,13 @@ export function useUpdateChapter(chapterId: string) {
         onSettled: () => {
             qc.invalidateQueries({ queryKey: chapterKeys.detail(chapterId, true) })
         }
-    })
+    }
+}
+
+export function useUpdateChapter(chapterId: string) {
+    const api = useApi()
+    const qc = useQueryClient()
+    return useMutation(createUpdateChapterMutationOptions(api, qc, chapterId))
 }
 
 type DeleteChapterContext = {
@@ -156,7 +165,9 @@ export function useChapterSummary(chapterId: Option<string>) {
   const result = useQuery<ChapterSummaryResponse, ApiError>({
     queryKey: chapterKeys.summary(id),
     queryFn: ({ signal }) =>
-      unwrapResultAsync(api.chapter.summarizeChapter(id, requestOptions({ signal }))),
+      unwrapResultAsync(
+        api.chapter.summarizeChapter(id, requestOptions({ signal }))
+      ),
     enabled,
     staleTime: 1000*10
   })
@@ -168,7 +179,9 @@ export function useChapterComments(chapterId: string) {
     const result = useQuery<CommentExtractionResponse, ApiError>({
         queryKey: chapterKeys.comments(chapterId),
         queryFn: ({ signal }) => 
-            unwrapResultAsync(api.chapter.getComments(chapterId, requestOptions({ signal }))),
+            unwrapResultAsync(
+                api.chapter.getComments(chapterId, requestOptions({ signal }))
+            ),
         enabled: Boolean(chapterId),
         staleTime: 1000*10
     })
