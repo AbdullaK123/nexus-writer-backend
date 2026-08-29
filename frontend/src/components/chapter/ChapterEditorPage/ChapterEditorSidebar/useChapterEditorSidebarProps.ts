@@ -4,6 +4,7 @@ import type { ApiError } from "../../../../shared/types";
 import type { ChapterEditorSidebarProps } from "./ChapterEditorSidebar";
 import { useReorderChapters } from "../../../../data/queries";
 import { useToast } from "../../../common";
+import { buildReorderRequest } from "./reorder";
 
 
 export type UseChapterEditorSidebarProps = 
@@ -30,9 +31,16 @@ export function useChapterEditorSidebarProps({
         mutate: reorderChapters
     } = useReorderChapters(storyId)
 
+    const itemCount = state.status === "success"
+        ? state.data.unwrap().unwrap().chapters.length
+        : 0
+
     const onReorderChapters = (fromPos: number, toPos: number) => {
+        const payload = buildReorderRequest(fromPos, toPos, itemCount)
+        if (!payload) return
+
         reorderChapters(
-            { fromPos: fromPos, toPos: toPos},
+            payload,
             {
                 onError: () => {
                     error("Failed to reorder chapters", "Something went wrong. The server might be experiencing issues.")
