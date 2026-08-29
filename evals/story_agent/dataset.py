@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic_evals import Case, Dataset
-from pydantic_evals.evaluators import LLMJudge
+from pydantic_evals.evaluators import Evaluator, LLMJudge
 
 from .evaluators import RequiredTools
 
@@ -12,6 +12,8 @@ from .evaluators import RequiredTools
 StoryStatus = Literal["Ongoing", "Complete", "On Hiatus"]
 Tension = Literal["low", "medium", "high"]
 Pacing = Literal["slow", "steady", "fast"]
+Metadata = dict[str, str]
+EvalEvaluator = Evaluator["StoryAgentEvalInput", object, Metadata]
 
 
 @dataclass(frozen=True)
@@ -88,24 +90,27 @@ def _evaluators(
     judge_model: str,
     rubric: str,
     required_tools: tuple[str, ...] = (),
-) -> list:
-    evaluators: list = []
+) -> tuple[EvalEvaluator, ...]:
+    evaluators: list[EvalEvaluator] = []
     if required_tools:
-        evaluators.append(RequiredTools(required_tools))
+        evaluators.append(cast(EvalEvaluator, RequiredTools(required_tools)))
     evaluators.append(
-        LLMJudge(
-            rubric=rubric,
-            model=judge_model,
-            include_input=True,
-            score=False,
-            assertion={"include_reason": False},
+        cast(
+            EvalEvaluator,
+            LLMJudge(
+                rubric=rubric,
+                model=judge_model,
+                include_input=True,
+                score=False,
+                assertion={"include_reason": False},
+            ),
         )
     )
-    return evaluators
+    return tuple(evaluators)
 
 
-def build_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, None, dict[str, str]]:
-    cases: list[Case[StoryAgentEvalInput, None, dict[str, str]]] = [
+def build_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, object, Metadata]:
+    cases: list[Case[StoryAgentEvalInput, object, Metadata]] = [
         Case(
             name="abstains_when_manuscript_has_no_evidence",
             inputs=StoryAgentEvalInput(
