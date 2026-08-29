@@ -11,6 +11,7 @@ from src.infrastructure.config import config, settings
 
 from .dataset import build_dataset
 from .red_team_dataset import build_red_team_dataset
+from .red_team_runtime import make_red_team_task
 from .runtime import StoryAgentRun, make_task
 
 SuiteName = Literal["baseline", "red-team"]
@@ -50,6 +51,12 @@ def _build_suite(suite: SuiteName, judge_model: str):
     return build_dataset(judge_model)
 
 
+def _build_task(suite: SuiteName, model: str):
+    if suite == "red-team":
+        return make_red_team_task(model)
+    return make_task(model)
+
+
 async def run_suite(
     *,
     model: str,
@@ -68,7 +75,7 @@ async def run_suite(
 
     judge = f"openrouter:{judge_model}"
     report = await _build_suite(suite, judge).evaluate(
-        make_task(model),
+        _build_task(suite, model),
         name=f"story-agent:{suite}:{model}",
         max_concurrency=max_concurrency,
         repeat=repeat,
