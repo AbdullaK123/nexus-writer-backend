@@ -1,3 +1,4 @@
+import type { EventSourceMessage } from "eventsource-parser"
 import { None, Some, type SseRequest } from "./sse"
 import { AbortControllerSlot } from "../shared/abortControllerSlot"
 import { SingleFlightGate } from "../shared/singleFlight"
@@ -31,4 +32,11 @@ export function finishChatTurn(gate: SingleFlightGate): void {
 
 export function completeChatTurn(refreshMessages: () => void): void {
     refreshMessages()
+}
+
+/** Preserve the hook's current event semantics behind a testable boundary. */
+export function decodeChatStreamToken(event: EventSourceMessage): string | null {
+    if (event.event !== "token") return null
+    const data = JSON.parse(event.data) as { delta?: string }
+    return data.delta ?? null
 }
