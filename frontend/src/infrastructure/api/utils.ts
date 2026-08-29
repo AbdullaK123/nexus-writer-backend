@@ -37,6 +37,7 @@ export function isEmpty(value: unknown): value is null | undefined | '' | Record
 }
 
 export function toAsyncState<T>(query: UseQueryResult<T, ApiError>): AsyncState<T, ApiError> {
+    if (query.isError) throw query.error
     if (query.isLoading) return {status: "loading", data: None}
     if (query.isPending) return {status: "idle", data: None}
     if (query.data && isEmpty(query.data)) return {status: "empty", data: Some(Ok(query.data as []))}
