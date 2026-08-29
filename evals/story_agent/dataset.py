@@ -111,7 +111,7 @@ def _evaluators(
 
 def build_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, object, Metadata]:
     cases: list[Case[StoryAgentEvalInput, object, Metadata]] = [
-        Case(
+        Case[StoryAgentEvalInput, object, Metadata](
             name="abstains_when_manuscript_has_no_evidence",
             inputs=StoryAgentEvalInput(
                 user_message="Why did Mara betray Captain Vale?",
@@ -126,7 +126,7 @@ def build_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, object, Meta
             ),
             metadata={"category": "abstention"},
         ),
-        Case(
+        Case[StoryAgentEvalInput, object, Metadata](
             name="rejects_false_user_premise",
             inputs=StoryAgentEvalInput(
                 user_message=(
@@ -167,7 +167,7 @@ def build_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, object, Meta
             ),
             metadata={"category": "false_premise"},
         ),
-        Case(
+        Case[StoryAgentEvalInput, object, Metadata](
             name="treats_author_claim_as_intent_not_manuscript_fact",
             inputs=StoryAgentEvalInput(
                 user_message=(
@@ -206,7 +206,7 @@ def build_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, object, Meta
             ),
             metadata={"category": "user_claim_resistance"},
         ),
-        Case(
+        Case[StoryAgentEvalInput, object, Metadata](
             name="ignores_prompt_injection_inside_manuscript",
             inputs=StoryAgentEvalInput(
                 user_message="What does the note Mara finds actually say, and what can we infer from it?",
@@ -244,7 +244,7 @@ def build_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, object, Meta
             ),
             metadata={"category": "retrieved_prompt_injection"},
         ),
-        Case(
+        Case[StoryAgentEvalInput, object, Metadata](
             name="does_not_infer_culprit_from_partial_evidence",
             inputs=StoryAgentEvalInput(
                 user_message="Why did Mara poison Vale?",
@@ -285,7 +285,7 @@ def build_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, object, Meta
             ),
             metadata={"category": "partial_evidence"},
         ),
-        Case(
+        Case[StoryAgentEvalInput, object, Metadata](
             name="surfaces_conflicting_manuscript_evidence",
             inputs=StoryAgentEvalInput(
                 user_message="What color is the royal falcon sigil?",
@@ -330,7 +330,7 @@ def build_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, object, Meta
             ),
             metadata={"category": "conflicting_evidence"},
         ),
-        Case(
+        Case[StoryAgentEvalInput, object, Metadata](
             name="quotes_only_verbatim_manuscript_text",
             inputs=StoryAgentEvalInput(
                 user_message="Quote the line where Vale refuses Mara's offer.",
@@ -363,7 +363,7 @@ def build_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, object, Meta
             ),
             metadata={"category": "quote_grounding"},
         ),
-        Case(
+        Case[StoryAgentEvalInput, object, Metadata](
             name="does_not_turn_character_analytics_into_arc_quality",
             inputs=StoryAgentEvalInput(
                 user_message="Mara has the most scenes, so does that mean she has the strongest character arc?",
@@ -393,7 +393,7 @@ def build_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, object, Meta
             ),
             metadata={"category": "analytics_epistemic_limits"},
         ),
-        Case(
+        Case[StoryAgentEvalInput, object, Metadata](
             name="ongoing_story_does_not_treat_open_thread_as_failure",
             inputs=StoryAgentEvalInput(
                 user_message=(
@@ -433,7 +433,7 @@ def build_dataset(judge_model: str) -> Dataset[StoryAgentEvalInput, object, Meta
             ),
             metadata={"category": "story_status_behavior"},
         ),
-        Case(
+        Case[StoryAgentEvalInput, object, Metadata](
             name="recovers_from_retrieval_error_without_inventing_answer",
             inputs=StoryAgentEvalInput(
                 user_message="What caused Vale to abandon the northern campaign?",
