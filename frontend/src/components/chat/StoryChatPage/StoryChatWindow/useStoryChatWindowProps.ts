@@ -4,6 +4,7 @@ import type { ApiError } from "../../../../shared/types";
 import type { StoryChatWindowProps, ConversationMessage } from "./StoryChatWindow";
 import { streamSse } from "../../../../infrastructure/sse";
 import { buildChatTurnRequest, completeChatTurn } from "../../../../infrastructure/chat-stream";
+import { SingleFlightGate } from "../../../../shared/singleFlight";
 import { None, Some, Option } from "oxide.ts";
 import type { EventSourceMessage } from "eventsource-parser";
 import { useNavigate, useSearch } from "@tanstack/react-router";
@@ -26,15 +27,11 @@ export function useStoryChatWindowProps({
 }: UseStoryChatWindowPropsArgs): StoryChatWindowProps {
 
     const [threadCreationPending, setThreadCreationPending] = useState(false)
-
+    const turnGateRef = useRef(new SingleFlightGate())
     const [query, setQuery] = useState("");
-
     const navigate = useNavigate({ from: "/stories/$storyId/chat/$threadId"})
-
     const search = useSearch({ from: "/app/stories/$storyId/chat/$threadId" })
-
     const [streamingMessages, setStreamingMessages] = useState<ConversationMessage[]>([]);
-
     const streamingBufferRef = useRef<string[]>([])
     const flushScheduledRef = useRef<boolean>(false)
 
@@ -57,62 +54,37 @@ export function useStoryChatWindowProps({
     }
     
     const streamCancellerRef = useRef<AbortController | null>(null);
-
     const { error } = useToast()
-
-
     const isAtBottomRef = useRef(true);
 
-    // Track if the user has manually scrolled away from the bottom
     const handleScroll = useCallback(() => {
         const container = document.getElementById("messages-container")
         if (!container) return;
-
-        const threshold = 50; // Pixels from the absolute bottom
-        const distanceFromBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight;
-
-        // User is considered "at bottom" if they are within the threshold
+        const threshold = 50;
+        const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
         isAtBottomRef.current = distanceFromBottom <= threshold;
     }, []);
 
     const scrollToBottom = () => {
         const container = document.getElementById("messages-container")
         if (!container) return;
-        container.scrollTo({
-            top: container.scrollHeight,
-            behavior: "auto", // Use "smooth" if you want a sliding effect
-        });
+        container.scrollTo({ top: container.scrollHeight, behavior: "auto" });
     }
 
-    // Automatically scroll to bottom when dependencies (like tokens) change
     useEffect(() => {
         const container = document.getElementById("messages-container")
         if (!container || !isAtBottomRef.current) return;
-        
         const lastMessage = streamingMessages[streamingMessages.length - 1]
         if (!lastMessage) return;
-        
         if (lastMessage.type === "assistant" && lastMessage.props.status === "streaming") {
-
-            if (isAtBottomRef.current) {
-                 container.scrollTo({
-                    top: container.scrollHeight,
-                    behavior: "auto", // Use "smooth" if you want a sliding effect
-                });
-            }
+            container.scrollTo({ top: container.scrollHeight, behavior: "auto" });
         }
-      
     }, [streamingMessages, handleScroll]);
-
- 
 
     const historicalMessages = useMemo<ConversationMessage[]>(() => {
         if (conversationState.status !== "success") return [];
-
         const data = conversationState.data.unwrap().unwrap();
         if (data.messages.length === 0) return [];
-
         const conversationMessages: ConversationMessage[] = [];
 
         data.messages.forEach((msg) => {
@@ -123,7 +95,7 @@ export function useStoryChatWindowProps({
                             conversationMessages.push({
                                 type: "user",
                                 props: {
-                                    user: user,
+                                    user,
                                     createdAt: new Date(part.timestamp),
                                     message: part.content as string
                                 }
@@ -137,10 +109,7 @@ export function useStoryChatWindowProps({
                         if (part.part_kind === "text") {
                             conversationMessages.push({
                                 type: "assistant",
-                                props: {
-                                    status: "done",
-                                    message: part.content as string
-                                }
+                                props: { status: "done", message: part.content as string }
                             });
                         }
                     });
@@ -148,218 +117,116 @@ export function useStoryChatWindowProps({
                 }
             }
         });
-
         return conversationMessages;
     }, [conversationState, user]);
 
     useEffect(() => {
-
-        if (isAtBottomRef.current) {
-            requestAnimationFrame(() => scrollToBottom())
-        }
-
+        if (isAtBottomRef.current) requestAnimationFrame(() => scrollToBottom())
     }, [historicalMessages])
 
+    const allMessages = useMemo(() => [...historicalMessages, ...streamingMessages], [historicalMessages, streamingMessages]);
 
-    const allMessages = useMemo(() => {
-        return [...historicalMessages, ...streamingMessages];
-    }, [historicalMessages, streamingMessages]);
-
-    // Cleanup abort controller on component unmount
     useEffect(() => {
         return () => {
-            if (streamCancellerRef.current) streamCancellerRef.current.abort();
+            streamCancellerRef.current?.abort();
+            turnGateRef.current.finish();
         }
     }, []);
 
-    const onUserPromptSubmitted = useCallback((query: string) => {
+    const finishTurn = () => {
+        turnGateRef.current.finish()
+        setThreadCreationPending(false)
+    }
 
+    const onUserPromptSubmitted = useCallback((query: string) => {
+        if (!turnGateRef.current.tryStart()) return
         setThreadCreationPending(true)
 
-        if (!streamCancellerRef.current) {
-            streamCancellerRef.current = new AbortController()
-        }
-
-        streamCancellerRef.current.abort();
+        streamCancellerRef.current?.abort();
         streamCancellerRef.current = new AbortController();
 
         const started = performance.now();
         setQuery("");
-
         isAtBottomRef.current = true
-
         setStreamingMessages([
-            {
-                type: "user",
-                props: {
-                    user: user,
-                    createdAt: new Date(),
-                    message: query
-                }
-            },
-            {
-                type: "assistant",
-                props: {
-                    status: "loading"
-                }
-            }
+            { type: "user", props: { user, createdAt: new Date(), message: query } },
+            { type: "assistant", props: { status: "loading" } }
         ]);
 
         streamSse(
-            buildChatTurnRequest(
-                storyId,
-                threadId,
-                query,
-                streamCancellerRef.current.signal,
-            ),
+            buildChatTurnRequest(storyId, threadId, query, streamCancellerRef.current.signal),
             {
                 onEvent: (event: EventSourceMessage) => {
-                    switch (event.event) {
-                        case "token": {
-                            const data = JSON.parse(event.data);
-                            streamingBufferRef.current.push(data.delta)
-                            if (!flushScheduledRef.current) {
-                                flushScheduledRef.current = true
-                                requestAnimationFrame(flushBuffer)
-                            }
-                            break;
-                        }
+                    if (event.event !== "token") return
+                    const data = JSON.parse(event.data);
+                    streamingBufferRef.current.push(data.delta)
+                    if (!flushScheduledRef.current) {
+                        flushScheduledRef.current = true
+                        requestAnimationFrame(flushBuffer)
                     }
                 },
                 onClose: Some(() => {
                     if (streamingBufferRef.current.length > 0) flushBuffer()
                     setStreamingMessages([]);
-                    setThreadCreationPending(false)
+                    finishTurn()
                     completeChatTurn(onRetry)
                 })
             }
         ).then((result) => {
             console.log(`SSE stream finished in ${((performance.now() - started) / 1000).toFixed(2)}s`);
-            if (result.isErr()) {
+            if (result.isOk()) return
 
-
-                const e = result.unwrapErr();
-
-                switch (e._tag) {
-                    case "SseAbortedError":
-                        console.error(`${e._tag}: Stream aborted!`)
-                        return;
-                    case "SseHttpError":
-                        error(
-                            "Error", 
-                            "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
-                        )
-                        console.error(`${e._tag}: \n Status: ${e.status} \n Body: ${e.body}`);
-                        if (streamingBufferRef.current.length > 0) flushBuffer()
-                        setStreamingMessages([]);
-                        onRetry()
-                        setThreadCreationPending(false)
-                        return;
-                    case "SseNetworkError":
-                        error(
-                            "Error", 
-                            "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
-                        )
-                        console.error(`${e._tag}: \n ${e.cause.message}`)
-                        if (streamingBufferRef.current.length > 0) flushBuffer()
-                        setStreamingMessages([]);
-                        onRetry(); 
-                        setThreadCreationPending(false)
-                        return;
-                    case "SseNoBodyError":
-                        error(
-                            "Error", 
-                            "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
-                        )
-                        console.error(`${e._tag}: No body!`)
-                        if (streamingBufferRef.current.length > 0) flushBuffer()
-                        setStreamingMessages([]);
-                        onRetry()
-                        setThreadCreationPending(false)
-                        return;
-                    case "SseStreamError":
-                        error(
-                            "Error", 
-                            "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
-                        )
-                        console.error(`${e._tag}: \n ${e.cause.message}`)
-                        if (streamingBufferRef.current.length > 0) flushBuffer()
-                        setStreamingMessages([]);
-                        onRetry()
-                        setThreadCreationPending(false)
-                        return;
-                    
-                }
+            const e = result.unwrapErr();
+            if (e._tag === "SseAbortedError") {
+                finishTurn()
+                return;
             }
+
+            error(
+                "Error", 
+                "Something went wrong. And Nexus could not reply to your message. The server might be experiencing issues."
+            )
+            if (streamingBufferRef.current.length > 0) flushBuffer()
+            setStreamingMessages([]);
+            onRetry()
+            finishTurn()
         });
     }, [storyId, threadId, onRetry, user, error])
 
     useEffect(() => {
         if (!search.prompt) return 
-
         const initialPrompt = search.prompt;
-        
-        navigate({
-            search: (prev) => ({ ...prev, prompt: undefined }),
-            replace: true,
-        });
-
-        // 2. Wrap the initial submission state update in a transition
-        startTransition(() => {
-            onUserPromptSubmitted(initialPrompt);
-        });
-
+        navigate({ search: (prev) => ({ ...prev, prompt: undefined }), replace: true });
+        startTransition(() => onUserPromptSubmitted(initialPrompt));
     }, [search, onUserPromptSubmitted, navigate])
 
     switch (conversationState.status) {
-        case "loading": {
-            return {
-                status: "loading"
-            }
-        }
-        case "empty": {
-            return {
-                status: "empty",
-                composer: {
-                    status: "ready",
-                    threadCreationPending: threadCreationPending,
-                    query: query,
-                    onQueryChange: (query: string) => setQuery(query),
-                    onEnterDown: (query: string) => onUserPromptSubmitted(query),
-                    onSubmit: (query: string) => onUserPromptSubmitted(query)
-                }
-            };
-        }
-        case "idle": {
-            return {
-                status: "empty",
-                composer: {
-                    status: "empty"
-                }
-            };
-        }
-        case "success": {
-            return {
+        case "loading": return { status: "loading" }
+        case "empty": return {
+            status: "empty",
+            composer: {
                 status: "ready",
-                messages: allMessages, 
-                onMessagesScroll: handleScroll,
-                composer: {
-                    status: streamingMessages.length > 0 ? "loading" : "ready",
-                    query: query,
-                    threadCreationPending: threadCreationPending,
-                    onQueryChange: (query: string) => setQuery(query),
-                    onEnterDown: (query: string) => onUserPromptSubmitted(query),
-                    onSubmit: (query: string) => onUserPromptSubmitted(query)
-                }
-            };
-        }
-        default: {
-            return {
-                status: "empty",
-                composer: {
-                    status: "empty"
-                }
-            };
-        }
+                threadCreationPending,
+                query,
+                onQueryChange: setQuery,
+                onEnterDown: onUserPromptSubmitted,
+                onSubmit: onUserPromptSubmitted
+            }
+        };
+        case "idle": return { status: "empty", composer: { status: "empty" } };
+        case "success": return {
+            status: "ready",
+            messages: allMessages, 
+            onMessagesScroll: handleScroll,
+            composer: {
+                status: streamingMessages.length > 0 ? "loading" : "ready",
+                query,
+                threadCreationPending,
+                onQueryChange: setQuery,
+                onEnterDown: onUserPromptSubmitted,
+                onSubmit: onUserPromptSubmitted
+            }
+        };
+        default: return { status: "empty", composer: { status: "empty" } };
     }
 }
