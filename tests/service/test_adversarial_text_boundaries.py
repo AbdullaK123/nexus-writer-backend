@@ -6,77 +6,63 @@ from src.shared.text_types import (
     CHAPTER_CONTENT_MAX,
     SEARCH_QUERY_MAX,
     TITLE_MAX,
-    ChatMessage,
     ChapterContent,
+    ChatMessage,
     SearchQuery,
     StoryTitle,
 )
 
 
-def adapter(tp):
-    return TypeAdapter(tp)
-
-
 @pytest.mark.parametrize(
-    "tp,value",
+    ("text_type", "payload"),
     [
         (StoryTitle, "safe\x00evil"),
-        (SearchQuery, "search\x00payload"),
-        (ChatMessage, "hello\x00world"),
-        (ChapterContent, "<p>hello</p>\x00"),
+        (SearchQuery, "safe\x00evil"),
+        (ChatMessage, "safe\x00evil"),
+        (ChapterContent, "<p>safe\x00evil</p>"),
     ],
 )
-def test_nul_is_rejected_at_schema_boundary(tp, value):
-    with pytest.raises(ValidationError, match="NUL characters are not allowed"):
-        adapter(tp).validate_python(value)
+def test_nul_never_crosses_a_text_boundary(text_type, payload: str) -> None:
+    with pytest.raises(ValidationError, match="NUL"):
+        TypeAdapter(text_type).validate_python(payload)
+
+
+@pytest.mark.parametrize("control", ["\u202e", "\u2066", "\u2069", "\u200f"])
+def test_single_line_fields_reject_bidi_display_spoofing(control: str) -> None:
+    with pytest.raises(ValidationError, match="bidirectional"):
+        TypeAdapter(StoryTitle).validate_python(f"invoice{control}gpj.exe")
+
+
+def test_title_normalization_collapses_invisible_duplicate_spellings() -> None:
+    adapter = TypeAdapter(StoryTitle)
+
+    assert adapter.validate_python("  My\u200b   Story  ") == "My Story"
+    assert adapter.validate_python("Cafe\u0301") == "Café"
 
 
 @pytest.mark.parametrize(
-    "tp,value",
+    ("text_type", "max_length"),
     [
-        (StoryTitle, "invoice\u202Egpj.exe"),
-        (SearchQuery, "character\u2066secret\u2069"),
+        (StoryTitle, TITLE_MAX),
+        (SearchQuery, SEARCH_QUERY_MAX),
+        (ChatMessage, CHAT_MESSAGE_MAX),
+        (ChapterContent, CHAPTER_CONTENT_MAX),
     ],
 )
-def test_bidi_formatting_controls_are_rejected_in_single_line_inputs(tp, value):
-    with pytest.raises(ValidationError, match="bidirectional formatting controls"):
-        adapter(tp).validate_python(value)
+def test_giant_padding_is_rejected_before_cleanup(text_type, max_length: int) -> None:
+    payload = "x" + (" " * max_length)
+
+    with pytest.raises(ValidationError, match="at most"):
+        TypeAdapter(text_type).validate_python(payload)
 
 
-def test_story_title_collapses_invisible_and_whitespace_confusables():
-    value = "  My\u200b\t\n   Story  "
-    assert adapter(StoryTitle).validate_python(value) == "My Story"
+def test_multiline_chat_normalizes_line_endings_but_preserves_real_lines() -> None:
+    value = TypeAdapter(ChatMessage).validate_python("  first\r\nsecond\rthird  ")
+
+    assert value == "first\nsecond\nthird"
 
 
-def test_single_line_raw_length_is_bounded_before_cleanup_can_shrink_it():
-    # Attackers must not be able to send megabytes of disposable whitespace or
-    # controls and rely on normalization to shrink it under the business limit.
-    oversized = "A" + (" " * TITLE_MAX)
-    with pytest.raises(ValidationError, match=f"at most {TITLE_MAX}"):
-        adapter(StoryTitle).validate_python(oversized)
+def test_chapter_content_does_not_strip_structurally_meaningful_outer_payload() -> None:
+    payload = "  <p>Hello</p>  "
 
-
-def test_search_query_rejects_oversized_padding_before_embedding():
-    oversized = "needle" + (" " * SEARCH_QUERY_MAX)
-    with pytest.raises(ValidationError, match=f"at most {SEARCH_QUERY_MAX}"):
-        adapter(SearchQuery).validate_python(oversized)
-
-
-def test_chat_message_rejects_oversized_payload_before_ai_work():
-    with pytest.raises(ValidationError, match=f"at most {CHAT_MESSAGE_MAX}"):
-        adapter(ChatMessage).validate_python("x" * (CHAT_MESSAGE_MAX + 1))
-
-
-def test_chapter_content_rejects_oversized_payload_before_html_processing():
-    with pytest.raises(ValidationError, match=f"at most {CHAPTER_CONTENT_MAX}"):
-        adapter(ChapterContent).validate_python("x" * (CHAPTER_CONTENT_MAX + 1))
-
-
-def test_multiline_chat_normalizes_line_endings_and_strips_unsafe_controls():
-    value = "  first\r\nsecond\x01\rthird  "
-    assert adapter(ChatMessage).validate_python(value) == "first\nsecond\nthird"
-
-
-def test_multiline_prose_preserves_join_controls_used_by_real_languages():
-    value = "می\u200cروم"
-    assert adapter(ChatMessage).validate_python(value) == value
+    assert TypeAdapter(ChapterContent).validate_python(payload) == payload

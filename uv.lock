@@ -2153,6 +2153,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "lorem-text" },
+    { name = "pydantic-evals" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-mock" },
@@ -2194,6 +2195,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "lorem-text", specifier = ">=3.0" },
+    { name = "pydantic-evals", specifier = ">=1.89.1" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
     { name = "pytest-mock", specifier = ">=3.12" },
