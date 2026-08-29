@@ -1,4 +1,6 @@
 import { None, Some, type SseRequest } from "./sse"
+import { AbortControllerSlot } from "../shared/abortControllerSlot"
+import { SingleFlightGate } from "../shared/singleFlight"
 
 export function buildChatTurnRequest(
     storyId: string,
@@ -13,6 +15,18 @@ export function buildChatTurnRequest(
         signal: Some(signal),
         headers: None,
     }
+}
+
+export function beginChatTurn(
+    gate: SingleFlightGate,
+    slot: AbortControllerSlot,
+): AbortController | null {
+    if (!gate.tryStart()) return null
+    return slot.replace()
+}
+
+export function finishChatTurn(gate: SingleFlightGate): void {
+    gate.finish()
 }
 
 export function completeChatTurn(refreshMessages: () => void): void {
