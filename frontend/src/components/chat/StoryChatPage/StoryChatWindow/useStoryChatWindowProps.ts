@@ -3,6 +3,7 @@ import type { AsyncState, ChatMessageListResponse, UserResponse } from "../../..
 import type { ApiError } from "../../../../shared/types";
 import type { StoryChatWindowProps, ConversationMessage } from "./StoryChatWindow";
 import { streamSse } from "../../../../infrastructure/sse";
+import { buildChatTurnRequest, completeChatTurn } from "../../../../infrastructure/chat-stream";
 import { None, Some, Option } from "oxide.ts";
 import type { EventSourceMessage } from "eventsource-parser";
 import { useNavigate, useSearch } from "@tanstack/react-router";
@@ -205,15 +206,12 @@ export function useStoryChatWindowProps({
         ]);
 
         streamSse(
-            {
-                url: `stories/${storyId}/chat/threads/${threadId}/turn`,
-                method: Some("POST"),
-                body: Some({
-                    user_message: query
-                }),
-                signal: Some(streamCancellerRef.current.signal),
-                headers: None
-            },
+            buildChatTurnRequest(
+                storyId,
+                threadId,
+                query,
+                streamCancellerRef.current.signal,
+            ),
             {
                 onEvent: (event: EventSourceMessage) => {
                     switch (event.event) {
@@ -232,7 +230,7 @@ export function useStoryChatWindowProps({
                     if (streamingBufferRef.current.length > 0) flushBuffer()
                     setStreamingMessages([]);
                     setThreadCreationPending(false)
-                    onRetry(); 
+                    completeChatTurn(onRetry)
                 })
             }
         ).then((result) => {
