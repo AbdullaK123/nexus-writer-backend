@@ -14,6 +14,7 @@ import {
     storyKeys,
     useCreateChapter,
     useCreateStory,
+    useDeleteStory,
     useReorderChapters,
 } from "../../../src/data/queries/story"
 import { chapterKeys } from "../../../src/data/queries/chapter"
@@ -67,6 +68,7 @@ beforeEach(() => {
         story: {
             createStory: vi.fn(),
             createChapter: vi.fn(),
+            deleteStory: vi.fn(),
             reorderChapters: vi.fn(),
         },
     } as never)
@@ -112,6 +114,15 @@ describe("query cache invalidation", () => {
         useRenameThread("story-1", "thread-1")
         mutationOptions().onSuccess?.()
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: chatKeys.threads("story-1") })
+    })
+
+    test("destructive mutations have no cache/navigation side effects before success", () => {
+        useDeleteThread("story-1", "thread-1")
+        useDeleteStory()
+
+        expect(removeQueries).not.toHaveBeenCalled()
+        expect(invalidateQueries).not.toHaveBeenCalled()
+        expect(navigate).not.toHaveBeenCalled()
     })
 
     test("deleting a thread removes its message cache before refreshing threads", async () => {
