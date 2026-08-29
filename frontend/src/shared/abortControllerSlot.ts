@@ -7,6 +7,12 @@ export class AbortControllerSlot {
         return this.controller
     }
 
+    clearIfCurrent(controller: AbortController): void {
+        if (this.controller === controller) {
+            this.controller = null
+        }
+    }
+
     abort(): void {
         this.controller?.abort()
         this.controller = null
