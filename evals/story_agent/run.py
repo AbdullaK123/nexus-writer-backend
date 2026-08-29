@@ -53,7 +53,7 @@ async def run_suite(
     max_concurrency: int,
     repeat: int,
 ) -> None:
-    report = await build_dataset(judge_model).evaluate(
+    report = await build_dataset(f"openrouter:{judge_model}").evaluate(
         make_task(model),
         name=f"story-agent:{model}",
         max_concurrency=max_concurrency,
