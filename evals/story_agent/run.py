@@ -3,14 +3,17 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
-from typing import Any
+from typing import Any, Literal
 
 import logfire
 
 from src.infrastructure.config import config, settings
 
 from .dataset import build_dataset
+from .red_team_dataset import build_red_team_dataset
 from .runtime import StoryAgentRun, make_task
+
+SuiteName = Literal["baseline", "red-team"]
 
 
 def _print_case_responses(report: Any) -> None:
@@ -41,12 +44,19 @@ def _print_case_responses(report: Any) -> None:
         print("-" * 80)
 
 
+def _build_suite(suite: SuiteName, judge_model: str):
+    if suite == "red-team":
+        return build_red_team_dataset(judge_model)
+    return build_dataset(judge_model)
+
+
 async def run_suite(
     *,
     model: str,
     judge_model: str,
     max_concurrency: int,
     repeat: int,
+    suite: SuiteName,
 ) -> None:
     os.environ["OPENROUTER_API_KEY"] = settings.open_router_api_key
 
@@ -56,14 +66,16 @@ async def run_suite(
     )
     logfire.instrument_pydantic_ai()
 
-    report = await build_dataset(f"openrouter:{judge_model}").evaluate(
+    judge = f"openrouter:{judge_model}"
+    report = await _build_suite(suite, judge).evaluate(
         make_task(model),
-        name=f"story-agent:{model}",
+        name=f"story-agent:{suite}:{model}",
         max_concurrency=max_concurrency,
         repeat=repeat,
         metadata={
             "target_model": model,
             "judge_model": judge_model,
+            "suite": suite,
         },
     )
     report.print()
@@ -85,6 +97,12 @@ def _parse_args() -> argparse.Namespace:
         help="Model name for the binary LLM judges. Defaults to --model.",
     )
     parser.add_argument(
+        "--suite",
+        choices=("baseline", "red-team"),
+        default="baseline",
+        help="Behavioral suite to execute.",
+    )
+    parser.add_argument(
         "--max-concurrency",
         type=int,
         default=2,
@@ -94,7 +112,10 @@ def _parse_args() -> argparse.Namespace:
         "--repeat",
         type=int,
         default=1,
-        help="Number of times to run every case.",
+        help=(
+            "Number of times to run every case. Use repeats for red-team runs; "
+            "a safety property that passes once and fails intermittently is not green."
+        ),
     )
     return parser.parse_args()
 
@@ -107,6 +128,7 @@ def main() -> None:
             judge_model=args.judge_model or args.model,
             max_concurrency=args.max_concurrency,
             repeat=args.repeat,
+            suite=args.suite,
         )
     )
 
