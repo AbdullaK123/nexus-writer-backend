@@ -14,11 +14,6 @@ import { Option } from "oxide.ts"
 import { authKeys } from "./auth";
 import { useMatchRoute, useNavigate } from "@tanstack/react-router";
 
-// ─── Keys ──────────────────────────────────────────────────────────────────
-// Chapter cache lives under its own root because chapters are also
-// fetched in isolation by chapter_id (e.g. deep links). Mutations also
-// hit storyKeys to keep the parent's chapter list consistent.
-
 export const chapterKeys = {
     all: ["chapters"] as const,
     detail: (chapterId: string, asHtml: boolean) =>
@@ -28,8 +23,6 @@ export const chapterKeys = {
     comments: (chapterId: string) =>
         [...chapterKeys.all, chapterId, "comments"]
 }
-
-// ─── Queries ───────────────────────────────────────────────────────────────
 
 export function useChapter(chapterId: string, asHtml: boolean = true) {
     const api = useApi()
@@ -42,8 +35,6 @@ export function useChapter(chapterId: string, asHtml: boolean = true) {
     return toAsyncState<ChapterContentResponse>(result)
 }
 
-// ─── Mutations ─────────────────────────────────────────────────────────────
-
 export function useUpdateChapter(chapterId: string) {
     const api = useApi()
     const qc = useQueryClient()
@@ -51,31 +42,29 @@ export function useUpdateChapter(chapterId: string) {
         mutationFn: (payload: UpdateChapterRequest) =>
             unwrapResultAsync(api.chapter.updateChapter(chapterId, payload)),
         onMutate: async (updatedContent) => {
-            await qc.cancelQueries({ queryKey: chapterKeys.detail(chapterId, true) })
-            const prevContent = qc.getQueryData<ChapterContentResponse>(chapterKeys.detail(chapterId, true))
-             qc.setQueryData<ChapterContentResponse>(
-                chapterKeys.detail(chapterId, true), 
-                {
-                    // Provide hardcoded or empty fallbacks for required fields
-                    id: prevContent?.id ?? chapterId,
-                    title: prevContent?.title ?? "",
-                    published: prevContent?.published ?? false,
-                    storyId: prevContent?.storyId ?? "",
-                    storyTitle: prevContent?.storyTitle ?? "",
-                    chapterNumber: prevContent?.chapterNumber ?? 0,
-                    wordCount: prevContent?.wordCount ?? 0,
-                    createdAt: prevContent?.createdAt ?? new Date(),
-                    updatedAt: prevContent?.updatedAt ?? new Date(),
-                    previousChapterId: prevContent?.previousChapterId ?? null,
-                    nextChapterId: prevContent?.nextChapterId ?? null,
-                    // Your dynamic update
-                    content: updatedContent.content ?? ""
+            const key = chapterKeys.detail(chapterId, true)
+            await qc.cancelQueries({ queryKey: key })
+            const prevContent = qc.getQueryData<ChapterContentResponse>(key)
+
+            const optimisticContent: ChapterContentResponse = prevContent
+                ? { ...prevContent, ...updatedContent }
+                : {
+                    id: chapterId,
+                    title: updatedContent.title ?? "",
+                    published: updatedContent.published ?? false,
+                    content: updatedContent.content ?? "",
+                    storyId: "",
+                    storyTitle: "",
+                    chapterNumber: 0,
+                    wordCount: 0,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    previousChapterId: null,
+                    nextChapterId: null,
                 }
-            )
-            return {
-                prevContent,
-                updatedContent
-            }
+
+            qc.setQueryData<ChapterContentResponse>(key, optimisticContent)
+            return { prevContent }
         },
         onError: (_, __, context ) => {
             qc.setQueryData(chapterKeys.detail(chapterId, true), context?.prevContent)
@@ -87,14 +76,18 @@ export function useUpdateChapter(chapterId: string) {
             qc.invalidateQueries({
                 queryKey: storyKeys.detail(chapter.storyId),
             })
-            qc.invalidateQueries({
-                queryKey: authKeys.dashboard()
-            })
+            qc.invalidateQueries({ queryKey: authKeys.dashboard() })
         },
-        onSettled: (_) => {
+        onSettled: () => {
             qc.invalidateQueries({ queryKey: chapterKeys.detail(chapterId, true) })
         }
     })
+}
+
+type DeleteChapterContext = {
+    destination?:
+        | { to: "/stories/$storyId"; params: { storyId: string } }
+        | { to: "/stories/$storyId/$chapterId"; params: { storyId: string; chapterId: string } }
 }
 
 export function useDeleteChapter(chapterId: string, storyId: string) {
@@ -104,57 +97,51 @@ export function useDeleteChapter(chapterId: string, storyId: string) {
     const matchRoute = useMatchRoute()
 
     return useMutation({
-        onMutate: async () => {
-
+        onMutate: async (): Promise<DeleteChapterContext> => {
             const isViewingChapter = matchRoute({ 
                 to: "/stories/$storyId/$chapterId", 
                 params: { storyId, chapterId } 
             })
+            if (!isViewingChapter) return {}
 
-            // 2. If they are deleting from the story root page, do not change their page
-            if (!isViewingChapter) {
-                return
-            }
-
-            const pathKey = [storyKeys.path(storyId)]
-            
-            // 1. Cancel any outgoing refetches so they don't clash with our read
+            const pathKey = storyKeys.path(storyId)
             await qc.cancelQueries({ queryKey: pathKey })
-
             const pathArray = await qc.fetchQuery({
                 queryKey: pathKey,
                 queryFn: () => unwrapResultAsync(api.story.getPathArray(storyId))
             })
-            
-            const targetId = chapterId
-            const chapterIdx = pathArray.pathArray.findIndex((id) => id === targetId)
+            const chapterIdx = pathArray.pathArray.findIndex((id) => id === chapterId)
+            if (chapterIdx === -1) return {}
 
-            if (chapterIdx === -1) {
-                return
+            if (chapterIdx === 0) {
+                return {
+                    destination: {
+                        to: "/stories/$storyId",
+                        params: { storyId },
+                    }
+                }
             }
 
-            // 2. Await the navigation so the UI unmounts the old page BEFORE the data vanishes
-            if (chapterIdx === 0) {
-                await navigate({ to: "/stories/$storyId", params: { storyId: storyId } })
-            } else {
-                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                const prevChapterId = pathArray.pathArray[chapterIdx - 1]!
-                await navigate({ to: "/stories/$storyId/$chapterId", params: { storyId: storyId, chapterId: prevChapterId } })
+            const prevChapterId = pathArray.pathArray[chapterIdx - 1]
+            if (!prevChapterId) return {}
+            return {
+                destination: {
+                    to: "/stories/$storyId/$chapterId",
+                    params: { storyId, chapterId: prevChapterId },
+                }
             }
         },
         mutationFn: () => unwrapResultAsync(api.chapter.deleteChapter(chapterId)),
-        onSuccess: () => {
+        onSuccess: async (_data, _variables, context) => {
+            if (context?.destination) {
+                await navigate(context.destination)
+            }
             qc.removeQueries({
                 queryKey: [...chapterKeys.all, "detail", chapterId],
             })
-            qc.invalidateQueries({
-                queryKey: chapterKeys.all
-            })
-            qc.invalidateQueries({
-                queryKey: storyKeys.chapters(storyId)
-            })
-            // 3. Crucial: Invalidate the path array so the system knows the order changed
-            qc.invalidateQueries({ queryKey: [storyKeys.path(storyId)] })
+            qc.invalidateQueries({ queryKey: chapterKeys.all })
+            qc.invalidateQueries({ queryKey: storyKeys.chapters(storyId) })
+            qc.invalidateQueries({ queryKey: storyKeys.path(storyId) })
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
             qc.invalidateQueries({ queryKey: authKeys.dashboard() })
             qc.invalidateQueries({ queryKey: authKeys.editorLinks()})
@@ -162,39 +149,28 @@ export function useDeleteChapter(chapterId: string, storyId: string) {
     })
 }
 
-
 export function useChapterSummary(chapterId: Option<string>) {   
-
   const api = useApi()
-
   const enabled = chapterId.isSome()
   const id = chapterId.unwrapOr("__none__")
-
   const result = useQuery<ChapterSummaryResponse, ApiError>({
     queryKey: chapterKeys.summary(id),
     queryFn: ({ signal }) =>
-      unwrapResultAsync(
-        api.chapter.summarizeChapter(id, requestOptions({ signal }))
-      ),
+      unwrapResultAsync(api.chapter.summarizeChapter(id, requestOptions({ signal }))),
     enabled,
     staleTime: 1000*10
   })
-
   return toAsyncState<ChapterSummaryResponse>(result)
 }
 
 export function useChapterComments(chapterId: string) {
     const api = useApi()
-
     const result = useQuery<CommentExtractionResponse, ApiError>({
         queryKey: chapterKeys.comments(chapterId),
         queryFn: ({ signal }) => 
-            unwrapResultAsync(
-                api.chapter.getComments(chapterId, requestOptions({ signal }))
-            ),
+            unwrapResultAsync(api.chapter.getComments(chapterId, requestOptions({ signal }))),
         enabled: Boolean(chapterId),
         staleTime: 1000*10
     })
-
     return toAsyncState<CommentExtractionResponse>(result)
 }
