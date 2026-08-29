@@ -24,71 +24,27 @@ export function useStoryChatPage(): StoryChatPageProps {
 
     const ctx = useRouteContext({ from: "/app/stories/$storyId/chat/$threadId" })
 
-    const { error } = useToast()
-
     const [
         conversationState, 
         refetchMessages
     ] = useThreadMessages(params.storyId, params.threadId)
 
-    const [
-        threadsState,
-        refetchThreads
-    ] = useThreads(params.storyId)
+    const threadsState = useThreads(params.storyId)
 
-    const [
-        storyState,
-        refetchStory
-    ] = useStoryDetails(params.storyId)
-
-    const refetchSidebarData = () => {
-        refetchStory()
-        refetchThreads()
-    }
-
-    const refetchHeaderData = () => {
-        refetchStory()
-        refetchMessages()
-    }
-
-    const onConversationError = useEffectEvent(() => {
-        error("Failed to fetch conversation", "Something went wrong. The server might be experiencing issues.")
-    })
-
-    const onThreadsError = useEffectEvent(() => {
-        error("Failed to fetch threads", "Something went wrong. The server might be experiencing issues.")
-    })
-
-    const onStoryError = useEffectEvent(() => {
-        error("Failed to fetch story", "Something went wrong. The server might be experiencing issues.")
-    })
-
-    useEffect(() => {
-        if (threadsState.status === "error") onThreadsError()
-    }, [threadsState.status])
-
-    useEffect(() => {
-        if (conversationState.status === "error") onConversationError()
-    }, [conversationState.status])
-
-    useEffect(() => {
-        if (storyState.status === "error") onStoryError()
-    }, [storyState.status])
+    const storyState = useStoryDetails(params.storyId)
 
     const headerProps = useStoryChatHeaderProps({
         storyId: params.storyId,
         threadId: params.threadId,
         conversationState: conversationState,
-        storyState: storyState,
-        onRetry: refetchHeaderData
+        storyState: storyState
     })
 
     const sidebarProps = useStoryChatSidebarProps({
         storyId: params.storyId,
         threadId: Some(params.threadId),
         storyState: storyState,
-        threadsState: threadsState,
-        onRetry: refetchSidebarData
+        threadsState: threadsState
     })
 
     const windowProps = useStoryChatWindowProps({
@@ -98,8 +54,6 @@ export function useStoryChatPage(): StoryChatPageProps {
         conversationState: conversationState,
         onRetry: () => {
             refetchMessages()
-            refetchStory()
-            refetchThreads()
         }
     })
 

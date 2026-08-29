@@ -33,7 +33,7 @@ export function useThreads(storyId: string) {
         queryFn: ({ signal }) => unwrapResultAsync(api.chat.getThreads(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
     })
-    return [toAsyncState<ThreadListResponse>(response), response.refetch] as const
+    return toAsyncState<ThreadListResponse>(response)
 }
 
 export function useThreadMessages(storyId: string, threadId: string) {

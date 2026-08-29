@@ -70,7 +70,7 @@ export function useStoryDetails(storyId: string) {
             unwrapResultAsync(api.story.getStoryDetails(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
     })
-    return [toAsyncState<StoryDetailResponse>(result), result.refetch] as const
+    return toAsyncState<StoryDetailResponse>(result)
 }
 
 export function useStoryChapters(storyId: string) {

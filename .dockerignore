@@ -2,6 +2,10 @@
 .git
 .gitignore
 frontend
+tests
+evals
+docs
+
 
 # Python
 __pycache__

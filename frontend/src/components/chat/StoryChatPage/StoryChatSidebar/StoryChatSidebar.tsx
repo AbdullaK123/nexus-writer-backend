@@ -7,7 +7,6 @@ import { None, Some } from "oxide.ts";
 export type StoryChatSidebarProps = 
 | { status: "idle" }
 | { status: "loading" }
-| { status: "error", onRetry: () => void }
 | { status: "empty" }
 | {
     status: "ready",
@@ -24,25 +23,6 @@ export function StoryChatSidebar(props: StoryChatSidebarProps) {
         case "empty":
         case "idle": {
             return <Nothing />
-        }
-        case "error": {
-            return (
-                <div className={styles['content']}>
-                     <ErrorState 
-                        headline="Error"
-                        title="Failed to fetch threads"
-                        description={Some("Something went wrong. The server might be experiencing issues.")}
-                        action={Some(
-                            <Button
-                                variant="primary"
-                                onClick={props.onRetry}
-                            >
-                                Retry
-                            </Button>
-                        )}
-                    />
-                </div>
-            )
         }
         case "loading": {
             return (

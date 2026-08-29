@@ -340,12 +340,6 @@ export function useStoryChatWindowProps({
                 }
             };
         }
-        case "error": {
-            return {
-                status: "error",
-                onRetry: onRetry
-            };
-        }
         case "success": {
             return {
                 status: "ready",

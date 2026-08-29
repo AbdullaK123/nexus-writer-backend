@@ -11,16 +11,14 @@ export type UseStoryChatHeaderPropsArgs =
     storyId: string
     threadId: string
     conversationState: AsyncState<ChatMessageListResponse, ApiError>
-    storyState: AsyncState<StoryDetailResponse, ApiError>,
-    onRetry: () => void
+    storyState: AsyncState<StoryDetailResponse, ApiError>
 }
 
 export function useStoryChatHeaderProps({
     storyId,
     threadId,
     conversationState,
-    storyState,
-    onRetry
+    storyState
 }: UseStoryChatHeaderPropsArgs): StoryChatHeaderProps {
 
     const resolvedState = resolveAsyncStates({
@@ -82,9 +80,6 @@ export function useStoryChatHeaderProps({
     switch (resolvedState.status) {
         case "empty": {
             return { status: "empty" }
-        }
-        case "error": {
-            return { status: "error", onRetry: onRetry }
         }
         case "idle": {
             return { status: "idle"}

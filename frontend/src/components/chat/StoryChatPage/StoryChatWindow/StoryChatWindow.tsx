@@ -15,7 +15,6 @@ export type StoryChatWindowProps =
 | { status: "idle" }
 | { status: "loading" }
 | { status: "empty", composer: ChatComposerProps }
-| { status: "error", onRetry: () => void}
 | { 
     status: "ready"
     onMessagesScroll: () => void
@@ -45,19 +44,6 @@ export function StoryChatWindow(props: StoryChatWindowProps) {
                         <LoadingSkeleton className={None} />
                         <LoadingSkeleton className={None} />
                     </div>
-                </div>
-            )
-        }
-        case "error": {
-            return (
-                <div className={styles['content']}>
-                    <h2>Something went wrong.</h2>
-                    <Button
-                        variant="primary"
-                        onClick={props.onRetry}
-                    >
-                        Retry
-                    </Button>
                 </div>
             )
         }

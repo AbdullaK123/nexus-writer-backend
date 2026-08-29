@@ -11,16 +11,14 @@ export type UseStoryChatSidebarPropsArgs =
     storyId: string
     threadId: Option<string>
     storyState: AsyncState<StoryDetailResponse, ApiError>,
-    threadsState: AsyncState<ThreadListResponse, ApiError>,
-    onRetry: () => void
+    threadsState: AsyncState<ThreadListResponse, ApiError>
 }
 
 export function useStoryChatSidebarProps({
     storyId,
     threadId,
     storyState,
-    threadsState,
-    onRetry
+    threadsState
 }: UseStoryChatSidebarPropsArgs): StoryChatSidebarProps {
 
     const navigate = useNavigate()
@@ -39,9 +37,6 @@ export function useStoryChatSidebarProps({
         }
         case "empty": {
             return { status: "empty"}
-        }
-        case "error": {
-            return { status: "error", onRetry: onRetry}
         }
         case "loading": {
             return { status: "loading" }

@@ -1,4 +1,4 @@
-import { Button, ErrorState, LoadingSkeleton, Nothing } from "../../../common";
+import { LoadingSkeleton, Nothing } from "../../../common";
 import { ChapterSidebarItem, type ChapterSidebarItemProps } from "./ChapterSidebarItem";
 import { PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import styles from "./ChapterEditorSidebar.module.css"
