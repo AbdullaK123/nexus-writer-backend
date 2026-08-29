@@ -90,7 +90,7 @@ class CreateThreadBody(ApiModel):
 
 
 class TurnBody(ApiModel):
-    user_message: str = Field(alias="firstMessage")
+    user_message: str = Field(alias="userMessage")
 
 
 class RenameThreadBody(ApiModel):
