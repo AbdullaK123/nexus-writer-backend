@@ -3,7 +3,7 @@ import type { AsyncState, ChatMessageListResponse, UserResponse } from "../../..
 import type { ApiError } from "../../../../shared/types";
 import type { StoryChatWindowProps, ConversationMessage } from "./StoryChatWindow";
 import { streamSse } from "../../../../infrastructure/sse";
-import { beginChatTurn, buildChatTurnRequest, completeChatTurn, finishChatTurn } from "../../../../infrastructure/chat-stream";
+import { beginChatTurn, buildChatTurnRequest, completeChatTurn, decodeChatStreamToken, finishChatTurn } from "../../../../infrastructure/chat-stream";
 import { SingleFlightGate } from "../../../../shared/singleFlight";
 import { AbortControllerSlot } from "../../../../shared/abortControllerSlot";
 import { Some, Option } from "oxide.ts";
@@ -155,9 +155,9 @@ export function useStoryChatWindowProps({
             buildChatTurnRequest(storyId, threadId, query, controller.signal),
             {
                 onEvent: (event: EventSourceMessage) => {
-                    if (event.event !== "token") return
-                    const data = JSON.parse(event.data);
-                    streamingBufferRef.current.push(data.delta)
+                    const delta = decodeChatStreamToken(event)
+                    if (delta === null) return
+                    streamingBufferRef.current.push(delta)
                     if (!flushScheduledRef.current) {
                         flushScheduledRef.current = true
                         requestAnimationFrame(flushBuffer)
