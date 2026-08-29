@@ -6,9 +6,11 @@ import { useSceneSearchPaletteProps } from "../../../story/SceneSearchPalette/us
 import type { ChapterEditorProps } from "./ChapterEditor";
 import { type Editor } from "@tiptap/react";
 import { None, Option, Some } from "oxide.ts"
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useToast } from "../../../common";
 import { useShortcut } from "../../../../hooks/useShortcut";
+import { SingleFlightGate } from "../../../../shared/singleFlight";
+
 export type UseChapterEditorPropsArgs = 
 {
     updating: boolean
@@ -21,7 +23,6 @@ export type UseChapterEditorPropsArgs =
     state: AsyncState<ChapterContentResponse, ApiError>
 }
 
-
 export function useChapterEditorProps({
     updating,
     query,
@@ -32,17 +33,17 @@ export function useChapterEditorProps({
     storyId,
     state
 }: UseChapterEditorPropsArgs): ChapterEditorProps {
-
-    const [sceneSearchState, refetchScenes] = useStorySceneSearch(storyId, { query: query })
+    const [sceneSearchState, refetchScenes] = useStorySceneSearch(storyId, { query })
     const createChapterMutation = useCreateChapter(storyId)
+    const createChapterGateRef = useRef(new SingleFlightGate())
     const searchPaletteProps = useSceneSearchPaletteProps({
         state: sceneSearchState,
         onRetry: refetchScenes,
-        onAskAgent: onAskAgent,
-        storyId: storyId,
-        query: query,
-        onQueryChange: onQueryChange,
-        threadCreationPending: threadCreationPending
+        onAskAgent,
+        storyId,
+        query,
+        onQueryChange,
+        threadCreationPending
     })
     const [newChapterTitle, setNewChapterTitle] = useState("")
     const [modalOpen, setModalOpen] = useState(false)
@@ -59,10 +60,7 @@ export function useChapterEditorProps({
                 if (data.previousChapterId) {
                     navigate({
                         to: "/stories/$storyId/$chapterId",
-                        params: {
-                            storyId: storyId,
-                            chapterId: data.previousChapterId
-                        }
+                        params: { storyId, chapterId: data.previousChapterId }
                     })
                 }
             }
@@ -79,10 +77,7 @@ export function useChapterEditorProps({
                 if (data.nextChapterId) {
                     navigate({
                         to: "/stories/$storyId/$chapterId",
-                        params: {
-                            storyId: storyId,
-                            chapterId: data.nextChapterId
-                        }
+                        params: { storyId, chapterId: data.nextChapterId }
                     })
                 }
             }
@@ -108,28 +103,16 @@ export function useChapterEditorProps({
         case "idle":
         case "loading": {
             return {
-                header: {
-                    status: "loading"
-                },
-                content: {
-                    status: "loading"
-                },
-                footer: {
-                    status: "loading"
-                }
+                header: { status: "loading" },
+                content: { status: "loading" },
+                footer: { status: "loading" }
             }
         }
         case "empty": {
             return {
-                header: {
-                    status: "empty"
-                },
-                content: {
-                    status: "empty",
-                },
-                footer: {
-                    status: "empty"  
-                }
+                header: { status: "empty" },
+                content: { status: "empty" },
+                footer: { status: "empty" }
             }
         }
         case "success": {
@@ -144,7 +127,7 @@ export function useChapterEditorProps({
                 },
                 content: {
                     status: "ready",
-                    editor: editor
+                    editor
                 },
                 footer: {
                     status: "ready",
@@ -155,55 +138,44 @@ export function useChapterEditorProps({
                     onClickNextChapter: data.nextChapterId ? Some(() => {
                         navigate({
                             to: "/stories/$storyId/$chapterId",
-                            params: {
-                                storyId: storyId,
-                                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                                chapterId: data.nextChapterId! 
-                            }
+                            params: { storyId, chapterId: data.nextChapterId! }
                         })
                     }) : None,
-
                     onClickPreviousChapter: data.previousChapterId ? Some(() => {
                         navigate({
                             to: "/stories/$storyId/$chapterId",
-                            params: {
-                                storyId: storyId,
-                                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                                chapterId: data.previousChapterId!
-                            }
+                            params: { storyId, chapterId: data.previousChapterId! }
                         })
                     }) : None,
-
-                    modalOpen: modalOpen,
+                    modalOpen,
                     onModalOpenChange: setModalOpen,
-                    newChapterTitle: newChapterTitle,
+                    newChapterTitle,
                     onNewChapterTitleChange: setNewChapterTitle,
                     onNewChapter: (title) => {
+                        if (!createChapterGateRef.current.tryStart()) return
                         createChapterMutation.mutate(
-                        {
-                            title: title
-                        }, 
-                        {
-                            onSuccess: (newChapter) => {
-                                success("Chapter created successfully!", "");
-                                // Navigate to the brand new chapter
-                                navigate({
-                                    to: "/stories/$storyId/$chapterId",
-                                    params: { storyId, chapterId: newChapter.id }
-                                });
-                            },
-                            onError: () => {
-                                error("Error", "Failed to create your chapter. The server might be experiencing issues.")
-                            },
-                            onSettled: () => {
-                                setModalOpen(false)
-                                setNewChapterTitle("")
+                            { title },
+                            {
+                                onSuccess: (newChapter) => {
+                                    success("Chapter created successfully!", "");
+                                    navigate({
+                                        to: "/stories/$storyId/$chapterId",
+                                        params: { storyId, chapterId: newChapter.id }
+                                    });
+                                },
+                                onError: () => {
+                                    error("Error", "Failed to create your chapter. The server might be experiencing issues.")
+                                },
+                                onSettled: () => {
+                                    createChapterGateRef.current.finish()
+                                    setModalOpen(false)
+                                    setNewChapterTitle("")
+                                }
                             }
-                        });
+                        );
                     }
                 }
             }
         }
     }
-
 }
