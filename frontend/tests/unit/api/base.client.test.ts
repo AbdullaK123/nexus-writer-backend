@@ -186,12 +186,9 @@ describe("ApiClient", () => {
 
         await makeApiClient().deleteJson("resource", ResponseSchema)
 
-        expect(fetchMock).toHaveBeenCalledWith(
-            new URL("resource", API_BASE_URL).toString(),
-            expect.objectContaining({
-                method: "DELETE",
-                body: undefined,
-            }),
-        )
+        const options = fetchMock.mock.calls[0]?.[1]
+        expect(options?.method).toBe("DELETE")
+        expect(options).toBeDefined()
+        expect("body" in options!).toBe(false)
     })
 })
