@@ -21,7 +21,7 @@ import { ErrorPage } from "./components/common/ErrorPage";
 import { NotFoundPage } from "./components/common/NotFoundPage";
 import { decideAppAuthRoute, decideLoginAuthRoute } from "./infrastructure/auth-routing";
 
-interface RouterContext {
+export interface RouterContext {
     auth: AuthContextValue
 }
 
@@ -138,7 +138,7 @@ const settingsPage = createRoute({
     component: SettingsPage
 })
 
-const routeTree = rootRoute.addChildren([
+export const routeTree = rootRoute.addChildren([
     loginRoute,
     signupRoute,
     errorRoute,
