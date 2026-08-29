@@ -13,6 +13,25 @@ describe("AbortControllerSlot", () => {
         expect(slot.current).toBe(second)
     })
 
+    test("stale completion cannot clear a newer controller", () => {
+        const slot = new AbortControllerSlot()
+        const first = slot.replace()
+        const second = slot.replace()
+
+        slot.clearIfCurrent(first)
+
+        expect(slot.current).toBe(second)
+    })
+
+    test("current completion clears its own controller", () => {
+        const slot = new AbortControllerSlot()
+        const controller = slot.replace()
+
+        slot.clearIfCurrent(controller)
+
+        expect(slot.current).toBeNull()
+    })
+
     test("teardown aborts and clears the live controller", () => {
         const slot = new AbortControllerSlot()
         const controller = slot.replace()
