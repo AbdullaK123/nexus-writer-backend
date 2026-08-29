@@ -15,12 +15,12 @@ function createAuthRouter(initialEntry: string, auth: AuthContextValue) {
 
 describe("app auth routing integration", () => {
     test("an unauthenticated protected URL redirects to login and preserves the original URL", async () => {
-        const router = createAuthRouter(
-            "/stories/story-1/chapter-2",
-            { status: "unauthenticated" },
-        )
+        const router = createAuthRouter("/login", { status: "unauthenticated" })
 
-        await router.load()
+        await router.navigate({
+            to: "/stories/$storyId/$chapterId",
+            params: { storyId: "story-1", chapterId: "chapter-2" },
+        })
 
         expect(router.state.location.pathname).toBe("/login")
         expect(router.state.location.search).toEqual({
@@ -44,22 +44,25 @@ describe("app auth routing integration", () => {
 
     test("an authenticated user visiting login is redirected home", async () => {
         const router = createAuthRouter(
-            "/login",
+            "/signup",
             { status: "authenticated", user: {} as never },
         )
 
-        await router.load()
+        await router.navigate({ to: "/login" })
 
         expect(router.state.location.pathname).toBe("/")
     })
 
     test("an authenticated protected URL remains on the requested resource", async () => {
         const router = createAuthRouter(
-            "/stories/story-1/chapter-2",
+            "/login",
             { status: "authenticated", user: {} as never },
         )
 
-        await router.load()
+        await router.navigate({
+            to: "/stories/$storyId/$chapterId",
+            params: { storyId: "story-1", chapterId: "chapter-2" },
+        })
 
         expect(router.state.location.pathname).toBe("/stories/story-1/chapter-2")
     })

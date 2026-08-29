@@ -50,7 +50,7 @@ describe("chat cancellation integration", () => {
 
         expect(result.isErr()).toBe(true)
         expect(result.unwrapErr()).toEqual({ _tag: "SseAbortedError" })
-        expect(gate.isRunning).toBe(false)
+        expect(gate.isActive).toBe(false)
         expect(slot.current).toBeNull()
     })
 })

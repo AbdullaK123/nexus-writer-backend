@@ -5,7 +5,7 @@ import type { AppApi } from "../../src/infrastructure/api"
 import type { ChapterContentResponse } from "../../src/infrastructure/api/types"
 import { createUpdateChapterMutationOptions, chapterKeys } from "../../src/data/queries/chapter"
 import { ApiError, Err, Ok, type Result } from "../../src/shared/types"
-import { createIntegrationQueryClient, deferred, flushMicrotasks } from "./harness"
+import { createIntegrationQueryClient, deferred } from "./harness"
 
 function chapter(overrides: Partial<ChapterContentResponse> = {}): ChapterContentResponse {
     return {
@@ -48,7 +48,9 @@ describe("chapter autosave integration", () => {
         )
 
         const mutation = observer.mutate({ title: "Renamed" })
-        await flushMicrotasks()
+        await vi.waitFor(() => {
+            expect(updateChapter).toHaveBeenCalledOnce()
+        })
 
         expect(qc.getQueryData<ChapterContentResponse>(key)).toMatchObject({
             title: "Renamed",
@@ -75,7 +77,9 @@ describe("chapter autosave integration", () => {
         )
 
         const mutation = observer.mutate({ content: "<p>Unsaved edit</p>" })
-        await flushMicrotasks()
+        await vi.waitFor(() => {
+            expect(updateChapter).toHaveBeenCalledOnce()
+        })
 
         expect(qc.getQueryData<ChapterContentResponse>(key)?.content).toBe("<p>Unsaved edit</p>")
 

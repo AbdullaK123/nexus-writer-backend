@@ -66,7 +66,7 @@ describe("chat turn integration", () => {
         expect(result.isOk()).toBe(true)
         expect(deltas.join("")).toBe("Hello world")
         expect(refreshMessages).toHaveBeenCalledOnce()
-        expect(gate.isRunning).toBe(false)
+        expect(gate.isActive).toBe(false)
         expect(fetchMock).toHaveBeenCalledOnce()
 
         const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
