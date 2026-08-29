@@ -22,14 +22,32 @@ export const authKeys = {
     chatLinks: () => [...authKeys.all, "me", "links", "chat"]
 }
 
-export function useCurrentUser() {
+export type CurrentUserState =
+    | { status: "loading" }
+    | { status: "unauthenticated" }
+    | { status: "authenticated"; user: UserResponse }
+    | { status: "error"; error: ApiError }
+
+export function useCurrentUser(): CurrentUserState {
     const api = useApi()
-    return toAsyncState<UserResponse>(useQuery({
+    const query = useQuery<UserResponse, ApiError>({
         queryKey: authKeys.me(),
         queryFn: ({ signal }) => unwrapResultAsync(api.auth.getCurrentUser(requestOptions({ signal }))),
         staleTime: 5*60*1000,
         retry: false
-    }))
+    })
+
+    if (query.isPending) {
+        return { status: "loading" }
+    }
+
+    if (query.isError) {
+        return query.error.status === 401
+            ? { status: "unauthenticated" }
+            : { status: "error", error: query.error }
+    }
+
+    return { status: "authenticated", user: query.data }
 }
 
 export function useDashboard() {
