@@ -1,9 +1,13 @@
 import { describe, expect, test, vi } from "vitest"
 
 import {
+    beginChatTurn,
     buildChatTurnRequest,
     completeChatTurn,
+    finishChatTurn,
 } from "../../../src/infrastructure/chat-stream"
+import { AbortControllerSlot } from "../../../src/shared/abortControllerSlot"
+import { SingleFlightGate } from "../../../src/shared/singleFlight"
 
 describe("chat turn streaming", () => {
     test("builds the exact backend turn route and camelCase request body", () => {
@@ -34,6 +38,27 @@ describe("chat turn streaming", () => {
         )
 
         expect(request.body.unwrap()).not.toHaveProperty("user_message")
+    })
+
+    test("rejects a second turn while one is still active", () => {
+        const gate = new SingleFlightGate()
+        const slot = new AbortControllerSlot()
+
+        const first = beginChatTurn(gate, slot)
+        const second = beginChatTurn(gate, slot)
+
+        expect(first).not.toBeNull()
+        expect(second).toBeNull()
+        expect(first?.signal.aborted).toBe(false)
+    })
+
+    test("allows another turn after the first finishes", () => {
+        const gate = new SingleFlightGate()
+        const slot = new AbortControllerSlot()
+
+        expect(beginChatTurn(gate, slot)).not.toBeNull()
+        finishChatTurn(gate)
+        expect(beginChatTurn(gate, slot)).not.toBeNull()
     })
 
     test("successful stream completion refreshes canonical persisted messages", () => {
