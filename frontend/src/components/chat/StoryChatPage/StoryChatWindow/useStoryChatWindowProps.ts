@@ -3,7 +3,7 @@ import type { AsyncState, ChatMessageListResponse, UserResponse } from "../../..
 import type { ApiError } from "../../../../shared/types";
 import type { StoryChatWindowProps, ConversationMessage } from "./StoryChatWindow";
 import { streamSse } from "../../../../infrastructure/sse";
-import { buildChatTurnRequest, completeChatTurn } from "../../../../infrastructure/chat-stream";
+import { beginChatTurn, buildChatTurnRequest, completeChatTurn, finishChatTurn } from "../../../../infrastructure/chat-stream";
 import { SingleFlightGate } from "../../../../shared/singleFlight";
 import { AbortControllerSlot } from "../../../../shared/abortControllerSlot";
 import { Some, Option } from "oxide.ts";
@@ -129,19 +129,19 @@ export function useStoryChatWindowProps({
     useEffect(() => {
         return () => {
             streamSlotRef.current.abort();
-            turnGateRef.current.finish();
+            finishChatTurn(turnGateRef.current);
         }
     }, []);
 
     const finishTurn = () => {
-        turnGateRef.current.finish()
+        finishChatTurn(turnGateRef.current)
         setThreadCreationPending(false)
     }
 
     const onUserPromptSubmitted = useCallback((query: string) => {
-        if (!turnGateRef.current.tryStart()) return
+        const controller = beginChatTurn(turnGateRef.current, streamSlotRef.current)
+        if (!controller) return
         setThreadCreationPending(true)
-        const controller = streamSlotRef.current.replace()
 
         const started = performance.now();
         setQuery("");
