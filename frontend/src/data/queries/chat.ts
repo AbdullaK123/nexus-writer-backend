@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query"
 import { useApi } from "../providers/ApiProvider"
 import {
     type ChatMessageListResponse,
@@ -7,14 +7,10 @@ import {
     requestOptions,
     type ThreadListResponse,
 } from "../../infrastructure/api/types"
+import type { AppApi } from "../../infrastructure/api"
 import { ApiError, unwrapResultAsync } from "../../shared/types"
 import { toAsyncState } from "../../infrastructure/api/utils";
 import { useNavigate } from "@tanstack/react-router";
-
-// ─── Keys ──────────────────────────────────────────────────────────────────
-// Threads are story-scoped; messages are thread-scoped. Hierarchy makes
-// it cheap to wipe the whole story chat tree on story deletion, while
-// still allowing surgical message-list invalidation after each turn.
 
 export const chatKeys = {
     all: ["chat"] as const,
@@ -23,8 +19,6 @@ export const chatKeys = {
     messages: (storyId: string, threadId: string) =>
         [...chatKeys.threads(storyId), threadId, "messages"] as const,
 }
-
-// ─── Queries ───────────────────────────────────────────────────────────────
 
 export function useThreads(storyId: string) {
     const api = useApi()
@@ -46,12 +40,6 @@ export function useThreadMessages(storyId: string, threadId: string) {
     })
     return [toAsyncState<ChatMessageListResponse>(response), response.refetch] as const
 }
-
-// ─── Mutations ─────────────────────────────────────────────────────────────
-// Streaming the assistant turn is intentionally NOT a TanStack mutation
-// — it's an SSE stream owned by `useChatStream`. After the stream
-// finishes, that hook should invalidate `chatKeys.messages(...)` so the
-// canonical persisted message list refetches.
 
 export function useCreateThread(storyId: string) {
     const api = useApi()
@@ -77,24 +65,38 @@ export function useRenameThread(storyId: string, threadId: string) {
     })
 }
 
-export function useDeleteThread(storyId: string, threadId: string) {
-    const api = useApi()
-    const qc = useQueryClient()
-    const navigate = useNavigate()
-    return useMutation({
+export type ThreadDeleteNavigate = (navigation: {
+    to: "/stories/$storyId/chat/new"
+    params: { storyId: string }
+}) => Promise<unknown> | unknown
+
+export function createDeleteThreadMutationOptions(
+    api: AppApi,
+    qc: QueryClient,
+    navigate: ThreadDeleteNavigate,
+    storyId: string,
+    threadId: string,
+) {
+    return {
         mutationFn: () => unwrapResultAsync(api.chat.deleteThread(storyId, threadId)),
         onSuccess: async () => {
             qc.removeQueries({
                 queryKey: chatKeys.messages(storyId, threadId),
             })
-            qc.invalidateQueries({ queryKey: chatKeys.threads(storyId) })
-            await navigate({ 
+            await qc.invalidateQueries({ queryKey: chatKeys.threads(storyId) })
+            await navigate({
                 to: "/stories/$storyId/chat/new",
-                params: {
-                    storyId: storyId
-                }
+                params: { storyId },
             })
         },
-        
-    })
+    }
+}
+
+export function useDeleteThread(storyId: string, threadId: string) {
+    const api = useApi()
+    const qc = useQueryClient()
+    const navigate = useNavigate()
+    return useMutation(
+        createDeleteThreadMutationOptions(api, qc, navigate, storyId, threadId),
+    )
 }
