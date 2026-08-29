@@ -3,6 +3,8 @@ import { useAuthOrThrow, useSettings } from "./data/providers";
 import { router } from "./router";
 import { useEffect, useRef } from "react";
 import { None, Some, streamSse } from "./infrastructure/sse";
+import { createSseLifecycleCleanup } from "./infrastructure/sse/lifecycle";
+import { AbortControllerSlot } from "./shared/abortControllerSlot";
 import type { EventSourceMessage } from "eventsource-parser";
 import { useToast } from "./components";
 import { NotificationSchema } from "./infrastructure/api/types";
@@ -15,42 +17,36 @@ const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;
 
 export function AppRouter() {
-  
   const auth = useAuthOrThrow();
   const qc = useQueryClient();
   const { info, error } = useToast();
 
-  const controllerRef = useRef<AbortController | null>(null);
+  const streamSlotRef = useRef(new AbortControllerSlot());
   const timerRef = useRef<number | null>(null);
   const retriesRef = useRef(0);
   const stoppedRef = useRef(false);
   const { settings } = useSettings()
 
-  const theme =
-        settings.isSome()
-            ? settings.unwrap().appearance.theme
-            : "system"
+  const theme = settings.isSome()
+      ? settings.unwrap().appearance.theme
+      : "system"
 
   useTheme(theme)
 
-  // Invalidate router immediately when auth changes
   useEffect(() => {
     router.invalidate();
   }, [auth.status]);
 
-  // Unified SSE Lifecycle Stream Controller
   useEffect(() => {
     stoppedRef.current = false;
     retriesRef.current = 0;
 
-    const clearAll = () => {
-      controllerRef.current?.abort();
-      controllerRef.current = null;
-      if (timerRef.current !== null) {
-        window.clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    };
+    const cleanup = createSseLifecycleCleanup(
+      streamSlotRef.current,
+      timerRef,
+      stoppedRef,
+      (id) => window.clearTimeout(id),
+    )
 
     const scheduleReconnect = (reason: string) => {
       if (stoppedRef.current || auth.status !== "authenticated") return;
@@ -72,9 +68,7 @@ export function AppRouter() {
     const connect = () => {
       if (stoppedRef.current || auth.status !== "authenticated") return;
 
-      controllerRef.current?.abort();
-      const controller = new AbortController();
-      controllerRef.current = controller;
+      const controller = streamSlotRef.current.replace()
 
       void streamSse(
         {
@@ -98,7 +92,7 @@ export function AppRouter() {
             const notification = NotificationSchema.safeParse(parsed);
             if (notification.error) return;
 
-            retriesRef.current = 0; // Reset healthy connection tracker
+            retriesRef.current = 0;
 
             switch (notification.data.kind) {
               case "scenes_extracted":
@@ -129,7 +123,7 @@ export function AppRouter() {
         },
       ).then((result) => {
         if (controller.signal.aborted) return;
-        controllerRef.current = null;
+        streamSlotRef.current.clearIfCurrent(controller)
 
         if (result.isErr()) {
           const err = result.unwrapErr();
@@ -151,26 +145,18 @@ export function AppRouter() {
       });
     };
 
-    // Clean up past stream hooks and initialize new stream if authorized
-    clearAll();
+    cleanup()
+    stoppedRef.current = false
 
     if (auth.status === "authenticated") {
-        
-        const id = window.setTimeout(() => {
-            connect();
-        }, 2000);
-
-        return () => {
-            window.clearTimeout(id);
-        };
+      timerRef.current = window.setTimeout(() => {
+        timerRef.current = null;
+        connect();
+      }, 2000);
     }
 
-    // Clean up on component unmount or auth status swap
-    return () => {
-      stoppedRef.current = true;
-      clearAll();
-    };
-  }, [auth.status, info, qc, error, settings]); // React query and layout helpers stay immutable, triggering updates correctly only when auth shifts
+    return cleanup;
+  }, [auth.status, info, qc, error, settings]);
 
   return <RouterProvider router={router} context={{ auth }} />;
 }
