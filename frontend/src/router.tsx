@@ -19,6 +19,7 @@ import { z } from "zod";
 import { SettingsPage } from "./components/settings";
 import { ErrorPage } from "./components/common/ErrorPage";
 import { NotFoundPage } from "./components/common/NotFoundPage";
+import { decideAppAuthRoute, decideLoginAuthRoute } from "./infrastructure/auth-routing";
 
 interface RouterContext {
     auth: AuthContextValue
@@ -38,12 +39,10 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 const loginRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/login",
-       beforeLoad: ({ context }) => {
-        const ctx = context.auth
-        if (ctx.status === "authenticated") {
-            throw redirect({
-                to: "/"
-            })
+    beforeLoad: ({ context }) => {
+        const decision = decideLoginAuthRoute(context.auth)
+        if (decision.kind === "redirect-home") {
+            throw redirect({ to: "/" })
         }
     },
     validateSearch: (s: Record<string, unknown>) => ({
@@ -79,21 +78,17 @@ export const notFoundRoute = createRoute({
     component: NotFoundPage
 })
 
-
 const appRoute = createRoute({
     getParentRoute: () => rootRoute,
     id: "app",
     beforeLoad: ({ context, location}) => {
-        const ctx = context.auth 
-        switch (ctx.status) {
-            case "loading": return 
-            case "authenticated": return
-            default:
-                throw redirect({
-                    to: "/login",
-                    search: {redirect: location.href}
-                })
-        } 
+        const decision = decideAppAuthRoute(context.auth, location.href)
+        if (decision.kind === "redirect-login") {
+            throw redirect({
+                to: "/login",
+                search: { redirect: decision.redirect },
+            })
+        }
     },
     component: () => {
         return (
@@ -117,8 +112,8 @@ const storyDetailRoute = createRoute({
 })
 
 const chapterEditorRoute = createRoute({
-    getParentRoute: () => appRoute, 
-    path: "/stories/$storyId/$chapterId", // 2. Provide the full absolute path
+    getParentRoute: () => appRoute,
+    path: "/stories/$storyId/$chapterId",
     component: ChapterEditorPage
 })
 
@@ -149,7 +144,7 @@ const routeTree = rootRoute.addChildren([
     errorRoute,
     notFoundRoute,
     appRoute.addChildren([
-        dashboardRoute, 
+        dashboardRoute,
         storyDetailRoute,
         chapterEditorRoute,
         storyChatRoute,
