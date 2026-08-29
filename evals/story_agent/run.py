@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 from typing import Any
 
-from src.infrastructure.config import config
+from src.infrastructure.config import config, settings
 
 from .dataset import build_dataset
 from .runtime import StoryAgentRun, make_task
@@ -53,6 +54,8 @@ async def run_suite(
     max_concurrency: int,
     repeat: int,
 ) -> None:
+    os.environ["OPENROUTER_API_KEY"] = settings.open_router_api_key
+
     report = await build_dataset(f"openrouter:{judge_model}").evaluate(
         make_task(model),
         name=f"story-agent:{model}",
