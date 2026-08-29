@@ -11,28 +11,12 @@ from .dataset import build_dataset
 from .runtime import StoryAgentRun, make_task
 
 
-def _print_failed_cases(report: Any) -> None:
-    failed_cases = [
-        case
-        for case in report.cases
-        if any(result.value is False for result in case.assertions.values())
-    ]
-
-    if not failed_cases:
-        return
-
-    print("\nFAILED CASE DETAILS")
+def _print_case_responses(report: Any) -> None:
+    print("\nMODEL RESPONSES")
     print("=" * 80)
 
-    for case in failed_cases:
-        failed_assertions = [
-            name
-            for name, result in case.assertions.items()
-            if result.value is False
-        ]
-
+    for case in report.cases:
         print(f"\nCASE: {case.name}")
-        print(f"FAILED: {', '.join(failed_assertions)}")
 
         output = case.output
         if isinstance(output, StoryAgentRun):
@@ -43,6 +27,14 @@ def _print_failed_cases(report: Any) -> None:
         else:
             print("OUTPUT:")
             print(output)
+
+        failed_assertions = [
+            name
+            for name, result in case.assertions.items()
+            if result.value is False
+        ]
+        if failed_assertions:
+            print(f"FAILED: {', '.join(failed_assertions)}")
 
         print("-" * 80)
 
@@ -67,7 +59,7 @@ async def run_suite(
         },
     )
     report.print()
-    _print_failed_cases(report)
+    _print_case_responses(report)
 
 
 def _parse_args() -> argparse.Namespace:
