@@ -14,6 +14,7 @@ import { useChapterCommentsSidebarProps } from "./ChapterCommentsSidebar";
 import { useSettings } from "../../../data/providers";
 import { LatestOperation } from "../../../shared/latestOperation";
 import { SingleFlightGate } from "../../../shared/singleFlight";
+import { isCurrentChapter } from "./chapterIdentity";
 
 export type ChapterEditorPageProps = {
     sidebar: ChapterEditorSidebarProps
@@ -106,10 +107,11 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     useEffect(() => {
         if (!editor || chapterState.status !== "success") return;
         const data = chapterState.data.unwrap().unwrap();
+        if (!isCurrentChapter(params.chapterId, data.id)) return
         if (editor.getHTML() !== data.content) {
             editor.commands.setContent(data.content);
         }
-    }, [editor, chapterState]);
+    }, [editor, chapterState, params.chapterId]);
 
     const sidebarProps = useChapterEditorSidebarProps({
         storyId: params.storyId,
