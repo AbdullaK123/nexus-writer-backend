@@ -1,22 +1,26 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { LibraryGridProps } from "../LibraryGrid/LibraryGrid";
 import type { AsyncState, StoryGridResponse } from "../../../../infrastructure/api/types";
 import type { ApiError } from "../../../../shared/types";
 import { useCreateStory} from "../../../../data/queries";
 import { useToast } from "../../../common";
 import { useNavigate } from "@tanstack/react-router"
+import { SingleFlightGate } from "../../../../shared/singleFlight";
 
 export function useLibraryGridProps(args: { storiesState: AsyncState<StoryGridResponse, ApiError> }): LibraryGridProps {
   const { storiesState } = args;
   const { error, success } = useToast();
   const { mutate: createStory } = useCreateStory();
+  const createStoryGateRef = useRef(new SingleFlightGate())
   const navigate = useNavigate()
 
   const [modalOpen, setModalOpen] = useState(false);
   const [storyTitle, setStoryTitle] = useState("");
   const [libraryFilter, setLibraryFilter] = useState<'all' | 'ongoing' | 'hiatus' | 'complete'>("all");
 
-  const onNewStory = (title: string) => 
+  const onNewStory = (title: string) => {
+    if (!createStoryGateRef.current.tryStart()) return
+
     createStory({ title }, {
       onSuccess: () => {
         success("Success!", "Your story has been successfully created! Happy writing!");
@@ -26,8 +30,12 @@ export function useLibraryGridProps(args: { storiesState: AsyncState<StoryGridRe
       onError: () => {
         error("Failed to create your story.", "Something went wrong. If the problem persists, please contact support.");
         setModalOpen(false);
+      },
+      onSettled: () => {
+        createStoryGateRef.current.finish()
       }
     })
+  }
 
   switch (storiesState.status) {
     case 'idle':
