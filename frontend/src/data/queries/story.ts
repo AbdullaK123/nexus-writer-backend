@@ -91,8 +91,6 @@ export function useStoryTags(storyId: string) {
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.story.listStoryTags(storyId, requestOptions({ signal }))),
         enabled: Boolean(storyId),
-        // Vocabulary changes only when scenes are re-extracted; tolerate
-        // a 5-minute stale window before background refetch.
         staleTime: 5 * 60 * 1000,
     }))
 }
@@ -108,16 +106,6 @@ export function useStoryEntities(storyId: string) {
     }))
 }
 
-/**
- * Hybrid scene search. Idempotent / read-shaped despite being POST, so it
- * lives in the query layer (cacheable, abortable). Empty query string
- * disables the request so a mounted-but-empty search panel doesn't fire
- * a no-op call.
- *
- * `placeholderData: keepPreviousData` keeps the previous result visible
- * while a new filter combination is in flight — avoids the result list
- * blanking on every keystroke / tag toggle.
- */
 export function useStorySceneSearch(
     storyId: string,
     request: SceneSearchRequest,
@@ -155,7 +143,6 @@ export function useUpdateStory(storyId: string) {
     return useMutation({
         mutationFn: (payload: UpdateStoryRequest) =>
             unwrapResultAsync(api.story.updateStory(payload, storyId)),
-        // Title / metadata change — list cards reflect it, detail too.
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: storyKeys.all })
             qc.invalidateQueries({ queryKey: authKeys.dashboard()})
@@ -184,11 +171,10 @@ export function useCreateChapter(storyId: string) {
         mutationFn: (payload: CreateChapterRequest) =>
             unwrapResultAsync(api.story.createChapter(storyId, payload)),
         onSuccess: () => {
-            // New chapter affects story detail (chapter list).
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
             qc.invalidateQueries({ queryKey: storyKeys.chapters(storyId)})
             qc.invalidateQueries({ queryKey: authKeys.dashboard()})
-            qc.invalidateQueries({ queryKey: [storyKeys.path(storyId)] })
+            qc.invalidateQueries({ queryKey: storyKeys.path(storyId) })
             qc.invalidateQueries({ queryKey: chapterKeys.all})
             qc.invalidateQueries({ queryKey: authKeys.editorLinks()})
         },
@@ -203,12 +189,10 @@ export function useReorderChapters(storyId: string) {
             unwrapResultAsync(api.story.reorderChapters(storyId, payload)),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
-            // Per-chapter prev/next pointers shift on reorder.
             qc.invalidateQueries({ queryKey: chapterKeys.all })
             qc.invalidateQueries({ queryKey: storyKeys.path(storyId)})
             qc.invalidateQueries({ queryKey: storyKeys.chapters(storyId)})
             qc.invalidateQueries({ queryKey: authKeys.dashboard()})
-            qc.invalidateQueries({ queryKey: [storyKeys.path(storyId)] })
             qc.invalidateQueries({ queryKey: authKeys.editorLinks()})
         },
     })
