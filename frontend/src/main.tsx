@@ -51,13 +51,21 @@ match(rootOpt, {
                 const queryClient = new QueryClient({ 
                     defaultOptions: queryClientDefaults,
                     queryCache: new QueryCache({
-                        onError: (error) => {
+                        onError: (error, query) => {
 
                             const from = router.state.location.pathname
+                            const isAuthProbe =
+                                query.queryKey.length === 2 &&
+                                query.queryKey[0] === "auth" &&
+                                query.queryKey[1] === "me"
 
                             if (error instanceof ApiError) {
                                 switch (error.status) {
-                                    case 401: 
+                                    case 401:
+                                        // `auth/me` owns the unauthenticated state through
+                                        // AuthProvider. Navigating here would turn a normal
+                                        // logged-out probe into /login -> /login redirect loops.
+                                        if (isAuthProbe) return
                                         router.navigate({ to: "/login", search: { redirect: from }})
                                         break
                                     case 404: 
