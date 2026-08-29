@@ -5,12 +5,7 @@ import type { AsyncState } from "./types";
 import { None, Ok, Some, Option } from "oxide.ts";
 
 export function buildValidationErrorMessage<T>(zodError: z.ZodError<T>): string {
-    let errorMsg = ''
-    const treeifiedError = z.treeifyError(zodError)
-    for (const error of treeifiedError.errors) {
-        errorMsg += `${error}\n`
-    }
-    return errorMsg
+    return z.prettifyError(zodError)
 }
 
 export function isEmpty(value: unknown): value is null | undefined | '' | Record<PropertyKey, never> | [] {
