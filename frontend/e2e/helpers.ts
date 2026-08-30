@@ -67,6 +67,33 @@ export async function createStory(request: APIRequestContext, title: string): Pr
   return story.storyId;
 }
 
+export async function createChapter(
+  request: APIRequestContext,
+  storyId: string,
+  title: string,
+): Promise<string> {
+  const response = await requireOk(
+    await request.post(`${API_BASE_URL}/stories/${storyId}/chapters`, { data: { title } }),
+    "create chapter",
+  );
+  const chapter = (await response.json()) as { id: string };
+  if (!chapter.id) {
+    throw new Error("create chapter succeeded but the backend returned no chapter id");
+  }
+  return chapter.id;
+}
+
+export async function updateChapter(
+  request: APIRequestContext,
+  chapterId: string,
+  payload: { title?: string; content?: string; published?: boolean },
+): Promise<void> {
+  await requireOk(
+    await request.put(`${API_BASE_URL}/chapters/${chapterId}`, { data: payload }),
+    "update chapter",
+  );
+}
+
 export async function loginThroughUI(page: Page, user: TestUser): Promise<void> {
   await page.goto("/login");
   await expect(
