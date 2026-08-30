@@ -1,6 +1,6 @@
 import asyncio
 from typing import List, Literal, Optional
-
+from pydantic import ValidationError
 from loguru import logger
 from datetime import timedelta
 from src.data.repositories import StoryRepository, ChapterRepository, SceneRepository
@@ -396,9 +396,18 @@ class StoryService:
             for chapter_number, chapter_id in enumerate(path_array, start=1)
         }
 
+        valid_scenes = [
+            scene
+            for scene in scenes
+            if scene.chapter_id in chapter_numbers
+        ]
+
         for scene in sorted(
-            scenes,
-            key=lambda scene: (chapter_numbers[scene.chapter_id], scene.position),
+            valid_scenes,
+            key=lambda scene: (
+                chapter_numbers[scene.chapter_id],
+                scene.position,
+            ),
         ):
             header = f"""\
             CHAPTER NUMBER: {chapter_numbers[scene.chapter_id]}
@@ -466,6 +475,9 @@ class StoryService:
 
         story_ctx = self._format_scenes(scenes, path_array)
 
+        if not story_ctx:
+            return "NOT_ENOUGH_CONTEXT"
+
         return story_ctx
 
     @handle_service_errors
@@ -481,7 +493,15 @@ class StoryService:
 
         if not ignore_cache:
             if raw_data := (await self._cache.get(cache_key)):
-                return BookPulseResponse.model_validate_json(raw_data)
+                try:
+                    return BookPulseResponse.model_validate_json(raw_data)
+                except ValidationError:
+                    logger.warning(
+                        "story.pulse.cache_corrupt",
+                        story_id=story_id,
+                        user_id=user_id,
+                    )
+                    await self._cache.delete(cache_key)
 
         # get story_context
         story_ctx = await self.get_story_context(user_id, story_id)
