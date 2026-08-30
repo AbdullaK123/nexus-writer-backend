@@ -6,7 +6,7 @@ import re
 from src.data.schemas._base import ApiModel
 from src.data.schemas.chapter import ChapterListItem
 from src.infrastructure.config import config
-from src.shared.text_types import PasswordInput, Username
+from src.shared.text_types import PasswordInput, UserAgent, Username
 
 
 class RegistrationData(ApiModel):
@@ -33,7 +33,7 @@ class AuthCredentials(ApiModel):
 
 class ConnectionDetails(BaseModel):
     ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
+    user_agent: Optional[UserAgent] = None
 
 
 # ─── Repository row models ───────────────────────────────────────────────────
