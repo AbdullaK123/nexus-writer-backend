@@ -175,10 +175,8 @@ class ChapterService:
             return ChapterListResponse.from_story(story, [])
 
         chapters = [result[0] for result in results]
-
         lookup = {c.id: c for c in chapters}
 
-        # Explicit mapping loop: reading direct properties from the database object
         items = []
         for i, cid in enumerate(story.path_array):
             if cid in lookup:
@@ -251,12 +249,10 @@ class ChapterService:
          )
 
          start = min(from_pos, to_pos)
-
          affected_chapter_ids = story.path_array[start:]
          affected_chapters = await self._chapter_repo.list_by_ids(affected_chapter_ids)
 
          for chapter in affected_chapters:
-
               if not chapter.published:
                   continue
 
@@ -267,7 +263,6 @@ class ChapterService:
                )
 
               pending_key = f"chapter:chapter-reanalysis-pending:{chapter.id}"
-
               claimed = await self._cache.set(
                   pending_key,
                   "1",
@@ -285,13 +280,10 @@ class ChapterService:
                         timeout=900,
                     )
                 except Exception:
-                    # Do not leave the chapter blocked until the lock TTL expires
-                    # when enqueueing itself fails.
                     await self._cache.delete(pending_key)
                     raise
 
          story_pending_key = f"story:reanalysis-pending:{story.id}"
-
          claimed = await self._cache.set(
             story_pending_key,
             "1",
@@ -408,7 +400,6 @@ class ChapterService:
             await self._cache.delete(
                 f"chapter:editorial_plan:{user_id}:{chapter_id}"
             )
-
             await self._enqueue_extraction_job(
                 chapter_id=chapter_id,
                 story_id=story_id,
@@ -438,7 +429,6 @@ class ChapterService:
 
         chapter, story_title, chapter_number = triple
         fields = data.model_dump(exclude_unset=True, exclude={"expected_revision"})
-
         plain_text: str | None = None
 
         if "content" in fields:
@@ -485,7 +475,6 @@ class ChapterService:
 
         was_published = chapter.published
         is_published = updated.published
-
         became_published = not was_published and is_published
         became_draft = was_published and not is_published
         remained_published = was_published and is_published
@@ -512,9 +501,7 @@ class ChapterService:
             )
 
         if plain_text is not None and remained_published and updated.content:
-
             baseline_key = f"chapter:baseline:{chapter_id}"
-
             baseline = await self._cache.get(baseline_key)
 
             if baseline is None:
@@ -618,18 +605,33 @@ class ChapterService:
                         data.to_pos,
                         conn=conn,
                     )
-
-            await self._on_chapter_reorder(story_id, user_id, data.from_pos, data.to_pos)
-
         except Exception as e:
             logger.error(
                 "chapter.reorder_failed",
                 story_id=story_id,
                 user_id=user_id,
+                phase="canonical",
                 error=str(e),
             )
             raise InternalError(
                 "Something went wrong while reordering your chapters. Please try again."
+            )
+
+        try:
+            await self._on_chapter_reorder(
+                story_id,
+                user_id,
+                data.from_pos,
+                data.to_pos,
+            )
+        except Exception as e:
+            logger.exception(
+                "chapter.reorder_side_effect_failed",
+                story_id=story_id,
+                user_id=user_id,
+                from_pos=data.from_pos,
+                to_pos=data.to_pos,
+                error=str(e),
             )
 
         logger.info(
@@ -775,7 +777,7 @@ class ChapterService:
             TAGS:
             {", ".join(scene.tags)}
             OPEN QUESTIONS RAISED:
-            {"\n".join(f" - {q}" for q in scene.questions_raised)}
+            {chr(10).join(f" - {q}" for q in scene.questions_raised)}
             """
 
             formatted_scenes.append("\n".join([header, body]))
@@ -796,10 +798,9 @@ class ChapterService:
             raise NotFoundError("Story not found")
 
         scenes = sorted(scenes, key=lambda scene: path_array.index(scene.chapter_id))
-
         story_ctx = self._format_scenes(scenes)
-
         return story_ctx
+
     @handle_service_errors
     async def summarize_chapter(
         self, chapter_id: str, user_id: str, ignore_cache: bool = False
@@ -844,13 +845,11 @@ class ChapterService:
         )
 
         logger.info("chapter.summary", chapter_id=chapter_id, user_id=user_id)
-
         response = ChapterSummaryResponse(summary=summary)
 
         await self._cache.set(
             cache_key, response.model_dump_json(), ex=timedelta(minutes=30)
         )
-
         return response
 
     @handle_service_errors
@@ -860,7 +859,6 @@ class ChapterService:
         user_id: str,
         ignore_cache: bool = False
     ) -> str:
-
         triple = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
 
         if triple is None:
@@ -874,7 +872,6 @@ class ChapterService:
             )
 
         story = await self._story_repo.get(chapter.story_id, user_id)
-
         if story is None:
             raise NotFoundError("Story not found")
 
@@ -887,7 +884,8 @@ class ChapterService:
                 f"""\
                 <inputs>
                     <target_chapter>
-                        # Chapter {chapter_number} of {story_title}\n
+                        # Chapter {chapter_number} of {story_title}
+
                         {html_to_plain_text(chapter.content or "")}
                     </target_chapter>
                 </inputs>
@@ -897,9 +895,7 @@ class ChapterService:
         )
 
         plan = result.output
-
         await self._cache.set(f"chapter:editorial_plan:{user_id}:{chapter_id}", plan)
-
         return plan
 
     @handle_service_errors
@@ -909,7 +905,6 @@ class ChapterService:
         chapter_id: str,
         ignore_cache: bool = False
     ) -> CommentExtractionResponse:
-
         triple = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
 
         if triple is None:
@@ -937,7 +932,8 @@ class ChapterService:
                         {plan}
                     </review_plan>
                     <target_chapter>
-                        # Chapter {chapter_number} of {story_title}\n
+                        # Chapter {chapter_number} of {story_title}
+
                         {html_to_plain_text(chapter.content or "")}
                     </target_chapter>
                 </inputs>
@@ -957,7 +953,6 @@ class ChapterService:
         )
 
         await self._cache.set(f"chapter:comments:{chapter_id}", response.model_dump_json())
-
         return response
 
     @handle_service_errors
@@ -966,7 +961,6 @@ class ChapterService:
         user_id: str,
         chapter_id: str
     ) -> CommentExtractionResponse:
-
         triple = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
 
         if triple is None:
@@ -988,16 +982,14 @@ class ChapterService:
 
         if raw_data is None:
             return CommentExtractionResponse(
-            story_id=chapter.story_id,
-            story_title=story_title,
-            chapter_id=chapter_id,
-            chapter_number=chapter_number,
-            generated_at=datetime.now(tz=tz.utc),
-            extraction=CommentExtraction(
-                comments=[]
+                story_id=chapter.story_id,
+                story_title=story_title,
+                chapter_id=chapter_id,
+                chapter_number=chapter_number,
+                generated_at=datetime.now(tz=tz.utc),
+                extraction=CommentExtraction(
+                    comments=[]
+                )
             )
-        )
 
         return CommentExtractionResponse.model_validate_json(raw_data)
-
-   

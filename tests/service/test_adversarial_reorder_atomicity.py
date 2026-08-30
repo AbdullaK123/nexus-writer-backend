@@ -1,13 +1,10 @@
-import pytest
-
 from src.data.schemas.auth import UserResponse
 from src.data.schemas.chapter import CreateChapterRequest, ReorderChapterRequest
 from src.service.chapter.service import ChapterService
-from src.service.exceptions import InternalError
 from tests.service.mocks import FakeChapterRepository, FakeQueue, FakeStoryRepository
 
 
-async def test_failed_reorder_side_effect_does_not_rollback_canonical_path(
+async def test_failed_reorder_side_effect_does_not_turn_committed_move_into_failure(
     chapter_service: ChapterService,
     test_user: UserResponse,
     fake_story_repo: FakeStoryRepository,
@@ -47,15 +44,16 @@ async def test_failed_reorder_side_effect_does_not_rollback_canonical_path(
 
     fake_queue.error = RuntimeError("queue unavailable after database commit")
 
-    with pytest.raises(InternalError):
-        await chapter_service.reorder_chapters(
-            story.id,
-            test_user.id,
-            ReorderChapterRequest(from_pos=0, to_pos=1),
-        )
+    result = await chapter_service.reorder_chapters(
+        story.id,
+        test_user.id,
+        ReorderChapterRequest(from_pos=0, to_pos=1),
+    )
 
     final_path = list(await fake_story_repo.get_path_array(story.id) or [])
     assert final_path == [original_path[1], original_path[0]], (
-        "chapter order is canonical state and must not be rolled back merely because derived "
-        "reanalysis work fails after the database commit"
+        "chapter order is canonical state and must remain committed when derived reanalysis work fails"
+    )
+    assert result == {"message": "Chapters reordered successfully"}, (
+        "once the positional reorder commits, the API must report success; returning a retryable error can apply the same positional command to a different order and move the wrong chapter"
     )
