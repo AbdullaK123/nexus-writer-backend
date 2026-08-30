@@ -9,7 +9,7 @@ import {
   updateChapter,
 } from "./helpers";
 
-test("an offline autosave failure must preserve local text and recover after connectivity returns", async ({ page, request, context }) => {
+test("an offline autosave must preserve local text and resume when connectivity returns", async ({ page, request, context }) => {
   const user = uniqueUser("offline-autosave");
   await registerUser(request, user);
   await loginThroughUI(page, user);
@@ -26,26 +26,40 @@ test("an offline autosave failure must preserve local text and recover after con
   const editor = page.locator('[contenteditable="true"]').first();
   await expect(editor).toContainText(baseline);
 
-  const failedWrite = page.waitForEvent("requestfailed", {
-    predicate: (req) => req.method() === "PUT" && req.url().endsWith(`/api/chapters/${chapterId}`),
+  let putRequests = 0;
+  page.on("request", (req) => {
+    if (req.method() === "PUT" && req.url().endsWith(`/api/chapters/${chapterId}`)) {
+      putRequests += 1;
+    }
   });
+
   await context.setOffline(true);
   await editor.fill(offlineEdit);
-  await failedWrite;
+  await page.waitForTimeout(700);
+
+  expect(
+    putRequests,
+    "TanStack Query's online network mode must pause the autosave while the browser is offline; firing a doomed request instead defeats its reconnect semantics",
+  ).toBe(0);
 
   await expect(
     editor,
-    "losing the network during autosave must not roll the editor back to stale server text; the local buffer is the only surviving copy of the writer's work",
+    "going offline must not roll the editor back to stale server text; the local buffer is the only surviving copy of the writer's work",
   ).toContainText(offlineEdit);
 
   await context.setOffline(false);
+
+  await expect.poll(() => putRequests, {
+    message: "the paused autosave must resume once connectivity returns instead of abandoning the writer's queued edit",
+    timeout: 10_000,
+  }).toBe(1);
 
   await expect.poll(async () => {
     const response = await browserRequest.get(`${API_BASE_URL}/chapters/${chapterId}`);
     if (!response.ok()) return "";
     return ((await response.json()) as { content: string }).content;
   }, {
-    message: "once connectivity returns, an autosave-only editor must eventually persist the unsaved local buffer; silently abandoning the failed write leaves the UI and canonical server state permanently divergent",
+    message: "once connectivity returns, the resumed autosave must persist the local buffer; otherwise UI and canonical server state remain permanently divergent",
     timeout: 15_000,
   }).toContain(offlineEdit);
 });
