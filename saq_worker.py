@@ -25,6 +25,7 @@ from src.service.story.service import StoryService
 from src.shared.utils.logging import configure_logger
 from pathlib import Path
 import asyncio
+import hashlib
 from opentelemetry import trace
 from loguru import logger
 
@@ -34,6 +35,7 @@ init_tracing("nexus-saq-worker")
 
 HEARTBEAT_FILE = Path("/tmp/saq_worker_heartbeat")
 HEARTBEAT_INTERVAL_SECONDS = 30
+SCENE_JOB_COMPLETION_TTL_SECONDS = 7 * 24 * 60 * 60
 
 tracer = trace.get_tracer(__name__)
 
@@ -46,6 +48,11 @@ def _validate_job_ids(**ids: str) -> None:
             raise ValueError(f"Invalid {name}") from exc
 
 
+def _scene_job_completion_key(chapter_id: str, content: str) -> str:
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    return f"chapter:extraction-complete:{chapter_id}:{digest}"
+
+
 async def heartbeat_loop() -> None:
     while True:
         HEARTBEAT_FILE.touch()
@@ -53,7 +60,6 @@ async def heartbeat_loop() -> None:
 
 
 async def startup(ctx: Context) -> None:
-
     logger.info("Starting SAQ worker...")
 
     pool = await init_pool()
@@ -67,11 +73,11 @@ async def startup(ctx: Context) -> None:
     extraction_service = ExtractionService(
         provider=provider,
         chapter_repo=chapter_repo,
-        scene_repo=scene_repo
+        scene_repo=scene_repo,
     )
     embedding_service = EmbeddingService(
         scene_repo=scene_repo,
-        provider=provider
+        provider=provider,
     )
     story_service = StoryService(
         story_repo=story_repo,
@@ -79,7 +85,7 @@ async def startup(ctx: Context) -> None:
         scene_repo=scene_repo,
         provider=provider,
         search_config=config.search,
-        redis=client
+        redis=client,
     )
     chapter_service = ChapterService(
         story_repo=story_repo,
@@ -87,7 +93,7 @@ async def startup(ctx: Context) -> None:
         analytics_repo=analytics_repo,
         scene_repo=scene_repo,
         provider=provider,
-        redis=client
+        redis=client,
     )
     analytics_service = AnalyticsService(
         analytics_repo=analytics_repo,
@@ -95,28 +101,27 @@ async def startup(ctx: Context) -> None:
         chapter_repo=chapter_repo,
         scene_repo=scene_repo,
         provider=provider,
-        redis=client
+        redis=client,
     )
 
     heartbeat_task = asyncio.create_task(heartbeat_loop())
 
-    ctx['chapter_repo'] = chapter_repo
-    ctx['heartbeat_task'] = heartbeat_task
-    ctx['extraction_service'] = extraction_service
-    ctx['embedding_service'] = embedding_service
-    ctx['story_service'] = story_service
-    ctx['chapter_service'] = chapter_service
-    ctx['analytics_service'] = analytics_service
-    ctx['pubsub'] = pubsub
+    ctx["chapter_repo"] = chapter_repo
+    ctx["heartbeat_task"] = heartbeat_task
+    ctx["extraction_service"] = extraction_service
+    ctx["embedding_service"] = embedding_service
+    ctx["story_service"] = story_service
+    ctx["chapter_service"] = chapter_service
+    ctx["analytics_service"] = analytics_service
+    ctx["pubsub"] = pubsub
 
     logger.info("Startup complete!")
 
 
 async def shutdown(ctx: Context) -> None:
-
     logger.info("Shutting down SAQ worker...")
 
-    task = ctx['heartbeat_task']
+    task = ctx["heartbeat_task"]
     task.cancel()
 
     try:
@@ -125,7 +130,6 @@ async def shutdown(ctx: Context) -> None:
         pass
 
     await close_pool()
-
     logger.info("Goodbye...")
 
 
@@ -137,60 +141,61 @@ async def story_reanalysis_job(
     with tracer.start_as_current_span("saq.story_reanalysis_job") as span:
         try:
             await asyncio.gather(
-                ctx['worker'].context['story_service'].get_pulse(
+                ctx["worker"].context["story_service"].get_pulse(
                     user_id=user_id,
                     story_id=story_id,
-                    ignore_cache=True
+                    ignore_cache=True,
                 ),
-                ctx['worker'].context['analytics_service'].extract_plot_threads(
+                ctx["worker"].context["analytics_service"].extract_plot_threads(
                     story_id=story_id,
                     user_id=user_id,
-                    ignore_cache=True
+                    ignore_cache=True,
                 ),
-                ctx['worker'].context['analytics_service'].extract_acts(
+                ctx["worker"].context["analytics_service"].extract_acts(
                     story_id=story_id,
                     user_id=user_id,
-                    ignore_cache=True
+                    ignore_cache=True,
                 ),
-                ctx['worker'].context['analytics_service'].extract_contradictions(
+                ctx["worker"].context["analytics_service"].extract_contradictions(
                     story_id=story_id,
                     user_id=user_id,
-                    ignore_cache=True
+                    ignore_cache=True,
                 ),
-                ctx['worker'].context['analytics_service'].extract_entities(
+                ctx["worker"].context["analytics_service"].extract_entities(
                     story_id=story_id,
                     user_id=user_id,
-                    ignore_cache=True
-                )
+                    ignore_cache=True,
+                ),
             )
 
-            await ctx['worker'].context['pubsub'].publish(
+            await ctx["worker"].context["pubsub"].publish(
                 f"notifications:{user_id}",
                 Notification(
                     kind="analysis_ready",
                     story_id=story_id,
                     chapter_id="",
-                    message=f"New pulse and analysis for {story_title} are ready."
-                )
+                    message=f"New pulse and analysis for {story_title} are ready.",
+                ),
             )
             span.set_status(trace.StatusCode.OK)
         except Exception as e:
             logger.exception("saq.story_reanalysis_job.failed")
             span.record_exception(e)
-            await ctx['worker'].context['pubsub'].publish(
+            await ctx["worker"].context["pubsub"].publish(
                 f"notifications:{user_id}",
                 Notification(
                     kind="job_failed",
                     story_id=story_id,
                     chapter_id="",
-                    message=f"Analysis job for {story_title} has failed. The server might be experiencing issues."
-                )
+                    message=f"Analysis job for {story_title} has failed. The server might be experiencing issues.",
+                ),
             )
             span.set_status(trace.StatusCode.ERROR, str(e))
             raise
         finally:
             await client.delete(f"story:reanalysis-pending:{story_id}")
             HEARTBEAT_FILE.touch()
+
 
 async def chapter_reanalysis_job(
     ctx: Context, *, chapter_id: str, story_id: str, user_id: str
@@ -199,7 +204,7 @@ async def chapter_reanalysis_job(
 
     with tracer.start_as_current_span("saq.chapter_reanalysis_job") as span:
         try:
-            chapter = await ctx['worker'].context['chapter_repo'].get(chapter_id, user_id)
+            chapter = await ctx["worker"].context["chapter_repo"].get(chapter_id, user_id)
 
             if chapter is None or not chapter.published:
                 return
@@ -207,27 +212,28 @@ async def chapter_reanalysis_job(
             if chapter.story_id != story_id:
                 raise ValueError("Chapter does not belong to story")
 
-            await ctx['worker'].context['chapter_service'].summarize_chapter(
-                    user_id=user_id,
-                    chapter_id=chapter_id,
-                    ignore_cache=True
-                )
-        
-            comments_extraction: CommentExtractionResponse =  \
-                await ctx['worker'].context['chapter_service'].generate_comments(
-                    user_id,
-                    chapter_id,
-                    ignore_cache=True
-                )
-            
-            await ctx['worker'].context['pubsub'].publish(
+            await ctx["worker"].context["chapter_service"].summarize_chapter(
+                user_id=user_id,
+                chapter_id=chapter_id,
+                ignore_cache=True,
+            )
+
+            comments_extraction: CommentExtractionResponse = await ctx["worker"].context[
+                "chapter_service"
+            ].generate_comments(
+                user_id,
+                chapter_id,
+                ignore_cache=True,
+            )
+
+            await ctx["worker"].context["pubsub"].publish(
                 f"notifications:{user_id}",
                 Notification(
                     kind="comments_ready",
                     story_id=story_id,
                     chapter_id=chapter_id,
-                    message=f"{len(comments_extraction.extraction.comments)} comments are ready for chapter {comments_extraction.chapter_number} of {comments_extraction.story_title}"
-                )
+                    message=f"{len(comments_extraction.extraction.comments)} comments are ready for chapter {comments_extraction.chapter_number} of {comments_extraction.story_title}",
+                ),
             )
             span.set_status(trace.StatusCode.OK)
         except ValueError:
@@ -235,30 +241,35 @@ async def chapter_reanalysis_job(
         except Exception as e:
             logger.exception("saq.chapter_reanalysis_job.failed")
             span.record_exception(e)
-            await ctx['worker'].context['pubsub'].publish(
+            await ctx["worker"].context["pubsub"].publish(
                 f"notifications:{user_id}",
                 Notification(
                     kind="job_failed",
                     story_id=story_id,
                     chapter_id="",
-                    message=f"Chapter analysis job has failed. The server might be experiencing issues."
-                )
+                    message="Chapter analysis job has failed. The server might be experiencing issues.",
+                ),
             )
             span.set_status(trace.StatusCode.ERROR, str(e))
             raise
         finally:
             await client.delete(f"chapter:chapter-reanalysis-pending:{chapter_id}")
             HEARTBEAT_FILE.touch()
-        
+
 
 async def scene_and_embedding_job(
-    ctx: Context, *, chapter_id: str, story_id: str, user_id: str, content: str | None = None
+    ctx: Context,
+    *,
+    chapter_id: str,
+    story_id: str,
+    user_id: str,
+    content: str | None = None,
 ) -> None:
     _validate_job_ids(chapter_id=chapter_id, story_id=story_id, user_id=user_id)
 
     with tracer.start_as_current_span("saq.scene_and_embedding_job") as span:
         try:
-            chapter = await ctx['worker'].context['chapter_repo'].get(chapter_id, user_id)
+            chapter = await ctx["worker"].context["chapter_repo"].get(chapter_id, user_id)
 
             if chapter is None or not chapter.published:
                 return
@@ -267,13 +278,26 @@ async def scene_and_embedding_job(
                 raise ValueError("Chapter does not belong to story")
 
             baseline_content = chapter.content or ""
-
-            result: Optional[SceneExtractionResult] = \
-                await ctx['worker'].context['extraction_service'].extract_scenes(
-                    chapter_id, user_id, baseline_content
+            completion_key = _scene_job_completion_key(chapter_id, baseline_content)
+            if await client.get(completion_key):
+                logger.info(
+                    "saq.scene_and_embedding_job.redelivery_skipped",
+                    chapter_id=chapter_id,
                 )
+                return
 
-            current_chapter = await ctx['worker'].context['chapter_repo'].get(chapter_id, user_id)
+            result: Optional[SceneExtractionResult] = await ctx["worker"].context[
+                "extraction_service"
+            ].extract_scenes(
+                chapter_id,
+                user_id,
+                baseline_content,
+            )
+
+            current_chapter = await ctx["worker"].context["chapter_repo"].get(
+                chapter_id,
+                user_id,
+            )
 
             if current_chapter is None or not current_chapter.published:
                 return
@@ -283,116 +307,120 @@ async def scene_and_embedding_job(
 
             if (current_chapter.content or "") != baseline_content:
                 return
-            
-            await ctx['worker'].context['embedding_service'].embed_scenes(chapter_id)
+
+            await ctx["worker"].context["embedding_service"].embed_scenes(chapter_id)
 
             if result:
-                await ctx['worker'].context['pubsub'].publish(
+                await ctx["worker"].context["pubsub"].publish(
                     f"notifications:{user_id}",
                     Notification(
                         kind="scenes_extracted",
                         story_id=story_id,
                         chapter_id=chapter_id,
-                        message=f"Extracted {result.scenes_extracted} scenes from Chapter {result.chapter_number} of {result.story_title}"
-                    )
-                 )
+                        message=f"Extracted {result.scenes_extracted} scenes from Chapter {result.chapter_number} of {result.story_title}",
+                    ),
+                )
 
             await client.set(f"chapter:baseline:{chapter_id}", baseline_content)
             await client.delete(f"chapter:extraction-pending:{chapter_id}")
 
             await asyncio.gather(
-                ctx['worker'].context['story_service'].get_pulse(
+                ctx["worker"].context["story_service"].get_pulse(
                     user_id=user_id,
                     story_id=story_id,
-                    ignore_cache=True
+                    ignore_cache=True,
                 ),
-                ctx['worker'].context['chapter_service'].summarize_chapter(
+                ctx["worker"].context["chapter_service"].summarize_chapter(
                     user_id=user_id,
                     chapter_id=chapter_id,
-                    ignore_cache=True
+                    ignore_cache=True,
                 ),
-                ctx['worker'].context['analytics_service'].extract_plot_threads(
+                ctx["worker"].context["analytics_service"].extract_plot_threads(
                     story_id=story_id,
                     user_id=user_id,
-                    ignore_cache=True
+                    ignore_cache=True,
                 ),
-                ctx['worker'].context['analytics_service'].extract_acts(
+                ctx["worker"].context["analytics_service"].extract_acts(
                     story_id=story_id,
                     user_id=user_id,
-                    ignore_cache=True
+                    ignore_cache=True,
                 ),
-                ctx['worker'].context['analytics_service'].extract_contradictions(
+                ctx["worker"].context["analytics_service"].extract_contradictions(
                     story_id=story_id,
                     user_id=user_id,
-                    ignore_cache=True
+                    ignore_cache=True,
                 ),
-                ctx['worker'].context['analytics_service'].extract_entities(
+                ctx["worker"].context["analytics_service"].extract_entities(
                     story_id=story_id,
                     user_id=user_id,
-                    ignore_cache=True
-                )
+                    ignore_cache=True,
+                ),
             )
 
             if result:
-                await ctx['worker'].context['pubsub'].publish(
+                await ctx["worker"].context["pubsub"].publish(
                     f"notifications:{user_id}",
                     Notification(
                         kind="analysis_ready",
                         story_id=story_id,
                         chapter_id=chapter_id,
-                        message=f"New pulse and analysis for {result.story_title} are ready."
-                    )
+                        message=f"New pulse and analysis for {result.story_title} are ready.",
+                    ),
                 )
 
-            comments_extraction: CommentExtractionResponse =  \
-                await ctx['worker'].context['chapter_service'].generate_comments(
-                    user_id,
-                    chapter_id,
-                    ignore_cache=True
-                )
+            comments_extraction: CommentExtractionResponse = await ctx["worker"].context[
+                "chapter_service"
+            ].generate_comments(
+                user_id,
+                chapter_id,
+                ignore_cache=True,
+            )
 
-            await ctx['worker'].context['pubsub'].publish(
+            await ctx["worker"].context["pubsub"].publish(
                 f"notifications:{user_id}",
                 Notification(
                     kind="comments_ready",
                     story_id=story_id,
                     chapter_id=chapter_id,
-                    message=f"{len(comments_extraction.extraction.comments)} comments are ready for chapter {comments_extraction.chapter_number} of {comments_extraction.story_title}"
-                )
+                    message=f"{len(comments_extraction.extraction.comments)} comments are ready for chapter {comments_extraction.chapter_number} of {comments_extraction.story_title}",
+                ),
             )
 
+            await client.set(
+                completion_key,
+                "1",
+                ex=SCENE_JOB_COMPLETION_TTL_SECONDS,
+            )
             span.set_status(trace.StatusCode.OK)
         except ValueError:
             raise
         except Exception as e:
             logger.exception("saq.scene_and_embedding_job.failed")
             span.record_exception(e)
-            await ctx['worker'].context['pubsub'].publish(
+            await ctx["worker"].context["pubsub"].publish(
                 f"notifications:{user_id}",
                 Notification(
                     kind="job_failed",
                     story_id=story_id,
                     chapter_id="",
-                    message=f"Extraction job failed. The server might be experiencing issues."
-                )
+                    message="Extraction job failed. The server might be experiencing issues.",
+                ),
             )
             span.set_status(trace.StatusCode.ERROR, str(e))
             raise
         finally:
             await client.delete(f"chapter:extraction-pending:{chapter_id}")
             HEARTBEAT_FILE.touch()
-            
+
 
 settings = {
     "queue": queue,
     "functions": [
         scene_and_embedding_job,
         chapter_reanalysis_job,
-        story_reanalysis_job
+        story_reanalysis_job,
     ],
     "concurrency": 5,
     "startup": startup,
-    "shutdown": shutdown
+    "shutdown": shutdown,
 }
-
-

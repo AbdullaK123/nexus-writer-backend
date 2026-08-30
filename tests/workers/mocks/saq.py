@@ -20,12 +20,18 @@ class FakeRedisClient:
     def __init__(self) -> None:
         self.set_calls: list[tuple[str, str]] = []
         self.delete_calls: list[str] = []
+        self.values: dict[str, str] = {}
 
-    async def set(self, key: str, value: str) -> None:
+    async def get(self, key: str) -> str | None:
+        return self.values.get(key)
+
+    async def set(self, key: str, value: str, **_: Any) -> None:
         self.set_calls.append((key, value))
+        self.values[key] = value
 
     async def delete(self, key: str) -> None:
         self.delete_calls.append(key)
+        self.values.pop(key, None)
 
 
 class FakePubSub:

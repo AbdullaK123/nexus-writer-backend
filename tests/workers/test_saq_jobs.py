@@ -61,9 +61,14 @@ async def test_scene_job_runs_extraction_embedding_analysis_and_notifications(
         "analysis_ready",
         "comments_ready",
     ]
-    assert fake_redis_client.set_calls == [
-        (f"chapter:baseline:{job_ids['chapter_id']}", "chapter text")
-    ]
+    assert (
+        f"chapter:baseline:{job_ids['chapter_id']}",
+        "chapter text",
+    ) in fake_redis_client.set_calls
+    assert any(
+        key.startswith(f"chapter:extraction-complete:{job_ids['chapter_id']}:")
+        for key, _ in fake_redis_client.set_calls
+    )
     assert f"chapter:extraction-pending:{job_ids['chapter_id']}" in fake_redis_client.delete_calls
 
 
