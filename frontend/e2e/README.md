@@ -22,7 +22,7 @@ Override them with `E2E_FRONTEND_URL` and `E2E_API_BASE_URL`.
 Run:
 
 ```bash
-npx playwright test
+npm run test:e2e
 ```
 
 The assertions are intentionally descriptive. When one fails, the message should tell you which production invariant was violated rather than merely reporting that a selector was missing.
