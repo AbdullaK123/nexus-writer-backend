@@ -128,7 +128,9 @@ export function useStoryChatWindowProps({
 
     useEffect(() => {
         return () => {
+            // eslint-disable-next-line react-hooks/exhaustive-deps
             streamSlotRef.current.abort();
+            // eslint-disable-next-line react-hooks/exhaustive-deps
             finishChatTurn(turnGateRef.current);
         }
     }, []);
