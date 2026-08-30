@@ -21,9 +21,17 @@ async function dragChapter(page: Page, sourceTitle: string, targetTitle: string)
   expect(sourceBox, `sortable source ${sourceTitle} must have a real browser layout box`).not.toBeNull();
   expect(targetBox, `sortable target ${targetTitle} must have a real browser layout box`).not.toBeNull();
 
-  await page.mouse.move(sourceBox!.x + sourceBox!.width / 2, sourceBox!.y + sourceBox!.height / 2);
+  const sourceX = sourceBox!.x + sourceBox!.width / 2;
+  const sourceY = sourceBox!.y + sourceBox!.height / 2;
+  const targetX = targetBox!.x + targetBox!.width / 2;
+  const targetCenterY = targetBox!.y + targetBox!.height / 2;
+  const targetY = sourceY < targetCenterY
+    ? targetBox!.y + targetBox!.height * 0.75
+    : targetBox!.y + targetBox!.height * 0.25;
+
+  await page.mouse.move(sourceX, sourceY);
   await page.mouse.down();
-  await page.mouse.move(targetBox!.x + targetBox!.width / 2, targetBox!.y + targetBox!.height / 2, { steps: 12 });
+  await page.mouse.move(targetX, targetY, { steps: 16 });
   await page.mouse.up();
 }
 
