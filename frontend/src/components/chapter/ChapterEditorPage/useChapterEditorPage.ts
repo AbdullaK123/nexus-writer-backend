@@ -69,8 +69,11 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     useEffect(() => {
         saveTrackerRef.current.invalidate()
         setUpdating(false)
-        debouncedUpdate.cancel()
-        return () => debouncedUpdate.cancel();
+
+        return () => {
+            debouncedUpdate.flush()
+            debouncedUpdate.cancel()
+        }
     }, [params.chapterId, debouncedUpdate]);
 
     const editor = useEditor({
