@@ -8,11 +8,13 @@ import {
   uniqueUser,
 } from "./helpers";
 
+function chapterRow(page: Page, title: string) {
+  return page.getByRole("heading", { name: title, exact: true, level: 4 }).locator("..");
+}
+
 async function dragChapter(page: Page, sourceTitle: string, targetTitle: string) {
-  const sourceTitleNode = page.getByRole("heading", { name: sourceTitle, exact: true, level: 4 });
-  const targetTitleNode = page.getByRole("heading", { name: targetTitle, exact: true, level: 4 });
-  const source = sourceTitleNode.locator("..");
-  const target = targetTitleNode.locator("..");
+  const source = chapterRow(page, sourceTitle);
+  const target = chapterRow(page, targetTitle);
   await expect(source).toBeVisible();
   await expect(target).toBeVisible();
 
@@ -82,22 +84,39 @@ test("conflicting chapter reorders must execute sequentially and preserve a vali
 
   await dragChapter(page, titles[0], titles[2]);
   await expect.poll(() => payloads.length, {
-    message: "the first drag must emit a real reorder request before the second conflicting intent is issued",
+    message: "the first drag must emit a real reorder request before serialization behavior is tested",
   }).toBe(1);
+
+  await expect(
+    chapterRow(page, titles[3]),
+    "while a reorder is unresolved, the UI must explicitly disable further sorting instead of accepting an ambiguous positional command that can be silently lost",
+  ).toHaveAttribute("aria-disabled", "true");
 
   await dragChapter(page, titles[3], titles[0]);
   await page.waitForTimeout(300);
-
   expect(
     payloads.length,
-    "while the first reorder is in flight, a second drag must either be queued by the mutation layer or emit a second request; silently producing no observable second intent means the UI dropped the user's reorder before persistence was even attempted",
-  ).toBeGreaterThanOrEqual(1);
+    "a reorder attempted while the UI is explicitly locked must not leak a concurrent positional write to the server",
+  ).toBe(1);
 
   releaseFirst();
+
+  await expect(
+    chapterRow(page, titles[3]),
+    "sorting must become available again after the in-flight reorder settles; a permanent lock would trade data corruption for a dead UI",
+  ).toHaveAttribute("aria-disabled", "false");
+
+  await dragChapter(page, titles[3], titles[0]);
   await expect.poll(() => payloads.length, {
-    message: "the second user reorder must eventually emit a request after the first settles; otherwise the UI silently discarded a valid drag intent",
+    message: "once the first reorder settles, the next valid drag must emit its own request",
     timeout: 10_000,
   }).toBe(2);
+
+  const expectedOrder = applyMove(
+    applyMove(ids, payloads[0]!.fromPos, payloads[0]!.toPos),
+    payloads[1]!.fromPos,
+    payloads[1]!.toPos,
+  );
 
   await expect.poll(async () => {
     const response = await browserRequest.get(`${API_BASE_URL}/stories/${storyId}/chapters`);
@@ -105,9 +124,9 @@ test("conflicting chapter reorders must execute sequentially and preserve a vali
     const body = (await response.json()) as { chapters: Array<{ chapterId: string }> };
     return body.chapters.map((chapter) => chapter.chapterId);
   }, {
-    message: "both reorder intents must settle before canonical ordering is checked",
+    message: "both accepted reorder operations must settle before canonical ordering is checked",
     timeout: 10_000,
-  }).toEqual(applyMove(applyMove(ids, payloads[0]!.fromPos, payloads[0]!.toPos), payloads[1]!.fromPos, payloads[1]!.toPos));
+  }).toEqual(expectedOrder);
 
   const finalResponse = await browserRequest.get(`${API_BASE_URL}/stories/${storyId}/chapters`);
   expect(finalResponse.ok()).toBe(true);
@@ -115,6 +134,6 @@ test("conflicting chapter reorders must execute sequentially and preserve a vali
   expect(new Set(finalBody.chapters.map((chapter) => chapter.chapterId)).size, "reordering must never duplicate or lose a chapter id").toBe(ids.length);
   expect(
     finalBody.chapters.map((chapter) => chapter.chapterNumber),
-    "chapter numbers must remain a contiguous total order after conflicting reorders; gaps or duplicates poison navigation and every downstream chapter-relative query",
+    "chapter numbers must remain a contiguous total order after sequential reorders; gaps or duplicates poison navigation and every downstream chapter-relative query",
   ).toEqual([1, 2, 3, 4]);
 });
