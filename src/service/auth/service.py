@@ -73,7 +73,6 @@ class AuthService:
         logger.info(
             "session.created",
             user_id=user_id,
-            session_id=session_id,
             expires_at=str(expires_at),
         )
 
@@ -113,7 +112,7 @@ class AuthService:
         deleted = await self._session_repo.delete(session_id)
 
         if deleted:
-            logger.info("session.deleted", session_id=session_id)
+            logger.info("session.deleted")
         else:
             logger.warning("session.logout_failed.not_found")
 
