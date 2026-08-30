@@ -12,7 +12,6 @@ from src.service.story.service import StoryService
 import pytest
 from uuid_extensions import uuid7str
 from datetime import datetime as dt
-from pydantic import ValidationError
 from tests.service.mocks import FakeRedis, FakeStoryRepository, FakeSceneRepository, FakeAIProvider, FakeChapterRepository
 
 
@@ -246,11 +245,14 @@ async def test_get_pulse_cache_poisoning_path(
 ):
     
     story = await fake_story_repo.create(user_id=test_user.id, title="Test Story")
+    cache_key = f"pulse:{story.id}:{test_user.id}"
 
-    await fake_redis.set(f"pulse:{story.id}:{test_user.id}", "I'm invalid data!")
+    await fake_redis.set(cache_key, "I'm invalid data!")
 
-    with pytest.raises(ValidationError):
-        await story_service.get_pulse(user_id=test_user.id, story_id=story.id)
+    result = await story_service.get_pulse(user_id=test_user.id, story_id=story.id)
+
+    assert result == INSUFFICIENT_CONTEXT
+    assert await fake_redis.get(cache_key) is None
 
 
 async def test_get_pulse_cache_llm_error_path(
@@ -309,7 +311,7 @@ async def test_format_scenes_chapter_not_in_path_array(
         title="Test chapter", content="content", word_count=1
     )
 
-    # path_array is empty — chapter exists but isn't in the path
+    # path_array is empty — chapter exists but isn't in the canonical story path
     for i in range(3):
         fake_scene_repo.seed(
             SceneRow(
@@ -322,9 +324,9 @@ async def test_format_scenes_chapter_not_in_path_array(
             )
         )
 
-    # this will KeyError — proving the bug exists
-    with pytest.raises(KeyError):
-        await story_service.get_pulse(user_id=test_user.id, story_id=story.id)
+    result = await story_service.get_pulse(user_id=test_user.id, story_id=story.id)
+
+    assert result == INSUFFICIENT_CONTEXT
 
 
 async def test_normalize_pulse_evidence_invalid_chapters(
