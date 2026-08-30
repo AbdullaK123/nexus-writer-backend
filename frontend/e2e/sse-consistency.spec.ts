@@ -12,19 +12,19 @@ const isNotificationStream = (url: string) => url.includes("/api/auth/me/notific
 test("an SSE reconnect that discovers a revoked session must evict private UI state", async ({ page, request, context }) => {
   const user = uniqueUser("sse-revoked");
   await registerUser(request, user);
-  await loginThroughUI(page, user);
-  await expect(page).toHaveURL(/\/$/);
-
-  const browserRequest = page.context().request;
-  const privateTitle = `SSE-PRIVATE-${Date.now()}`;
-  await createStory(browserRequest, privateTitle);
 
   const activeStream = page.waitForRequest(
     (req) => isNotificationStream(req.url()) && req.method() === "GET",
   );
+  await loginThroughUI(page, user);
+  await expect(page).toHaveURL(/\/$/);
+  await activeStream;
+
+  const browserRequest = page.context().request;
+  const privateTitle = `SSE-PRIVATE-${Date.now()}`;
+  await createStory(browserRequest, privateTitle);
   await page.reload();
   await expect(page.getByRole("heading", { name: privateTitle, exact: true, level: 3 })).toBeVisible();
-  await activeStream;
 
   await apiLogout(browserRequest);
 
