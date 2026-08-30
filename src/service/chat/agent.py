@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import Awaitable, Callable, Literal
 
+from loguru import logger
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
@@ -22,9 +23,7 @@ from src.shared.utils.html import html_to_plain_text
 def _service_errors_as_text(
     func: Callable[..., Awaitable[str]],
 ) -> Callable[..., Awaitable[str]]:
-    """Catch ServiceError inside a tool and return its message as the tool
-    result. Without this, the exception aborts the whole agent run instead
-    of being fed back to the LLM as recoverable feedback."""
+    """Return useful service failures to the model without exposing internals."""
 
     @wraps(func)
     async def wrapper(*args, **kwargs) -> str:
@@ -32,6 +31,12 @@ def _service_errors_as_text(
             return await func(*args, **kwargs)
         except ServiceError as e:
             return f"Tool error: {e}"
+        except Exception:
+            logger.exception(
+                "svc.chat.agent_tool.unhandled",
+                tool=func.__name__,
+            )
+            return "Tool error: internal tool failure."
 
     return wrapper
 

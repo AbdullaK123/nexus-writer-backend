@@ -5,7 +5,6 @@ from pydantic_ai import (
     ModelMessage,
     ModelRequest,
     ModelResponse,
-    RetryPromptPart,
     TextPart,
     ToolCallPart,
     ToolReturnPart,
@@ -30,13 +29,18 @@ async def test_service_errors_as_text():
     assert result == "Tool error: Chapter not found"
 
 
-async def test_service_errors_as_text_propagates_unexpected_errors():
+async def test_service_errors_as_text_sanitizes_unexpected_errors():
+    secret = "postgresql://admin:SECRET@internal-db:5432/nexus"
+
     @_service_errors_as_text
     async def broken_tool():
-        raise RuntimeError("BOOM! The database blew up!")
+        raise RuntimeError(secret)
 
-    with pytest.raises(RuntimeError, match="BOOM! The database blew up!"):
-        await broken_tool()
+    result = await broken_tool()
+
+    assert result == "Tool error: internal tool failure."
+    assert "SECRET" not in result
+    assert "internal-db" not in result
 
 
 async def test_tool_call(
@@ -231,12 +235,13 @@ async def test_tool_call_service_error(
     assert result.output == "done"
 
 
-async def test_tool_call_runtime_error(
+async def test_tool_call_runtime_error_is_sanitized_before_model_retry(
     test_agent: Agent,
     chat_deps: ChatDeps,
     fake_chapter_repo: FakeChapterRepository,
 ):
-    fake_chapter_repo.error = RuntimeError("database exploded")
+    secret = "postgresql://admin:SECRET@internal-db:5432/nexus"
+    fake_chapter_repo.error = RuntimeError(secret)
 
     async def model_func(
         messages: list[ModelMessage],
@@ -255,18 +260,21 @@ async def test_tool_call_runtime_error(
                 ]
             )
 
-        latest = messages[-1]
+        model_visible = repr(messages)
+        assert secret not in model_visible
+        assert "SECRET" not in model_visible
+        assert "internal-db" not in model_visible
 
+        latest = messages[-1]
         if isinstance(latest, ModelRequest):
             for part in latest.parts:
                 if (
-                    isinstance(part, RetryPromptPart)
-                    and part.tool_name == "run_code"
-                    and "RuntimeError: database exploded" in part.content
+                    isinstance(part, ToolReturnPart)
+                    and part.content == "Tool error: internal tool failure."
                 ):
                     return ModelResponse(parts=[TextPart("done")])
 
-        raise AssertionError("Expected runtime failure retry prompt")
+        raise AssertionError("Expected sanitized internal tool failure")
 
     fake_model = FunctionModel(function=model_func)
 
