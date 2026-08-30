@@ -142,10 +142,18 @@ class StoryService:
             )
 
         if status_changed:
-            await self._invalidate_status_dependent_analysis(
-                story_id=story_id,
-                user_id=user_id,
-            )
+            try:
+                await self._invalidate_status_dependent_analysis(
+                    story_id=story_id,
+                    user_id=user_id,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "story.status_cache_invalidation_failed",
+                    story_id=story_id,
+                    user_id=user_id,
+                    error=str(exc),
+                )
 
         logger.info(
             "story.update.done",
@@ -220,9 +228,9 @@ class StoryService:
             return StoryGridResponse(stories=[])
 
         if status:
-            story_ids = [s.id for s in stories if s.status == status]
-        else:
-            story_ids = [s.id for s in stories]
+            stories = [s for s in stories if s.status == status]
+
+        story_ids = [s.id for s in stories]
 
         all_chapters = await self._chapter_repo.list_by_story_ids(story_ids)
 
