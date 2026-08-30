@@ -4,7 +4,7 @@ import { z } from "zod"
 import { Field } from "@ark-ui/react/field"
 import { useLogin } from "../../data/queries";
 import { Button, useToast } from "../common";
-import { useNavigate } from "@tanstack/react-router";
+import { useSearch } from "@tanstack/react-router";
 
 const loginFormSchema = z.object({
     email: z.email("Invalid email"),
@@ -14,6 +14,17 @@ const loginFormSchema = z.object({
 
 type LoginFormSchema = z.infer<typeof loginFormSchema>
 
+function safeRedirectTarget(redirect: string | undefined): string {
+    if (!redirect) return "/"
+
+    try {
+        const url = new URL(redirect, window.location.origin)
+        if (url.origin !== window.location.origin) return "/"
+        return `${url.pathname}${url.search}${url.hash}`
+    } catch {
+        return "/"
+    }
+}
 
 export function LoginForm() {
 
@@ -28,23 +39,18 @@ export function LoginForm() {
     } = useForm<LoginFormSchema>({ resolver: zodResolver(loginFormSchema) })
 
     const login = useLogin()
+    const { redirect } = useSearch({ from: "/login" })
 
-    
     const { error, success } = useToast()
-
-    const navigate = useNavigate()
-
 
     const onSubmit = handleSubmit(async (values) => {
         login.mutate({
             email: values.email,
             password: values.password
         }, {
-            onSuccess: async () => {
+            onSuccess: () => {
                 success("Login Successful!", "Taking you to your dashboard...")
-                await navigate({
-                    to: "/"
-                })
+                window.location.assign(safeRedirectTarget(redirect))
             },
             onError: (err) => {
                 error("Login failed!", err.message)

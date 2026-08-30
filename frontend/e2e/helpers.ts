@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
 export const API_BASE_URL = process.env.E2E_API_BASE_URL ?? "http://127.0.0.1:8000/api";
 
@@ -57,16 +57,22 @@ export async function createStory(request: APIRequestContext, title: string): Pr
     await request.get(`${API_BASE_URL}/stories`),
     "list stories after create",
   );
-  const body = (await response.json()) as { stories: Array<{ id: string; title: string }> };
+  const body = (await response.json()) as {
+    stories: Array<{ storyId: string; title: string }>;
+  };
   const story = body.stories.find((item) => item.title === title);
   if (!story) {
     throw new Error(`Created story ${JSON.stringify(title)} was not returned by the real backend.`);
   }
-  return story.id;
+  return story.storyId;
 }
 
 export async function loginThroughUI(page: Page, user: TestUser): Promise<void> {
   await page.goto("/login");
+  await expect(
+    page.getByLabel("Email"),
+    "the login route must render before the test can authenticate; a global error page here means browser-to-backend auth probing failed before the behavior under test",
+  ).toBeVisible({ timeout: 5_000 });
   await page.getByLabel("Email").fill(user.email);
   await page.getByLabel("Password").fill(user.password);
   await page.getByRole("button", { name: /Launch Nexus/i }).click();

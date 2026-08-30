@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const frontendURL = process.env.E2E_FRONTEND_URL ?? "http://127.0.0.1:5173";
+const frontendURL = process.env.E2E_FRONTEND_URL ?? "http://localhost:5173";
+const apiURL = process.env.E2E_API_BASE_URL ?? "http://localhost:8000/api";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -22,7 +23,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev -- --host 127.0.0.1",
+    command: `VITE_API_BASE_URL=${apiURL} VITE_API_TIMEOUT_MS=10000 npm run dev -- --host localhost`,
     url: frontendURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
