@@ -109,23 +109,29 @@ class ChatRepository:
         """
         await self._exe(executor).execute(sql, thread_id, user_id)
 
-    async def append_message(
+    async def _append_message_on_connection(
         self,
+        conn: asyncpg.Connection,
         thread_id: str,
         user_id: str,
         kind: Literal["request", "response"],
         message: dict,
-        *,
-        executor: Executor | None = None,
     ) -> ChatMessageRow:
-        """Append one pydantic-ai ModelMessage to a thread.
-
-        `message` must be the dict produced by
-        `ModelMessagesTypeAdapter.dump_python([msg])[0]` (or
-        `msg.model_dump(mode="json")`). `kind` matches pydantic-ai's
-        ModelMessage discriminator and must agree with the dict's own
-        `"kind"` field; we accept it explicitly so the column is indexable.
-        """
+        # The parent thread row is the serialization point for message ordering.
+        # Keep this lock immediately adjacent to the insert so the critical section
+        # stays short and every writer for a thread acquires the same lock first.
+        thread = await conn.fetchrow(
+            """
+            SELECT id
+            FROM "chat_thread"
+            WHERE id=$1 AND user_id=$2
+            FOR UPDATE
+            """,
+            thread_id,
+            user_id,
+        )
+        if thread is None:
+            raise ValueError(f"Chat thread {thread_id} not found")
 
         sql = """
         INSERT INTO "chat_message" (id, thread_id, user_id, sequence, kind, message)
@@ -144,7 +150,7 @@ class ChatRepository:
         RETURNING *
         """
 
-        row = await self._exe(executor).fetchrow(
+        row = await conn.fetchrow(
             sql,
             uuid7str(),
             thread_id,
@@ -156,6 +162,40 @@ class ChatRepository:
         parsed = dict(row)
         parsed["message"] = _decode_message(parsed["message"])
         return ChatMessageRow.model_validate(parsed)
+
+    async def append_message(
+        self,
+        thread_id: str,
+        user_id: str,
+        kind: Literal["request", "response"],
+        message: dict,
+        *,
+        executor: Executor | None = None,
+    ) -> ChatMessageRow:
+        """Append one pydantic-ai ModelMessage to a thread.
+
+        Message sequence allocation is serialized by locking the parent thread row.
+        When a caller supplies a connection, this method participates in the caller's
+        transaction. Otherwise it owns a short transaction for the lock + insert.
+        """
+        if executor is not None:
+            return await self._append_message_on_connection(
+                executor,
+                thread_id,
+                user_id,
+                kind,
+                message,
+            )
+
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                return await self._append_message_on_connection(
+                    conn,
+                    thread_id,
+                    user_id,
+                    kind,
+                    message,
+                )
 
     async def list_messages(
         self,
