@@ -34,11 +34,14 @@ test("an SSE reconnect that discovers a revoked session must evict private UI st
   await context.setOffline(true);
   await failedStream;
 
-  const reconnect = page.waitForRequest(
-    (req) => isNotificationStream(req.url()) && req.method() === "GET",
+  const rejectedReconnect = page.waitForResponse(
+    (response) =>
+      isNotificationStream(response.url()) &&
+      response.request().method() === "GET" &&
+      (response.status() === 401 || response.status() === 403),
   );
   await context.setOffline(false);
-  await reconnect;
+  await rejectedReconnect;
 
   await expect(
     page,
