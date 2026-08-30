@@ -130,7 +130,10 @@ export function AppRouter() {
 
           if (isTerminal(err)) {
             if (err._tag === "SseHttpError" && (err.status === 401 || err.status === 403)) {
-              qc.clear();
+              void qc.resetQueries({
+                queryKey: authKeys.me(),
+                exact: true,
+              });
               info("Session expired", "Please sign in again.");
             }
             return;
