@@ -23,19 +23,27 @@ test("a valid chapter cannot be mounted under the wrong parent story", async ({ 
   const chapterA = await createChapter(browserRequest, storyA, chapterTitle);
   await updateChapter(browserRequest, chapterA, { content: `<p>${secret}</p>` });
 
-  const chapterFetch = page.waitForResponse(
-    (response) => response.url().includes(`/api/chapters/${chapterA}`) && response.request().method() === "GET",
-  );
-  await page.goto(`/stories/${storyB}/${chapterA}`);
-  await chapterFetch;
+  let childFetches = 0;
+  page.on("request", (request) => {
+    if (request.method() === "GET" && request.url().includes(`/api/chapters/${chapterA}`)) {
+      childFetches += 1;
+    }
+  });
 
+  await page.goto(`/stories/${storyB}/${chapterA}`);
+  await expect(page).toHaveURL(/\/404(?:\?|$)/);
+
+  expect(
+    childFetches,
+    "the parent story's chapter list already proves this child does not belong here; fetching the unrelated chapter anyway creates a transient confused-deputy data leak",
+  ).toBe(0);
   await expect(
     page.getByText(secret, { exact: true }),
-    "valid child IDs are not enough: rendering a chapter from story A inside story B creates a confused-deputy boundary where unrelated resources can be composed into a fake hierarchy",
+    "valid child IDs are not enough: rendering a chapter from story A inside story B creates a fake resource hierarchy",
   ).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: chapterTitle, exact: true }),
-    "the chapter title itself must not leak through a mismatched parent route; parent-child membership must be enforced, not inferred from independently valid IDs",
+    "the chapter title itself must not leak through a mismatched parent route",
   ).toHaveCount(0);
 });
 
@@ -59,17 +67,10 @@ test("another account cannot open a chapter by guessing its nested URL", async (
   await page.getByRole("button", { name: /Launch Nexus/i }).click();
   await expect(page).toHaveURL(/\/$/);
 
-  const rejectedChapterFetch = page.waitForResponse(
-    (response) => response.url().includes(`/api/chapters/${chapterId}`) && response.request().method() === "GET",
-  );
   await page.goto(`/stories/${aliceStory}/${chapterId}`);
-  const response = await rejectedChapterFetch;
-  expect(
-    response.status(),
-    "the backend must reject another account's chapter lookup; a frontend 404 without a server ownership check is security theater",
-  ).toBe(404);
+  await expect(page).toHaveURL(/\/404(?:\?|$)/);
   await expect(
     page.getByRole("heading", { name: chapterTitle, exact: true }),
-    "a guessed nested URL must never reveal another account's chapter; client routing cannot be allowed to weaken the backend ownership boundary",
+    "a guessed nested URL must never reveal another account's chapter; client routing cannot weaken the backend ownership boundary",
   ).toHaveCount(0);
 });
