@@ -82,7 +82,11 @@ async function fetchApi<T>(
                 : AbortSignal.timeout(timeoutMs);
         }
 
-        const fullUrl = new URL(url, baseURL).toString()
+        // URL treats a base without a trailing slash as a file. Without this
+        // normalization, new URL("auth/me", "http://host/api") resolves to
+        // http://host/auth/me and silently drops the /api prefix.
+        const normalizedBaseURL = baseURL.endsWith("/") ? baseURL : `${baseURL}/`
+        const fullUrl = new URL(url, normalizedBaseURL).toString()
         
 
         const response = await fetch(fullUrl, effectiveOptions);
