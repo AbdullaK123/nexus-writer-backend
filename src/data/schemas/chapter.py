@@ -88,7 +88,7 @@ class ChapterContentResponse(ApiModel):
             chapter_number=chapter_number,
             title=chapter.title,
             published=chapter.published,
-            content=chapter.content if chapter.content else "",
+            content=content if content is not None else (chapter.content or ""),
             story_id=chapter.story_id,
             word_count=chapter.word_count,
             story_title=story_title,
