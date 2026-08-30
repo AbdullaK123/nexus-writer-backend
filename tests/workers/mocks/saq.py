@@ -11,6 +11,8 @@ from src.data.schemas.extraction import SceneExtractionResult
 @dataclass
 class PublishedChapter:
     id: str
+    story_id: str
+    content: str = "chapter text"
     published: bool = True
 
 
