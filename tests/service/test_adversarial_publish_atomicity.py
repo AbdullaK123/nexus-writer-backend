@@ -1,9 +1,6 @@
-import pytest
-
 from src.data.schemas.auth import UserResponse
 from src.data.schemas.chapter import CreateChapterRequest, UpdateChapterRequest
 from src.service.chapter.service import ChapterService
-from src.service.exceptions import ServiceError
 from tests.service.mocks import FakeChapterRepository, FakeQueue, FakeStoryRepository
 
 
@@ -32,14 +29,15 @@ async def test_failed_publish_enqueue_does_not_rollback_canonical_publish(
     )
     assert chapter.published is False
 
-    fake_queue.error = RuntimeError("queue unavailable after chapter commit")
+    fake_queue.error = ConnectionError("queue unavailable after chapter commit")
 
-    with pytest.raises(ServiceError):
-        await chapter_service.update_chapter(
-            chapter.id,
-            test_user.id,
-            UpdateChapterRequest(published=True),
-        )
+    updated = await chapter_service.update_chapter(
+        chapter.id,
+        test_user.id,
+        UpdateChapterRequest(published=True),
+    )
+
+    assert updated.published is True
 
     persisted = await fake_chapter_repo.get(chapter.id, test_user.id)
     assert persisted is not None

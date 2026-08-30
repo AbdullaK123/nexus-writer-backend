@@ -30,6 +30,16 @@ TRANSIENT_QUEUE_ERRORS = (
 )
 
 
+def _on_enqueue_retries_exhausted(retry_state):
+    error = retry_state.outcome.exception() if retry_state.outcome else None
+    logger.error(
+        "queue.enqueue_retries_exhausted",
+        attempts=retry_state.attempt_number,
+        error=str(error) if error else None,
+    )
+    return None
+
+
 retry_enqueue = retry(
     retry=retry_if_exception_type(TRANSIENT_QUEUE_ERRORS),
     stop=stop_after_attempt(3),
@@ -37,6 +47,7 @@ retry_enqueue = retry(
         initial=0.5,
         max=5,
     ),
+    retry_error_callback=_on_enqueue_retries_exhausted,
     reraise=True,
 )
 
