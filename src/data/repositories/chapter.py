@@ -52,8 +52,13 @@ class ChapterRepository:
         user_id: str,
         *,
         executor: Executor | None = None,
+        for_update: bool = False,
     ) -> ChapterRow | None:
-        sql = f'SELECT {_CHAPTER_COLUMNS} FROM "chapter" WHERE id = $1 AND user_id = $2'
+        lock_clause = " FOR UPDATE" if for_update else ""
+        sql = (
+            f'SELECT {_CHAPTER_COLUMNS} FROM "chapter" '
+            f'WHERE id = $1 AND user_id = $2{lock_clause}'
+        )
         row = await self._exe(executor).fetchrow(sql, chapter_id, user_id)
         return ChapterRow.model_validate(dict(row)) if row else None
 
