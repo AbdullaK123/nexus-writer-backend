@@ -14,7 +14,7 @@ function streamFromChunks(chunks: string[]): ReadableStream<Uint8Array> {
 }
 
 async function loadSse() {
-    vi.stubEnv("VITE_API_BASE_URL", "http://api.test/")
+    vi.stubEnv("VITE_API_BASE_URL", "http://api.test/api")
     vi.stubEnv("VITE_API_TIMEOUT_MS", "5000")
     vi.resetModules()
     return import("../../../src/infrastructure/sse")
@@ -178,7 +178,7 @@ describe("streamSse", () => {
         )
 
         expect(fetchMock).toHaveBeenCalledWith(
-            "http://api.test/chat",
+            "http://api.test/api/chat",
             expect.objectContaining({
                 method: "POST",
                 body: JSON.stringify({ userMessage: "hello" }),
