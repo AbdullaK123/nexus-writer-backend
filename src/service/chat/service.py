@@ -89,8 +89,20 @@ class ChatService:
 
     @handle_service_errors
     async def update_thread_title(
-        self, thread_id: str, user_id: str, new_title: str
+        self,
+        thread_id: str,
+        user_id: str,
+        new_title: str,
+        *,
+        story_id: str | None = None,
     ) -> ThreadResponse:
+        if story_id is not None:
+            thread = await self._chat_repo.get_thread(thread_id, user_id)
+            if thread is None:
+                raise NotFoundError("Thread not found")
+            if thread.story_id != story_id:
+                raise ValidationError({"story_id": ["does not match thread"]})
+
         updated_thread = await self._chat_repo.update_thread_title(
             thread_id, user_id, new_title
         )
@@ -105,11 +117,20 @@ class ChatService:
         )
 
     @handle_service_errors
-    async def delete_thread(self, thread_id: str, user_id: str) -> dict:
+    async def delete_thread(
+        self,
+        thread_id: str,
+        user_id: str,
+        *,
+        story_id: str | None = None,
+    ) -> dict:
         thread = await self._chat_repo.get_thread(thread_id, user_id)
 
         if thread is None:
             raise NotFoundError("Thread not found")
+
+        if story_id is not None and thread.story_id != story_id:
+            raise ValidationError({"story_id": ["does not match thread"]})
 
         await self._chat_repo.delete_thread(thread_id, user_id)
 
@@ -137,12 +158,19 @@ class ChatService:
 
     @handle_service_errors
     async def get_thread_messages(
-        self, thread_id: str, user_id: str
+        self,
+        thread_id: str,
+        user_id: str,
+        *,
+        story_id: str | None = None,
     ) -> ChatMessageListResponse:
         thread = await self._chat_repo.get_thread(thread_id, user_id)
 
         if thread is None:
             raise NotFoundError("Thread not found error")
+
+        if story_id is not None and thread.story_id != story_id:
+            raise ValidationError({"story_id": ["does not match thread"]})
 
         messages = await self._chat_repo.list_messages(thread_id, user_id)
 

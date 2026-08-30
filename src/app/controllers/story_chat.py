@@ -65,7 +65,11 @@ async def list_thread_messages(
     current_user: UserRow = Depends(get_current_user),
     chat_service: ChatService = Depends(get_chat_service),
 ) -> ChatMessageListResponse:
-    return await chat_service.get_thread_messages(thread_id, current_user.id)
+    return await chat_service.get_thread_messages(
+        thread_id=thread_id,
+        user_id=current_user.id,
+        story_id=story_id,
+    )
 
 
 @chat_controller.patch(
@@ -80,9 +84,10 @@ async def rename_thread(
     chat_service: ChatService = Depends(get_chat_service),
 ) -> ThreadResponse:
     return await chat_service.update_thread_title(
-        thread_id,
-        current_user.id,
-        body.title,
+        thread_id=thread_id,
+        user_id=current_user.id,
+        new_title=body.title,
+        story_id=story_id,
     )
 
 
@@ -93,7 +98,11 @@ async def delete_thread(
     current_user: UserRow = Depends(get_current_user),
     chat_service: ChatService = Depends(get_chat_service),
 ) -> dict:
-    return await chat_service.delete_thread(thread_id, current_user.id)
+    return await chat_service.delete_thread(
+        thread_id=thread_id,
+        user_id=current_user.id,
+        story_id=story_id,
+    )
 
 
 # ── SSE: stream one conversation turn ─────────────────────────────────
