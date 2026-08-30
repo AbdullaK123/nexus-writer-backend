@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  API_BASE_URL,
   apiLogout,
   createStory,
   loginThroughUI,
@@ -21,7 +22,9 @@ test("switching identities cannot resurrect the previous account's cached story 
   const browserRequest = page.context().request;
   await createStory(browserRequest, aliceOnlyTitle);
   await page.reload();
-  await expect(page.getByText(aliceOnlyTitle, { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: aliceOnlyTitle, exact: true, level: 3 }),
+  ).toBeVisible();
 
   await apiLogout(browserRequest);
   await page.goto("/login");
@@ -32,13 +35,11 @@ test("switching identities cannot resurrect the previous account's cached story 
   await expect(page).toHaveURL(/\/$/);
 
   await expect(
-    page.getByText(aliceOnlyTitle, { exact: true }),
+    page.getByRole("heading", { name: aliceOnlyTitle, exact: true, level: 3 }),
     "TanStack Query cache must be identity-scoped in practice, not just on the backend; showing account A's cached story after account B logs in is a direct cross-account confidentiality breach",
   ).toHaveCount(0);
 
-  const storiesResponse = await browserRequest.get(
-    `${process.env.E2E_API_BASE_URL ?? "http://127.0.0.1:8000/api"}/stories`,
-  );
+  const storiesResponse = await browserRequest.get(`${API_BASE_URL}/stories`);
   expect(
     storiesResponse.ok(),
     "the second account must still have a valid backend session; otherwise a blank dashboard could falsely make the cache-isolation assertion look safe",
