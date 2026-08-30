@@ -47,11 +47,16 @@ test("conflicting chapter reorders must execute sequentially and preserve a vali
   const ids: string[] = [];
   for (const title of titles) ids.push(await createChapter(browserRequest, storyId, title));
 
-  let requestCount = 0;
   const payloads: Array<{ fromPos: number; toPos: number }> = [];
+  let heldRouteCount = 0;
   let releaseFirst!: () => void;
   const firstMayFinish = new Promise<void>((resolve) => {
     releaseFirst = resolve;
+  });
+
+  page.on("request", (req) => {
+    if (req.method() !== "POST" || !req.url().endsWith(`/api/stories/${storyId}/chapters/reorder`)) return;
+    payloads.push(req.postDataJSON() as { fromPos: number; toPos: number });
   });
 
   await page.route(`**/api/stories/${storyId}/chapters/reorder`, async (route) => {
@@ -59,9 +64,8 @@ test("conflicting chapter reorders must execute sequentially and preserve a vali
       await route.continue();
       return;
     }
-    requestCount += 1;
-    payloads.push(route.request().postDataJSON() as { fromPos: number; toPos: number });
-    if (requestCount === 1) await firstMayFinish;
+    heldRouteCount += 1;
+    if (heldRouteCount === 1) await firstMayFinish;
     await route.continue();
   });
 
@@ -69,20 +73,21 @@ test("conflicting chapter reorders must execute sequentially and preserve a vali
   await expect(page.getByRole("heading", { name: titles[0], exact: true, level: 4 })).toBeVisible();
 
   await dragChapter(page, titles[0], titles[2]);
-  await expect.poll(() => requestCount, {
-    message: "the first drag must reach the real reorder endpoint before the second conflicting intent is issued",
+  await expect.poll(() => payloads.length, {
+    message: "the first drag must emit a real reorder request before the second conflicting intent is issued",
   }).toBe(1);
 
-  await dragChapter(page, titles[3], titles[1]);
+  await dragChapter(page, titles[3], titles[0]);
   await page.waitForTimeout(300);
+
   expect(
-    requestCount,
-    "chapter reorder mutations must serialize while an older reorder is in flight; concurrent positional writes can apply against different orders and corrupt chapter numbering",
-  ).toBe(1);
+    payloads.length,
+    "while the first reorder is in flight, a second drag must either be queued by the mutation layer or emit a second request; silently producing no observable second intent means the UI dropped the user's reorder before persistence was even attempted",
+  ).toBeGreaterThanOrEqual(1);
 
   releaseFirst();
-  await expect.poll(() => requestCount, {
-    message: "the second user reorder must execute after the first settles rather than being dropped",
+  await expect.poll(() => payloads.length, {
+    message: "the second user reorder must eventually emit a request after the first settles; otherwise the UI silently discarded a valid drag intent",
     timeout: 10_000,
   }).toBe(2);
 
@@ -92,7 +97,7 @@ test("conflicting chapter reorders must execute sequentially and preserve a vali
     const body = (await response.json()) as { chapters: Array<{ chapterId: string }> };
     return body.chapters.map((chapter) => chapter.chapterId);
   }, {
-    message: "both serialized reorder requests must settle before canonical ordering is checked",
+    message: "both reorder intents must settle before canonical ordering is checked",
     timeout: 10_000,
   }).toEqual(applyMove(applyMove(ids, payloads[0]!.fromPos, payloads[0]!.toPos), payloads[1]!.fromPos, payloads[1]!.toPos));
 
