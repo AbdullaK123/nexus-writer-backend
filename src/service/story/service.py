@@ -40,6 +40,7 @@ from src.service.exceptions import NotFoundError, ConflictError
 from src.service.utils.decorators import handle_service_errors
 from src.infrastructure.config import config
 import redis.asyncio as aioredis
+import asyncpg
 
 
 class StoryService:
@@ -102,7 +103,12 @@ class StoryService:
                 "You already have a story with this title. Please choose a different one."
             )
 
-        await self._story_repo.create(user_id=user_id, title=story_info.title)
+        try:
+            await self._story_repo.create(user_id=user_id, title=story_info.title)
+        except asyncpg.UniqueViolationError:
+            raise ConflictError(
+                "A story with that title already exists."
+            )
         logger.info("story.create.done", user_id=user_id, title=story_info.title)
         return {"message": "Story successfully created"}
 

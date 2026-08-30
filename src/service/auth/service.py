@@ -25,7 +25,7 @@ from src.infrastructure.redis.pubsub import RedisPubSub
 from src.service.exceptions import AuthError, ForbiddenError, ConflictError, NotFoundError
 from src.service.utils.decorators import handle_service_errors, handle_service_errors_stream
 from src.shared.utils.correlation import set_user_id
-
+import asyncpg
 
 class AuthService:
     def __init__(
@@ -151,12 +151,17 @@ class AuthService:
                 "An account with this email already exists. Try logging in instead."
             )
 
-        user = await self._user_repo.create(
-            username=registration_data.username,
-            email=registration_data.email,
-            password_hash=hash_password(registration_data.password),
-            profile_img=registration_data.profile_img,
-        )
+        try:
+            user = await self._user_repo.create(
+                username=registration_data.username,
+                email=registration_data.email,
+                password_hash=hash_password(registration_data.password),
+                profile_img=registration_data.profile_img,
+            )
+        except asyncpg.UniqueViolationError:
+            raise ConflictError(
+                "A user with that username or email already exists."
+            )
         logger.info("auth.user_registered", user_id=str(user.id))
 
         return UserResponse.from_user_row(user)
