@@ -41,6 +41,7 @@ from src.shared.utils.html import (
     html_to_plain_text,
 )
 from src.service.utils.decorators import retry_enqueue
+import asyncio
 
 if TYPE_CHECKING:
     from src.service.extraction.service import ExtractionService
@@ -48,6 +49,13 @@ if TYPE_CHECKING:
     from src.service.analytics.service import AnalyticsService
     from src.service.story.service import StoryService
     from src.service.chat.agent import ChatDeps
+
+class ChapterWriteLocks:
+    def __init__(self) -> None:
+        self._locks: dict[str, asyncio.Lock] = {}
+
+    def get(self, chapter_id: str) -> asyncio.Lock:
+        return self._locks.setdefault(chapter_id, asyncio.Lock())
 
 
 class ChapterService:
@@ -68,6 +76,7 @@ class ChapterService:
         self._analytics_repo = analytics_repo
         self._provider = provider
         self._cache = redis
+        self._locks = ChapterWriteLocks()
 
     # ─── reads ─────────────────────────────────────────────────────────────
     @cached_property
@@ -438,12 +447,13 @@ class ChapterService:
 
         async with self._chapter_repo.pool.acquire() as conn:
             async with conn.transaction():
-                updated = await self._chapter_repo.update(
-                    chapter_id=chapter_id,
-                    user_id=user_id,
-                    fields=fields,
-                    executor=conn,
-                )
+                async with self._locks.get(chapter_id):
+                    updated = await self._chapter_repo.update(
+                        chapter_id=chapter_id,
+                        user_id=user_id,
+                        fields=fields,
+                        executor=conn,
+                    )
 
         if updated is None:
             raise NotFoundError(

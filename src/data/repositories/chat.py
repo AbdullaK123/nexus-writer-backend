@@ -159,8 +159,8 @@ class ChatRepository:
             message,
         )
 
-        parsed = dict(row)
-        parsed["message"] = _decode_message(parsed["message"])
+        parsed = dict(row) # type: ignore
+        parsed["message"] = _decode_message(parsed["message"]) # type: ignore
         return ChatMessageRow.model_validate(parsed)
 
     async def append_message(
@@ -190,7 +190,7 @@ class ChatRepository:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 return await self._append_message_on_connection(
-                    conn,
+                    conn, # type: ignore
                     thread_id,
                     user_id,
                     kind,
