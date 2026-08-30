@@ -15,6 +15,7 @@ import { useSettings } from "../../../data/providers";
 import { LatestOperation } from "../../../shared/latestOperation";
 import { SingleFlightGate } from "../../../shared/singleFlight";
 import { isCurrentChapter } from "./chapterIdentity";
+import { hydrateChapterContent } from "./chapterHydration";
 
 export type ChapterEditorPageProps = {
     sidebar: ChapterEditorSidebarProps
@@ -123,7 +124,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
         if (!isCurrentChapter(params.chapterId, data.id)) return
         if (hydratedChapterRef.current === data.id) return
 
-        editor.commands.setContent(data.content);
+        hydrateChapterContent(editor, data.content);
         hydratedChapterRef.current = data.id
     }, [editor, chapterState, params.chapterId]);
 
