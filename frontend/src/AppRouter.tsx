@@ -130,6 +130,7 @@ export function AppRouter() {
 
           if (isTerminal(err)) {
             if (err._tag === "SseHttpError" && (err.status === 401 || err.status === 403)) {
+              qc.clear();
               info("Session expired", "Please sign in again.");
             }
             return;
