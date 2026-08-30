@@ -26,8 +26,12 @@ export type ChapterEditorPageProps = {
 export function useChapterEditorPage(): ChapterEditorPageProps {
     const params = useParams({ from: "/app/stories/$storyId/$chapterId" })
     const storyChaptersState = useStoryChapters(params.storyId)
-    const chapterState = useChapter(params.chapterId)
-    const commentsState = useChapterComments(params.chapterId)
+    const chapterBelongsToStory = storyChaptersState.status === "success"
+        && storyChaptersState.data.unwrap().unwrap().chapters.some(
+            (chapter) => chapter.chapterId === params.chapterId
+        )
+    const chapterState = useChapter(params.chapterId, true, chapterBelongsToStory)
+    const commentsState = useChapterComments(params.chapterId, chapterBelongsToStory)
     const updateChapterMutation = useUpdateChapter(params.chapterId)
     const [updating, setUpdating] = useState(false)
     const [query, setQuery] = useState("")
@@ -38,6 +42,11 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     const navigate = useNavigate()
     const { settings } = useSettings()
     const { error } = useToast()
+
+    useEffect(() => {
+        if (storyChaptersState.status !== "success" || chapterBelongsToStory) return
+        void navigate({ to: "/404", search: { redirect: `/stories/${params.storyId}/${params.chapterId}` } })
+    }, [storyChaptersState.status, chapterBelongsToStory, navigate, params.storyId, params.chapterId])
 
     const debouncedUpdate = useMemo(
         () => debounce((htmlContent: string) => {
