@@ -85,6 +85,47 @@ class FakeStoryRepository:
             return None
         return self._path_arrays.get(story_id, [])
 
+    async def append_chapter_to_path(
+        self,
+        story_id: str,
+        chapter_id: str,
+        *,
+        executor=None,
+    ) -> list[str]:
+        if self.error:
+            raise self.error
+        path = self._path_arrays.setdefault(story_id, [])
+        path.append(chapter_id)
+        return list(path)
+
+    async def remove_chapter_from_path(
+        self,
+        story_id: str,
+        chapter_id: str,
+        *,
+        executor=None,
+    ) -> list[str]:
+        if self.error:
+            raise self.error
+        path = self._path_arrays.setdefault(story_id, [])
+        path.remove(chapter_id)
+        return list(path)
+
+    async def reorder_chapter_path(
+        self,
+        story_id: str,
+        from_pos: int,
+        to_pos: int,
+        *,
+        executor=None,
+    ) -> list[str]:
+        if self.error:
+            raise self.error
+        path = self._path_arrays.setdefault(story_id, [])
+        chapter_id = path.pop(from_pos)
+        path.insert(to_pos, chapter_id)
+        return list(path)
+
     async def touch(self, story_id: str, *, executor=None) -> None:
         if self.error:
             raise self.error
