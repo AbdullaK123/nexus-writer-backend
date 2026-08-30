@@ -1,59 +1,98 @@
 import asyncio
+from typing import Any
 
 import asyncpg
 
 from src.data.repositories.chapter import ChapterRepository
+from src.data.repositories.story import StoryRepository
 from src.data.schemas.auth import UserRow
+from src.data.schemas.chapter import UpdateChapterRequest
 from src.data.schemas.story import StoryRow
+from src.service.chapter.service import ChapterService
 from tests.data.factories import make_chapter
 
 
-async def test_delayed_older_autosave_cannot_overwrite_newer_edit(
+class DelayedChapterRepository(ChapterRepository):
+    """Hold the first write after it enters the service's critical section."""
+
+    def __init__(self, pool: asyncpg.Pool) -> None:
+        super().__init__(pool)
+        self.first_update_entered = asyncio.Event()
+        self.release_first_update = asyncio.Event()
+        self.update_calls = 0
+
+    async def update(
+        self,
+        *,
+        chapter_id: str,
+        user_id: str,
+        fields: dict[str, Any],
+        executor: Any | None = None,
+    ):
+        self.update_calls += 1
+        if self.update_calls == 1:
+            self.first_update_entered.set()
+            await self.release_first_update.wait()
+
+        return await super().update(
+            chapter_id=chapter_id,
+            user_id=user_id,
+            fields=fields,
+            executor=executor,
+        )
+
+
+async def test_concurrent_autosaves_are_serialized_at_service_boundary(
     clean_db: asyncpg.Pool,
     repo_user: UserRow,
     repo_story: StoryRow,
 ) -> None:
-    repo = ChapterRepository(clean_db)
+    repo = DelayedChapterRepository(clean_db)
+    story_repo = StoryRepository(clean_db)
+
     chapter = await make_chapter(
         clean_db,
         user_id=repo_user.id,
         story_id=repo_story.id,
     )
+    await story_repo.append_chapter_to_path(repo_story.id, chapter.id)
 
-    older_request_started = asyncio.Event()
-    newer_request_committed = asyncio.Event()
+    service = ChapterService(
+        story_repo=story_repo,
+        chapter_repo=repo,
+        scene_repo=None,  # type: ignore[arg-type]
+        analytics_repo=None,  # type: ignore[arg-type]
+        provider=None,  # type: ignore[arg-type]
+        redis=None,  # type: ignore[arg-type]
+    )
 
-    async def older_request() -> None:
-        # Logical edit A starts first but is artificially delayed before SQL.
-        async with clean_db.acquire() as conn:
-            async with conn.transaction():
-                older_request_started.set()
-                await newer_request_committed.wait()
-                await repo.update(
-                    chapter_id=chapter.id,
-                    user_id=repo_user.id,
-                    fields={"content": "STALE EDIT A", "word_count": 3},
-                    executor=conn,
-                )
+    older = asyncio.create_task(
+        service.update_chapter(
+            chapter.id,
+            repo_user.id,
+            UpdateChapterRequest(content="STALE EDIT A"),
+        )
+    )
 
-    async def newer_request() -> None:
-        await older_request_started.wait()
-        async with clean_db.acquire() as conn:
-            async with conn.transaction():
-                await repo.update(
-                    chapter_id=chapter.id,
-                    user_id=repo_user.id,
-                    fields={"content": "NEWER EDIT B", "word_count": 3},
-                    executor=conn,
-                )
-        newer_request_committed.set()
+    # The older request is now inside the service's per-chapter write lock.
+    await repo.first_update_entered.wait()
 
-    await asyncio.gather(older_request(), newer_request())
+    newer = asyncio.create_task(
+        service.update_chapter(
+            chapter.id,
+            repo_user.id,
+            UpdateChapterRequest(content="NEWER EDIT B"),
+        )
+    )
+
+    # Give the newer task a chance to run. It must not reach repository.update
+    # while the first request still owns the chapter write lock.
+    await asyncio.sleep(0)
+    assert repo.update_calls == 1
+
+    repo.release_first_update.set()
+    await asyncio.gather(older, newer)
 
     persisted = await repo.get(chapter.id, repo_user.id)
     assert persisted is not None
-    assert persisted.content == "NEWER EDIT B", (
-        "autosave requests can complete out of order; an older delayed request must not overwrite "
-        "newer author text. Protect this with revision/CAS semantics or serialize writes before they "
-        "reach an unconditional UPDATE."
-    )
+    assert persisted.content == "NEWER EDIT B"
