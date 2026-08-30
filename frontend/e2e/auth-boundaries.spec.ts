@@ -20,11 +20,12 @@ test("protected deep links survive the login round-trip instead of dumping the u
   const target = `/stories/${storyId}`;
   await page.goto(target);
 
-  const loginURL = new URL(page.url());
-  expect(
-    loginURL.pathname,
+  await expect(
+    page,
     "an unauthenticated protected-route visit must be intercepted by the auth boundary; rendering protected UI before session validation creates a data-leak window",
-  ).toBe("/login");
+  ).toHaveURL(/\/login(?:\?|$)/);
+
+  const loginURL = new URL(page.url());
   expect(
     loginURL.searchParams.get("redirect"),
     "the router must preserve the exact protected destination; discarding it after an auth challenge breaks deep links and makes refresh/login flows lose user intent",
