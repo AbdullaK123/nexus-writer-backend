@@ -52,7 +52,9 @@ test("server-side session loss cannot leave a protected page reachable from stal
   const browserRequest = page.context().request;
   const storyId = await createStory(browserRequest, storyTitle);
   await page.goto(`/stories/${storyId}`);
-  await expect(page.getByText(storyTitle, { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: storyTitle, exact: true, level: 2 }),
+  ).toBeVisible();
 
   await apiLogout(browserRequest);
   await page.reload();
@@ -62,7 +64,7 @@ test("server-side session loss cannot leave a protected page reachable from stal
     "once the backend revokes a session, a reload must not trust five-minute-old client auth cache and keep rendering private story data; server session state is authoritative",
   ).toHaveURL(/\/login(?:\?|$)/);
   await expect(
-    page.getByText(storyTitle, { exact: true }),
+    page.getByRole("heading", { name: storyTitle, exact: true }),
     "private story content must disappear immediately after session revocation; stale protected DOM after logout is an account-boundary leak on shared machines",
   ).toHaveCount(0);
 });
