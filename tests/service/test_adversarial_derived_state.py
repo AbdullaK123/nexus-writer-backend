@@ -36,7 +36,10 @@ async def test_stale_scene_rows_cannot_crash_story_context(
     fake_story_repo: FakeStoryRepository,
     fake_scene_repo: FakeSceneRepository,
 ) -> None:
-    story = await fake_story_repo.create(test_user.id, "Story")
+    story = await fake_story_repo.create(
+        user_id=test_user.id,
+        title="Story",
+    )
     await fake_story_repo.set_path_array(story.id, [])
 
     for position in range(3):

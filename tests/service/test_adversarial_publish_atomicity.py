@@ -14,7 +14,10 @@ async def test_failed_publish_enqueue_cannot_leave_chapter_published(
     fake_chapter_repo: FakeChapterRepository,
     fake_queue: FakeQueue,
 ) -> None:
-    story = await fake_story_repo.create(test_user.id, "Publish target")
+    story = await fake_story_repo.create(
+        user_id=test_user.id,
+        title="Publish target",
+    )
     chapter = await chapter_service.create_chapter(
         story.id,
         test_user.id,

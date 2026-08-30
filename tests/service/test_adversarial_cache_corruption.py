@@ -11,7 +11,10 @@ async def test_corrupt_pulse_cache_is_treated_as_miss_not_permanent_api_failure(
     fake_redis: FakeRedis,
     fake_provider: FakeAIProvider,
 ) -> None:
-    story = await fake_story_repo.create(test_user.id, "Cache victim")
+    story = await fake_story_repo.create(
+        user_id=test_user.id,
+        title="Cache victim",
+    )
     cache_key = f"pulse:{story.id}:{test_user.id}"
     fake_redis.poison(cache_key, "this is not valid cached JSON")
 

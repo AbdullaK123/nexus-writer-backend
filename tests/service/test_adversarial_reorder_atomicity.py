@@ -14,7 +14,10 @@ async def test_failed_reorder_side_effect_cannot_leave_committed_path_change(
     fake_chapter_repo: FakeChapterRepository,
     fake_queue: FakeQueue,
 ) -> None:
-    story = await fake_story_repo.create(test_user.id, "Reorder target")
+    story = await fake_story_repo.create(
+        user_id=test_user.id,
+        title="Reorder target",
+    )
 
     first = await chapter_service.create_chapter(
         story.id,
