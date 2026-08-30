@@ -8,7 +8,7 @@ import {
   uniqueUser,
 } from "./helpers";
 
-test("an older autosave arriving late cannot overwrite the user's newer chapter text", async ({ page, request }) => {
+test("an older autosave cannot be overtaken by a newer chapter write", async ({ page, request }) => {
   const user = uniqueUser("autosave-race");
   await registerUser(request, user);
   await loginThroughUI(page, user);
@@ -48,29 +48,39 @@ test("an older autosave arriving late cannot overwrite the user's newer chapter 
 
   await editor.fill(older);
   await expect.poll(() => putRequests, {
-    message: "the first debounced autosave must actually leave the browser before we manufacture an out-of-order arrival",
+    message: "the first debounced autosave must leave the browser before the second edit is made",
   }).toBe(1);
 
   await editor.fill(newer);
-  await expect.poll(() => putRequests, {
-    message: "the newer edit must produce a second write while the older write is still delayed; otherwise this is not testing the race",
-  }).toBe(2);
+  await page.waitForTimeout(700);
+  expect(
+    putRequests,
+    "chapter writes must remain serialized while the older autosave is in flight; sending the newer request concurrently allows the network to invert user intent",
+  ).toBe(1);
 
   await expect.poll(() => putResponses, {
-    message: "both competing autosaves must finish before canonical server state is inspected",
+    message: "the first autosave must finish before the queued newer write can start",
+    timeout: 10_000,
+  }).toBeGreaterThanOrEqual(1);
+  await expect.poll(() => putRequests, {
+    message: "the newer autosave must be sent after the older write settles rather than being dropped",
+    timeout: 10_000,
+  }).toBe(2);
+  await expect.poll(() => putResponses, {
+    message: "both ordered autosaves must finish before canonical server state is inspected",
     timeout: 10_000,
   }).toBe(2);
 
   const response = await browserRequest.get(`${API_BASE_URL}/chapters/${chapterId}`);
-  expect(response.ok(), "the canonical chapter must remain readable after competing autosaves").toBe(true);
+  expect(response.ok(), "the canonical chapter must remain readable after queued autosaves").toBe(true);
   const chapter = (await response.json()) as { content: string };
 
   expect(
     chapter.content,
-    "network reordering is normal in production; an older request that arrives late must never erase keystrokes the user made afterward",
+    "the last edit in user-intent order must become canonical even when the preceding request is artificially delayed",
   ).toContain(newer);
   expect(
     chapter.content,
-    "the stale autosave payload must not become canonical merely because its HTTP request completed last",
+    "the older autosave must not remain canonical after the queued newer edit completes",
   ).not.toContain(older);
 });
