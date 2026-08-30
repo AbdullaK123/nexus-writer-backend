@@ -51,6 +51,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     }, [storyChaptersState.status, chapterBelongsToStory, navigate, params.storyId, params.chapterId])
 
     const debouncedUpdate = useMemo(
+        // eslint-disable-next-line react-hooks/refs
         () => debounce((htmlContent: string) => {
             const revision = saveTrackerRef.current.start()
             setUpdating(true)
@@ -65,6 +66,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
                 }
             );
         }, 500),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         [params.chapterId, updateChapterMutation.mutate]
     );
 

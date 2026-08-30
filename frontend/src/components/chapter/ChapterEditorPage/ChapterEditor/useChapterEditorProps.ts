@@ -138,12 +138,14 @@ export function useChapterEditorProps({
                     onClickNextChapter: data.nextChapterId ? Some(() => {
                         navigate({
                             to: "/stories/$storyId/$chapterId",
+                            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                             params: { storyId, chapterId: data.nextChapterId! }
                         })
                     }) : None,
                     onClickPreviousChapter: data.previousChapterId ? Some(() => {
                         navigate({
                             to: "/stories/$storyId/$chapterId",
+                            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                             params: { storyId, chapterId: data.previousChapterId! }
                         })
                     }) : None,
@@ -156,9 +158,9 @@ export function useChapterEditorProps({
                         createChapterMutation.mutate(
                             { title },
                             {
-                                onSuccess: (newChapter) => {
+                                onSuccess: async (newChapter) => {
                                     success("Chapter created successfully!", "");
-                                    navigate({
+                                    await navigate({
                                         to: "/stories/$storyId/$chapterId",
                                         params: { storyId, chapterId: newChapter.id }
                                     });
