@@ -10,6 +10,9 @@ class FakeConnection:
     def transaction(self):
         return FakeTransaction()
 
+    async def execute(self, *_args, **_kwargs):
+        return None
+
 
 class FakePoolContext:
     async def __aenter__(self):
