@@ -28,7 +28,8 @@ export function useChapterEditorSidebarProps({
     const { error, success } = useToast()
 
     const {
-        mutate: reorderChapters
+        mutate: reorderChapters,
+        isPending: reorderPending,
     } = useReorderChapters(storyId)
 
     const itemCount = state.status === "success"
@@ -36,6 +37,8 @@ export function useChapterEditorSidebarProps({
         : 0
 
     const onReorderChapters = (fromPos: number, toPos: number) => {
+        if (reorderPending) return
+
         const payload = buildReorderRequest(fromPos, toPos, itemCount)
         if (!payload) return
 
@@ -83,6 +86,7 @@ export function useChapterEditorSidebarProps({
                             chapterTitle: chapter.chapterTitle,
                             chapterNumber: chapter.chapterNumber,
                             chapterStatus: chapter.published ? "published" : "draft",
+                            reorderDisabled: reorderPending,
                             onClick: () => onSelectChapter(chapter.chapterId)
                         }
                     else
@@ -94,6 +98,7 @@ export function useChapterEditorSidebarProps({
                             chapterTitle: chapter.chapterTitle,
                             chapterStatus: chapter.published ? "published" : "draft",
                             chapterNumber: chapter.chapterNumber,
+                            reorderDisabled: reorderPending,
                             onClick: () => onSelectChapter(chapter.chapterId)
                         }
                 })
