@@ -204,6 +204,9 @@ async def chapter_reanalysis_job(
             if chapter is None or not chapter.published:
                 return
 
+            if chapter.story_id != story_id:
+                raise ValueError("Chapter does not belong to story")
+
             await ctx['worker'].context['chapter_service'].summarize_chapter(
                     user_id=user_id,
                     chapter_id=chapter_id,
@@ -227,6 +230,8 @@ async def chapter_reanalysis_job(
                 )
             )
             span.set_status(trace.StatusCode.OK)
+        except ValueError:
+            raise
         except Exception as e:
             logger.exception("saq.chapter_reanalysis_job.failed")
             span.record_exception(e)
@@ -258,14 +263,25 @@ async def scene_and_embedding_job(
             if chapter is None or not chapter.published:
                 return
 
+            if chapter.story_id != story_id:
+                raise ValueError("Chapter does not belong to story")
+
+            baseline_content = chapter.content or ""
+
             result: Optional[SceneExtractionResult] = \
                 await ctx['worker'].context['extraction_service'].extract_scenes(
-                    chapter_id, user_id, content
+                    chapter_id, user_id, baseline_content
                 )
 
-            chapter = await ctx['worker'].context['chapter_repo'].get(chapter_id, user_id)
+            current_chapter = await ctx['worker'].context['chapter_repo'].get(chapter_id, user_id)
 
-            if chapter is None or not chapter.published:
+            if current_chapter is None or not current_chapter.published:
+                return
+
+            if current_chapter.story_id != story_id:
+                raise ValueError("Chapter does not belong to story")
+
+            if (current_chapter.content or "") != baseline_content:
                 return
             
             await ctx['worker'].context['embedding_service'].embed_scenes(chapter_id)
@@ -281,7 +297,7 @@ async def scene_and_embedding_job(
                     )
                  )
 
-            await client.set(f"chapter:baseline:{chapter_id}", content or "")
+            await client.set(f"chapter:baseline:{chapter_id}", baseline_content)
             await client.delete(f"chapter:extraction-pending:{chapter_id}")
 
             await asyncio.gather(
@@ -346,6 +362,8 @@ async def scene_and_embedding_job(
             )
 
             span.set_status(trace.StatusCode.OK)
+        except ValueError:
+            raise
         except Exception as e:
             logger.exception("saq.scene_and_embedding_job.failed")
             span.record_exception(e)
