@@ -35,6 +35,7 @@ class UpdateChapterRequest(ApiModel):
     title: Optional[ChapterTitle] = None
     content: Optional[ChapterContent] = None
     published: Optional[bool] = None
+    expected_revision: Optional[datetime] = None
 
 
 class ReorderChapterRequest(ApiModel):
@@ -64,12 +65,13 @@ class ChapterContentResponse(ApiModel):
     word_count: int
     created_at: datetime
     updated_at: datetime
+    revision: Optional[datetime] = None
     previous_chapter_id: Optional[str] = None
     next_chapter_id: Optional[str] = None
 
     model_config = ConfigDict(
         alias_generator=to_camel,
-        populate_by_name=True,  # Allows using both snake_case and camelCase
+        populate_by_name=True,
     )
 
     @classmethod
@@ -86,12 +88,13 @@ class ChapterContentResponse(ApiModel):
             chapter_number=chapter_number,
             title=chapter.title,
             published=chapter.published,
-            content=chapter.content if chapter.content else "",
+            content=chapter.content if chapter.content else "" if content is None else content,
             story_id=chapter.story_id,
             word_count=chapter.word_count,
             story_title=story_title,
             created_at=chapter.created_at,
             updated_at=chapter.updated_at,
+            revision=chapter.updated_at,
             previous_chapter_id=chapter.prev_chapter_id,
             next_chapter_id=chapter.next_chapter_id,
         )
