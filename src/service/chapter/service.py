@@ -27,7 +27,7 @@ from src.data.schemas.scene import SceneRow
 from src.infrastructure.config import config
 from src.infrastructure.ai.prompts import COMMENTS_EXTRACTION_PROMPT, COMMENTS_PLANNER_PROMPT, SUMMARIZATION_PROMPT
 from src.infrastructure.ai.providers.protocol import AIProvider
-from src.service.exceptions import NotFoundError, ValidationError, InternalError
+from src.service.exceptions import NotFoundError, ValidationError, InternalError, ConflictError
 from src.service.utils.decorators import handle_service_errors
 from functools import cached_property, lru_cache
 from src.infrastructure.redis.queue import queue
@@ -437,7 +437,7 @@ class ChapterService:
             )
 
         chapter, story_title, chapter_number = triple
-        fields = data.model_dump(exclude_unset=True)
+        fields = data.model_dump(exclude_unset=True, exclude={"expected_revision"})
 
         plain_text: str | None = None
 
@@ -447,13 +447,36 @@ class ChapterService:
 
         async with self._chapter_repo.pool.acquire() as conn:
             async with conn.transaction():
-                async with self._locks.get(chapter_id):
-                    updated = await self._chapter_repo.update(
-                        chapter_id=chapter_id,
-                        user_id=user_id,
-                        fields=fields,
-                        executor=conn,
+                await conn.execute(
+                    "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                    chapter_id,
+                )
+
+                current = await self._chapter_repo.get(
+                    chapter_id,
+                    user_id,
+                    executor=conn,
+                )
+                if current is None:
+                    raise NotFoundError(
+                        "We couldn't find this chapter. It may have been deleted."
                     )
+
+                if (
+                    data.expected_revision is not None
+                    and current.updated_at != data.expected_revision
+                ):
+                    raise ConflictError(
+                        "This chapter changed since you opened it. Your edit was not saved."
+                    )
+
+                chapter = current
+                updated = await self._chapter_repo.update(
+                    chapter_id=chapter_id,
+                    user_id=user_id,
+                    fields=fields,
+                    executor=conn,
+                )
 
         if updated is None:
             raise NotFoundError(
@@ -777,7 +800,6 @@ class ChapterService:
         story_ctx = self._format_scenes(scenes)
 
         return story_ctx
-
     @handle_service_errors
     async def summarize_chapter(
         self, chapter_id: str, user_id: str, ignore_cache: bool = False
