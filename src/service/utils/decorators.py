@@ -37,7 +37,9 @@ def _on_enqueue_retries_exhausted(retry_state):
         attempts=retry_state.attempt_number,
         error=str(error) if error else None,
     )
-    return None
+    if error is not None:
+        raise error
+    raise RuntimeError("Queue enqueue retries exhausted without an exception")
 
 
 retry_enqueue = retry(
