@@ -84,8 +84,38 @@ class ExtractionService:
             if not end_quote.strip():
                 errors.append("end_quote can not be empty")
 
-            start_idx = content.find(start_quote) if start_quote.strip() else -1
-            end_idx = content.find(end_quote) if end_quote.strip() else -1
+            start_idx = -1
+            end_idx = -1
+
+            if start_quote.strip():
+                start_count = content.count(start_quote)
+
+                if start_count == 0:
+                    errors.append(
+                        f"start_quote not found verbatim: {start_quote!r}"
+                    )
+                elif start_count > 1:
+                    errors.append(
+                        f"start_quote is ambiguous and occurs {start_count} times: "
+                        f"{start_quote!r}"
+                    )
+                else:
+                    start_idx = content.find(start_quote)
+
+            if end_quote.strip():
+                end_count = content.count(end_quote)
+
+                if end_count == 0:
+                    errors.append(
+                        f"end_quote not found verbatim: {end_quote!r}"
+                    )
+                elif end_count > 1:
+                    errors.append(
+                        f"end_quote is ambiguous and occurs {end_count} times: "
+                        f"{end_quote!r}"
+                    )
+                else:
+                    end_idx = content.find(end_quote)
 
             if start_idx == -1 and start_quote.strip():
                 errors.append(f"start_quote not found verbatim: {start_quote!r}")
@@ -94,6 +124,15 @@ class ExtractionService:
 
             if scene.pov not in scene.mentioned_entities:
                 errors.append(f"pov '{scene.pov}' not in mentioned_entities")
+
+            if (
+                start_quote.strip()
+                and end_quote.strip()
+                and start_quote == end_quote
+            ):
+                errors.append(
+                    f"scene {index} start_quote and end_quote must be different"
+                )
 
             if start_idx != -1 and end_idx != -1:
                 if end_idx < start_idx:
