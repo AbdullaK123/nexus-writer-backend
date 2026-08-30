@@ -184,15 +184,42 @@ export function useCreateChapter(storyId: string) {
 export function useReorderChapters(storyId: string) {
     const api = useApi()
     const qc = useQueryClient()
+    const chaptersKey = storyKeys.chapters(storyId)
+
     return useMutation({
         scope: { id: `story-reorder:${storyId}` },
         mutationFn: (payload: ReorderChapterRequest) =>
             unwrapResultAsync(api.story.reorderChapters(storyId, payload)),
+        onMutate: async (payload: ReorderChapterRequest) => {
+            await qc.cancelQueries({ queryKey: chaptersKey })
+            const previous = qc.getQueryData<ChapterListResponse>(chaptersKey)
+            if (!previous) return { previous }
+
+            const chapters = [...previous.chapters]
+            const [moved] = chapters.splice(payload.fromPos, 1)
+            if (!moved) return { previous }
+
+            chapters.splice(payload.toPos, 0, moved)
+            qc.setQueryData<ChapterListResponse>(chaptersKey, {
+                ...previous,
+                chapters: chapters.map((chapter, index) => ({
+                    ...chapter,
+                    chapterNumber: index + 1,
+                })),
+            })
+
+            return { previous }
+        },
+        onError: (_error, _payload, context) => {
+            if (context?.previous) {
+                qc.setQueryData(chaptersKey, context.previous)
+            }
+            qc.invalidateQueries({ queryKey: chaptersKey })
+        },
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: storyKeys.detail(storyId) })
+            qc.invalidateQueries({ queryKey: storyKeys.detail(storyId), exact: true })
             qc.invalidateQueries({ queryKey: chapterKeys.all })
             qc.invalidateQueries({ queryKey: storyKeys.path(storyId)})
-            qc.invalidateQueries({ queryKey: storyKeys.chapters(storyId)})
             qc.invalidateQueries({ queryKey: authKeys.dashboard()})
             qc.invalidateQueries({ queryKey: authKeys.editorLinks()})
         },
