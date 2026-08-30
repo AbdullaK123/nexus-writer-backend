@@ -16,7 +16,8 @@ test("navigating inside the autosave debounce window cannot discard chapter text
   await expect(page).toHaveURL(/\/$/);
 
   const browserRequest = page.context().request;
-  const storyId = await createStory(browserRequest, `Navigation Save ${Date.now()}`);
+  const storyTitle = `Navigation Save ${Date.now()}`;
+  const storyId = await createStory(browserRequest, storyTitle);
   const chapterId = await createChapter(browserRequest, storyId, `Fast Exit ${Date.now()}`);
   const baseline = `BASELINE-${Date.now()}`;
   const unsaved = `NAVIGATION-MUST-NOT-EAT-ME-${Date.now()}`;
@@ -28,15 +29,15 @@ test("navigating inside the autosave debounce window cannot discard chapter text
   await expect(editor).toContainText(baseline);
 
   await editor.fill(unsaved);
-  await page.goto(`/stories/${storyId}`);
-  await page.waitForTimeout(800);
+  await page.getByRole("button", { name: `← ${storyTitle}`, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/stories/${storyId}/?$`));
 
-  const response = await browserRequest.get(`${API_BASE_URL}/chapters/${chapterId}`);
-  expect(response.ok(), "the chapter must remain readable after navigating away from an editor with pending local changes").toBe(true);
-  const chapter = (await response.json()) as { content: string };
-
-  expect(
-    chapter.content,
-    "navigation is not consent to discard prose; leaving a chapter before the debounce fires must flush or otherwise preserve the user's last edit instead of cancelling it",
-  ).toContain(unsaved);
+  await expect.poll(async () => {
+    const response = await browserRequest.get(`${API_BASE_URL}/chapters/${chapterId}`);
+    if (!response.ok()) return "";
+    return ((await response.json()) as { content: string }).content;
+  }, {
+    message: "SPA navigation is not consent to discard prose; leaving a chapter before the debounce fires must flush the pending autosave and make the last edit canonical",
+    timeout: 10_000,
+  }).toContain(unsaved);
 });
