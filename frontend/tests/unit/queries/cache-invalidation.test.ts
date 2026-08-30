@@ -95,12 +95,15 @@ describe("query cache invalidation", () => {
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: authKeys.editorLinks() })
     })
 
-    test("reordering chapters refreshes chapter navigation and canonical ordering", () => {
+    test("reordering chapters preserves optimistic ordering while refreshing dependent navigation", () => {
         useReorderChapters("story-1")
         mutationOptions().onSuccess?.()
 
-        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: storyKeys.detail("story-1") })
-        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: storyKeys.chapters("story-1") })
+        expect(invalidateQueries).toHaveBeenCalledWith({
+            queryKey: storyKeys.detail("story-1"),
+            exact: true,
+        })
+        expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: storyKeys.chapters("story-1") })
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: storyKeys.path("story-1") })
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: chapterKeys.all })
     })
