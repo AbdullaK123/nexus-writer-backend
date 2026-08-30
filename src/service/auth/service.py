@@ -28,6 +28,8 @@ from src.shared.utils.correlation import set_user_id
 import asyncpg
 
 class AuthService:
+    DUMMY_HASH = hash_password("password")
+
     def __init__(
         self,
         user_repo: UserRepository,
@@ -42,7 +44,14 @@ class AuthService:
     async def authenticate_user(self, credentials: AuthCredentials) -> UserRow:
         user = await self._user_repo.get_by_email(credentials.email)
 
-        if not user or not verify_password(credentials.password, user.password_hash):
+        password_hash = (
+            user.password_hash
+            if user is not None
+            else self.DUMMY_HASH
+        )
+        password_valid = verify_password(credentials.password, password_hash)
+
+        if user is None or not password_valid:
             logger.warning(
                 "auth.login_failed.invalid_credentials",
                 email=credentials.email,
