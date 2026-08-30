@@ -25,13 +25,13 @@ export const chapterKeys = {
         [...chapterKeys.all, chapterId, "comments"]
 }
 
-export function useChapter(chapterId: string, asHtml: boolean = true) {
+export function useChapter(chapterId: string, asHtml: boolean = true, enabled: boolean = true) {
     const api = useApi()
     const result = useQuery<ChapterContentResponse, ApiError>({
         queryKey: chapterKeys.detail(chapterId, asHtml),
         queryFn: ({ signal }) =>
             unwrapResultAsync(api.chapter.getChapter(chapterId, asHtml, requestOptions({ signal }))),
-        enabled: Boolean(chapterId),
+        enabled: Boolean(chapterId) && enabled,
     })
     return toAsyncState<ChapterContentResponse>(result)
 }
@@ -42,6 +42,7 @@ export function createUpdateChapterMutationOptions(
     chapterId: string,
 ) {
     return {
+        scope: { id: `chapter-write:${chapterId}` },
         mutationFn: (payload: UpdateChapterRequest) =>
             unwrapResultAsync(api.chapter.updateChapter(chapterId, payload)),
         onMutate: async (updatedContent: UpdateChapterRequest) => {
@@ -174,7 +175,7 @@ export function useChapterSummary(chapterId: Option<string>) {
   return toAsyncState<ChapterSummaryResponse>(result)
 }
 
-export function useChapterComments(chapterId: string) {
+export function useChapterComments(chapterId: string, enabled: boolean = true) {
     const api = useApi()
     const result = useQuery<CommentExtractionResponse, ApiError>({
         queryKey: chapterKeys.comments(chapterId),
@@ -182,7 +183,7 @@ export function useChapterComments(chapterId: string) {
             unwrapResultAsync(
                 api.chapter.getComments(chapterId, requestOptions({ signal }))
             ),
-        enabled: Boolean(chapterId),
+        enabled: Boolean(chapterId) && enabled,
         staleTime: 1000*10
     })
     return toAsyncState<CommentExtractionResponse>(result)
