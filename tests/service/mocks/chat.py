@@ -39,6 +39,20 @@ class _ChatConnection:
     def transaction(self) -> _ChatTransaction:
         return _ChatTransaction(self._repo)
 
+    async def fetchval(self, sql: str, lock_key: str):
+        if "pg_try_advisory_lock" not in sql:
+            raise AssertionError(f"unexpected fetchval SQL: {sql}")
+        if lock_key in self._repo._turn_locks:
+            return False
+        self._repo._turn_locks.add(lock_key)
+        return True
+
+    async def execute(self, sql: str, lock_key: str):
+        if "pg_advisory_unlock" not in sql:
+            raise AssertionError(f"unexpected execute SQL: {sql}")
+        self._repo._turn_locks.discard(lock_key)
+        return "SELECT 1"
+
 
 class _ChatAcquireContext:
     def __init__(self, repo: "FakeChatRepository") -> None:
@@ -63,6 +77,7 @@ class FakeChatRepository:
     def __init__(self) -> None:
         self._threads: dict[str, ChatThreadRow] = {}
         self._messages: dict[str, list[ChatMessageRow]] = {}
+        self._turn_locks: set[str] = set()
         self.error: Exception | None = None
         self.append_error_after: int | None = None
         self.touch_error: Exception | None = None

@@ -13,6 +13,7 @@ from src.data.schemas import CreateThreadRequest, ThreadResponse
 from src.service.analytics.service import AnalyticsService
 from src.service.chat.agent import ChatDeps
 from src.service.exceptions import (
+    ConflictError,
     NotFoundError,
     ServiceError,
     ValidationError,
@@ -20,7 +21,7 @@ from src.service.exceptions import (
 from src.service.chapter import ChapterService
 from src.service.story import StoryService
 from loguru import logger
-from pydantic import TypeAdapter, ValidationError as PydanticValidationError
+from pydantic import TypeAdapter
 from src.shared.text_types import ThreadTitle
 from src.service.utils.decorators import (
     handle_service_errors,
@@ -28,6 +29,7 @@ from src.service.utils.decorators import (
 )
 
 _THREAD_TITLE_ADAPTER = TypeAdapter(ThreadTitle)
+_CHAT_TURN_LOCK_PREFIX = "chat-turn:"
 
 
 class ChatService:
@@ -53,38 +55,37 @@ class ChatService:
     async def create_thread(
         self, user_id: str, payload: CreateThreadRequest
     ) -> ThreadResponse:
-
         story = await self._story_repo.get(payload.story_id, user_id)
         if story is None:
             raise NotFoundError("Story not found")
-        
+
         try:
             generated_title = await self._provider.generate(
                 system_prompt="""
                 You are a terse title generator
                 """,
                 text=f"""
-                Generate a title for a conversation thread 
+                Generate a title for a conversation thread
                 with the following initial message in triple backticks:
                 ```{payload.first_message}```
                 """,
-                max_tokens=50,  # will tune later
+                max_tokens=50,
             )
             title = _THREAD_TITLE_ADAPTER.validate_python(generated_title)
-        except (Exception,) as e:
+        except Exception as e:
             logger.warning(
                 "svc.create_thread.generate_title.failed",
                 error=str(e),
             )
-
             title = _THREAD_TITLE_ADAPTER.validate_python(
                 payload.first_message[:20] + "..."
             )
 
         thread = await self._chat_repo.create_thread(user_id, payload.story_id, title)
-
         return ThreadResponse(
-            thread_id=thread.id, thread_title=thread.title, updated_at=thread.updated_at
+            thread_id=thread.id,
+            thread_title=thread.title,
+            updated_at=thread.updated_at,
         )
 
     @handle_service_errors
@@ -106,7 +107,6 @@ class ChatService:
         updated_thread = await self._chat_repo.update_thread_title(
             thread_id, user_id, new_title
         )
-
         if updated_thread is None:
             raise NotFoundError("Thread not found")
 
@@ -125,26 +125,21 @@ class ChatService:
         story_id: str | None = None,
     ) -> dict:
         thread = await self._chat_repo.get_thread(thread_id, user_id)
-
         if thread is None:
             raise NotFoundError("Thread not found")
-
         if story_id is not None and thread.story_id != story_id:
             raise ValidationError({"story_id": ["does not match thread"]})
 
         await self._chat_repo.delete_thread(thread_id, user_id)
-
         return {"message": "Thread successfully deleted."}
 
     @handle_service_errors
     async def get_threads(self, story_id: str, user_id: str) -> ThreadListResponse:
         story = await self._story_repo.get(story_id, user_id)
-
         if story is None:
             raise NotFoundError("Story not found")
 
         threads = await self._chat_repo.list_threads_for_story(user_id, story_id)
-
         return ThreadListResponse(
             threads=[
                 ThreadResponse(
@@ -165,15 +160,12 @@ class ChatService:
         story_id: str | None = None,
     ) -> ChatMessageListResponse:
         thread = await self._chat_repo.get_thread(thread_id, user_id)
-
         if thread is None:
             raise NotFoundError("Thread not found error")
-
         if story_id is not None and thread.story_id != story_id:
             raise ValidationError({"story_id": ["does not match thread"]})
 
         messages = await self._chat_repo.list_messages(thread_id, user_id)
-
         return ChatMessageListResponse(
             thread_id=thread.id,
             thread_title=thread.title,
@@ -188,63 +180,99 @@ class ChatService:
             ],
         )
 
+    @staticmethod
+    async def _try_acquire_turn_lock(conn, thread_id: str) -> tuple[str, bool]:
+        lock_key = f"{_CHAT_TURN_LOCK_PREFIX}{thread_id}"
+        acquired = await conn.fetchval(
+            "SELECT pg_try_advisory_lock(hashtextextended($1, 0))",
+            lock_key,
+        )
+        return lock_key, bool(acquired)
+
+    @staticmethod
+    async def _release_turn_lock(conn, lock_key: str) -> None:
+        await conn.execute(
+            "SELECT pg_advisory_unlock(hashtextextended($1, 0))",
+            lock_key,
+        )
+
     @handle_service_errors_stream
     async def run_turn(
         self, user_id: str, payload: ConversationTurnRequest
     ) -> AsyncIterator[str]:
         async with self._chat_repo.pool.acquire() as conn:
             story = await self._story_repo.get(payload.story_id, user_id, executor=conn)
-
             if story is None:
                 raise NotFoundError("Story not found")
 
             thread = await self._chat_repo.get_thread(
-                payload.thread_id, user_id, executor=conn
+                payload.thread_id,
+                user_id,
+                executor=conn,
             )
-
             if thread is None:
                 raise NotFoundError("Thread not found")
-
             if payload.story_id != thread.story_id:
                 raise ValidationError({"story_id": ["does not match thread"]})
 
-            rows = await self._chat_repo.list_messages(
-                payload.thread_id, user_id, executor=conn
+            lock_key, acquired = await self._try_acquire_turn_lock(
+                conn,
+                payload.thread_id,
             )
+            if not acquired:
+                raise ConflictError(
+                    "Another turn is already running for this thread."
+                )
 
-        history = ModelMessagesTypeAdapter.validate_python([r.message for r in rows])
+            try:
+                rows = await self._chat_repo.list_messages(
+                    payload.thread_id,
+                    user_id,
+                    executor=conn,
+                )
+                history = ModelMessagesTypeAdapter.validate_python(
+                    [row.message for row in rows]
+                )
 
-        deps = ChatDeps(
-            user_id=user_id,
-            story_id=payload.story_id,
-            story_status=story.status,
-            chapter_service=self._chapter_svc,
-            story_service=self._story_svc,
-            analytics_service=self._analytics_svc,
-        )
+                deps = ChatDeps(
+                    user_id=user_id,
+                    story_id=payload.story_id,
+                    story_status=story.status,
+                    chapter_service=self._chapter_svc,
+                    story_service=self._story_svc,
+                    analytics_service=self._analytics_svc,
+                )
 
-        async with self._agent.run_stream(
-            user_prompt=payload.user_message, deps=deps, message_history=history
-        ) as stream:
-            async for delta in stream.stream_text(delta=True):
-                yield delta
-            new_messages = stream.new_messages()
+                async with self._agent.run_stream(
+                    user_prompt=payload.user_message,
+                    deps=deps,
+                    message_history=history,
+                ) as stream:
+                    async for delta in stream.stream_text(delta=True):
+                        yield delta
+                    new_messages = stream.new_messages()
 
-        serialized = ModelMessagesTypeAdapter.dump_python(new_messages, mode="json")
+                serialized = ModelMessagesTypeAdapter.dump_python(
+                    new_messages,
+                    mode="json",
+                )
 
-        async with self._chat_repo.pool.acquire() as conn:
-            async with conn.transaction():
-                for msg, dumped in zip(new_messages, serialized, strict=True):
-                    await self._chat_repo.append_message(
-                        thread_id=payload.thread_id,
-                        user_id=user_id,
-                        kind=msg.kind,
-                        message=dumped,
+                async with conn.transaction():
+                    for msg, dumped in zip(new_messages, serialized, strict=True):
+                        await self._chat_repo.append_message(
+                            thread_id=payload.thread_id,
+                            user_id=user_id,
+                            kind=msg.kind,
+                            message=dumped,
+                            executor=conn,
+                        )
+                    await self._chat_repo.touch_thread(
+                        payload.thread_id,
+                        user_id,
                         executor=conn,
                     )
-                await self._chat_repo.touch_thread(
-                    payload.thread_id, user_id, executor=conn
-                )
+            finally:
+                await self._release_turn_lock(conn, lock_key)
 
     @staticmethod
     def _sse_frame(event: str, data: dict) -> str:
@@ -255,18 +283,6 @@ class ChatService:
         user_id: str,
         payload: ConversationTurnRequest,
     ) -> AsyncIterator[str]:
-        """Run a turn and yield Server-Sent Events frames.
-
-        Frames:
-            event: token  data: {"delta": "..."}    — model text chunk
-            event: done   data: {}                   — turn finished cleanly
-            event: error  data: {"code", "message"}  — ServiceError raised
-
-        ServiceError is caught and emitted as an `error` frame so the SSE
-        stream closes cleanly: by the time `run_turn` starts yielding, the
-        response headers have already been flushed and the global FastAPI
-        exception handler can no longer turn the failure into an HTTP
-        status code."""
         try:
             async for delta in self.run_turn(user_id, payload):
                 yield self._sse_frame("token", {"delta": delta})
