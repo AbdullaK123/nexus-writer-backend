@@ -14,7 +14,7 @@ async def test_successful_turn_streams_sse_and_ends_with_done(
 
     response = await client.post(
         "/api/stories/story-1/chat/threads/thread-1/turn",
-        json={"firstMessage": "Continue the story"},
+        json={"userMessage": "Continue the story"},
     )
 
     assert response.status_code == 200
@@ -41,7 +41,7 @@ async def test_failed_turn_streams_error_without_false_done(
 
     response = await client.post(
         "/api/stories/story-1/chat/threads/thread-1/turn",
-        json={"firstMessage": "Continue the story"},
+        json={"userMessage": "Continue the story"},
     )
 
     assert response.status_code == 200
