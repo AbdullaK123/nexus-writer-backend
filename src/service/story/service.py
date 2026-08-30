@@ -250,6 +250,13 @@ class StoryService:
         mentioned_entities: list[str] | None = None,
         chapter_ids: list[str] | None = None,
     ) -> List[SceneSearchResponse]:
+        
+        story = await self._story_repo.get(story_id, user_id)
+
+        if story is None:
+            raise NotFoundError("Story not found")
+
+
         query_text = query_text.strip()
         if not query_text:
             logger.info(
@@ -435,6 +442,13 @@ class StoryService:
     async def get_story_context(
         self, user_id: str, story_id: str, chapter_id: Optional[str] = None
     ) -> str:
+
+        story = await self._story_repo.get(story_id, user_id)
+        
+        if story is None:
+            raise NotFoundError("Story not found")
+
+
         scenes, path_array = await asyncio.gather(
             self._scene_repo.list_by_story(
                 story_id=story_id,

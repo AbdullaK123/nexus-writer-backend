@@ -2,20 +2,28 @@ from datetime import datetime
 from pydantic import Field, BaseModel, ConfigDict, model_validator
 from typing import Literal, List
 from src.data.schemas._base import ApiModel
+from src.shared.text_types import (
+    SceneTitle,
+    SceneQuote,
+    SceneDescription,
+    EntityName,
+    SceneTag,
+    NarrativeQuestion,
+)
 
 
 class Scene(BaseModel):
-    title: str = Field(description="A short descriptive title for the scene.")
-    start_quote: str = Field(
+    title: SceneTitle = Field(description="A short descriptive title for the scene.")
+    start_quote: SceneQuote = Field(
         description="A short VERBATIM quote from the chapter marking where the scene begins."
     )
-    end_quote: str = Field(
+    end_quote: SceneQuote = Field(
         description="A short VERBATIM quote from the chapter marking where the scene ends."
     )
-    description: str = Field(
+    description: SceneDescription = Field(
         description="A 3-4 sentence synopsis of what happened in the scene"
     )
-    pov: str = Field(
+    pov: EntityName = Field(
         description="The POV character of the scene. It MUST correspond to an entity in the mentioned_entities field."
     )
     tension: Literal["low", "medium", "high"] = Field(
@@ -34,7 +42,7 @@ class Scene(BaseModel):
         'fast' = rapid succession of actions or revelations, short sentences/exchanges, time compression, or escalating beats that propel the reader through the scene quickly.
         """
     )
-    mentioned_entities: List[str] = Field(
+    mentioned_entities: List[EntityName] = Field(
         description="""
         A list of named entities explicitly referenced in the scene — characters (by name or unambiguous epithet), distinct locations, organizations/factions, and named objects or artifacts that carry narrative weight.
         Include each entity once, using its most specific canonical name as it appears in the chapter (e.g. 'Captain Vale' rather than 'the captain'; 'the Obsidian Spire' rather than 'the tower').
@@ -42,14 +50,14 @@ class Scene(BaseModel):
         Exclude anything that is not likely to have downstream importance to the story
         """
     )
-    tags: List[str] = Field(
+    tags: List[SceneTag] = Field(
         description="""
         A short list (typically 3-7) of lowercase keyword tags that categorize the scene for later retrieval and filtering.
         Cover any of: scene function ('exposition', 'inciting-incident', 'turning-point', 'climax', 'denouement'), content/mood ('combat', 'romance', 'betrayal', 'reunion', 'flashback', 'foreshadowing', 'comic-relief'), and structural role ('worldbuilding', 'character-development', 'plot-revelation').
         Use kebab-case, single concept per tag, no duplicates, and prefer reusable categorical labels over scene-specific descriptions (e.g. 'betrayal', not 'vale-betrays-mira').
         """
     )
-    questions_raised: List[str] = Field(
+    questions_raised: List[NarrativeQuestion] = Field(
         description="""
         A short list (typically 0-5) of concrete narrative questions the scene opens, sharpens, or leaves unresolved in the reader's mind — the hooks that create forward pull.
         Phrase each as a complete question from the reader's perspective (e.g. 'Will Hannah be able to convince Mindoir's governor to evacuate?', 'What is the Silent Ones' true objective?', 'Can Rael survive the assault on Earth?').

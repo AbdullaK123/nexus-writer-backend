@@ -20,11 +20,14 @@ from src.service.exceptions import (
 from src.service.chapter import ChapterService
 from src.service.story import StoryService
 from loguru import logger
-
+from pydantic import TypeAdapter, ValidationError as PydanticValidationError
+from src.shared.text_types import ThreadTitle
 from src.service.utils.decorators import (
     handle_service_errors,
     handle_service_errors_stream,
 )
+
+_THREAD_TITLE_ADAPTER = TypeAdapter(ThreadTitle)
 
 
 class ChatService:
@@ -50,8 +53,13 @@ class ChatService:
     async def create_thread(
         self, user_id: str, payload: CreateThreadRequest
     ) -> ThreadResponse:
+
+        story = await self._story_repo.get(payload.story_id, user_id)
+        if story is None:
+            raise NotFoundError("Story not found")
+        
         try:
-            title = await self._provider.generate(
+            generated_title = await self._provider.generate(
                 system_prompt="""
                 You are a terse title generator
                 """,
@@ -62,13 +70,16 @@ class ChatService:
                 """,
                 max_tokens=50,  # will tune later
             )
-        except Exception as e:
-            logger.warning("svc.create_thread.generate_title.failed", error=str(e))
-            title = payload.first_message[:20] + "..."
+            title = _THREAD_TITLE_ADAPTER.validate_python(generated_title)
+        except (Exception,) as e:
+            logger.warning(
+                "svc.create_thread.generate_title.failed",
+                error=str(e),
+            )
 
-        story = await self._story_repo.get(payload.story_id, user_id)
-        if story is None:
-            raise NotFoundError("Story not found")
+            title = _THREAD_TITLE_ADAPTER.validate_python(
+                payload.first_message[:20] + "..."
+            )
 
         thread = await self._chat_repo.create_thread(user_id, payload.story_id, title)
 
