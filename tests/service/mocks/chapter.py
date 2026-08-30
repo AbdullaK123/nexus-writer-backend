@@ -116,7 +116,13 @@ class FakeChapterRepository:
             return chapter
         return None
 
-    async def sync_pointers(self, path: Sequence[str], *, executor=None) -> None:
+    async def sync_pointers(
+        self,
+        story_id: str,
+        path: Sequence[str],
+        *,
+        executor=None,
+    ) -> None:
         if self.error:
             raise self.error
 
