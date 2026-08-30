@@ -41,12 +41,20 @@ export function createUpdateChapterMutationOptions(
     qc: QueryClient,
     chapterId: string,
 ) {
+    const key = chapterKeys.detail(chapterId, true)
+
     return {
         scope: { id: `chapter-write:${chapterId}` },
-        mutationFn: (payload: UpdateChapterRequest) =>
-            unwrapResultAsync(api.chapter.updateChapter(chapterId, payload)),
+        mutationFn: (payload: UpdateChapterRequest) => {
+            const current = qc.getQueryData<ChapterContentResponse>(key)
+            const expectedRevision = current?.revision ?? undefined
+            const guardedPayload = expectedRevision
+                ? { ...payload, expectedRevision }
+                : payload
+
+            return unwrapResultAsync(api.chapter.updateChapter(chapterId, guardedPayload))
+        },
         onMutate: async (updatedContent: UpdateChapterRequest) => {
-            const key = chapterKeys.detail(chapterId, true)
             await qc.cancelQueries({ queryKey: key })
             const prevContent = qc.getQueryData<ChapterContentResponse>(key)
 
@@ -63,6 +71,7 @@ export function createUpdateChapterMutationOptions(
                     wordCount: 0,
                     createdAt: new Date(),
                     updatedAt: new Date(),
+                    revision: undefined,
                     previousChapterId: null,
                     nextChapterId: null,
                 }
@@ -71,9 +80,10 @@ export function createUpdateChapterMutationOptions(
             return { prevContent }
         },
         onError: (_: unknown, __: UpdateChapterRequest, context?: { prevContent?: ChapterContentResponse }) => {
-            qc.setQueryData(chapterKeys.detail(chapterId, true), context?.prevContent)
+            qc.setQueryData(key, context?.prevContent)
         },
         onSuccess: (chapter: ChapterContentResponse) => {
+            qc.setQueryData(key, chapter)
             qc.invalidateQueries({
                 queryKey: [...chapterKeys.all, "detail", chapterId],
             })
@@ -83,7 +93,7 @@ export function createUpdateChapterMutationOptions(
             qc.invalidateQueries({ queryKey: authKeys.dashboard() })
         },
         onSettled: () => {
-            qc.invalidateQueries({ queryKey: chapterKeys.detail(chapterId, true) })
+            qc.invalidateQueries({ queryKey: key })
         }
     }
 }
@@ -110,7 +120,7 @@ export function useDeleteChapter(chapterId: string, storyId: string) {
         onMutate: async (): Promise<DeleteChapterContext> => {
             const isViewingChapter = matchRoute({ 
                 to: "/stories/$storyId/$chapterId", 
-                params: { storyId, chapterId } 
+                params: { storyId, chapterId }
             })
             if (!isViewingChapter) return {}
 
