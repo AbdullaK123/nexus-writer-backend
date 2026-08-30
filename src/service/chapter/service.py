@@ -485,42 +485,54 @@ class ChapterService:
             else html_to_plain_text(updated.content or "")
         )
 
-        if became_published and updated.word_count >= 1000:
-            await self.queue_extraction_job(
-                chapter_id,
-                chapter.story_id,
-                chapter.user_id,
-                analysis_content
-            )
-
-        if became_draft:
-            await self._invalidate_chapter_analysis(
-                chapter_id,
-                chapter.story_id,
-                chapter.user_id
-            )
-
-        if plain_text is not None and remained_published and updated.content:
-            baseline_key = f"chapter:baseline:{chapter_id}"
-            baseline = await self._cache.get(baseline_key)
-
-            if baseline is None:
-                should_extract = updated.word_count >= 1000
-            else:
-                should_extract = (
-                    get_similarity_ratio(
-                        baseline.decode() if isinstance(baseline, bytes) else baseline,
-                        plain_text
-                    ) < self.REEXTRACTION_THRESHOLD
-                )
-
-            if should_extract:
+        try:
+            if became_published and updated.word_count >= 1000:
                 await self.queue_extraction_job(
                     chapter_id,
                     chapter.story_id,
                     chapter.user_id,
                     analysis_content
                 )
+
+            if became_draft:
+                await self._invalidate_chapter_analysis(
+                    chapter_id,
+                    chapter.story_id,
+                    chapter.user_id
+                )
+
+            if plain_text is not None and remained_published and updated.content:
+                baseline_key = f"chapter:baseline:{chapter_id}"
+                baseline = await self._cache.get(baseline_key)
+
+                if baseline is None:
+                    should_extract = updated.word_count >= 1000
+                else:
+                    should_extract = (
+                        get_similarity_ratio(
+                            baseline.decode() if isinstance(baseline, bytes) else baseline,
+                            plain_text
+                        ) < self.REEXTRACTION_THRESHOLD
+                    )
+
+                if should_extract:
+                    await self.queue_extraction_job(
+                        chapter_id,
+                        chapter.story_id,
+                        chapter.user_id,
+                        analysis_content
+                    )
+        except Exception as e:
+            logger.exception(
+                "chapter.update_side_effect_failed",
+                chapter_id=chapter_id,
+                user_id=user_id,
+                story_id=chapter.story_id,
+                became_published=became_published,
+                became_draft=became_draft,
+                content_changed=plain_text is not None,
+                error=str(e),
+            )
 
         logger.info(
             "chapter.update.done",
