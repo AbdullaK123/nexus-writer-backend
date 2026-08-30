@@ -7,7 +7,7 @@ from src.service.exceptions import InternalError
 from tests.service.mocks import FakeChapterRepository, FakeQueue, FakeStoryRepository
 
 
-async def test_failed_reorder_side_effect_cannot_leave_committed_path_change(
+async def test_failed_reorder_side_effect_does_not_rollback_canonical_path(
     chapter_service: ChapterService,
     test_user: UserResponse,
     fake_story_repo: FakeStoryRepository,
@@ -55,7 +55,7 @@ async def test_failed_reorder_side_effect_cannot_leave_committed_path_change(
         )
 
     final_path = list(await fake_story_repo.get_path_array(story.id) or [])
-    assert final_path == original_path, (
-        "if reorder reports failure, canonical ordering must not already be committed; "
-        "otherwise retrying the same drag acts on a different ordering and can corrupt intent"
+    assert final_path == [original_path[1], original_path[0]], (
+        "chapter order is canonical state and must not be rolled back merely because derived "
+        "reanalysis work fails after the database commit"
     )

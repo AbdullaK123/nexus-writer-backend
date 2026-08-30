@@ -7,7 +7,7 @@ from src.service.exceptions import ServiceError
 from tests.service.mocks import FakeChapterRepository, FakeQueue, FakeStoryRepository
 
 
-async def test_failed_publish_enqueue_cannot_leave_chapter_published(
+async def test_failed_publish_enqueue_does_not_rollback_canonical_publish(
     chapter_service: ChapterService,
     test_user: UserResponse,
     fake_story_repo: FakeStoryRepository,
@@ -43,7 +43,7 @@ async def test_failed_publish_enqueue_cannot_leave_chapter_published(
 
     persisted = await fake_chapter_repo.get(chapter.id, test_user.id)
     assert persisted is not None
-    assert persisted.published is False, (
-        "if publishing reports failure, the chapter must not already be published while its "
-        "required extraction job failed to enqueue; committed state and API outcome must agree"
+    assert persisted.published is True, (
+        "publishing is canonical state and must not be rolled back merely because derived "
+        "extraction work exhausted its enqueue retries"
     )

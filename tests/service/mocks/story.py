@@ -18,6 +18,21 @@ class FakeStoryRepository:
         self._stories[story.id] = story
         self._path_arrays[story.id] = list(story.path_array or [])
 
+    def _store_path(self, story_id: str, path: Sequence[str]) -> list[str]:
+        stored = list(path)
+        self._path_arrays[story_id] = stored
+
+        story = self._stories.get(story_id)
+        if story is not None:
+            self._stories[story_id] = story.model_copy(
+                update={
+                    "path_array": stored,
+                    "updated_at": now(),
+                }
+            )
+
+        return list(stored)
+
     async def get(self, story_id: str, user_id: str, *, executor=None) -> StoryRow | None:
         if self.error:
             raise self.error
@@ -62,6 +77,8 @@ class FakeStoryRepository:
             return None
         updated = story.model_copy(update={**fields, "updated_at": now()})
         self._stories[story_id] = updated
+        if "path_array" in fields:
+            self._path_arrays[story_id] = list(updated.path_array or [])
         return updated
 
     async def delete(self, *, story_id: str, user_id: str) -> bool:
@@ -70,20 +87,21 @@ class FakeStoryRepository:
         story = self._stories.get(story_id)
         if story and story.user_id == user_id:
             del self._stories[story_id]
+            self._path_arrays.pop(story_id, None)
             return True
         return False
 
     async def set_path_array(self, story_id: str, path: Sequence[str], *, executor=None) -> None:
         if self.error:
             raise self.error
-        self._path_arrays[story_id] = list(path)
+        self._store_path(story_id, path)
 
     async def get_path_array(self, story_id: str, *, executor=None) -> list[str] | None:
         if self.error:
             raise self.error
         if story_id not in self._stories:
             return None
-        return self._path_arrays.get(story_id, [])
+        return list(self._path_arrays.get(story_id, []))
 
     async def append_chapter_to_path(
         self,
@@ -94,9 +112,9 @@ class FakeStoryRepository:
     ) -> list[str]:
         if self.error:
             raise self.error
-        path = self._path_arrays.setdefault(story_id, [])
+        path = list(self._path_arrays.get(story_id, []))
         path.append(chapter_id)
-        return list(path)
+        return self._store_path(story_id, path)
 
     async def remove_chapter_from_path(
         self,
@@ -107,9 +125,9 @@ class FakeStoryRepository:
     ) -> list[str]:
         if self.error:
             raise self.error
-        path = self._path_arrays.setdefault(story_id, [])
+        path = list(self._path_arrays.get(story_id, []))
         path.remove(chapter_id)
-        return list(path)
+        return self._store_path(story_id, path)
 
     async def reorder_chapter_path(
         self,
@@ -121,10 +139,10 @@ class FakeStoryRepository:
     ) -> list[str]:
         if self.error:
             raise self.error
-        path = self._path_arrays.setdefault(story_id, [])
+        path = list(self._path_arrays.get(story_id, []))
         chapter_id = path.pop(from_pos)
         path.insert(to_pos, chapter_id)
-        return list(path)
+        return self._store_path(story_id, path)
 
     async def touch(self, story_id: str, *, executor=None) -> None:
         if self.error:
