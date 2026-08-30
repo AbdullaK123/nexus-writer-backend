@@ -66,6 +66,7 @@ class FakeChapterRepository:
         title: str,
         content: str,
         word_count: int,
+        executor=None,
     ) -> ChapterRow:
         if self.error:
             raise self.error
