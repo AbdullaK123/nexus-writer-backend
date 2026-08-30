@@ -37,6 +37,7 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
     const [query, setQuery] = useState("")
     const [threadCreationPending, setThreadCreationPending] = useState(false)
     const saveTrackerRef = useRef(new LatestOperation())
+    const hydratedChapterRef = useRef<string | null>(null)
     const threadGateRef = useRef(new SingleFlightGate())
     const { mutate: createThread } = useCreateThread(params.storyId)
     const navigate = useNavigate()
@@ -120,9 +121,10 @@ export function useChapterEditorPage(): ChapterEditorPageProps {
         if (!editor || chapterState.status !== "success") return;
         const data = chapterState.data.unwrap().unwrap();
         if (!isCurrentChapter(params.chapterId, data.id)) return
-        if (editor.getHTML() !== data.content) {
-            editor.commands.setContent(data.content);
-        }
+        if (hydratedChapterRef.current === data.id) return
+
+        editor.commands.setContent(data.content);
+        hydratedChapterRef.current = data.id
     }, [editor, chapterState, params.chapterId]);
 
     const sidebarProps = useChapterEditorSidebarProps({
