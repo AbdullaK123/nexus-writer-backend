@@ -35,7 +35,7 @@ class UpdateChapterRequest(ApiModel):
     title: Optional[ChapterTitle] = None
     content: Optional[ChapterContent] = None
     published: Optional[bool] = None
-    expected_revision: Optional[datetime] = None
+    expected_revision: Optional[datetime] = Field(default=None, alias="expectedRevision")
 
 
 class ReorderChapterRequest(ApiModel):
@@ -88,7 +88,7 @@ class ChapterContentResponse(ApiModel):
             chapter_number=chapter_number,
             title=chapter.title,
             published=chapter.published,
-            content=chapter.content if chapter.content else "" if content is None else content,
+            content=chapter.content if chapter.content else "",
             story_id=chapter.story_id,
             word_count=chapter.word_count,
             story_title=story_title,
