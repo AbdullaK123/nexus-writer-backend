@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
 
 import pytest
+from pydantic import BaseModel
 
 from src.infrastructure.ai.providers.openai import OpenAIProvider
 from src.infrastructure.exceptions import LLMServiceError
@@ -20,14 +20,6 @@ class FakeCompletions:
 
     async def parse(self, **kwargs):
         return self.parse_response
-
-
-class FakeEmbeddings:
-    def __init__(self) -> None:
-        self.response = None
-
-    async def create(self, **kwargs):
-        return self.response
 
 
 def provider_with(client) -> OpenAIProvider:
@@ -94,26 +86,32 @@ async def test_extract_rejects_success_response_without_parsed_schema() -> None:
     client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
     provider = provider_with(client)
 
-    class Output(SimpleNamespace):
-        __name__ = "Output"
+    class Output(BaseModel):
+        value: str
 
     with pytest.raises(LLMServiceError, match="empty extraction"):
-        await provider.extract("system", "input", 10, Output)  # type: ignore[arg-type]
+        await provider.extract("system", "input", 10, Output)
 
 
 @pytest.mark.asyncio
-async def test_batched_embeddings_preserve_input_order() -> None:
+async def test_batched_embeddings_preserve_input_order_when_later_batch_finishes_first() -> None:
     provider = provider_with(SimpleNamespace())
     provider.max_concurrent_requests = 2
+    completion_order: list[str] = []
 
     async def fake_batch(texts: list[str]) -> list[list[float]]:
-        await asyncio.sleep(0 if texts[0] in {"3", "4"} else 0.01)
+        first = texts[0]
+        await asyncio.sleep(0 if first == "8" else 0.02)
+        completion_order.append(first)
         return [[float(text)] for text in texts]
 
     provider._embed_many_raw = fake_batch  # type: ignore[method-assign]
 
     result = await provider._embed_many_batched([str(i) for i in range(12)])
 
+    assert completion_order == ["8", "0"], (
+        "the test must actually force later input to finish first or it proves nothing about gather-order safety"
+    )
     assert result == [[float(i)] for i in range(12)], (
         "concurrent embedding batches must be flattened in input order or vectors become attached to the wrong scenes"
     )
