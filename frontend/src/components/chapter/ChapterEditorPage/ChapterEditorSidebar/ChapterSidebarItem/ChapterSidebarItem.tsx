@@ -11,6 +11,7 @@ export type ChapterSidebarItemProps =
         chapterTitle: string
         chapterStatus: "draft" | "published"
         chapterNumber: number
+        reorderDisabled?: boolean
         onClick: () => void
   }
 | {
@@ -21,6 +22,7 @@ export type ChapterSidebarItemProps =
         chapterTitle: string
         chapterNumber: number
         chapterStatus: "draft" | "published"
+        reorderDisabled?: boolean
         onClick: () => void
   }
 
@@ -35,9 +37,11 @@ const getStyles = (chapterStatus: "draft" | "published") => {
 
 export function ChapterSidebarItem(props: ChapterSidebarItemProps) {
 
+    const reorderDisabled = props.reorderDisabled ?? false
     const {ref, isDragging, isDropTarget} = useSortable({
         id: props.chapterId,
-        index: props.index
+        index: props.index,
+        disabled: reorderDisabled,
     })
 
     switch (props.status) {
@@ -47,6 +51,8 @@ export function ChapterSidebarItem(props: ChapterSidebarItemProps) {
                     ref={ref}
                     className={`${styles['content']} ${isDragging ? styles['dragging'] : ""} ${isDropTarget ? styles['drop-target'] : ""}`}
                     onClick={props.onClick}
+                    aria-disabled={reorderDisabled}
+                    data-reorder-disabled={reorderDisabled ? "true" : "false"}
                 >
                     <span className={getStyles(props.chapterStatus)}>
                         {props.chapterNumber}
@@ -73,6 +79,8 @@ export function ChapterSidebarItem(props: ChapterSidebarItemProps) {
                     ref={ref}
                     className={`${styles['content']} ${isDragging ? styles['dragging'] : ""} ${isDropTarget ? styles['drop-target'] : ""} ${styles['selected']}`}
                     onClick={props.onClick}
+                    aria-disabled={reorderDisabled}
+                    data-reorder-disabled={reorderDisabled ? "true" : "false"}
                 >
                     <span className={styles['editing']}>
                         {props.chapterNumber}
