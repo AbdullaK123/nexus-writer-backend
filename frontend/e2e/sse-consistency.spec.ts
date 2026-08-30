@@ -7,31 +7,38 @@ import {
   uniqueUser,
 } from "./helpers";
 
+const isNotificationStream = (url: string) => url.includes("/api/auth/me/notifications");
+
 test("an SSE reconnect that discovers a revoked session must evict private UI state", async ({ page, request, context }) => {
   const user = uniqueUser("sse-revoked");
   await registerUser(request, user);
-
-  const firstNotificationStream = page.waitForRequest(
-    (req) => req.url().includes("/api/auth/me/notifications") && req.method() === "GET",
-  );
-
   await loginThroughUI(page, user);
   await expect(page).toHaveURL(/\/$/);
 
   const browserRequest = page.context().request;
   const privateTitle = `SSE-PRIVATE-${Date.now()}`;
   await createStory(browserRequest, privateTitle);
+
+  const activeStream = page.waitForRequest(
+    (req) => isNotificationStream(req.url()) && req.method() === "GET",
+  );
   await page.reload();
   await expect(page.getByRole("heading", { name: privateTitle, exact: true, level: 3 })).toBeVisible();
+  await activeStream;
 
-  await firstNotificationStream;
   await apiLogout(browserRequest);
 
+  const failedStream = page.waitForEvent("requestfailed", {
+    predicate: (req) => isNotificationStream(req.url()) && req.method() === "GET",
+  });
   await context.setOffline(true);
-  await expect.poll(async () => context.isOffline(), {
-    message: "the browser must actually enter offline mode so the existing SSE connection is broken rather than silently remaining alive",
-  }).toBe(true);
+  await failedStream;
+
+  const reconnect = page.waitForRequest(
+    (req) => isNotificationStream(req.url()) && req.method() === "GET",
+  );
   await context.setOffline(false);
+  await reconnect;
 
   await expect(
     page,
