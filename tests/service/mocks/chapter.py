@@ -18,7 +18,14 @@ class FakeChapterRepository:
     def seed(self, chapter: ChapterRow):
         self._chapters[chapter.id] = chapter
 
-    async def get(self, chapter_id: str, user_id: str, *, executor=None) -> ChapterRow | None:
+    async def get(
+        self,
+        chapter_id: str,
+        user_id: str,
+        *,
+        executor=None,
+        for_update: bool = False,
+    ) -> ChapterRow | None:
         if self.error:
             raise self.error
         chapter = self._chapters.get(chapter_id)
