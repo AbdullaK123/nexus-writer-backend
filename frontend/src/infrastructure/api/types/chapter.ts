@@ -12,6 +12,7 @@ export const UpdateChapterRequestSchema = z.object({
     title: z.string().min(1).max(255).optional(),
     content: z.string().optional(),
     published: z.boolean().optional(),
+    expectedRevision: z.string().optional(),
 })
 export type UpdateChapterRequest = z.infer<typeof UpdateChapterRequestSchema>
 
@@ -46,6 +47,7 @@ export const ChapterContentResponseSchema = z.object({
     wordCount: z.int(),
     createdAt: DateTimeSchema,
     updatedAt: DateTimeSchema,
+    revision: z.string().nullable().optional(),
     previousChapterId: z.string().nullable(),
     nextChapterId: z.string().nullable(),
 })
