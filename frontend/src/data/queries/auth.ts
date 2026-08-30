@@ -97,6 +97,7 @@ export function useLogin() {
     return useMutation<UserResponse, ApiError, AuthCredentials>({
         mutationFn: (payload) => unwrapResultAsync(api.auth.login(payload)),
         onSuccess: (user) => {
+            qc.clear()
             qc.setQueryData(authKeys.me(), user)
         }
     })
@@ -108,6 +109,7 @@ export function useRegister() {
     return useMutation<UserResponse, ApiError, RegistrationData>({
         mutationFn: (payload) => unwrapResultAsync(api.auth.register(payload)),
         onSuccess: (user) => {
+            qc.clear()
             qc.setQueryData(authKeys.me(), user)
         }
     })
