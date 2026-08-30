@@ -33,8 +33,8 @@ async def test_scene_job_runs_extraction_embedding_analysis_and_notifications(
 ) -> None:
     chapter_repo = fake_worker_services["chapter_repo"]
     chapter_repo.rows = [
-        PublishedChapter(job_ids["chapter_id"]),
-        PublishedChapter(job_ids["chapter_id"]),
+        PublishedChapter(job_ids["chapter_id"], job_ids["story_id"]),
+        PublishedChapter(job_ids["chapter_id"], job_ids["story_id"]),
     ]
 
     await saq_worker.scene_and_embedding_job(
@@ -74,7 +74,11 @@ async def test_scene_job_skips_unpublished_chapter(
     fake_redis_client: Any,
 ) -> None:
     fake_worker_services["chapter_repo"].rows = [
-        PublishedChapter(job_ids["chapter_id"], published=False)
+        PublishedChapter(
+            job_ids["chapter_id"],
+            job_ids["story_id"],
+            published=False,
+        )
     ]
 
     await saq_worker.scene_and_embedding_job(saq_context, **job_ids)
@@ -93,7 +97,9 @@ async def test_scene_job_failure_re_raises_and_cleans_pending_state(
     fake_worker_services: dict[str, Any],
     fake_redis_client: Any,
 ) -> None:
-    fake_worker_services["chapter_repo"].rows = [PublishedChapter(job_ids["chapter_id"])]
+    fake_worker_services["chapter_repo"].rows = [
+        PublishedChapter(job_ids["chapter_id"], job_ids["story_id"])
+    ]
     fake_worker_services["extraction_service"].error = RuntimeError("provider failed")
 
     with pytest.raises(RuntimeError, match="provider failed"):
@@ -108,7 +114,9 @@ async def test_chapter_reanalysis_calls_expected_services(
     job_ids: dict[str, str],
     fake_worker_services: dict[str, Any],
 ) -> None:
-    fake_worker_services["chapter_repo"].rows = [PublishedChapter(job_ids["chapter_id"])]
+    fake_worker_services["chapter_repo"].rows = [
+        PublishedChapter(job_ids["chapter_id"], job_ids["story_id"])
+    ]
 
     await saq_worker.chapter_reanalysis_job(saq_context, **job_ids)
 
