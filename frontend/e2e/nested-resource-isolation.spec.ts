@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  apiLogout,
   createChapter,
   createStory,
   loginThroughUI,
@@ -51,14 +52,22 @@ test("another account cannot open a chapter by guessing its nested URL", async (
   const chapterTitle = `ALICE-PRIVATE-CHAPTER-${Date.now()}`;
   const chapterId = await createChapter(browserRequest, aliceStory, chapterTitle);
 
-  await browserRequest.post(`${process.env.E2E_API_BASE_URL ?? "http://localhost:8000/api"}/auth/logout`);
+  await apiLogout(browserRequest);
   await page.goto("/login");
   await page.getByLabel("Email").fill(bob.email);
   await page.getByLabel("Password").fill(bob.password);
   await page.getByRole("button", { name: /Launch Nexus/i }).click();
   await expect(page).toHaveURL(/\/$/);
 
+  const rejectedChapterFetch = page.waitForResponse(
+    (response) => response.url().includes(`/api/chapters/${chapterId}`) && response.request().method() === "GET",
+  );
   await page.goto(`/stories/${aliceStory}/${chapterId}`);
+  const response = await rejectedChapterFetch;
+  expect(
+    response.status(),
+    "the backend must reject another account's chapter lookup; a frontend 404 without a server ownership check is security theater",
+  ).toBe(404);
   await expect(
     page.getByRole("heading", { name: chapterTitle, exact: true }),
     "a guessed nested URL must never reveal another account's chapter; client routing cannot be allowed to weaken the backend ownership boundary",
