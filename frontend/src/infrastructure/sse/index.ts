@@ -66,9 +66,13 @@ export async function streamSse(
     const extraHeaders: HeadersInit = request.headers.unwrapOr({})
     const body = request.body.map((v) => JSON.stringify(v)).into(null)
     const signal = request.signal.into(null)
+    const normalizedBaseURL = config.api.baseURL.endsWith("/")
+        ? config.api.baseURL
+        : `${config.api.baseURL}/`
+    const fullUrl = new URL(request.url, normalizedBaseURL).toString()
 
     const fetchResult = await Result.safe(
-        fetch(`${config.api.baseURL}${request.url}`, {
+        fetch(fullUrl, {
             method,
             headers: {
                 Accept: "text/event-stream",
