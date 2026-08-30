@@ -23,6 +23,14 @@ test("a stale editor tab cannot silently destroy a newer committed chapter revis
   const tabBEdit = `${baseline} TAB-B-STALE-${Date.now()}`;
   await updateChapter(browserRequest, chapterId, { content: `<p>${baseline}</p>` });
 
+  const baselineResponse = await browserRequest.get(`${API_BASE_URL}/chapters/${chapterId}`);
+  expect(baselineResponse.ok()).toBe(true);
+  const baselineChapter = (await baselineResponse.json()) as { revision?: string };
+  expect(
+    baselineChapter.revision,
+    "chapter reads must expose an exact revision token or stale-tab protection cannot distinguish old editors from current ones",
+  ).toBeTruthy();
+
   const pageB = await context.newPage();
   await Promise.all([
     page.goto(`/stories/${storyId}/${chapterId}`),
@@ -39,7 +47,17 @@ test("a stale editor tab cannot silently destroy a newer committed chapter revis
   );
   await editorA.fill(tabAEdit);
   const responseA = await writeA;
-  expect(responseA.ok(), "tab A must successfully commit the newer server revision before stale tab B attempts its write").toBe(true);
+  const requestAPayload = responseA.request().postDataJSON() as { expectedRevision?: string };
+  expect(
+    requestAPayload.expectedRevision,
+    "the first editor write must carry the exact revision it loaded; a missing or mutated token makes optimistic concurrency either inert or self-conflicting",
+  ).toBe(baselineChapter.revision);
+
+  const responseABody = await responseA.text();
+  expect(
+    responseA.ok(),
+    `tab A must successfully commit the newer server revision before stale tab B attempts its write; status=${responseA.status()} body=${responseABody}`,
+  ).toBe(true);
 
   await expect.poll(async () => {
     const response = await browserRequest.get(`${API_BASE_URL}/chapters/${chapterId}`);
