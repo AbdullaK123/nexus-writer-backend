@@ -185,6 +185,7 @@ export function useReorderChapters(storyId: string) {
     const api = useApi()
     const qc = useQueryClient()
     return useMutation({
+        scope: { id: `story-reorder:${storyId}` },
         mutationFn: (payload: ReorderChapterRequest) =>
             unwrapResultAsync(api.story.reorderChapters(storyId, payload)),
         onSuccess: () => {
