@@ -176,7 +176,7 @@ class ChapterService:
                 row = lookup[cid]
                 item = ChapterListItem(
                     story_id=row.story_id,
-                    chapter_id=row.id,  
+                    chapter_id=row.id,
                     chapter_number=i + 1,
                     word_count=row.word_count,
                     story_title=story.title,
@@ -265,7 +265,7 @@ class ChapterService:
                   nx=True,
                   ex=1800,
               )
-            
+
               if claimed:
                 try:
                     await queue.enqueue(
@@ -302,11 +302,7 @@ class ChapterService:
             except Exception:
                 await self._cache.delete(story_pending_key)
                 raise
-         
 
-
-         
-        
     @handle_service_errors
     async def create_chapter(
         self,
@@ -379,7 +375,6 @@ class ChapterService:
             timeout=900,
         )
 
-
     @handle_service_errors
     async def queue_extraction_job(
         self,
@@ -414,7 +409,6 @@ class ChapterService:
         except Exception:
             await self._cache.delete(pending_key)
             raise
-    
 
     @handle_service_errors
     async def update_chapter(
@@ -423,7 +417,7 @@ class ChapterService:
         user_id: str,
         data: UpdateChapterRequest,
     ) -> ChapterContentResponse:
-        
+
         triple = await self._chapter_repo.get_with_story_title(
             chapter_id,
             user_id,
@@ -469,7 +463,6 @@ class ChapterService:
             else html_to_plain_text(updated.content or "")
         )
 
-
         if became_published and updated.word_count >= 1000:
             await self.queue_extraction_job(
                 chapter_id,
@@ -484,7 +477,6 @@ class ChapterService:
                 chapter.story_id,
                 chapter.user_id
             )
-        
 
         if plain_text is not None and remained_published and updated.content:
 
@@ -497,7 +489,7 @@ class ChapterService:
             else:
                 should_extract = (
                     get_similarity_ratio(
-                        baseline.decode() if isinstance(baseline, bytes) else baseline, 
+                        baseline.decode() if isinstance(baseline, bytes) else baseline,
                         plain_text
                     ) < self.REEXTRACTION_THRESHOLD
                 )
@@ -617,11 +609,6 @@ class ChapterService:
         return {"message": "Chapters reordered successfully"}
 
     # ─── path-array & pointer primitives (private) ─────────────────────────
-    #
-    # Operate purely on `path_array` (the ordering source of truth) and the
-    # `prev_chapter_id`/`next_chapter_id` pointers (derived from it). All take
-    # an optional `conn` so the public method can compose them into a single
-    # transaction.
 
     async def _append_chapter_to_path_end(
         self,
@@ -629,19 +616,15 @@ class ChapterService:
         chapter_id: str,
         *,
         conn: asyncpg.Connection | None = None,
-    ) -> None:
-        path = await self._story_repo.get_path_array(story_id, executor=conn)
-        if path is None:
-            raise ValueError(f"Story {story_id} not found")
-
-        if chapter_id in path:
-            return
-
-        await self._story_repo.set_path_array(
+    ) -> list[str]:
+        path = await self._story_repo.append_chapter_to_path(
             story_id,
-            [*path, chapter_id],
+            chapter_id,
             executor=conn,
         )
+        if path is None:
+            raise ValueError(f"Story {story_id} not found")
+        return path
 
     async def _remove_chapter_from_path(
         self,
@@ -649,14 +632,10 @@ class ChapterService:
         chapter_id: str,
         *,
         conn: asyncpg.Connection | None = None,
-    ) -> None:
-        path = await self._story_repo.get_path_array(story_id, executor=conn)
-        if not path or chapter_id not in path:
-            return
-
-        await self._story_repo.set_path_array(
+    ) -> list[str] | None:
+        return await self._story_repo.remove_chapter_from_path(
             story_id,
-            [c for c in path if c != chapter_id],
+            chapter_id,
             executor=conn,
         )
 
@@ -667,28 +646,23 @@ class ChapterService:
         to_pos: int,
         *,
         conn: asyncpg.Connection | None = None,
-    ) -> None:
-        path = await self._story_repo.get_path_array(story_id, executor=conn)
-        if not path:
-            return
-
-        last = len(path) - 1
-        if not (0 <= from_pos <= last) or not (0 <= to_pos <= last):
-            return
-        if from_pos == to_pos:
-            return
-
-        new_path = list(path)
-        new_path.insert(to_pos, new_path.pop(from_pos))
-        await self._story_repo.set_path_array(story_id, new_path, executor=conn)
+    ) -> list[str] | None:
+        return await self._story_repo.reorder_chapter_path(
+            story_id,
+            from_pos,
+            to_pos,
+            executor=conn,
+        )
 
     async def _sync_all_chapter_pointers(
         self,
         story_id: str,
+        path: list[str] | None = None,
         *,
         conn: asyncpg.Connection | None = None,
     ) -> None:
-        path = await self._story_repo.get_path_array(story_id, executor=conn)
+        if path is None:
+            path = await self._story_repo.get_path_array(story_id, executor=conn)
         if path is None:
             return
         await self._chapter_repo.sync_pointers(story_id, path, executor=conn)
@@ -710,9 +684,8 @@ class ChapterService:
         *,
         conn: asyncpg.Connection | None = None,
     ) -> None:
-        await self._append_chapter_to_path_end(story_id, chapter_id, conn=conn)
-        await self._sync_all_chapter_pointers(story_id, conn=conn)
-        await self._update_story_timestamp(story_id, conn=conn)
+        path = await self._append_chapter_to_path_end(story_id, chapter_id, conn=conn)
+        await self._sync_all_chapter_pointers(story_id, path, conn=conn)
         logger.info(
             "chapter.path_created",
             chapter_id=chapter_id,
@@ -726,9 +699,8 @@ class ChapterService:
         *,
         conn: asyncpg.Connection | None = None,
     ) -> None:
-        await self._remove_chapter_from_path(story_id, chapter_id, conn=conn)
-        await self._sync_all_chapter_pointers(story_id, conn=conn)
-        await self._update_story_timestamp(story_id, conn=conn)
+        path = await self._remove_chapter_from_path(story_id, chapter_id, conn=conn)
+        await self._sync_all_chapter_pointers(story_id, path, conn=conn)
         logger.info(
             "chapter.path_deleted",
             chapter_id=chapter_id,
@@ -743,9 +715,8 @@ class ChapterService:
         *,
         conn: asyncpg.Connection | None = None,
     ) -> None:
-        await self._reorder_chapter_path(story_id, from_pos, to_pos, conn=conn)
-        await self._sync_all_chapter_pointers(story_id, conn=conn)
-        await self._update_story_timestamp(story_id, conn=conn)
+        path = await self._reorder_chapter_path(story_id, from_pos, to_pos, conn=conn)
+        await self._sync_all_chapter_pointers(story_id, path, conn=conn)
         logger.info(
             "chapter.path_reordered",
             story_id=story_id,
@@ -802,7 +773,6 @@ class ChapterService:
         self, chapter_id: str, user_id: str, ignore_cache: bool = False
     ) -> ChapterSummaryResponse:
         chapter_to_summarize = await self._chapter_repo.get(chapter_id, user_id)
-
 
         if chapter_to_summarize is None:
             raise NotFoundError("Chapter not found")
@@ -909,10 +879,10 @@ class ChapterService:
     ) -> CommentExtractionResponse:
 
         triple = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
-        
+
         if triple is None:
             raise NotFoundError("Chapter not found")
-        
+
         chapter, story_title, chapter_number = triple
 
         if not chapter.published:
@@ -966,10 +936,10 @@ class ChapterService:
     ) -> CommentExtractionResponse:
 
         triple = await self._chapter_repo.get_with_story_title(chapter_id, user_id)
-                
+
         if triple is None:
             raise NotFoundError("Chapter not found")
-                
+
         chapter, story_title, chapter_number = triple
 
         if not chapter.published:

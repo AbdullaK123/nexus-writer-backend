@@ -121,6 +121,11 @@ class StoryRepository:
         *,
         executor: Executor | None = None,
     ) -> None:
+        """Replace path_array directly.
+
+        Reserved for explicit whole-array writes such as test setup/repair. Domain
+        mutations should use append/remove/reorder so concurrent updates stay atomic.
+        """
         sql = """
             UPDATE "story"
                SET path_array = $2::TEXT[],
@@ -128,6 +133,102 @@ class StoryRepository:
              WHERE id = $1
         """
         await self._exe(executor).execute(sql, story_id, list(path))
+
+    async def append_chapter_to_path(
+        self,
+        story_id: str,
+        chapter_id: str,
+        *,
+        executor: Executor | None = None,
+    ) -> list[str] | None:
+        """Atomically append a chapter if it is not already in the path."""
+        sql = """
+            UPDATE "story"
+               SET path_array = CASE
+                       WHEN $2 = ANY(COALESCE(path_array, ARRAY[]::TEXT[]))
+                           THEN COALESCE(path_array, ARRAY[]::TEXT[])
+                       ELSE array_append(COALESCE(path_array, ARRAY[]::TEXT[]), $2)
+                   END,
+                   updated_at = NOW()
+             WHERE id = $1
+            RETURNING path_array
+        """
+        row = await self._exe(executor).fetchrow(sql, story_id, chapter_id)
+        if row is None:
+            return None
+        return list(row["path_array"] or [])
+
+    async def remove_chapter_from_path(
+        self,
+        story_id: str,
+        chapter_id: str,
+        *,
+        executor: Executor | None = None,
+    ) -> list[str] | None:
+        """Atomically remove every occurrence of a chapter from the path."""
+        sql = """
+            UPDATE "story"
+               SET path_array = array_remove(
+                       COALESCE(path_array, ARRAY[]::TEXT[]),
+                       $2
+                   ),
+                   updated_at = NOW()
+             WHERE id = $1
+            RETURNING path_array
+        """
+        row = await self._exe(executor).fetchrow(sql, story_id, chapter_id)
+        if row is None:
+            return None
+        return list(row["path_array"] or [])
+
+    async def reorder_chapter_path(
+        self,
+        story_id: str,
+        from_pos: int,
+        to_pos: int,
+        *,
+        executor: Executor | None = None,
+    ) -> list[str] | None:
+        """Atomically move one zero-based path position to another."""
+        sql = """
+            UPDATE "story" s
+               SET path_array = (
+                       SELECT array_agg(
+                           item.chapter_id
+                           ORDER BY CASE
+                               WHEN item.pos = $2 + 1 THEN $3 + 1
+                               WHEN $2 < $3
+                                    AND item.pos > $2 + 1
+                                    AND item.pos <= $3 + 1
+                                   THEN item.pos - 1
+                               WHEN $2 > $3
+                                    AND item.pos >= $3 + 1
+                                    AND item.pos < $2 + 1
+                                   THEN item.pos + 1
+                               ELSE item.pos
+                           END
+                       )
+                       FROM unnest(
+                           COALESCE(s.path_array, ARRAY[]::TEXT[])
+                       ) WITH ORDINALITY AS item(chapter_id, pos)
+                   ),
+                   updated_at = NOW()
+             WHERE s.id = $1
+               AND $2 >= 0
+               AND $3 >= 0
+               AND $2 < cardinality(COALESCE(s.path_array, ARRAY[]::TEXT[]))
+               AND $3 < cardinality(COALESCE(s.path_array, ARRAY[]::TEXT[]))
+            RETURNING s.path_array
+        """
+        row = await self._exe(executor).fetchrow(
+            sql,
+            story_id,
+            from_pos,
+            to_pos,
+        )
+        if row is None:
+            return None
+        return list(row["path_array"] or [])
 
     async def get_path_array(
         self,

@@ -13,7 +13,7 @@ async def test_concurrent_path_appends_do_not_lose_chapters(
     repo_user: UserRow,
     repo_story: StoryRow,
 ) -> None:
-    """Two transactions reading the same path must not overwrite each other's append."""
+    """Concurrent atomic appends must preserve both chapter IDs."""
     repo = StoryRepository(clean_db)
     chapter_a = uuid7str()
     chapter_b = uuid7str()
@@ -24,22 +24,21 @@ async def test_concurrent_path_appends_do_not_lose_chapters(
 
     async def append(chapter_id: str) -> None:
         nonlocal waiting
+
+        async with waiting_lock:
+            waiting += 1
+            if waiting == 2:
+                ready.set()
+        await ready.wait()
+
         async with clean_db.acquire() as conn:
             async with conn.transaction():
-                path = await repo.get_path_array(repo_story.id, executor=conn)
-                assert path is not None
-
-                async with waiting_lock:
-                    waiting += 1
-                    if waiting == 2:
-                        ready.set()
-                await ready.wait()
-
-                await repo.set_path_array(
+                path = await repo.append_chapter_to_path(
                     repo_story.id,
-                    [*path, chapter_id],
+                    chapter_id,
                     executor=conn,
                 )
+                assert path is not None
 
     await asyncio.gather(append(chapter_a), append(chapter_b))
 
@@ -48,6 +47,6 @@ async def test_concurrent_path_appends_do_not_lose_chapters(
     assert final_path is not None
     assert len(final_path) == 2
     assert set(final_path) == {chapter_a, chapter_b}, (
-        "story.path_array is a read-modify-write aggregate; concurrent chapter operations "
-        "must not lose one transaction's update via last-writer-wins"
+        "story.path_array mutations must execute atomically in PostgreSQL; "
+        "concurrent appends cannot overwrite one another"
     )
