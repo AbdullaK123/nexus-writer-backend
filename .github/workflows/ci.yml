@@ -1,0 +1,54 @@
+name: Nexus Writer Backend CI
+
+on:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_DB: nexus_writer_test
+          POSTGRES_USER: nexus_user
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Apply migrations
+        run: uv run --frozen yoyo apply --batch --database postgresql://nexus_user:password@localhost:5432/nexus_writer_test ./migrations/yoyo
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://nexus_user:password@localhost:5432/nexus_writer_test
+          REDIS_URL: redis://localhost:6379
+        run: uv run --frozen pytest
