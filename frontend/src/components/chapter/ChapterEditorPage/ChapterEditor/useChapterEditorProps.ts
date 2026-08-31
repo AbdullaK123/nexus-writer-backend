@@ -160,10 +160,10 @@ export function useChapterEditorProps({
                             {
                                 onSuccess: async (newChapter) => {
                                     success("Chapter created successfully!", "");
-                                    await navigate({
+                                    setTimeout(() => navigate({
                                         to: "/stories/$storyId/$chapterId",
                                         params: { storyId, chapterId: newChapter.id }
-                                    });
+                                    }), 1000);
                                 },
                                 onError: () => {
                                     error("Error", "Failed to create your chapter. The server might be experiencing issues.")
