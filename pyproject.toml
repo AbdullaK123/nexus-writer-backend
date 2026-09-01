@@ -32,6 +32,9 @@ dependencies = [
     "redis>=8.0.1",
     "opentelemetry-instrumentation-redis>=0.60b1",
     "saq[redis]>=0.9.1",
+    "authlib>=1.7.0",
+    "httpx>=0.28.1",
+    "itsdangerous>=2.2.0",
 ]
 
 [tool.mypy]

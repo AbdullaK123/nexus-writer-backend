@@ -154,6 +154,11 @@ class UserSettings(BaseModel):
         default_factory=NotificationSettings
     )
 
+class OAuthUserResponse(ApiModel):
+    provider_id: str
+    email: str
+    name: str
+
 class UserResponse(ApiModel):
     id: str
     username: str

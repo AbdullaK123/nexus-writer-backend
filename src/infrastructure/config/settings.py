@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     cors_allow_methods: list[str] = ["*"]
     cors_allow_headers: list[str] = ["*"]
 
+    # OAuth
+    client_id: str
+    client_secret: str
+    session_secret: str
+
     @model_validator(mode="after")
     def validate_cors(self):
         if self.cors_allow_credentials and "*" in self.cors_origins:
