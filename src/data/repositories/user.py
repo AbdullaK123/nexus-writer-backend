@@ -34,10 +34,13 @@ class UserRepository:
             row = await conn.fetchrow(sql, user_id)
         return UserRow.model_validate(dict(row)) if row else None
 
-    async def get_by_email(self, email: str) -> UserRow | None:
+    async def get_by_email(
+        self,
+        email: str,
+        executor: Executor | None = None,
+    ) -> UserRow | None:
         sql = f'SELECT {_USER_COLUMNS} FROM "user" WHERE email = $1'
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(sql, email)
+        row = await self._exe(executor).fetchrow(sql, email)
         return UserRow.model_validate(dict(row)) if row else None
 
 
@@ -112,7 +115,8 @@ class UserRepository:
         self,
         *,
         provider: str,
-        provider_user_id: str
+        provider_user_id: str,
+        executor: Executor | None = None,
     ) -> OAuthUserRow | None:
 
         sql = """
@@ -125,8 +129,7 @@ class UserRepository:
         WHERE provider=$1 AND provider_user_id=$2
         """
 
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(sql, provider, provider_user_id)
+        row = await self._exe(executor).fetchrow(sql, provider, provider_user_id)
 
         return OAuthUserRow.model_validate(dict(row)) if row is not None else None
 

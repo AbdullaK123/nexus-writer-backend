@@ -134,43 +134,47 @@ class AuthService:
         email: str,
         name: str
     ) -> OAuthUserRow:
+        canonical_email = email.strip().casefold()
+        lock_keys = sorted((
+            f"oauth:account:{provider}:{provider_user_id}",
+            f"oauth:email:{canonical_email}",
+        ))
 
-        account = await self._user_repo.get_oauth_account(
-            provider=provider, 
-            provider_user_id=provider_user_id
-        )
+        async with self._user_repo.pool.acquire() as conn:
+            async with conn.transaction():
+                for lock_key in lock_keys:
+                    await conn.execute(
+                        "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                        lock_key,
+                    )
 
-        if account is not None:
-            return account
-        else:
+                account = await self._user_repo.get_oauth_account(
+                    provider=provider,
+                    provider_user_id=provider_user_id,
+                    executor=conn,
+                )
+                if account is not None:
+                    return account
 
-            user = await self._user_repo.get_by_email(email)
+                user = await self._user_repo.get_by_email(
+                    canonical_email,
+                    executor=conn,
+                )
+                if user is None:
+                    user = await self._user_repo.create(
+                        username=name,
+                        email=canonical_email,
+                        password_hash=None,
+                        profile_img=None,
+                        executor=conn,
+                    )
 
-            if user is not None:
                 return await self._user_repo.create_oauth(
                     user_id=user.id,
                     provider=provider,
-                    provider_user_id=provider_user_id
+                    provider_user_id=provider_user_id,
+                    executor=conn,
                 )
-
-            async with self._user_repo.pool.acquire() as conn:
-                async with conn.transaction():
-                    user = await self._user_repo.create(
-                        username=name, 
-                        email=email, 
-                        password_hash=None, 
-                        profile_img=None,
-                        executor=conn
-                    )
-                    account = await self._user_repo.create_oauth(
-                        user_id=user.id,
-                        provider=provider,
-                        provider_user_id=provider_user_id,
-                        executor=conn
-                    )
-                    return account
-
-        
 
     @handle_service_errors
     async def login_user(
