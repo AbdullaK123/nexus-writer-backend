@@ -7,6 +7,16 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://nexus_user:password@localhost:5432/nexus_writer_test
+      REDIS_URL: redis://localhost:6379
+      APP_SECRET_KEY: ci-fake-secret-key-that-is-at-least-32-chars-long
+      OPENAI_API_KEY: sk-fake
+      OPEN_ROUTER_API_KEY: sk-fake
+      OPEN_ROUTER_API_URL: https://fake.openrouter.ai/api/v1
+      CLIENT_ID: fake-client-id
+      CLIENT_SECRET: fake-client-secret
+      SESSION_SECRET: ci-fake-session-secret
 
     services:
       postgres:
@@ -48,7 +58,4 @@ jobs:
         run: uv run --frozen yoyo apply --batch --database postgresql://nexus_user:password@localhost:5432/nexus_writer_test ./migrations/yoyo
 
       - name: Run tests
-        env:
-          DATABASE_URL: postgresql://nexus_user:password@localhost:5432/nexus_writer_test
-          REDIS_URL: redis://localhost:6379
         run: uv run --frozen pytest

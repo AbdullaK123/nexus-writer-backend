@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Response, Depends, Cookie
 from fastapi.responses import StreamingResponse
 from src.data.schemas.auth import (
     DashboardResponse,
+    OAuthUserResponse,
     SettingsPayload,
     StoryNavigationResponse,
     UserNavigationResponse,
@@ -14,8 +15,71 @@ from src.data.schemas import UserRow
 from src.app.dependencies import get_current_user, get_auth_service
 from src.infrastructure.config import settings, config as app_config
 from src.service.auth import AuthService
+from authlib.integrations.starlette_client import OAuth
+from starlette.requests import Request as StarletteRequest
 
 user_controller = APIRouter(prefix="/auth")
+
+oauth = OAuth()
+
+oauth.register(
+    name="google",
+    client_id=settings.client_id,
+    client_secret=settings.client_secret,
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={
+        "scope": "openid email profile"
+    }
+)
+
+@user_controller.get("/google/login")
+async def google_login(request: StarletteRequest):
+    redirect_uri = request.url_for("google_callback")
+    return await oauth.google.authorize_redirect(
+        request,
+        redirect_uri
+    )
+
+@user_controller.get("/google/callback")
+async def google_callback(
+    request: StarletteRequest,
+    response: Response,
+    auth_service: AuthService = Depends(get_auth_service)
+) -> OAuthUserResponse:
+    token = await oauth.google.authorize_access_token(request)
+    userinfo = token['userinfo']
+
+    account = await auth_service.get_or_create_oauth_account(
+        provider="google",
+        provider_user_id=userinfo['sub'],
+        email=userinfo['email'],
+        name=userinfo['name']
+    )
+
+    connection_details = ConnectionDetails(
+         ip_address=request.headers.get("X-Real-IP"),
+         user_agent=request.headers.get("User-Agent"),
+    )
+
+    session_id = await auth_service.create_session(
+        user_id=account.user_id,
+        connection_details=connection_details
+    )
+
+    response.set_cookie(
+        key="session_id",
+        value=session_id,
+        max_age=app_config.auth.cookie_max_age_seconds,
+        httponly=True,
+        samesite="lax",
+        secure=(settings.env == "prod"),
+    )
+
+    return OAuthUserResponse(
+        provider_id=userinfo['sub'],
+        email=userinfo['email'],
+        name=userinfo.get('name')
+    )
 
 
 @user_controller.post("/register", response_model=UserResponse)

@@ -9,6 +9,7 @@ from src.data.schemas import UserRow
 from src.data.schemas.auth import (
     DashboardResponse,
     Notification,
+    OAuthUserRow,
     RegistrationData,
     SettingsPayload,
     StoryNavigationResponse,
@@ -124,6 +125,52 @@ class AuthService:
             logger.info("session.deleted")
         else:
             logger.warning("session.logout_failed.not_found")
+
+    @handle_service_errors
+    async def get_or_create_oauth_account(
+        self,
+        provider: str,
+        provider_user_id: str,
+        email: str,
+        name: str
+    ) -> OAuthUserRow:
+
+        account = await self._user_repo.get_oauth_account(
+            provider=provider, 
+            provider_user_id=provider_user_id
+        )
+
+        if account is not None:
+            return account
+        else:
+
+            user = await self._user_repo.get_by_email(email)
+
+            if user is not None:
+                return await self._user_repo.create_oauth(
+                    user_id=user.id,
+                    provider=provider,
+                    provider_user_id=provider_user_id
+                )
+
+            async with self._user_repo.pool.acquire() as conn:
+                async with conn.transaction():
+                    user = await self._user_repo.create(
+                        username=name, 
+                        email=email, 
+                        password_hash=None, 
+                        profile_img=None,
+                        executor=conn
+                    )
+                    account = await self._user_repo.create_oauth(
+                        user_id=user.id,
+                        provider=provider,
+                        provider_user_id=provider_user_id,
+                        executor=conn
+                    )
+                    return account
+
+        
 
     @handle_service_errors
     async def login_user(

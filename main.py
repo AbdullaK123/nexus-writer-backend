@@ -19,6 +19,7 @@ from src.infrastructure.config import settings
 from src.infrastructure.telemetry import init_tracing
 from dotenv import load_dotenv
 from loguru import logger
+from starlette.middleware.sessions import SessionMiddleware
 
 # from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 import logfire
@@ -161,7 +162,11 @@ async def get_health() -> dict:
     return {"message": "Everything is healthy!"}
 
 
-# FastAPIInstrumentor.instrument_app(api)
+api.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret
+)
+
 logfire.instrument_fastapi(api)
 
 app = CORSMiddleware(
