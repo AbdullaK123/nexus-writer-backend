@@ -143,6 +143,16 @@ class AuthService:
         if account is not None:
             return account
         else:
+
+            user = await self._user_repo.get_by_email(email)
+
+            if user is not None:
+                return await self._user_repo.create_oauth(
+                    user_id=user.id,
+                    provider=provider,
+                    provider_user_id=provider_user_id
+                )
+
             async with self._user_repo.pool.acquire() as conn:
                 async with conn.transaction():
                     user = await self._user_repo.create(

@@ -117,9 +117,10 @@ class UserRepository:
 
         sql = """
         SELECT
+            id,
             user_id,
             provider,
-            provider_user_id,
+            provider_user_id
         FROM "oauth_accounts"
         WHERE provider=$1 AND provider_user_id=$2
         """
