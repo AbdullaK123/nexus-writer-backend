@@ -41,9 +41,40 @@ async def google_login(request: StarletteRequest):
     )
 
 @user_controller.get("/google/callback")
-async def google_callback(request: StarletteRequest) -> OAuthUserResponse:
+async def google_callback(
+    request: StarletteRequest,
+    response: Response,
+    auth_service: AuthService = Depends(get_auth_service)
+) -> OAuthUserResponse:
     token = await oauth.google.authorize_access_token(request)
     userinfo = token['userinfo']
+
+    account = await auth_service.get_or_create_oauth_account(
+        provider="google",
+        provider_user_id=userinfo['sub'],
+        email=userinfo['email'],
+        name=userinfo['name']
+    )
+
+    connection_details = ConnectionDetails(
+         ip_address=request.headers.get("X-Real-IP"),
+         user_agent=request.headers.get("User-Agent"),
+    )
+
+    session_id = await auth_service.create_session(
+        user_id=account.user_id,
+        connection_details=connection_details
+    )
+
+    response.set_cookie(
+        key="session_id",
+        value=session_id,
+        max_age=app_config.auth.cookie_max_age_seconds,
+        httponly=True,
+        samesite="lax",
+        secure=(settings.env == "prod"),
+    )
+
     return OAuthUserResponse(
         provider_id=userinfo['sub'],
         email=userinfo['email'],

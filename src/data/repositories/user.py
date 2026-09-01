@@ -1,11 +1,12 @@
 """UserRepository — raw asyncpg + SQL. Returns Pydantic UserRow."""
 
 from __future__ import annotations
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import asyncpg
 import json
 from src.data.schemas import UserRow
+from src.data.schemas.auth import OAuthUserRow
 from src.data.schemas.enums import generate_uuid
 
 
@@ -14,10 +15,18 @@ _USER_COLUMNS = """
     created_at, updated_at
 """
 
+Executor = Any
 
 class UserRepository:
     def __init__(self, pool: asyncpg.Pool):
         self._pool = pool
+
+    @property
+    def pool(self) -> asyncpg.Pool:
+        return self._pool
+
+    def _exe(self, executor: Executor) -> Executor:
+        return executor if executor is not None else self._pool
 
     async def get_by_id(self, user_id: str) -> UserRow | None:
         sql = f'SELECT {_USER_COLUMNS} FROM "user" WHERE id = $1'
@@ -51,8 +60,9 @@ class UserRepository:
         *,
         username: str,
         email: str,
-        password_hash: str,
+        password_hash: str | None,
         profile_img: str | None,
+        executor: Executor | None = None
     ) -> UserRow:
         sql = f"""
             INSERT INTO "user"
@@ -61,17 +71,65 @@ class UserRepository:
             VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
             RETURNING {_USER_COLUMNS}
         """
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                sql,
-                generate_uuid(),
-                username,
-                email,
-                password_hash,
-                profile_img,
-            )
+        row = await self._exe(executor).fetchrow(
+            sql,
+            generate_uuid(),
+            username,
+            email,
+            password_hash,
+            profile_img,
+        )
         assert row is not None
         return UserRow.model_validate(dict(row))
+    
+
+    async def create_oauth(
+        self,
+        *,
+        user_id: str,
+        provider: str,
+        provider_user_id: str,
+        executor: Executor | None = None
+    ) -> OAuthUserRow:
+
+        sql = """
+        INSERT INTO "oauth_accounts"
+            (id, user_id, provider, provider_user_id)
+        VALUES ($1, $2, $3, $4)
+        RETURNING *
+        """
+        row = await self._exe(executor).fetchrow(
+            sql,
+            generate_uuid(),
+            user_id,
+            provider,
+            provider_user_id
+        )
+        assert row is not None
+        return OAuthUserRow.model_validate(dict(row))
+
+    async def get_oauth_account(
+        self,
+        *,
+        provider: str,
+        provider_user_id: str
+    ) -> OAuthUserRow | None:
+
+        sql = """
+        SELECT
+            user_id,
+            provider,
+            provider_user_id,
+        FROM "oauth_accounts"
+        WHERE provider=$1 AND provider_user_id=$2
+        """
+
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(sql, provider, provider_user_id)
+
+        return OAuthUserRow.model_validate(dict(row)) if row is not None else None
+
+
 
     async def get_dashboard(self, *, user_id: str) -> Tuple[dict, list[dict]]:
         async with self._pool.acquire() as conn:

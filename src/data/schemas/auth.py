@@ -50,11 +50,21 @@ class UserRow(BaseModel):
     id: str
     username: str
     email: str
-    password_hash: str
+    password_hash: Optional[str]
     settings: dict
     profile_img: Optional[str]
     created_at: datetime
     updated_at: datetime
+
+class OAuthUserRow(BaseModel):
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    provider: str
+    provider_user_id: str
+
 
 
 class SessionRow(BaseModel):
