@@ -47,12 +47,12 @@ class AuthService:
 
         password_hash = (
             user.password_hash
-            if user is not None
+            if user is not None and user.password_hash is not None
             else self.DUMMY_HASH
         )
         password_valid = verify_password(credentials.password, password_hash)
 
-        if user is None or not password_valid:
+        if user is None or user.password_hash is None or not password_valid:
             logger.warning(
                 "auth.login_failed.invalid_credentials",
                 email=credentials.email,
