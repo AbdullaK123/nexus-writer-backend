@@ -134,9 +134,10 @@ class AuthService:
         email: str,
         name: str
     ) -> OAuthUserRow:
+        canonical_email = email.strip().casefold()
         lock_keys = sorted((
             f"oauth:account:{provider}:{provider_user_id}",
-            f"oauth:email:{email.strip().casefold()}",
+            f"oauth:email:{canonical_email}",
         ))
 
         async with self._user_repo.pool.acquire() as conn:
@@ -156,13 +157,13 @@ class AuthService:
                     return account
 
                 user = await self._user_repo.get_by_email(
-                    email,
+                    canonical_email,
                     executor=conn,
                 )
                 if user is None:
                     user = await self._user_repo.create(
                         username=name,
-                        email=email,
+                        email=canonical_email,
                         password_hash=None,
                         profile_img=None,
                         executor=conn,
