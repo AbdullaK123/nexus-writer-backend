@@ -72,6 +72,7 @@ class AuthConfig(BaseModel, frozen=True):
     password_pattern: str = r'^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};:\x27"\\|,.<>/?]).{8,}$'
     session_ttl_days: int = 1
     cookie_max_age_seconds: int = 86400
+    oauth_redirect_url: str = "http://localhost:5173/dashboard"
 
 
 class HttpConfig(BaseModel, frozen=True):
