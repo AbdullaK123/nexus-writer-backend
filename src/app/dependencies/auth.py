@@ -12,16 +12,20 @@ async def get_current_user(
     session_id: str | None = Cookie(default=None),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> UserRow:
+    
     if session_id is None:
         raise AuthError()
 
     user = await auth_service.validate_session(session_id)
+
     try:
         request.state.user_id = user.id
     except Exception:
         pass
+
     try:
         set_user_id(user.id)
     except Exception:
         pass
+
     return user

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, Response, Depends, Cookie
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from src.data.schemas.auth import (
     DashboardResponse,
     OAuthUserResponse,
@@ -45,8 +45,10 @@ async def google_callback(
     request: StarletteRequest,
     response: Response,
     auth_service: AuthService = Depends(get_auth_service)
-) -> OAuthUserResponse:
+) -> RedirectResponse:
+    
     token = await oauth.google.authorize_access_token(request)
+    
     userinfo = token['userinfo']
 
     account = await auth_service.get_or_create_oauth_account(
@@ -75,12 +77,7 @@ async def google_callback(
         secure=(settings.env == "prod"),
     )
 
-    return OAuthUserResponse(
-        provider_id=userinfo['sub'],
-        email=userinfo['email'],
-        name=userinfo.get('name')
-    )
-
+    return RedirectResponse(url=app_config.auth.oauth_redirect_url)
 
 @user_controller.post("/register", response_model=UserResponse)
 async def register_user(
