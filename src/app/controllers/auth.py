@@ -43,12 +43,9 @@ async def google_login(request: StarletteRequest):
 @user_controller.get("/google/callback")
 async def google_callback(
     request: StarletteRequest,
-    response: Response,
     auth_service: AuthService = Depends(get_auth_service)
-) -> RedirectResponse:
-    
+):
     token = await oauth.google.authorize_access_token(request)
-    
     userinfo = token['userinfo']
 
     account = await auth_service.get_or_create_oauth_account(
@@ -59,8 +56,8 @@ async def google_callback(
     )
 
     connection_details = ConnectionDetails(
-         ip_address=request.headers.get("X-Real-IP"),
-         user_agent=request.headers.get("User-Agent"),
+        ip_address=request.headers.get("X-Real-IP"),
+        user_agent=request.headers.get("User-Agent"),
     )
 
     session_id = await auth_service.create_session(
@@ -68,7 +65,8 @@ async def google_callback(
         connection_details=connection_details
     )
 
-    response.set_cookie(
+    redirect = RedirectResponse(url=app_config.auth.oauth_redirect_url)
+    redirect.set_cookie(
         key="session_id",
         value=session_id,
         max_age=app_config.auth.cookie_max_age_seconds,
@@ -76,8 +74,8 @@ async def google_callback(
         samesite="lax",
         secure=(settings.env == "prod"),
     )
+    return redirect
 
-    return RedirectResponse(url=app_config.auth.oauth_redirect_url)
 
 @user_controller.post("/register", response_model=UserResponse)
 async def register_user(
