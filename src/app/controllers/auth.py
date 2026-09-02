@@ -2,7 +2,6 @@ from fastapi import APIRouter, Request, Response, Depends, Cookie
 from fastapi.responses import RedirectResponse, StreamingResponse
 from src.data.schemas.auth import (
     DashboardResponse,
-    OAuthUserResponse,
     SettingsPayload,
     StoryNavigationResponse,
     UserNavigationResponse,
