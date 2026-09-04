@@ -4,7 +4,7 @@ from loguru import logger
 import json
 from src.data.repositories.auth_tokens import AuthTokenRepository
 from src.data.schemas.chapter import ChapterListItem
-from src.infrastructure.config import config as app_config
+from src.infrastructure.config import config as app_config, settings as app_settings
 from src.data.repositories import UserRepository, SessionRepository
 from src.data.schemas import UserRow
 from src.data.schemas.auth import (
@@ -31,6 +31,9 @@ from src.shared.utils.correlation import set_user_id
 import asyncpg
 import resend
 from resend.exceptions import ResendError
+
+
+resend.api_key = app_settings.resend_api_key
 
 
 class AuthService:
