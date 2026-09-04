@@ -1,9 +1,12 @@
 import asyncio
 import re
+from typing import AsyncIterator
 
 import asyncpg
 from httpx import AsyncClient
 import pytest
+import pytest_asyncio
+from yoyo import get_backend, read_migrations
 
 from main import api
 from src.app.dependencies import get_auth_service
@@ -18,6 +21,33 @@ OLD_PASSWORD = "Original1!Password"
 NEW_PASSWORD = "Replacement2!Password"
 RACE_PASSWORD_A = "CandidateA3!Password"
 RACE_PASSWORD_B = "CandidateB4!Password"
+
+
+@pytest.fixture(scope="session")
+def auth_recovery_schema(postgres_url: str) -> None:
+    """Ensure app-level auth integration tests have the real migrated schema.
+
+    The root test pool uses a fresh Testcontainers database locally, while the CI
+    workflow also applies migrations before pytest. Yoyo is idempotent, so this
+    fixture makes the tests self-contained in both environments.
+    """
+    backend = get_backend(postgres_url)
+    migrations = read_migrations("migrations/yoyo")
+    with backend.lock():
+        backend.apply_migrations(backend.to_apply(migrations))
+
+
+@pytest_asyncio.fixture
+async def clean_auth_db(
+    auth_recovery_schema: None,
+    db_pool: asyncpg.Pool,
+) -> AsyncIterator[asyncpg.Pool]:
+    try:
+        yield db_pool
+    finally:
+        # Every auth-owned row cascades from user. Keep these integration tests
+        # isolated without importing a sibling conftest fixture.
+        await db_pool.execute('TRUNCATE "user" CASCADE')
 
 
 def build_service(pool: asyncpg.Pool) -> AuthService:
@@ -47,10 +77,10 @@ async def install_real_auth_service(pool: asyncpg.Pool) -> AuthService:
 
 async def test_complete_registration_verification_and_password_recovery_flow(
     app_client: AsyncClient,
-    clean_db: asyncpg.Pool,
+    clean_auth_db: asyncpg.Pool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    await install_real_auth_service(clean_db)
+    await install_real_auth_service(clean_auth_db)
     sent_emails: list[dict] = []
 
     async def capture_email(payload: dict) -> dict:
@@ -69,7 +99,7 @@ async def test_complete_registration_verification_and_password_recovery_flow(
     )
     assert register.status_code == 200
     user_id = register.json()["id"]
-    assert await clean_db.fetchval(
+    assert await clean_auth_db.fetchval(
         'SELECT email_verified FROM "user" WHERE id=$1', user_id
     ) is False
     assert len(sent_emails) == 1
@@ -85,7 +115,7 @@ async def test_complete_registration_verification_and_password_recovery_flow(
     )
     assert verify.status_code in (302, 307)
     assert verify.headers["location"].endswith("/email-verified")
-    assert await clean_db.fetchval(
+    assert await clean_auth_db.fetchval(
         'SELECT email_verified FROM "user" WHERE id=$1', user_id
     ) is True
 
@@ -99,7 +129,7 @@ async def test_complete_registration_verification_and_password_recovery_flow(
     )
     assert first_login.status_code == 200
     assert second_login.status_code == 200
-    assert await clean_db.fetchval(
+    assert await clean_auth_db.fetchval(
         'SELECT COUNT(*) FROM "session" WHERE user_id=$1', user_id
     ) == 2
 
@@ -119,7 +149,7 @@ async def test_complete_registration_verification_and_password_recovery_flow(
         json={"token": reset_token, "new_password": NEW_PASSWORD},
     )
     assert reset.status_code == 200
-    assert await clean_db.fetchval(
+    assert await clean_auth_db.fetchval(
         'SELECT COUNT(*) FROM "session" WHERE user_id=$1', user_id
     ) == 0, "successful password recovery must revoke every pre-reset session"
 
@@ -143,17 +173,17 @@ async def test_complete_registration_verification_and_password_recovery_flow(
 
 async def test_http_concurrent_password_reset_has_exactly_one_credential_winner(
     app_client: AsyncClient,
-    clean_db: asyncpg.Pool,
+    clean_auth_db: asyncpg.Pool,
 ) -> None:
-    await install_real_auth_service(clean_db)
-    user = await UserRepository(clean_db).create(
+    await install_real_auth_service(clean_auth_db)
+    user = await UserRepository(clean_auth_db).create(
         username="http-reset-race",
         email="http-reset-race@example.com",
         password_hash=hash_password(OLD_PASSWORD),
         profile_img=None,
         verified=True,
     )
-    token = await AuthTokenRepository(clean_db).create(
+    token = await AuthTokenRepository(clean_auth_db).create(
         user_id=user.id,
         purpose="password_reset",
     )
