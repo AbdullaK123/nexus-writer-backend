@@ -81,7 +81,7 @@ OAuth account creation/linking is also concurrency-controlled: callbacks seriali
 - **PostgreSQL 18** via `pgvector/pgvector:pg18`
 - **asyncpg** for application queries
 - **yoyo-migrations** for schema migrations
-- **Redis** for sessions/coordination/pub-sub support
+- **Redis** for queues, coordination, and pub/sub notifications
 - **SAQ** for background jobs
 - **OpenAI / OpenRouter** for model access
 - **Pydantic AI** + `pydantic-ai-harness` for the story agent/evals
