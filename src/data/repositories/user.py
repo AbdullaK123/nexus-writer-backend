@@ -53,7 +53,7 @@ class UserRepository:
         sql = """
         UPDATE "user"
         SET email_verified = True
-        WHERE user_id = $1 
+        WHERE id = $1
         AND email_verified = False;
         """
         await self._exe(executor).execute(sql, user_id)
@@ -250,8 +250,8 @@ class UserRepository:
             ARRAY_POSITION(s.path_array, c.id) AS chapter_number,
             CONCAT(
                 s.title, 
-                ' - ', 
-                'Chapter ', 
+                ' - ',
+                'Chapter ',
                 ARRAY_POSITION(s.path_array, c.id)::TEXT,
                 ' ( ',
                 c.title,
