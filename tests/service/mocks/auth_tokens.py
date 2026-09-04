@@ -36,6 +36,15 @@ class FakeAuthTokenRepository:
             return None
         return row
 
+    async def consume(self, *, token: str, purpose: Purpose, executor=None) -> AuthTokenRow | None:
+        if self.error:
+            raise self.error
+        row = self._tokens.get(token)
+        if row is None or row.purpose != purpose:
+            return None
+        del self._tokens[token]
+        return row
+
     async def delete(
         self,
         *,

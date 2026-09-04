@@ -8,6 +8,8 @@ from src.infrastructure.config.settings import config as app_config
 from datetime import datetime, timezone as tz, timedelta
 
 Executor = Any
+Purpose = Literal['email_verification', 'password_reset']
+
 
 class AuthTokenRepository:
 
@@ -21,72 +23,90 @@ class AuthTokenRepository:
     def _exe(self, executor: Executor | None) -> Executor:
         return executor if executor is not None else self._pool
 
+    @staticmethod
+    def _hash(token: str) -> str:
+        return hashlib.sha256(token.encode()).hexdigest()
 
     async def delete(
         self,
         *,
         user_id: str,
         token: str,
-        purpose: Literal['email_verification', 'password_reset'],
+        purpose: Purpose,
         executor: Executor | None = None
     ) -> None:
         sql = """
-        DELETE FROM "auth_tokens" 
+        DELETE FROM "auth_tokens"
         WHERE user_id = $1 AND token_hash = $2 AND purpose = $3
         """
         await self._exe(executor).execute(
             sql,
             user_id,
-            hashlib.sha256(token.encode()).hexdigest(),
+            self._hash(token),
             purpose
         )
-
 
     async def get(
         self,
         *,
         token: str,
-        purpose: Literal['email_verification', 'password_reset'],
+        purpose: Purpose,
         executor: Executor | None = None
     ) -> AuthTokenRow | None:
-
         sql = """
         SELECT *
         FROM "auth_tokens"
         WHERE token_hash = $1 AND purpose = $2
         """
-
         row = await self._exe(executor).fetchrow(
             sql,
-            hashlib.sha256(token.encode()).hexdigest(),
+            self._hash(token),
             purpose
         )
-
         return AuthTokenRow.model_validate(dict(row)) if row is not None else None
 
+    async def consume(
+        self,
+        *,
+        token: str,
+        purpose: Purpose,
+        executor: Executor | None = None,
+    ) -> AuthTokenRow | None:
+        """Atomically claim a bearer token exactly once.
+
+        DELETE ... RETURNING makes token ownership a database decision. Concurrent
+        callers presenting the same token cannot both observe it as valid.
+        """
+        sql = """
+        DELETE FROM "auth_tokens"
+        WHERE token_hash = $1 AND purpose = $2
+        RETURNING *
+        """
+        row = await self._exe(executor).fetchrow(
+            sql,
+            self._hash(token),
+            purpose,
+        )
+        return AuthTokenRow.model_validate(dict(row)) if row is not None else None
 
     async def create(
         self,
         *,
         user_id: str,
-        purpose: Literal['email_verification', 'password_reset'],
+        purpose: Purpose,
         executor: Executor | None = None
     ) -> str:
-
         token = secrets.token_urlsafe(32)
-
         sql = """
         INSERT INTO "auth_tokens" (id, user_id, token_hash, purpose, expires_at)
         VALUES ($1, $2, $3, $4, $5)
         """
-
         await self._exe(executor).execute(
             sql,
             generate_uuid(),
             user_id,
-            hashlib.sha256(token.encode()).hexdigest(),
+            self._hash(token),
             purpose,
             datetime.now(tz.utc) + timedelta(minutes=app_config.auth.auth_token_ttl_mins)
         )
-
         return token

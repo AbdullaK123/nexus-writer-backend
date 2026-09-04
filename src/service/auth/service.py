@@ -32,6 +32,7 @@ import asyncpg
 import resend
 from resend.exceptions import ResendError
 
+
 class AuthService:
     DUMMY_HASH = hash_password("password")
 
@@ -375,40 +376,35 @@ class AuthService:
         token: str,
         new_password: str
     ) -> None:
+        new_password_hash = hash_password(new_password)
+        token_row = None
+        expired = False
 
-        token_row = await self._auth_token_repo.get(
-            token=token, 
-            purpose='password_reset'
-        )
-        
-        if token_row is None:
-            raise AuthError("Invalid verification token.")
-        
-        if token_row.expires_at < datetime.now(timezone.utc):
-            await self._auth_token_repo.delete(
-                user_id=token_row.user_id,
-                token=token,
-                purpose='password_reset'
-            )
-            raise AuthError("Token has expired.")
-        
         async with self._user_repo.pool.acquire() as conn:
             async with conn.transaction():
-                await self._user_repo.update_password(
-                    token_row.user_id,
-                    hash_password(new_password),
-                    executor=conn,
-                )
-                await self._auth_token_repo.delete(
-                    user_id=token_row.user_id,
+                token_row = await self._auth_token_repo.consume(
                     token=token,
                     purpose='password_reset',
                     executor=conn,
                 )
-                await self._session_repo.delete_all(
-                    token_row.user_id,
-                    executor=conn,
-                )
+
+                if token_row is not None:
+                    expired = token_row.expires_at < datetime.now(timezone.utc)
+                    if not expired:
+                        await self._user_repo.update_password(
+                            token_row.user_id,
+                            new_password_hash,
+                            executor=conn,
+                        )
+                        await self._session_repo.delete_all(
+                            token_row.user_id,
+                            executor=conn,
+                        )
+
+        if token_row is None:
+            raise AuthError("Invalid or already used password reset token.")
+        if expired:
+            raise AuthError("Token has expired.")
 
     @handle_service_errors
     async def send_verification_email(
@@ -443,32 +439,26 @@ class AuthService:
         self,
         token: str
     ) -> None:
-
-        token_row = await self._auth_token_repo.get(
-            token=token, 
-            purpose='email_verification'
-        )
-
-        if token_row is None:
-            raise AuthError("Invalid verification token.")
-
-        if token_row.expires_at < datetime.now(timezone.utc):
-            await self._auth_token_repo.delete(
-                user_id=token_row.user_id,
-                token=token,
-                purpose='email_verification'
-            )
-            raise AuthError("Token has expired.")
+        token_row = None
+        expired = False
 
         async with self._user_repo.pool.acquire() as conn:
             async with conn.transaction():
-                await self._user_repo.verify_user(
-                    token_row.user_id,
-                    executor=conn,
-                )
-                await self._auth_token_repo.delete(
-                    user_id=token_row.user_id,
+                token_row = await self._auth_token_repo.consume(
                     token=token,
                     purpose='email_verification',
                     executor=conn,
                 )
+
+                if token_row is not None:
+                    expired = token_row.expires_at < datetime.now(timezone.utc)
+                    if not expired:
+                        await self._user_repo.verify_user(
+                            token_row.user_id,
+                            executor=conn,
+                        )
+
+        if token_row is None:
+            raise AuthError("Invalid or already used verification token.")
+        if expired:
+            raise AuthError("Token has expired.")
