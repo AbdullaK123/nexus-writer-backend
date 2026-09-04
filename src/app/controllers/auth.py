@@ -16,6 +16,7 @@ from src.data.schemas import UserRow
 from src.app.dependencies import get_current_user, get_auth_service
 from src.infrastructure.config import settings, config as app_config
 from src.service.auth import AuthService
+from src.shared.text_types import AuthTokenInput
 from authlib.integrations.starlette_client import OAuth
 from starlette.requests import Request as StarletteRequest
 
@@ -25,25 +26,20 @@ user_controller = APIRouter(prefix="/auth")
 
 oauth = OAuth()
 
-
-
 oauth.register(
     name="google",
     client_id=settings.client_id,
     client_secret=settings.client_secret,
     server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-    client_kwargs={
-        "scope": "openid email profile"
-    }
+    client_kwargs={"scope": "openid email profile"}
 )
+
 
 @user_controller.get("/google/login")
 async def google_login(request: StarletteRequest):
     redirect_uri = request.url_for("google_callback")
-    return await oauth.google.authorize_redirect(
-        request,
-        redirect_uri
-    )
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
 
 @user_controller.get("/google/callback")
 async def google_callback(
@@ -64,7 +60,6 @@ async def google_callback(
         ip_address=request.headers.get("X-Real-IP"),
         user_agent=request.headers.get("User-Agent"),
     )
-
     session_id = await auth_service.create_session(
         user_id=account.user_id,
         connection_details=connection_details
@@ -81,6 +76,7 @@ async def google_callback(
     )
     return redirect
 
+
 @user_controller.post("/tokens/verify-email")
 async def request_verification_email(
     user: UserRow = Depends(get_current_user),
@@ -88,6 +84,7 @@ async def request_verification_email(
 ) -> dict[str, str]:
     await auth_service.send_verification_email(user.id)
     return {"message": "Verification email sent"}
+
 
 @user_controller.post("/tokens/forgot-password")
 async def forgot_password(
@@ -97,6 +94,7 @@ async def forgot_password(
     await auth_service.send_password_reset_email(payload.email)
     return {"message": "Password reset email sent"}
 
+
 @user_controller.post("/tokens/reset-password")
 async def reset_password(
     payload: ResetPasswordRequest,
@@ -105,16 +103,22 @@ async def reset_password(
     await auth_service.reset_password(payload.token, payload.new_password)
     return {"message": "Password reset"}
 
+
 @user_controller.get("/tokens/verify")
 async def verify_token(
-    token: str,
+    token: AuthTokenInput,
     auth_service: AuthService = Depends(get_auth_service),
 ):
     try:
         await auth_service.verify_email(token)
-        return RedirectResponse(url=f"{app_config.auth.frontend_base_url}/email-verified")
-    except (AuthError, Exception):
-        return RedirectResponse(url=f"{app_config.auth.frontend_base_url}/email-verified?error=invalid")
+    except AuthError:
+        return RedirectResponse(
+            url=f"{app_config.auth.frontend_base_url}/email-verified?error=invalid"
+        )
+
+    return RedirectResponse(
+        url=f"{app_config.auth.frontend_base_url}/email-verified"
+    )
 
 
 @user_controller.post("/register", response_model=UserResponse)
@@ -140,7 +144,6 @@ async def login_user(
     user_response, session_id = await auth_service.login_user(
         credentials, connection_details
     )
-
     response.set_cookie(
         key="session_id",
         value=session_id,
@@ -190,11 +193,12 @@ async def get_notifications(
     return StreamingResponse(
         auth_service.stream_notifications(current_user.id),
         media_type="text/event-stream",
-         headers={
+        headers={
             "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",  # disable nginx proxy buffering
+            "X-Accel-Buffering": "no",
         },
     )
+
 
 @user_controller.get("/me/links/editor")
 async def get_editor_links(
@@ -204,6 +208,7 @@ async def get_editor_links(
 ) -> UserNavigationResponse:
     return await auth_service.get_editor_links(current_user.id)
 
+
 @user_controller.get("/me/links/chat")
 async def get_chat_links(
     request: Request,
@@ -211,6 +216,7 @@ async def get_chat_links(
     auth_service: AuthService = Depends(get_auth_service)
 ) -> StoryNavigationResponse:
     return await auth_service.get_chat_links(current_user.id)
+
 
 @user_controller.patch("/me/settings")
 async def update_settings(

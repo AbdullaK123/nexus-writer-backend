@@ -33,6 +33,7 @@ def app_user() -> UserRow:
         profile_img=None,
         created_at=now,
         updated_at=now,
+        email_verified=True,
     )
 
 

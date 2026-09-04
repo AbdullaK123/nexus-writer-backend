@@ -6,7 +6,7 @@ import re
 from src.data.schemas._base import ApiModel
 from src.data.schemas.chapter import ChapterListItem
 from src.infrastructure.config import config
-from src.shared.text_types import PasswordInput, UserAgent, Username
+from src.shared.text_types import AuthTokenInput, PasswordInput, UserAgent, Username
 
 
 class ForgottenPasswordRequest(ApiModel):
@@ -14,7 +14,7 @@ class ForgottenPasswordRequest(ApiModel):
 
 
 class ResetPasswordRequest(ApiModel):
-    token: str
+    token: AuthTokenInput
     new_password: PasswordInput
 
 
@@ -66,15 +66,14 @@ class UserRow(BaseModel):
     updated_at: datetime
     email_verified: bool
 
-class OAuthUserRow(BaseModel):
 
+class OAuthUserRow(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     user_id: str
     provider: str
     provider_user_id: str
-
 
 
 class SessionRow(BaseModel):
@@ -100,11 +99,13 @@ class DashboardResponse(ApiModel):
     streak_days: Optional[int] = Field(default=0)
     jump_back_in: Optional[List[ChapterListItem]] = []
 
+
 class Notification(BaseModel):
     kind: Literal["scenes_extracted", "analysis_ready", "comments_ready", "job_failed"]
     story_id: str
     chapter_id: str
     message: str
+
 
 class UserNavigationRow(ApiModel):
     chapter_id: str
@@ -112,12 +113,15 @@ class UserNavigationRow(ApiModel):
     chapter_number: int
     label: str
 
+
 class StoryNavigationRow(ApiModel):
     story_id: str
     title: str
 
+
 class UserNavigationResponse(ApiModel):
     links: List[UserNavigationRow]
+
 
 class StoryNavigationResponse(ApiModel):
     links: List[StoryNavigationRow]
@@ -134,6 +138,7 @@ class EditorSettings(BaseModel):
     line_height: float = 1.7
     content_width: int = 760
     spellcheck: bool = True
+
 
 class NotificationSettings(BaseModel):
     analysis_ready: bool = True
@@ -155,6 +160,7 @@ class NotificationSettingsPayload(ApiModel):
     kind: Literal["notifications"]
     notifications: NotificationSettings
 
+
 SettingsPayload = Annotated[
     AppearanceSettingsPayload
     | EditorSettingsPayload
@@ -167,17 +173,15 @@ class UserSettings(BaseModel):
     appearance: AppearanceSettings = Field(
         default_factory=lambda: AppearanceSettings()
     )
-    editor: EditorSettings = Field(
-        default_factory=EditorSettings
-    )
-    notifications: NotificationSettings = Field(
-        default_factory=NotificationSettings
-    )
+    editor: EditorSettings = Field(default_factory=EditorSettings)
+    notifications: NotificationSettings = Field(default_factory=NotificationSettings)
+
 
 class OAuthUserResponse(ApiModel):
     provider_id: str
     email: str
     name: str
+
 
 class UserResponse(ApiModel):
     id: str
@@ -187,24 +191,18 @@ class UserResponse(ApiModel):
     settings: UserSettings
 
     @classmethod
-    def from_user_row(
-        cls,
-        user: UserRow
-    ) -> "UserResponse":
-
+    def from_user_row(cls, user: UserRow) -> "UserResponse":
         settings = UserSettings.model_validate(user.settings)
-
         return cls(
             id=user.id,
             username=user.username,
             email=user.email,
             profile_img=user.profile_img,
-            settings = settings
+            settings=settings,
         )
 
 
 class AuthTokenRow(BaseModel):
-
     model_config = ConfigDict(from_attributes=True)
 
     id: str

@@ -10,6 +10,7 @@ from pydantic import BeforeValidator, Field
 __all__ = [
     "Username",
     "PasswordInput",
+    "AuthTokenInput",
     "StoryTitle",
     "ChapterTitle",
     "ThreadTitle",
@@ -27,12 +28,9 @@ __all__ = [
     "UserAgent",
 ]
 
-# ---------------------------------------------------------------------------
-# Limits
-# ---------------------------------------------------------------------------
-
 USERNAME_MAX: Final = 100
 PASSWORD_MAX: Final = 128
+AUTH_TOKEN_MAX: Final = 256
 TITLE_MAX: Final = 255
 SEARCH_QUERY_MAX: Final = 500
 CHAT_MESSAGE_MAX: Final = 20_000
@@ -46,50 +44,21 @@ QUESTION_MAX: Final = 1_000
 NOTIFICATION_MESSAGE_MAX: Final = 1_000
 USER_AGENT_MAX: Final = 512
 
-# C0 controls except TAB/LF/CR, plus DEL and the C1 block.
 _STRIPPED_CONTROL_CODEPOINTS: Final[frozenset[int]] = frozenset(
     {cp for cp in range(0x00, 0x20) if cp not in (0x09, 0x0A, 0x0D)}
     | set(range(0x7F, 0xA0))
 )
 
-# Invisible formatting characters that are not useful in identifiers/titles.
-# ZWNJ/ZWJ are intentionally handled separately because they can be
-# linguistically meaningful in prose.
 _INVISIBLE_FORMATTING_CODEPOINTS: Final[frozenset[int]] = frozenset(
-    {
-        0x00AD,  # SOFT HYPHEN
-        0x034F,  # COMBINING GRAPHEME JOINER
-        0x180E,  # MONGOLIAN VOWEL SEPARATOR
-        0x200B,  # ZERO WIDTH SPACE
-        0x2060,  # WORD JOINER
-        0xFEFF,  # ZERO WIDTH NO-BREAK SPACE / BOM
-    }
+    {0x00AD, 0x034F, 0x180E, 0x200B, 0x2060, 0xFEFF}
 )
 
-_JOIN_CONTROL_CODEPOINTS: Final[frozenset[int]] = frozenset(
-    {
-        0x200C,  # ZERO WIDTH NON-JOINER
-        0x200D,  # ZERO WIDTH JOINER
-    }
-)
+_JOIN_CONTROL_CODEPOINTS: Final[frozenset[int]] = frozenset({0x200C, 0x200D})
 
-# Natural RTL text is allowed. Explicit bidi formatting controls are not
-# accepted in strict single-line fields because they can make displayed text
-# differ from logical order.
 _BIDI_CONTROL_CODEPOINTS: Final[frozenset[int]] = frozenset(
     {
-        0x061C,  # ARABIC LETTER MARK
-        0x200E,  # LEFT-TO-RIGHT MARK
-        0x200F,  # RIGHT-TO-LEFT MARK
-        0x202A,  # LEFT-TO-RIGHT EMBEDDING
-        0x202B,  # RIGHT-TO-LEFT EMBEDDING
-        0x202C,  # POP DIRECTIONAL FORMATTING
-        0x202D,  # LEFT-TO-RIGHT OVERRIDE
-        0x202E,  # RIGHT-TO-LEFT OVERRIDE
-        0x2066,  # LEFT-TO-RIGHT ISOLATE
-        0x2067,  # RIGHT-TO-LEFT ISOLATE
-        0x2068,  # FIRST STRONG ISOLATE
-        0x2069,  # POP DIRECTIONAL ISOLATE
+        0x061C, 0x200E, 0x200F, 0x202A, 0x202B, 0x202C, 0x202D, 0x202E,
+        0x2066, 0x2067, 0x2068, 0x2069,
     }
 )
 
@@ -98,11 +67,7 @@ _SINGLE_LINE_TRANSLATION: Final = str.maketrans(
         **{cp: None for cp in _STRIPPED_CONTROL_CODEPOINTS},
         **{cp: None for cp in _INVISIBLE_FORMATTING_CODEPOINTS},
         **{cp: None for cp in _JOIN_CONTROL_CODEPOINTS},
-        0x09: " ",
-        0x0A: " ",
-        0x0D: " ",
-        0x2028: " ",
-        0x2029: " ",
+        0x09: " ", 0x0A: " ", 0x0D: " ", 0x2028: " ", 0x2029: " ",
     }
 )
 
@@ -110,8 +75,7 @@ _MULTILINE_TRANSLATION: Final = str.maketrans(
     {
         **{cp: None for cp in _STRIPPED_CONTROL_CODEPOINTS},
         **{cp: None for cp in _INVISIBLE_FORMATTING_CODEPOINTS},
-        0x2028: "\n",
-        0x2029: "\n",
+        0x2028: "\n", 0x2029: "\n",
     }
 )
 
@@ -125,7 +89,6 @@ def _require_string(value: object) -> str:
 
 
 def _guard_raw_length(value: str, max_length: int) -> None:
-    # Bound work before Unicode normalization and regex processing.
     if len(value) > max_length:
         raise ValueError(f"value must contain at most {max_length} characters")
 
@@ -150,14 +113,11 @@ def _prepare_single_line(
     _guard_raw_length(text, max_length)
     _reject_nul(text)
     _reject_bidi_controls(text)
-
     text = unicodedata.normalize("NFC", text)
     text = text.translate(_SINGLE_LINE_TRANSLATION)
     text = text.strip()
-
     if collapse_whitespace:
         text = _WHITESPACE_RUN.sub(" ", text)
-
     return text
 
 
@@ -171,17 +131,13 @@ def _prepare_multiline(
     text = _require_string(value)
     _guard_raw_length(text, max_length)
     _reject_nul(text)
-
     if reject_bidi_controls:
         _reject_bidi_controls(text)
-
     text = unicodedata.normalize("NFC", text)
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = text.translate(_MULTILINE_TRANSLATION)
-
     if strip_outer_whitespace:
         text = text.strip()
-
     return text
 
 
@@ -223,18 +179,12 @@ def _opaque(max_length: int) -> BeforeValidator:
     return BeforeValidator(partial(_prepare_opaque, max_length=max_length))
 
 
-# ---------------------------------------------------------------------------
-# Authentication / account text
-# ---------------------------------------------------------------------------
-
 Username: TypeAlias = Annotated[
     str,
     _single_line(USERNAME_MAX),
     Field(min_length=1, max_length=USERNAME_MAX),
 ]
 
-# Secrets are deliberately NOT normalized, stripped, case-folded, or
-# whitespace-collapsed. A password must verify exactly as the user supplied it.
 PasswordInput: TypeAlias = Annotated[
     str,
     _opaque(PASSWORD_MAX),
@@ -245,16 +195,19 @@ PasswordInput: TypeAlias = Annotated[
     ),
 ]
 
+# Bearer tokens are opaque credentials. Bound them, reject NUL, and otherwise
+# preserve the exact byte-for-byte string the client supplied.
+AuthTokenInput: TypeAlias = Annotated[
+    str,
+    _opaque(AUTH_TOKEN_MAX),
+    Field(min_length=1, max_length=AUTH_TOKEN_MAX),
+]
+
 UserAgent: TypeAlias = Annotated[
     str,
     _opaque(USER_AGENT_MAX),
     Field(max_length=USER_AGENT_MAX),
 ]
-
-
-# ---------------------------------------------------------------------------
-# User-authored single-line text
-# ---------------------------------------------------------------------------
 
 StoryTitle: TypeAlias = Annotated[
     str,
@@ -314,20 +267,12 @@ NarrativeQuestion: TypeAlias = Annotated[
     Field(min_length=1, max_length=QUESTION_MAX),
 ]
 
-
-# ---------------------------------------------------------------------------
-# User-authored / generated multiline text
-# ---------------------------------------------------------------------------
-
 ChatMessage: TypeAlias = Annotated[
     str,
     _multiline(CHAT_MESSAGE_MAX, strip_outer_whitespace=True),
     Field(min_length=1, max_length=CHAT_MESSAGE_MAX),
 ]
 
-# TipTap HTML. This validates the string container only; it is NOT an HTML
-# sanitizer. Do not collapse whitespace or strip the outer payload because the
-# serialized editor document itself is meaningful data.
 ChapterContent: TypeAlias = Annotated[
     str,
     _multiline(CHAPTER_CONTENT_MAX, strip_outer_whitespace=False),
