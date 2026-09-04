@@ -2,8 +2,9 @@ from datetime import datetime, timedelta, timezone
 from typing import AsyncIterator
 from loguru import logger
 import json
+from src.data.repositories.auth_tokens import AuthTokenRepository
 from src.data.schemas.chapter import ChapterListItem
-from src.infrastructure.config import config
+from src.infrastructure.config import config as app_config, settings as app_settings
 from src.data.repositories import UserRepository, SessionRepository
 from src.data.schemas import UserRow
 from src.data.schemas.auth import (
@@ -23,10 +24,13 @@ from src.data.schemas.auth import (
 from src.infrastructure.auth.password import hash_password, verify_password
 from src.infrastructure.auth.session import generate_session_id
 from src.infrastructure.redis.pubsub import RedisPubSub
-from src.service.exceptions import AuthError, ForbiddenError, ConflictError, NotFoundError
+from src.service.auth.templates.email import RESET_TEMPLATE, VERIFICATION_TEMPLATE
+from src.service.exceptions import AuthError, ForbiddenError, ConflictError, InternalError, NotFoundError
 from src.service.utils.decorators import handle_service_errors, handle_service_errors_stream
 from src.shared.utils.correlation import set_user_id
 import asyncpg
+import resend
+from resend.exceptions import ResendError
 
 class AuthService:
     DUMMY_HASH = hash_password("password")
@@ -35,10 +39,12 @@ class AuthService:
         self,
         user_repo: UserRepository,
         session_repo: SessionRepository,
+        auth_token_repo: AuthTokenRepository,
         pubsub: RedisPubSub
     ):
         self._user_repo = user_repo
         self._session_repo = session_repo
+        self._auth_token_repo = auth_token_repo
         self._pubsub = pubsub
 
     @handle_service_errors
@@ -70,7 +76,7 @@ class AuthService:
     ) -> str:
         session_id = generate_session_id()
         expires_at = datetime.now(timezone.utc) + timedelta(
-            days=config.auth.session_ttl_days
+            days=app_config.auth.session_ttl_days
         )
 
         await self._session_repo.create(
@@ -166,6 +172,7 @@ class AuthService:
                         email=canonical_email,
                         password_hash=None,
                         profile_img=None,
+                        verified=True,
                         executor=conn,
                     )
 
@@ -222,7 +229,7 @@ class AuthService:
                 "A user with that username or email already exists."
             )
         logger.info("auth.user_registered", user_id=str(user.id))
-
+        await self.send_verification_email(user.id)
         return UserResponse.from_user_row(user)
 
     @handle_service_errors
@@ -330,3 +337,138 @@ class AuthService:
             raise NotFoundError("User not found")
 
         return UserResponse.from_user_row(row)
+
+    @handle_service_errors
+    async def send_password_reset_email(
+        self,
+        email: str
+    ) -> None:
+
+        user = await self._user_repo.get_by_email(email)
+
+        if user is None:
+            return
+
+        if not user.email_verified:
+            return
+
+        token = await self._auth_token_repo.create(user_id=user.id, purpose='password_reset')
+
+        reset_url = f"{app_config.auth.frontend_base_url}/reset-password?token={token}"
+
+        try:
+            await resend.Emails.send_async({
+                "from": "noreply@nexuswriter.net",
+                "to": user.email,
+                "subject": "Reset your password",
+                "html": RESET_TEMPLATE.render(
+                    reset_url=reset_url,
+                    expires_in_minutes=app_config.auth.auth_token_ttl_mins,
+                ),
+            })
+        except ResendError as err:
+            raise InternalError(f"Failed to send password reset email: {err.message}")
+
+    @handle_service_errors
+    async def reset_password(
+        self,
+        token: str,
+        new_password: str
+    ) -> None:
+
+        token_row = await self._auth_token_repo.get(
+            token=token, 
+            purpose='password_reset'
+        )
+        
+        if token_row is None:
+            raise AuthError("Invalid verification token.")
+        
+        if token_row.expires_at < datetime.now(timezone.utc):
+            await self._auth_token_repo.delete(
+                user_id=token_row.user_id,
+                token=token,
+                purpose='password_reset'
+            )
+            raise AuthError("Token has expired.")
+        
+        async with self._user_repo.pool.acquire() as conn:
+            async with conn.transaction():
+                await self._user_repo.update_password(
+                    token_row.user_id,
+                    hash_password(new_password),
+                    executor=conn,
+                )
+                await self._auth_token_repo.delete(
+                    user_id=token_row.user_id,
+                    token=token,
+                    purpose='password_reset',
+                    executor=conn,
+                )
+                await self._session_repo.delete_all(
+                    token_row.user_id,
+                    executor=conn,
+                )
+
+    @handle_service_errors
+    async def send_verification_email(
+        self,
+        user_id: str
+    ) -> None:
+        
+        user = await self._user_repo.get_by_id(user_id)
+
+        if user is None:
+            raise NotFoundError("User not found")
+
+        token = await self._auth_token_repo.create(user_id=user.id, purpose='email_verification')
+
+        verification_url = f"{app_config.auth.api_base_url}/api/auth/tokens/verify?token={token}"
+        
+        try:
+            await resend.Emails.send_async({
+                "from": "noreply@nexuswriter.net",
+                "to": user.email,
+                "subject": "Verify your email",
+                "html": VERIFICATION_TEMPLATE.render(
+                    verification_url=verification_url,
+                    expires_in_minutes=app_config.auth.auth_token_ttl_mins
+                )
+            })
+        except ResendError as err:
+            raise InternalError(f"Failed to send verification email: {err.message}")
+
+    @handle_service_errors
+    async def verify_email(
+        self,
+        token: str
+    ) -> None:
+
+        token_row = await self._auth_token_repo.get(
+            token=token, 
+            purpose='email_verification'
+        )
+
+        if token_row is None:
+            raise AuthError("Invalid verification token.")
+
+        if token_row.expires_at < datetime.now(timezone.utc):
+            await self._auth_token_repo.delete(
+                user_id=token_row.user_id,
+                token=token,
+                purpose='email_verification'
+            )
+            raise AuthError("Token has expired.")
+
+        async with self._user_repo.pool.acquire() as conn:
+            async with conn.transaction():
+                await self._user_repo.verify_user(
+                    token_row.user_id,
+                    executor=conn,
+                )
+                await self._auth_token_repo.delete(
+                    user_id=token_row.user_id,
+                    token=token,
+                    purpose='email_verification',
+                    executor=conn,
+                )

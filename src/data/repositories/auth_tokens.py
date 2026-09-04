@@ -25,8 +25,9 @@ class AuthTokenRepository:
     async def delete(
         self,
         *,
-        id: str,
         user_id: str,
+        token: str,
+        purpose: Literal['email_verification', 'password_reset'],
         executor: Executor | None = None
     ) -> None:
         sql = """
@@ -35,15 +36,15 @@ class AuthTokenRepository:
         """
         await self._exe(executor).execute(
             sql,
-            id,
-            user_id
+            user_id,
+            hashlib.sha256(token.encode()).hexdigest(),
+            purpose
         )
 
 
     async def get(
         self,
         *,
-        user_id: str,
         token: str,
         purpose: Literal['email_verification', 'password_reset'],
         executor: Executor | None = None
@@ -52,12 +53,11 @@ class AuthTokenRepository:
         sql = """
         SELECT *
         FROM "auth_tokens"
-        WHERE user_id = $1 AND token_hash = $2 AND purpose = $3
+        WHERE token_hash = $1 AND purpose = $2
         """
 
         row = await self._exe(executor).fetchrow(
             sql,
-            user_id,
             hashlib.sha256(token.encode()).hexdigest(),
             purpose
         )

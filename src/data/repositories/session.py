@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 
 import asyncpg
 
@@ -14,15 +15,27 @@ _SESSION_COLUMNS = """
     created_at, updated_at
 """
 
+Executor = Any
+
 
 class SessionRepository:
     def __init__(self, pool: asyncpg.Pool):
         self._pool = pool
 
-    async def get(self, session_id: str) -> SessionRow | None:
+    @property
+    def pool(self) -> asyncpg.Pool:
+        return self._pool
+
+    def _exe(self, executor: Executor | None) -> Executor:
+        return executor if executor is not None else self._pool
+
+    async def get(
+        self,
+        session_id: str,
+        executor: Executor | None = None,
+    ) -> SessionRow | None:
         sql = f'SELECT {_SESSION_COLUMNS} FROM "session" WHERE session_id = $1'
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(sql, session_id)
+        row = await self._exe(executor).fetchrow(sql, session_id)
         return SessionRow.model_validate(dict(row)) if row else None
 
     async def create(
@@ -33,6 +46,7 @@ class SessionRepository:
         expires_at: datetime,
         ip_address: str | None,
         user_agent: str | None,
+        executor: Executor | None = None,
     ) -> SessionRow:
         sql = f"""
             INSERT INTO "session"
@@ -41,30 +55,39 @@ class SessionRepository:
             VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
             RETURNING {_SESSION_COLUMNS}
         """
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                sql,
-                session_id,
-                user_id,
-                expires_at,
-                ip_address,
-                user_agent,
-            )
+        row = await self._exe(executor).fetchrow(
+            sql,
+            session_id,
+            user_id,
+            expires_at,
+            ip_address,
+            user_agent,
+        )
         assert row is not None
         return SessionRow.model_validate(dict(row))
 
-    async def delete(self, session_id: str) -> bool:
-        """Delete a session. Returns True if a row was actually removed."""
+    async def delete(
+        self,
+        session_id: str,
+        executor: Executor | None = None,
+    ) -> bool:
         sql = 'DELETE FROM "session" WHERE session_id = $1'
-        async with self._pool.acquire() as conn:
-            status = await conn.execute(sql, session_id)
-        # asyncpg returns "DELETE <n>"
+        status = await self._exe(executor).execute(sql, session_id)
         return status.endswith(" 1")
 
-    async def delete_expired(self) -> int:
-        """Delete all sessions with expires_at < now. Returns count removed."""
+    async def delete_all(
+        self,
+        user_id: str,
+        executor: Executor | None = None,
+    ) -> bool:
+        sql = 'DELETE FROM "session" WHERE user_id = $1'
+        status = await self._exe(executor).execute(sql, user_id)
+        return not status.endswith(" 0")
+
+    async def delete_expired(
+        self,
+        executor: Executor | None = None,
+    ) -> int:
         sql = 'DELETE FROM "session" WHERE expires_at < $1'
-        async with self._pool.acquire() as conn:
-            status = await conn.execute(sql, datetime.now(timezone.utc))
-        # "DELETE 7" → 7
+        status = await self._exe(executor).execute(sql, datetime.now(timezone.utc))
         return int(status.split()[-1])

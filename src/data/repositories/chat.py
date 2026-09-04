@@ -1,5 +1,5 @@
 import asyncpg
-from typing import Any, List, Literal, Optional
+from typing import Any, List, Literal, Optional, Union
 from uuid_extensions import uuid7str
 import json
 from src.data.schemas.chat import ChatMessageRow, ChatThreadRow
@@ -111,7 +111,7 @@ class ChatRepository:
 
     async def _append_message_on_connection(
         self,
-        conn: asyncpg.Connection,
+        conn: Union[asyncpg.Connection, asyncpg.pool.PoolConnectionProxy],
         thread_id: str,
         user_id: str,
         kind: Literal["request", "response"],
@@ -190,7 +190,7 @@ class ChatRepository:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 return await self._append_message_on_connection(
-                    conn, # type: ignore
+                    conn, 
                     thread_id,
                     user_id,
                     kind,

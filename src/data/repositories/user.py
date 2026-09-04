@@ -8,10 +8,11 @@ import json
 from src.data.schemas import UserRow
 from src.data.schemas.auth import OAuthUserRow
 from src.data.schemas.enums import generate_uuid
+from src.infrastructure.auth.password import hash_password
 
 
 _USER_COLUMNS = """
-    id, username, email, password_hash, profile_img, settings,
+    id, username, email, password_hash, profile_img, email_verified, settings,
     created_at, updated_at
 """
 
@@ -44,6 +45,34 @@ class UserRepository:
         return UserRow.model_validate(dict(row)) if row else None
 
 
+    async def verify_user(
+        self,
+        user_id: str,
+        executor: Executor | None = None,
+    ) -> None:
+        sql = """
+        UPDATE "user"
+        SET email_verified = True
+        WHERE user_id = $1 
+        AND email_verified = False;
+        """
+        await self._exe(executor).execute(sql, user_id)
+
+
+    async def update_password(
+        self,
+        user_id: str,
+        password_hash: str,
+        executor: Executor | None = None,
+    ) -> None:
+        sql = """
+        UPDATE "user"
+        SET password_hash = $1
+        WHERE id = $2
+        """
+        await self._exe(executor).execute(sql, password_hash, user_id)
+
+
     async def update_settings(self, user_id: str, update: dict) -> UserRow | None:
 
         sql = f"""\
@@ -65,13 +94,14 @@ class UserRepository:
         email: str,
         password_hash: str | None,
         profile_img: str | None,
+        verified: bool = False,
         executor: Executor | None = None
     ) -> UserRow:
         sql = f"""
             INSERT INTO "user"
                 (id, username, email, password_hash, profile_img,
-                 created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+                 created_at, updated_at, email_verified)
+            VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6)
             RETURNING {_USER_COLUMNS}
         """
         row = await self._exe(executor).fetchrow(
@@ -81,6 +111,7 @@ class UserRepository:
             email,
             password_hash,
             profile_img,
+            verified
         )
         assert row is not None
         return UserRow.model_validate(dict(row))

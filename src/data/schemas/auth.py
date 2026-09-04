@@ -55,6 +55,7 @@ class UserRow(BaseModel):
     profile_img: Optional[str]
     created_at: datetime
     updated_at: datetime
+    email_verified: bool
 
 class OAuthUserRow(BaseModel):
 
