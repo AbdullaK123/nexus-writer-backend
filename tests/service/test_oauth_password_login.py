@@ -21,6 +21,7 @@ async def test_oauth_only_account_password_login_is_rejected_without_crashing(
         settings={},
         created_at=now(),
         updated_at=now(),
+        email_verified=True,
     )
     fake_user_repo.seed(oauth_only_user)
 
