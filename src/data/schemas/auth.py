@@ -9,6 +9,15 @@ from src.infrastructure.config import config
 from src.shared.text_types import PasswordInput, UserAgent, Username
 
 
+class ForgottenPasswordRequest(ApiModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(ApiModel):
+    token: str
+    new_password: PasswordInput
+
+
 class RegistrationData(ApiModel):
     username: Username
     email: EmailStr

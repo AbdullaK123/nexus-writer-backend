@@ -4,7 +4,7 @@ import re
 import unicodedata
 from functools import partial
 from typing import Annotated, Final, TypeAlias
-
+from src.infrastructure.config.settings import config as app_config
 from pydantic import BeforeValidator, Field
 
 __all__ = [
@@ -238,7 +238,11 @@ Username: TypeAlias = Annotated[
 PasswordInput: TypeAlias = Annotated[
     str,
     _opaque(PASSWORD_MAX),
-    Field(min_length=8, max_length=PASSWORD_MAX),
+    Field(
+        min_length=8,
+        max_length=PASSWORD_MAX,
+        pattern=app_config.auth.password_pattern,
+    ),
 ]
 
 UserAgent: TypeAlias = Annotated[

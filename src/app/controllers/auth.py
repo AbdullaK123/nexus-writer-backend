@@ -2,6 +2,8 @@ from fastapi import APIRouter, Request, Response, Depends, Cookie
 from fastapi.responses import RedirectResponse, StreamingResponse
 from src.data.schemas.auth import (
     DashboardResponse,
+    ForgottenPasswordRequest,
+    ResetPasswordRequest,
     SettingsPayload,
     StoryNavigationResponse,
     UserNavigationResponse,
@@ -17,9 +19,13 @@ from src.service.auth import AuthService
 from authlib.integrations.starlette_client import OAuth
 from starlette.requests import Request as StarletteRequest
 
+from src.service.exceptions import AuthError
+
 user_controller = APIRouter(prefix="/auth")
 
 oauth = OAuth()
+
+
 
 oauth.register(
     name="google",
@@ -74,6 +80,41 @@ async def google_callback(
         secure=(settings.env == "prod"),
     )
     return redirect
+
+@user_controller.post("/tokens/verify-email")
+async def request_verification_email(
+    user: UserRow = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> dict[str, str]:
+    await auth_service.send_verification_email(user.id)
+    return {"message": "Verification email sent"}
+
+@user_controller.post("/tokens/forgot-password")
+async def forgot_password(
+    payload: ForgottenPasswordRequest,
+    auth_service: AuthService = Depends(get_auth_service)
+) -> dict[str, str]:
+    await auth_service.send_password_reset_email(payload.email)
+    return {"message": "Password reset email sent"}
+
+@user_controller.post("/tokens/reset-password")
+async def reset_password(
+    payload: ResetPasswordRequest,
+    auth_service: AuthService = Depends(get_auth_service)
+) -> dict[str, str]:
+    await auth_service.reset_password(payload.token, payload.new_password)
+    return {"message": "Password reset"}
+
+@user_controller.get("/tokens/verify")
+async def verify_token(
+    token: str,
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    try:
+        await auth_service.verify_email(token)
+        return RedirectResponse(url=f"{app_config.auth.frontend_base_url}/email-verified")
+    except (AuthError, Exception):
+        return RedirectResponse(url=f"{app_config.auth.frontend_base_url}/email-verified?error=invalid")
 
 
 @user_controller.post("/register", response_model=UserResponse)
