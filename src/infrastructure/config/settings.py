@@ -73,6 +73,7 @@ class AuthConfig(BaseModel, frozen=True):
     session_ttl_days: int = 1
     cookie_max_age_seconds: int = 86400
     oauth_redirect_url: str = "http://localhost:5173/dashboard"
+    auth_token_ttl_mins: int = 15
 
 
 class HttpConfig(BaseModel, frozen=True):

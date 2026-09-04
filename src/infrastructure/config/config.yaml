@@ -3,6 +3,7 @@ auth:
   session_ttl_days: 1
   cookie_max_age_seconds: 86400
   oauth_redirect_url: "http://localhost:5173/"
+  auth_token_ttl_mins: 15
 
 http:
   max_body_size_bytes: 10485760  # 10 MB

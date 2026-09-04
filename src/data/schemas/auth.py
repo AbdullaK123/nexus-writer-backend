@@ -191,3 +191,15 @@ class UserResponse(ApiModel):
             profile_img=user.profile_img,
             settings = settings
         )
+
+
+class AuthTokenRow(BaseModel):
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    token_hash: str
+    purpose: Literal['email_verification', 'password_reset']
+    expires_at: datetime
+    created_at: datetime
