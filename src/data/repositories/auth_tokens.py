@@ -72,11 +72,7 @@ class AuthTokenRepository:
         purpose: Purpose,
         executor: Executor | None = None,
     ) -> AuthTokenRow | None:
-        """Atomically claim a bearer token exactly once.
-
-        DELETE ... RETURNING makes token ownership a database decision. Concurrent
-        callers presenting the same token cannot both observe it as valid.
-        """
+        """Atomically claim a bearer token exactly once."""
         sql = """
         DELETE FROM "auth_tokens"
         WHERE token_hash = $1 AND purpose = $2
@@ -96,10 +92,21 @@ class AuthTokenRepository:
         purpose: Purpose,
         executor: Executor | None = None
     ) -> str:
+        """Issue the one active token for this user/purpose.
+
+        Re-issuing replaces the previous bearer credential atomically, so stale links
+        become unusable instead of accumulating until TTL expiry.
+        """
         token = secrets.token_urlsafe(32)
         sql = """
         INSERT INTO "auth_tokens" (id, user_id, token_hash, purpose, expires_at)
         VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (user_id, purpose)
+        DO UPDATE SET
+            id = EXCLUDED.id,
+            token_hash = EXCLUDED.token_hash,
+            expires_at = EXCLUDED.expires_at,
+            created_at = NOW()
         """
         await self._exe(executor).execute(
             sql,

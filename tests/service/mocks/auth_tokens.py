@@ -17,6 +17,14 @@ class FakeAuthTokenRepository:
     async def create(self, *, user_id: str, purpose: Purpose, executor=None) -> str:
         if self.error:
             raise self.error
+        stale = [
+            token
+            for token, row in self._tokens.items()
+            if row.user_id == user_id and row.purpose == purpose
+        ]
+        for token in stale:
+            del self._tokens[token]
+
         token = f"token-{uuid7str()}"
         self._tokens[token] = AuthTokenRow(
             id=uuid7str(),
