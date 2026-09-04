@@ -13,6 +13,7 @@ async def test_concurrent_first_oauth_callbacks_create_one_canonical_account(
         UserRepository(clean_db),
         None,  # type: ignore[arg-type]
         None,  # type: ignore[arg-type]
+        None,  # type: ignore[arg-type]
     )
 
     async def login():
@@ -58,6 +59,7 @@ async def test_concurrent_oauth_identities_for_same_email_link_to_one_user(
         UserRepository(clean_db),
         None,  # type: ignore[arg-type]
         None,  # type: ignore[arg-type]
+        None,  # type: ignore[arg-type]
     )
 
     first, second = await asyncio.gather(
@@ -98,6 +100,7 @@ async def test_concurrent_equivalent_emails_use_one_canonical_user(
 ) -> None:
     service = AuthService(
         UserRepository(clean_db),
+        None,  # type: ignore[arg-type]
         None,  # type: ignore[arg-type]
         None,  # type: ignore[arg-type]
     )

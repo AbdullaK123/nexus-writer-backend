@@ -1,6 +1,7 @@
 from .ai import FakeAIProvider
 from .analytics import FakeAnalyticsRepository
 from .auth import FakeSessionRepository, FakeUserRepository
+from .auth_tokens import FakeAuthTokenRepository
 from .chapter import FakeChapterRepository
 from .chat import FakeChatRepository
 from .chat_agent import FakeChatAgent, FakeChatAgentStream
@@ -13,6 +14,7 @@ from .story import FakeStoryRepository
 __all__ = [
     "FakeAIProvider",
     "FakeAnalyticsRepository",
+    "FakeAuthTokenRepository",
     "FakeChapterRepository",
     "FakeChatAgent",
     "FakeChatAgentStream",

@@ -22,12 +22,12 @@ class FakeUserRepository:
         if user is not None:
             self._by_email.pop(user.email, None)
 
-    async def get_by_id(self, user_id: str) -> UserRow | None:
+    async def get_by_id(self, user_id: str, executor=None) -> UserRow | None:
         if self.error:
             raise self.error
         return self._users.get(user_id)
 
-    async def get_by_email(self, email: str) -> UserRow | None:
+    async def get_by_email(self, email: str, executor=None) -> UserRow | None:
         if self.error:
             raise self.error
         uid = self._by_email.get(email)
@@ -38,8 +38,10 @@ class FakeUserRepository:
         *,
         username: str,
         email: str,
-        password_hash: str,
+        password_hash: str | None,
         profile_img: str | None,
+        verified: bool = False,
+        executor=None,
     ) -> UserRow:
         if self.create_error:
             raise self.create_error
@@ -54,9 +56,20 @@ class FakeUserRepository:
             settings={},
             created_at=now(),
             updated_at=now(),
+            email_verified=verified,
         )
         self.seed(user)
         return user
+
+    async def verify_user(self, user_id: str, executor=None) -> None:
+        user = self._users.get(user_id)
+        if user is not None:
+            self._users[user_id] = user.model_copy(update={"email_verified": True})
+
+    async def update_password(self, user_id: str, password_hash: str, executor=None) -> None:
+        user = self._users.get(user_id)
+        if user is not None:
+            self._users[user_id] = user.model_copy(update={"password_hash": password_hash})
 
     async def update_settings(self, user_id: str, update: dict) -> UserRow | None:
         if self.error:
@@ -94,7 +107,7 @@ class FakeSessionRepository:
     def seed(self, session: SessionRow) -> None:
         self._sessions[session.session_id] = session
 
-    async def get(self, session_id: str) -> SessionRow | None:
+    async def get(self, session_id: str, executor=None) -> SessionRow | None:
         if self.error:
             raise self.error
         return self._sessions.get(session_id)
@@ -107,6 +120,7 @@ class FakeSessionRepository:
         expires_at: datetime,
         ip_address: str | None = None,
         user_agent: str | None = None,
+        executor=None,
     ) -> SessionRow:
         if self.create_error:
             raise self.create_error
@@ -124,12 +138,20 @@ class FakeSessionRepository:
         self.seed(session)
         return session
 
-    async def delete(self, session_id: str) -> bool:
+    async def delete(self, session_id: str, executor=None) -> bool:
         if self.error:
             raise self.error
         return self._sessions.pop(session_id, None) is not None
 
-    async def delete_expired(self) -> int:
+    async def delete_all(self, user_id: str, executor=None) -> bool:
+        if self.error:
+            raise self.error
+        keys = [key for key, value in self._sessions.items() if value.user_id == user_id]
+        for key in keys:
+            del self._sessions[key]
+        return bool(keys)
+
+    async def delete_expired(self, executor=None) -> int:
         if self.error:
             raise self.error
         current = now()
