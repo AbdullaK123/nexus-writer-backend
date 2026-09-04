@@ -12,14 +12,18 @@ from src.service.exceptions import AuthError
 from tests.data.factories import make_user
 
 
-class FailingDeleteAuthTokenRepository(AuthTokenRepository):
-    async def delete(self, **kwargs) -> None:
-        raise RuntimeError("injected token delete failure")
+class FailingVerifyUserRepository(UserRepository):
+    async def verify_user(self, user_id: str, executor=None) -> None:
+        raise RuntimeError("injected verification update failure")
 
 
-def build_service(pool: asyncpg.Pool, token_repo: AuthTokenRepository | None = None) -> AuthService:
+def build_service(
+    pool: asyncpg.Pool,
+    token_repo: AuthTokenRepository | None = None,
+    user_repo: UserRepository | None = None,
+) -> AuthService:
     return AuthService(
-        UserRepository(pool),
+        user_repo or UserRepository(pool),
         SessionRepository(pool),
         token_repo or AuthTokenRepository(pool),
         None,  # type: ignore[arg-type]
@@ -65,6 +69,7 @@ async def test_oauth_created_user_starts_verified(clean_db: asyncpg.Pool) -> Non
         provider_user_id="verified-google-sub",
         email="oauth-verified@example.com",
         name="Verified OAuth User",
+        email_verified=True,
     )
 
     verified = await clean_db.fetchval(
@@ -168,16 +173,19 @@ async def test_verification_and_token_consumption_roll_back_together_on_failure(
     user = await make_user(clean_db)
     normal_repo = AuthTokenRepository(clean_db)
     token = await normal_repo.create(user_id=user.id, purpose="email_verification")
-    service = build_service(clean_db, FailingDeleteAuthTokenRepository(clean_db))
+    service = build_service(
+        clean_db,
+        normal_repo,
+        FailingVerifyUserRepository(clean_db),
+    )
 
-    with pytest.raises(RuntimeError, match="injected token delete failure"):
+    with pytest.raises(RuntimeError, match="injected verification update failure"):
         await service.verify_email(token)
 
     verified = await clean_db.fetchval(
         'SELECT email_verified FROM "user" WHERE id=$1', user.id
     )
-    assert verified is False, (
-        "verification and token consumption must be one transaction; a failure after "
-        "the user update must roll the verification back"
+    assert verified is False
+    assert await normal_repo.get(token=token, purpose="email_verification") is not None, (
+        "the DELETE ... RETURNING token claim must roll back if the verification mutation fails"
     )
-    assert await normal_repo.get(token=token, purpose="email_verification") is not None

@@ -22,6 +22,7 @@ async def test_concurrent_first_oauth_callbacks_create_one_canonical_account(
             provider_user_id="google-sub-race",
             email="oauth-race@example.com",
             name="OAuth Race User",
+            email_verified=True,
         )
 
     results = await asyncio.gather(*(login() for _ in range(8)))
@@ -68,12 +69,14 @@ async def test_concurrent_oauth_identities_for_same_email_link_to_one_user(
             provider_user_id="google-sub-one",
             email="shared-oauth@example.com",
             name="Shared OAuth User",
+            email_verified=True,
         ),
         service.get_or_create_oauth_account(
             provider="github",
             provider_user_id="github-sub-two",
             email="shared-oauth@example.com",
             name="Shared OAuth User",
+            email_verified=True,
         ),
     )
 
@@ -111,12 +114,14 @@ async def test_concurrent_equivalent_emails_use_one_canonical_user(
             provider_user_id="google-sub-case",
             email="  Alice@Example.com  ",
             name="Alice",
+            email_verified=True,
         ),
         service.get_or_create_oauth_account(
             provider="github",
             provider_user_id="github-sub-case",
             email="alice@example.com",
             name="Alice",
+            email_verified=True,
         ),
     )
 

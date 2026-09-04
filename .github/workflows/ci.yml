@@ -17,6 +17,7 @@ jobs:
       CLIENT_ID: fake-client-id
       CLIENT_SECRET: fake-client-secret
       SESSION_SECRET: ci-fake-session-secret
+      RESEND_API_KEY: re_fake_ci_key
 
     services:
       postgres:

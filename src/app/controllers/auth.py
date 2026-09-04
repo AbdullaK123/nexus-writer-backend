@@ -25,7 +25,6 @@ from src.service.exceptions import AuthError
 user_controller = APIRouter(prefix="/auth")
 
 oauth = OAuth()
-
 oauth.register(
     name="google",
     client_id=settings.client_id,
@@ -53,7 +52,8 @@ async def google_callback(
         provider="google",
         provider_user_id=userinfo['sub'],
         email=userinfo['email'],
-        name=userinfo['name']
+        name=userinfo['name'],
+        email_verified=userinfo.get('email_verified') is True,
     )
 
     connection_details = ConnectionDetails(

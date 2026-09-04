@@ -4,7 +4,7 @@ from loguru import logger
 import json
 from src.data.repositories.auth_tokens import AuthTokenRepository
 from src.data.schemas.chapter import ChapterListItem
-from src.infrastructure.config import config as app_config, settings as app_settings
+from src.infrastructure.config import config as app_config
 from src.data.repositories import UserRepository, SessionRepository
 from src.data.schemas import UserRow
 from src.data.schemas.auth import (
@@ -112,8 +112,12 @@ class AuthService:
         provider: str,
         provider_user_id: str,
         email: str,
-        name: str
+        name: str,
+        email_verified: bool,
     ) -> OAuthUserRow:
+        if not email_verified:
+            raise AuthError("OAuth provider did not verify the email address.")
+
         canonical_email = email.strip().casefold()
         lock_keys = sorted((
             f"oauth:account:{provider}:{provider_user_id}",
@@ -132,7 +136,9 @@ class AuthService:
                     executor=conn,
                 )
                 if account is not None:
+                    await self._user_repo.verify_user(account.user_id, executor=conn)
                     return account
+
                 user = await self._user_repo.get_by_email(canonical_email, executor=conn)
                 if user is None:
                     user = await self._user_repo.create(
@@ -143,6 +149,9 @@ class AuthService:
                         verified=True,
                         executor=conn,
                     )
+                elif not user.email_verified:
+                    await self._user_repo.verify_user(user.id, executor=conn)
+
                 return await self._user_repo.create_oauth(
                     user_id=user.id,
                     provider=provider,

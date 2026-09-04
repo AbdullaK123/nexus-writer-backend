@@ -6,7 +6,7 @@ import pytest
 from src.data.repositories.auth_tokens import AuthTokenRepository
 from src.data.repositories.session import SessionRepository
 from src.data.repositories.user import UserRepository
-from src.data.schemas.auth import AuthCredentials, ConnectionDetails
+from src.data.schemas.auth import AuthCredentials
 from src.infrastructure.auth.password import hash_password, verify_password
 from src.service.auth.service import AuthService
 from src.service.exceptions import AuthError
@@ -150,17 +150,25 @@ async def test_verification_token_cannot_reset_password(clean_db: asyncpg.Pool) 
     assert await token_repo.get(token=token, purpose="email_verification") is not None
 
 
-async def test_oauth_only_user_can_set_local_password_via_verified_email_reset(
+async def test_oauth_only_user_can_set_local_password_and_reset_revokes_oauth_sessions(
     clean_db: asyncpg.Pool,
 ) -> None:
     token_repo = AuthTokenRepository(clean_db)
-    service = build_service(clean_db, token_repo=token_repo)
+    session_repo = SessionRepository(clean_db)
+    service = build_service(
+        clean_db,
+        token_repo=token_repo,
+        session_repo=session_repo,
+    )
     account = await service.get_or_create_oauth_account(
         provider="google",
         provider_user_id="oauth-reset-sub",
         email="oauth-reset@example.com",
         name="OAuth Reset User",
+        email_verified=True,
     )
+    await create_session(session_repo, account.user_id, "oauth-session-1")
+    await create_session(session_repo, account.user_id, "oauth-session-2")
     token = await token_repo.create(user_id=account.user_id, purpose="password_reset")
 
     await service.reset_password(token, NEW_PASSWORD)
@@ -169,6 +177,9 @@ async def test_oauth_only_user_can_set_local_password_via_verified_email_reset(
         AuthCredentials(email="oauth-reset@example.com", password=NEW_PASSWORD)
     )
     assert authenticated.id == account.user_id
+    assert await clean_db.fetchval(
+        'SELECT COUNT(*) FROM "session" WHERE user_id=$1', account.user_id
+    ) == 0
 
 
 async def test_password_token_and_session_revocation_roll_back_together_on_failure(
