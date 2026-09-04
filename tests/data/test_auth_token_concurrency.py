@@ -49,11 +49,15 @@ async def test_concurrent_verification_replay_has_exactly_one_winner(
     )
     normal_repo = AuthTokenRepository(clean_db)
     token = await normal_repo.create(user_id=user.id, purpose="email_verification")
-    racing_repo = BarrierConsumeRepository(clean_db, participants=8)
+
+    # The shared test pool has max_size=5. Keep the barrier below pool capacity:
+    # each participant already owns a connection when it reaches consume().
+    participants = 4
+    racing_repo = BarrierConsumeRepository(clean_db, participants=participants)
     service = build_service(clean_db, racing_repo)
 
     results = await asyncio.gather(
-        *(service.verify_email(token) for _ in range(8)),
+        *(service.verify_email(token) for _ in range(participants)),
         return_exceptions=True,
     )
 
@@ -61,7 +65,7 @@ async def test_concurrent_verification_replay_has_exactly_one_winner(
     failures = [result for result in results if isinstance(result, Exception)]
 
     assert len(successes) == 1, "a bearer verification token must have exactly one consumer"
-    assert len(failures) == 7
+    assert len(failures) == participants - 1
     assert all(isinstance(error, AuthError) for error in failures)
     assert await clean_db.fetchval(
         'SELECT email_verified FROM "user" WHERE id=$1', user.id
