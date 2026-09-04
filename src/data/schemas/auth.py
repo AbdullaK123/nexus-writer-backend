@@ -9,6 +9,21 @@ from src.infrastructure.config import config
 from src.shared.text_types import AuthTokenInput, PasswordInput, UserAgent, Username
 
 
+_PASSWORD_POLICY_MESSAGE = (
+    "Password must be at least 8 characters and contain "
+    "an uppercase letter, lowercase letter, digit, and special character"
+)
+
+
+def _validate_password_policy(value: str) -> str:
+    # The configured password policy uses lookaheads. Keep it in Python's
+    # regex engine; pydantic-core's Rust regex engine intentionally does not
+    # support look-around.
+    if not re.match(config.auth.password_pattern, value):
+        raise ValueError(_PASSWORD_POLICY_MESSAGE)
+    return value
+
+
 class ForgottenPasswordRequest(ApiModel):
     email: EmailStr
 
@@ -16,6 +31,11 @@ class ForgottenPasswordRequest(ApiModel):
 class ResetPasswordRequest(ApiModel):
     token: AuthTokenInput
     new_password: PasswordInput
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, value: str) -> str:
+        return _validate_password_policy(value)
 
 
 class RegistrationData(ApiModel):
@@ -26,13 +46,8 @@ class RegistrationData(ApiModel):
 
     @field_validator("password")
     @classmethod
-    def validate_password_strength(cls, v: str) -> str:
-        if not re.match(config.auth.password_pattern, v):
-            raise ValueError(
-                "Password must be at least 8 characters and contain "
-                "an uppercase letter, lowercase letter, digit, and special character"
-            )
-        return v
+    def validate_password_strength(cls, value: str) -> str:
+        return _validate_password_policy(value)
 
 
 class AuthCredentials(ApiModel):

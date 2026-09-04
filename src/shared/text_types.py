@@ -4,7 +4,6 @@ import re
 import unicodedata
 from functools import partial
 from typing import Annotated, Final, TypeAlias
-from src.infrastructure.config.settings import config as app_config
 from pydantic import BeforeValidator, Field
 
 __all__ = [
@@ -185,14 +184,13 @@ Username: TypeAlias = Annotated[
     Field(min_length=1, max_length=USERNAME_MAX),
 ]
 
+# Passwords are opaque credentials. This type enforces only container safety
+# and length; password-policy complexity belongs on write paths such as
+# registration and password reset, not login attempts.
 PasswordInput: TypeAlias = Annotated[
     str,
     _opaque(PASSWORD_MAX),
-    Field(
-        min_length=8,
-        max_length=PASSWORD_MAX,
-        pattern=app_config.auth.password_pattern,
-    ),
+    Field(min_length=1, max_length=PASSWORD_MAX),
 ]
 
 # Bearer tokens are opaque credentials. Bound them, reject NUL, and otherwise
