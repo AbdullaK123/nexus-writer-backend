@@ -18,6 +18,7 @@ from src.data.repositories import (
     ChatRepository,
 )
 from src.data.repositories.analytics import AnalyticsRepository
+from src.data.repositories.auth_tokens import AuthTokenRepository
 
 
 def get_scene_repository(
@@ -60,3 +61,8 @@ def get_analytics_repository(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> AnalyticsRepository:
     return AnalyticsRepository(pool)
+
+def get_auth_tokens_repository(
+    pool: asyncpg.Pool = Depends(get_db_pool)
+) -> AuthTokenRepository:
+    return AuthTokenRepository(pool)

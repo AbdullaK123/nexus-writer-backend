@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     client_secret: str
     session_secret: str
 
+    #resend
+    resend_api_key: str
+
     @model_validator(mode="after")
     def validate_cors(self):
         if self.cors_allow_credentials and "*" in self.cors_origins:
@@ -73,6 +76,9 @@ class AuthConfig(BaseModel, frozen=True):
     session_ttl_days: int = 1
     cookie_max_age_seconds: int = 86400
     oauth_redirect_url: str = "http://localhost:5173/dashboard"
+    frontend_base_url: str = "http://localhost:5173"
+    api_base_url: str = "http://localhost:8000"
+    auth_token_ttl_mins: int = 15
 
 
 class HttpConfig(BaseModel, frozen=True):

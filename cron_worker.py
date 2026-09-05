@@ -5,6 +5,7 @@ from src.data.repositories import (
     SessionRepository,
     UserRepository,
 )
+from src.data.repositories.auth_tokens import AuthTokenRepository
 from src.service.auth import AuthService
 from src.service.embedding.service import EmbeddingService
 from src.service.extraction import ExtractionService
@@ -49,7 +50,12 @@ def request_shutdown(crons: list[Cron]) -> None:
 async def run_session_cleanup_once() -> None:
     with tracer.start_as_current_span("cron.session_cleanup") as span:
         pool = get_pool()
-        auth_service = AuthService(UserRepository(pool), SessionRepository(pool))
+        auth_service = AuthService(
+            UserRepository(pool),
+            SessionRepository(pool),
+            AuthTokenRepository(pool),
+            None,  # cleanup does not use pub/sub
+        )
         try:
             await auth_service.cleanup_expired_sessions()
             span.set_status(trace.StatusCode.OK)

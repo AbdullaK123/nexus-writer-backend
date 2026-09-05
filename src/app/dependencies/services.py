@@ -7,6 +7,7 @@ import redis.asyncio as aioredis
 from src.app.dependencies.redis import get_pubsub, get_redis
 from src.app.dependencies.repositories import (
     get_analytics_repository,
+    get_auth_tokens_repository,
     get_chapter_repository,
     get_chat_repository,
     get_scene_repository,
@@ -23,6 +24,7 @@ from src.data.repositories import (
     UserRepository,
 )
 from src.data.repositories.analytics import AnalyticsRepository
+from src.data.repositories.auth_tokens import AuthTokenRepository
 from src.infrastructure.ai import OpenAIProvider, AIProvider
 from src.infrastructure.config.settings import config
 from src.infrastructure.db.pool import (
@@ -109,9 +111,15 @@ def get_chat_agent(request: Request) -> Agent[ChatDeps, str]:
 def get_auth_service(
     user_repo: UserRepository = Depends(get_user_repository),
     session_repo: SessionRepository = Depends(get_session_repository),
+    auth_token_repo: AuthTokenRepository = Depends(get_auth_tokens_repository),
     pubsub: RedisPubSub = Depends(get_pubsub)
 ) -> AuthService:
-    return AuthService(user_repo, session_repo, pubsub)
+    return AuthService(
+        user_repo=user_repo, 
+        session_repo=session_repo, 
+        pubsub=pubsub,
+        auth_token_repo=auth_token_repo
+    )
 
 
 def get_analytics_service(

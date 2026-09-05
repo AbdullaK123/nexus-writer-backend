@@ -28,6 +28,7 @@ from src.service.story.service import StoryService
 from tests.service.mocks import (
     FakeAIProvider,
     FakeAnalyticsRepository,
+    FakeAuthTokenRepository,
     FakeChapterRepository,
     FakeChatAgent,
     FakeChatRepository,
@@ -46,6 +47,15 @@ from tests.service.mocks.extraction import (
 )
 
 models.ALLOW_MODEL_REQUESTS = False
+
+
+@pytest.fixture(autouse=True)
+def fake_resend(monkeypatch: pytest.MonkeyPatch):
+    async def _send_async(payload: dict) -> dict:
+        return {"id": "test-email"}
+
+    monkeypatch.setattr("src.service.auth.service.resend.Emails.send_async", _send_async)
+
 
 # ── Infrastructure fakes ─────────────────────────────
 
@@ -84,6 +94,11 @@ def fake_user_repo() -> FakeUserRepository:
 @pytest.fixture
 def fake_session_repo() -> FakeSessionRepository:
     return FakeSessionRepository()
+
+
+@pytest.fixture
+def fake_auth_token_repo() -> FakeAuthTokenRepository:
+    return FakeAuthTokenRepository()
 
 
 @pytest.fixture
@@ -155,11 +170,13 @@ def chapter_service(
 def auth_service(
     fake_user_repo,
     fake_session_repo,
+    fake_auth_token_repo,
     fake_pubsub,
 ) -> AuthService:
     return AuthService(
         user_repo=fake_user_repo,
         session_repo=fake_session_repo,
+        auth_token_repo=fake_auth_token_repo,
         pubsub=fake_pubsub,
     )
 

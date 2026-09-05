@@ -2,6 +2,7 @@ import asyncio
 
 import asyncpg
 
+from src.data.repositories.auth_tokens import AuthTokenRepository
 from src.data.repositories.story import StoryRepository
 from src.data.repositories.user import UserRepository
 from src.data.schemas.auth import RegistrationData, UserResponse, UserRow
@@ -18,7 +19,7 @@ class BarrierUserRepository(UserRepository):
         self._gate = asyncio.Event()
         self._lock = asyncio.Lock()
 
-    async def get_by_email(self, email: str):
+    async def get_by_email(self, email: str, executor=None):
         async with self._lock:
             self._arrived += 1
             if self._arrived == 2:
@@ -56,7 +57,18 @@ async def test_concurrent_registration_maps_unique_race_to_conflict(
     clean_db: asyncpg.Pool,
 ) -> None:
     repo = BarrierUserRepository(clean_db)
-    service = AuthService(repo, None, None)  # type: ignore[arg-type]
+    service = AuthService(
+        repo,
+        None,  # type: ignore[arg-type]
+        AuthTokenRepository(clean_db),
+        None,  # type: ignore[arg-type]
+    )
+
+    async def skip_email(user_id: str) -> None:
+        return None
+
+    service.send_verification_email = skip_email  # type: ignore[method-assign]
+
     payload = RegistrationData(
         username="same-user",
         email="race@example.com",
@@ -70,7 +82,10 @@ async def test_concurrent_registration_maps_unique_race_to_conflict(
     )
 
     _assert_one_success_one_conflict(list(results))
-    count = await clean_db.fetchval('SELECT COUNT(*) FROM "user" WHERE email=$1', str(payload.email))
+    count = await clean_db.fetchval(
+        'SELECT COUNT(*) FROM "user" WHERE email=$1',
+        str(payload.email),
+    )
     assert count == 1
 
 
