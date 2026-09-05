@@ -223,7 +223,7 @@ async def get_chat_links(
 async def update_settings(
     request: Request,
     payload: SettingsPayload,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserRow = Depends(get_current_user),
     auth_service: AuthService = Depends(get_auth_service)
 ) -> UserResponse:
     return await auth_service.update_settings(current_user.id, payload)

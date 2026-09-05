@@ -24,6 +24,7 @@ from src.app.dependencies.repositories import (
 
 __all__ = [
     "get_current_user",
+    "get_verified_user",
     "init_infrastructure",
     "shutdown_infrastructure",
     "build_ai_provider",
