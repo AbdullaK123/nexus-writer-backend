@@ -1,4 +1,4 @@
-from src.app.dependencies.auth import get_current_user
+from src.app.dependencies.auth import get_current_user, get_verified_user
 from src.app.dependencies.db import get_db_pool
 from src.app.dependencies.services import (
     init_infrastructure,

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from src.app.dependencies import get_current_user, get_chapter_service
+from src.app.dependencies import get_verified_user, get_chapter_service
 from src.data.schemas import UserRow
 from src.data.schemas.chapter import (
     ChapterContentResponse,
@@ -16,7 +16,7 @@ chapter_controller = APIRouter(prefix="/chapters")
 async def get_chapter_with_navigation(
     chapter_id: str,
     as_html: bool = True,
-    current_user: UserRow = Depends(get_current_user),
+    current_user: UserRow = Depends(get_verified_user),
     chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> ChapterContentResponse:
     return await chapter_service.get_chapter_with_navigation(
@@ -30,7 +30,7 @@ async def get_chapter_with_navigation(
 async def update_chapter(
     chapter_id: str,
     updated_info: UpdateChapterRequest,
-    current_user: UserRow = Depends(get_current_user),
+    current_user: UserRow = Depends(get_verified_user),
     chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> ChapterContentResponse:
     return await chapter_service.update_chapter(
@@ -43,7 +43,7 @@ async def update_chapter(
 @chapter_controller.delete("/{chapter_id}")
 async def delete_chapter(
     chapter_id: str,
-    current_user: UserRow = Depends(get_current_user),
+    current_user: UserRow = Depends(get_verified_user),
     chapter_service: ChapterService = Depends(get_chapter_service)
 ) -> dict:
     return await chapter_service.delete_chapter(
@@ -55,7 +55,7 @@ async def delete_chapter(
 @chapter_controller.get("/{chapter_id}/summary", response_model=ChapterSummaryResponse)
 async def summarize_chapter(
     chapter_id: str,
-    current_user: UserRow = Depends(get_current_user),
+    current_user: UserRow = Depends(get_verified_user),
     chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> ChapterSummaryResponse:
     return await chapter_service.summarize_chapter(
@@ -65,7 +65,7 @@ async def summarize_chapter(
 @chapter_controller.get("/{chapter_id}/comments", response_model=CommentExtractionResponse)
 async def get_comments(
     chapter_id,
-    current_user: UserRow = Depends(get_current_user),
+    current_user: UserRow = Depends(get_verified_user),
     chapter_service: ChapterService = Depends(get_chapter_service)
 ) -> CommentExtractionResponse:
     return await chapter_service.get_comments(
