@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, Response, Depends, Cookie
 from fastapi.responses import RedirectResponse, StreamingResponse
+from src.app.dependencies.auth import get_verified_user
 from src.data.schemas.auth import (
     DashboardResponse,
     ForgottenPasswordRequest,
@@ -178,7 +179,7 @@ async def get_active_user(
 @user_controller.get("/me/dashboard", response_model=DashboardResponse)
 async def get_dashboard(
     request: Request,
-    current_user: UserRow = Depends(get_current_user),
+    current_user: UserRow = Depends(get_verified_user),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> DashboardResponse:
     return await auth_service.get_dashboard(user_id=current_user.id)
@@ -187,7 +188,7 @@ async def get_dashboard(
 @user_controller.get("/me/notifications")
 async def get_notifications(
     request: Request,
-    current_user: UserRow = Depends(get_current_user),
+    current_user: UserRow = Depends(get_verified_user),
     auth_service: AuthService = Depends(get_auth_service)
 ) -> StreamingResponse:
     return StreamingResponse(
@@ -203,7 +204,7 @@ async def get_notifications(
 @user_controller.get("/me/links/editor")
 async def get_editor_links(
     request: Request,
-    current_user: UserRow = Depends(get_current_user),
+    current_user: UserRow = Depends(get_verified_user),
     auth_service: AuthService = Depends(get_auth_service)
 ) -> UserNavigationResponse:
     return await auth_service.get_editor_links(current_user.id)
@@ -212,7 +213,7 @@ async def get_editor_links(
 @user_controller.get("/me/links/chat")
 async def get_chat_links(
     request: Request,
-    current_user: UserRow = Depends(get_current_user),
+    current_user: UserRow = Depends(get_verified_user),
     auth_service: AuthService = Depends(get_auth_service)
 ) -> StoryNavigationResponse:
     return await auth_service.get_chat_links(current_user.id)

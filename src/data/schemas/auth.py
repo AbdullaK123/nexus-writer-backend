@@ -204,6 +204,7 @@ class UserResponse(ApiModel):
     email: str
     profile_img: Optional[str]
     settings: UserSettings
+    email_verified: bool
 
     @classmethod
     def from_user_row(cls, user: UserRow) -> "UserResponse":
@@ -214,6 +215,7 @@ class UserResponse(ApiModel):
             email=user.email,
             profile_img=user.profile_img,
             settings=settings,
+            email_verified=user.email_verified,
         )
 
 

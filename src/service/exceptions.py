@@ -23,6 +23,13 @@ class ForbiddenError(ServiceError):
         super().__init__(message)
 
 
+class EmailVerificationRequiredError(ForbiddenError):
+    code = "EMAIL_VERIFICATION_REQUIRED"
+
+    def __init__(self):
+        super().__init__("Please verify your email to continue.")
+
+
 class NotFoundError(ServiceError):
     code = "NOT_FOUND"
     status_code = 404
@@ -62,6 +69,7 @@ class InternalError(ServiceError):
 
     def __init__(self, message: str = "Internal error"):
         super().__init__(message)
+
 
 class NoContentError(ServiceError):
     code = "NO_CONTENT"

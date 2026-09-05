@@ -3,7 +3,7 @@ from fastapi import Request, Cookie, Depends
 from src.data.schemas import UserRow
 from src.app.dependencies.services import get_auth_service
 from src.service.auth import AuthService
-from src.service.exceptions import AuthError
+from src.service.exceptions import AuthError, EmailVerificationRequiredError
 from src.shared.utils.correlation import set_user_id
 
 
@@ -27,5 +27,14 @@ async def get_current_user(
         set_user_id(user.id)
     except Exception:
         pass
+
+    return user
+
+
+async def get_verified_user(
+    user: UserRow = Depends(get_current_user),
+) -> UserRow:
+    if not user.email_verified:
+        raise EmailVerificationRequiredError()
 
     return user

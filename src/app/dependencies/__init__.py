@@ -1,4 +1,4 @@
-from src.app.dependencies.auth import get_current_user
+from src.app.dependencies.auth import get_current_user, get_verified_user
 from src.app.dependencies.db import get_db_pool
 from src.app.dependencies.services import (
     init_infrastructure,
@@ -24,6 +24,7 @@ from src.app.dependencies.repositories import (
 
 __all__ = [
     "get_current_user",
+    "get_verified_user",
     "init_infrastructure",
     "shutdown_infrastructure",
     "build_ai_provider",
