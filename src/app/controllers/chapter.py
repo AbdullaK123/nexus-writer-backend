@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from src.app.dependencies import get_verified_user, get_chapter_service
+from src.app.dependencies.rate_limit import ai_rate_limit, write_rate_limit
 from src.data.schemas import UserRow
 from src.data.schemas.chapter import (
     ChapterContentResponse,
@@ -26,7 +27,11 @@ async def get_chapter_with_navigation(
     )
 
 
-@chapter_controller.put("/{chapter_id}", response_model=ChapterContentResponse)
+@chapter_controller.put(
+    "/{chapter_id}",
+    response_model=ChapterContentResponse,
+    dependencies=[write_rate_limit],
+)
 async def update_chapter(
     chapter_id: str,
     updated_info: UpdateChapterRequest,
@@ -40,7 +45,7 @@ async def update_chapter(
     )
 
 
-@chapter_controller.delete("/{chapter_id}")
+@chapter_controller.delete("/{chapter_id}", dependencies=[write_rate_limit])
 async def delete_chapter(
     chapter_id: str,
     current_user: UserRow = Depends(get_verified_user),
@@ -52,7 +57,11 @@ async def delete_chapter(
     )
 
 
-@chapter_controller.get("/{chapter_id}/summary", response_model=ChapterSummaryResponse)
+@chapter_controller.get(
+    "/{chapter_id}/summary",
+    response_model=ChapterSummaryResponse,
+    dependencies=[ai_rate_limit],
+)
 async def summarize_chapter(
     chapter_id: str,
     current_user: UserRow = Depends(get_verified_user),
@@ -61,6 +70,7 @@ async def summarize_chapter(
     return await chapter_service.summarize_chapter(
         chapter_id=chapter_id, user_id=current_user.id
     )
+
 
 @chapter_controller.get("/{chapter_id}/comments", response_model=CommentExtractionResponse)
 async def get_comments(
