@@ -1,225 +1,280 @@
 # Nexus Writer Backend
 
-Nexus Writer is a story-writing application with a FastAPI backend, background
-workers, and a grounded story-research agent. The Vite/React frontend lives in
-`frontend/`.
+Backend for **Nexus Writer**, a story-writing application built around a rich editor, structured story data, background analysis, semantic retrieval, and a grounded AI story assistant.
 
-## What this repo contains
+The frontend lives in a separate repository: [AbdullaK123/nexus-writer-frontend-spa](https://github.com/AbdullaK123/nexus-writer-frontend-spa).
 
-- **Backend API**: FastAPI app (`main.py`)
-- **SAQ worker**: asynchronous scene-extraction and embedding jobs (`saq_worker.py`)
-- **Cron worker**: scheduled maintenance and story-processing jobs (`cron_worker.py`)
-- **Story agent**: tool-using chat assistant grounded in story scenes, chapters, and internal analytics
-- **Frontend**: React + TypeScript + Vite app (`frontend/`)
-- **Database migrations**: yoyo migrations (`migrations/yoyo/`)
-- **Containerized local stack**: PostgreSQL, Redis, API, SAQ worker, and cron worker (`docker-compose.yml`)
+## What this backend does
 
-## Tech stack (current)
+Nexus Writer is not a simple CRUD API. The backend coordinates mutable story state across browser requests, PostgreSQL, Redis, background workers, and AI providers while preserving correctness under retries and concurrency.
 
-### Backend
-- Python 3.12 in Docker (the package declares Python 3.10+ compatibility)
-- FastAPI
-- Uvicorn
-- asyncpg / psycopg2-binary
-- yoyo-migrations
-- loguru
-- pydantic-settings
-- OpenAI + OpenRouter
-- pydantic-ai + pydantic-ai-harness
-- Redis + SAQ
+Core capabilities include:
 
-### Frontend
-- React 19
-- TypeScript
-- Vite 8
-- Ark UI
-- TanStack Query / Router
+- user registration, password login, Google OAuth, cookie-backed sessions, settings, and per-user navigation/dashboard data
+- story and chapter creation, editing, deletion, publishing, and ordered chapter hierarchies
+- background scene extraction, embeddings, comments, summaries, and derived story analysis
+- hybrid scene search using PostgreSQL full-text search and pgvector embeddings
+- persisted, story-scoped AI chat threads streamed over Server-Sent Events
+- tool-using story research grounded in chapters, scenes, metadata, and internal analytics
+- Redis-backed notifications and background-job coordination
+- scheduled maintenance and processing via a cron worker
 
-## Project layout
+## Architecture
+
+The backend uses explicit layers rather than an ORM-centric active-record model:
+
+```text
+HTTP request
+    |
+    v
+FastAPI controller
+    |
+    v
+Service layer
+    |
+    +--> repositories --> PostgreSQL
+    +--> Redis / queues
+    +--> AI providers
+    +--> SSE / notifications
+```
+
+The main source tree is:
 
 ```text
 .
-├── main.py
-├── saq_worker.py
-├── cron_worker.py
+├── main.py                 # FastAPI entry point
+├── saq_worker.py           # Redis/SAQ background worker
+├── cron_worker.py          # scheduled jobs
 ├── src/
-│   ├── app/
-│   │   ├── controllers/
-│   │   ├── dependencies/
-│   │   ├── middleware/
-│   │   └── lifespan.py
-│   ├── data/
-│   ├── infrastructure/
-│   ├── service/
-│   └── shared/
-├── migrations/
-│   └── yoyo/
-├── frontend/
-│   ├── package.json
-│   └── src/
-└── docker-compose.yml
+│   ├── app/                # controllers, dependencies, middleware, lifespan
+│   ├── data/               # raw asyncpg repositories + schemas
+│   ├── infrastructure/     # config, auth, Redis, AI providers, telemetry
+│   ├── service/            # application/domain orchestration
+│   └── shared/             # shared utilities and text types
+├── migrations/yoyo/        # PostgreSQL migrations
+├── tests/                  # app, service, data, infrastructure, worker tests
+├── evals/                  # AI behavior/evaluation harnesses
+├── dev_scripts/            # local development helpers
+├── docker-compose.yml
+└── Makefile
 ```
 
-## Backend configuration
+### State and concurrency model
 
-Create a `.env` file in the repository root. The application loads this file
-through `pydantic-settings` at startup.
+PostgreSQL is the canonical source of truth. Redis, queued jobs, caches, and AI outputs are derived or transient state.
 
-Required runtime keys:
+Write paths are deliberately designed so timing does not decide correctness. Depending on the resource, the codebase uses:
 
-- `DATABASE_URL`
-- `REDIS_URL`
-- `APP_SECRET_KEY`
-- `OPENAI_API_KEY`
-- `OPEN_ROUTER_API_KEY`
-- `OPEN_ROUTER_API_URL`
+- atomic SQL mutations and database constraints
+- short transactions and row-level locking
+- PostgreSQL advisory locks for logical resources that may not have a row yet
+- serialized mutation boundaries for ordering-sensitive operations
+- idempotency and stale-state checks for background work
+- explicit separation between canonical DB commits and derived side effects
 
-Useful optional settings include `ENV` (`dev`, `staging`, or `prod`), `DEBUG`,
-and the CORS settings defined in `src/infrastructure/config/settings.py`.
+OAuth account creation/linking is also concurrency-controlled: callbacks serialize on canonical provider identity and normalized email before reading and creating account state.
 
-## Run locally (without Docker)
+## Tech stack
 
-### 1) Start PostgreSQL and Redis
+- **Python** 3.12 in Docker (`pyproject.toml` declares Python 3.10+)
+- **FastAPI** + Uvicorn
+- **PostgreSQL 18** via `pgvector/pgvector:pg18`
+- **asyncpg** for application queries
+- **yoyo-migrations** for schema migrations
+- **Redis** for queues, coordination, and pub/sub notifications
+- **SAQ** for background jobs
+- **OpenAI / OpenRouter** for model access
+- **Pydantic AI** + `pydantic-ai-harness` for the story agent/evals
+- **Loguru**, Logfire, and OpenTelemetry instrumentation
+- **pytest**, `pytest-asyncio`, and Testcontainers for testing
 
-The API and both workers require PostgreSQL and Redis. You can run those
-services yourself, or start only the Compose dependencies:
+## Configuration
 
-```bash
-docker compose up -d postgres-nexus nexus-redis
+Create a `.env` file in the repository root.
+
+Required environment variables:
+
+```env
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://...
+APP_SECRET_KEY=replace-with-at-least-32-characters
+
+OPENAI_API_KEY=...
+OPEN_ROUTER_API_KEY=...
+OPEN_ROUTER_API_URL=...
+
+CLIENT_ID=...          # Google OAuth client ID
+CLIENT_SECRET=...      # Google OAuth client secret
+SESSION_SECRET=...
 ```
 
-### 2) Install dependencies
-```bash
-uv sync
+Useful optional settings include:
+
+```env
+ENV=dev                # dev | staging | prod
+DEBUG=false
+CORS_ORIGINS=["http://localhost:5173"]
 ```
 
-### 3) Apply migrations
-```bash
-uv run yoyo apply --batch --database "$DATABASE_URL" ./migrations/yoyo
-```
-
-### 4) Start API
-```bash
-uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### 5) Start the SAQ worker (separate terminal)
-```bash
-uv run python -m saq saq_worker.settings
-```
-
-### 6) Start the cron worker (separate terminal)
-```bash
-uv run cron_worker.py
-```
-
-Health endpoint:
-- `GET http://localhost:8000/health`
+Static application tuning lives in `src/infrastructure/config/config.yaml`; deployment-specific secrets and environment values are loaded through `pydantic-settings` in `src/infrastructure/config/settings.py`.
 
 ## Run with Docker Compose
 
+The easiest way to run the complete backend stack is:
+
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 Services:
-- `postgres-nexus` (pgvector/postgres)
-- `nexus-redis` (Redis)
-- `nexus-writer` (FastAPI API)
-- `saq-worker` (scene extraction and embedding jobs)
-- `cron-worker` (scheduled jobs)
 
-The API container applies yoyo migrations on startup, then starts Uvicorn.
+- `postgres-nexus` — PostgreSQL + pgvector
+- `nexus-redis` — Redis
+- `nexus-writer` — FastAPI API
+- `saq-worker` — queued background jobs
+- `cron-worker` — scheduled jobs
 
-## Frontend
+The API container applies pending yoyo migrations before starting Uvicorn.
 
-From `frontend/`:
+The API is exposed at `http://localhost:8000` and the health endpoint is:
 
-```bash
-npm install
-npm run dev
+```text
+GET /health
 ```
 
-Available scripts:
-- `npm run dev`
-- `npm run build`
-- `npm run lint`
-- `npm run preview`
+FastAPI's interactive API docs are available from the API application at `/docs`.
 
-Node version requirement:
-- `>=20.19`
+## Makefile workflow
 
-## API routing (current)
-
-`main.py` mounts routers under `/api`:
-- auth controller
-- chapter controller
-- story controller
-
-Also includes:
-- `GET /health`
-
-Story routes include chapter and scene operations, semantic scene search,
-story vocabulary, Book Pulse, and thread-based agent chat streamed over SSE.
-
-## Story Agent And Internal Analytics
-
-Story analysis is agent-first. The chat agent is grounded with tools that can:
-
-- search scenes semantically and filter by extracted story metadata
-- retrieve full chapters or the exact prose of a located scene
-- list chapters, tags, entities, and points of view
-- inspect structured internal analytics for character, plot, structure, and world questions
-
-The agent uses the internal `AnalyticsService` as research evidence alongside
-scene and chapter retrieval. It is not a public dashboard API.
-
-The chat API is scoped to a story and persists thread history. Create and list
-threads under `/api/stories/{story_id}/chat/threads`; send a turn to
-`/api/stories/{story_id}/chat/threads/{thread_id}/turn`, which streams the
-response as Server-Sent Events.
-
-The agent uses OpenRouter for its tool-using model. OpenRouter may cache stable
-prompt prefixes when the selected model and provider support prompt caching.
-Treat caching as an optimization, not a correctness mechanism; inspect provider
-usage metrics such as `cached_tokens` and `cache_write_tokens` when tuning
-conversation behavior.
-
-The dashboard UI and public `/api/stories/{story_id}/analytics/dashboard/*` endpoints
-were retired on 2026-07-25. There is no active frontend dashboard; internal
-analytics remains available only as evidence for the story agent.
-
-## Notes on logging and error handling
-
-- Log configuration is initialized at startup (`configure_logger()`).
-- Layered exception handlers exist for:
-  - service errors
-  - data errors
-  - infrastructure errors
-  - unhandled exceptions
-- Correlation ID support is wired through shared utilities.
-
-## Database migrations
-
-This repository uses **yoyo migrations** (not Alembic) in:
-
-- `migrations/yoyo/`
-
-Typical commands:
+The repository includes a Makefile for the common development operations:
 
 ```bash
-# apply all
+make help
+make start
+make stop
+make status
+make health
+make routes
+
+make start-db
+make dbshell
+make upgrade
+make migrate-new m="describe migration"
+
+make logs
+make logs-worker
+make shell
+```
+
+`make fresh` destroys local data and rebuilds the full stack, so use it intentionally.
+
+## Run locally without Docker
+
+You still need PostgreSQL and Redis running.
+
+```bash
+uv sync
+uv run yoyo apply --batch --database "$DATABASE_URL" ./migrations/yoyo
+uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Run workers in separate terminals:
+
+```bash
+uv run python -m saq saq_worker.settings
+uv run cron_worker.py
+```
+
+## API surface
+
+All application routers are mounted under `/api`.
+
+Major groups include:
+
+- `/api/auth/*` — register/login/logout, Google OAuth, current user, settings, dashboard, navigation links, notification SSE
+- chapter endpoints — editing, publishing, comments, ordering, and chapter-level operations
+- story endpoints — story lifecycle, scenes, search, analysis, and chat threads
+
+Google OAuth flow:
+
+```text
+GET /api/auth/google/login
+    -> Google
+    -> GET /api/auth/google/callback
+    -> create/link Nexus user
+    -> create Nexus session
+    -> set HttpOnly session cookie
+    -> redirect to frontend
+```
+
+Password and OAuth authentication both converge on the same application session model.
+
+## Story agent and search
+
+The story agent is grounded against Nexus Writer's own data rather than relying only on model memory. Its tools can retrieve and search story evidence such as:
+
+- scenes and full chapters
+- tags, entities, points of view, and extracted metadata
+- semantic/full-text search results
+- structured internal story analytics
+
+Chat is story-scoped and thread-based. Responses stream to the client with Server-Sent Events.
+
+Search combines PostgreSQL full-text retrieval with vector similarity over scene embeddings, then fuses the candidate sets before returning results.
+
+## Background processing
+
+The SAQ worker handles queued derived work such as extraction/analysis jobs. The cron worker handles periodic maintenance and processing, including session cleanup and embedding/extraction sweeps.
+
+Background jobs treat queued payloads as a request to do work, not as canonical truth: workers re-read current database state and avoid committing results derived from stale source state.
+
+## Testing
+
+Run the backend test suite with:
+
+```bash
+uv run pytest
+```
+
+Tests are split across:
+
+```text
+tests/
+├── app/
+├── data/
+├── infrastructure/
+├── service/
+└── workers/
+```
+
+The suite includes ordinary service/repository tests plus adversarial tests for concurrency, stale writes, uniqueness races, retry/idempotency behavior, auth boundaries, worker redelivery, and real PostgreSQL transaction semantics.
+
+Pull requests to `main` run CI with real PostgreSQL + pgvector and Redis services, apply migrations, then execute the full pytest suite.
+
+## Migrations
+
+This project uses **yoyo migrations**, not Alembic.
+
+```bash
+# apply pending migrations
 uv run yoyo apply --batch --database "$DATABASE_URL" ./migrations/yoyo
 
-# rollback one migration (example)
+# rollback
 uv run yoyo rollback --batch --database "$DATABASE_URL" ./migrations/yoyo
 ```
 
-## Development helper scripts
+Or use the Makefile helpers:
 
-`dev_scripts/` includes utility scripts for local workflows, such as starting/stopping DB and backend services.
+```bash
+make upgrade
+make migrate-new m="add something"
+make migrate-history
+```
 
-## Testing status
+## Frontend
 
-Pytest dependencies are configured, but no `tests/` directory is currently
-checked into this repository.
+The React SPA is maintained separately:
+
+**https://github.com/AbdullaK123/nexus-writer-frontend-spa**
+
+Run the frontend against this API with `VITE_API_BASE_URL=http://localhost:8000/api`.
