@@ -20,6 +20,7 @@ from src.service.auth import AuthService
 from src.shared.text_types import AuthTokenInput
 from authlib.integrations.starlette_client import OAuth
 from starlette.requests import Request as StarletteRequest
+from src.app.dependencies.redis import auth_rate_limit
 
 from src.service.exceptions import AuthError
 
@@ -35,7 +36,7 @@ oauth.register(
 )
 
 
-@user_controller.get("/google/login")
+@user_controller.get("/google/login", dependencies=[auth_rate_limit])
 async def google_login(request: StarletteRequest):
     redirect_uri = request.url_for("google_callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
@@ -78,7 +79,7 @@ async def google_callback(
     return redirect
 
 
-@user_controller.post("/tokens/verify-email")
+@user_controller.post("/tokens/verify-email", dependencies=[auth_rate_limit])
 async def request_verification_email(
     user: UserRow = Depends(get_current_user),
     auth_service: AuthService = Depends(get_auth_service),
@@ -87,7 +88,7 @@ async def request_verification_email(
     return {"message": "Verification email sent"}
 
 
-@user_controller.post("/tokens/forgot-password")
+@user_controller.post("/tokens/forgot-password", dependencies=[auth_rate_limit])
 async def forgot_password(
     payload: ForgottenPasswordRequest,
     auth_service: AuthService = Depends(get_auth_service)
@@ -96,7 +97,7 @@ async def forgot_password(
     return {"message": "Password reset email sent"}
 
 
-@user_controller.post("/tokens/reset-password")
+@user_controller.post("/tokens/reset-password", dependencies=[auth_rate_limit])
 async def reset_password(
     payload: ResetPasswordRequest,
     auth_service: AuthService = Depends(get_auth_service)
@@ -122,7 +123,7 @@ async def verify_token(
     )
 
 
-@user_controller.post("/register", response_model=UserResponse)
+@user_controller.post("/register", response_model=UserResponse, dependencies=[auth_rate_limit])
 async def register_user(
     request: Request,
     registration_data: RegistrationData,
@@ -131,7 +132,7 @@ async def register_user(
     return await auth_service.register_user(registration_data)
 
 
-@user_controller.post("/login", response_model=UserResponse)
+@user_controller.post("/login", response_model=UserResponse, dependencies=[auth_rate_limit])
 async def login_user(
     request: Request,
     response: Response,

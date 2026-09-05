@@ -2,6 +2,12 @@ class InfrastructureError(Exception):
     pass
 
 
+class RateLimitError(InfrastructureError):
+    def __init__(self, message: str, original: Exception | None = None):
+        self.original = original
+        super().__init__(message)
+
+
 class DatabaseError(InfrastructureError):
     def __init__(self, message: str, original: Exception | None = None):
         self.original = original

@@ -32,6 +32,7 @@ from src.data.schemas.scene import (
 from src.service.chapter import ChapterService
 from src.service.story import StoryService
 from src.app.controllers.story_chat import chat_controller
+from src.app.dependencies.redis import write_rate_limit, read_rate_limit
 
 
 story_controller = APIRouter(prefix="/stories")
@@ -47,7 +48,7 @@ async def get_path_array(
     return await story_service.get_path_array(story_id, current_user.id)
 
 
-@story_controller.post("")
+@story_controller.post("", dependencies=[write_rate_limit])
 async def create_story(
     story_info: CreateStoryRequest,
     current_user: UserRow = Depends(get_verified_user),
@@ -56,7 +57,7 @@ async def create_story(
     return await story_service.create_story(current_user.id, story_info)
 
 
-@story_controller.put("/{story_id}")
+@story_controller.put("/{story_id}", dependencies=[write_rate_limit])
 async def update_story(
     story_id: str,
     update_info: UpdateStoryRequest,
@@ -97,7 +98,7 @@ async def get_story_details(
     return await story_service.get_story_details(current_user.id, story_id)
 
 
-@story_controller.post("/{story_id}/chapters", response_model=ChapterContentResponse)
+@story_controller.post("/{story_id}/chapters", response_model=ChapterContentResponse, dependencies=[write_rate_limit])
 async def create_chapter(
     story_id: str,
     chapter_info: CreateChapterRequest,
@@ -111,7 +112,7 @@ async def create_chapter(
     )
 
 
-@story_controller.post("/{story_id}/chapters/reorder")
+@story_controller.post("/{story_id}/chapters/reorder", dependencies=[write_rate_limit])
 async def reorder_chapters(
     story_id: str,
     reorder_info: ReorderChapterRequest,
@@ -140,6 +141,7 @@ async def get_story_chapters(
 @story_controller.post(
     "/{story_id}/search",
     response_model=SceneSearchListResponse,
+    dependencies=[read_rate_limit]
 )
 async def search_story_scenes(
     story_id: str,
