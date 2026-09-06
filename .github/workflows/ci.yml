@@ -18,6 +18,10 @@ jobs:
       CLIENT_SECRET: fake-client-secret
       SESSION_SECRET: ci-fake-session-secret
       RESEND_API_KEY: re_fake_ci_key
+      STRIPE_SECRET_KEY: sk_test_fake
+      STRIPE_PUBLISHABLE_KEY: pk_test_fake
+      STRIPE_WEBHOOK_SECRET: whsec_fake
+      STRIPE_PRICE_ID: price_fake
 
     services:
       postgres:
