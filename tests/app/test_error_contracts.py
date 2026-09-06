@@ -1,6 +1,13 @@
+import pytest
 from httpx import AsyncClient
 
-from src.service.exceptions import NotFoundError, ValidationError
+import main
+from src.service.exceptions import (
+    InternalError,
+    NotFoundError,
+    RateLimitError,
+    ValidationError,
+)
 from tests.app.mocks import StubStoryService
 
 
@@ -33,11 +40,56 @@ async def test_service_validation_error_maps_fields_to_422(
     assert detail["fields"] == {"title": ["is invalid"]}
 
 
-async def test_unhandled_exception_returns_generic_500_without_leaking_details(
+@pytest.mark.parametrize(
+    ("error", "expected_status"),
+    [
+        (NotFoundError("Story not found"), 404),
+        (ValidationError({"title": ["is invalid"]}), 422),
+        (RateLimitError(), 429),
+    ],
+)
+async def test_expected_service_errors_are_not_reported_to_sentry(
     story_http_context: tuple[AsyncClient, StubStoryService],
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception,
+    expected_status: int,
 ) -> None:
     client, service = story_http_context
-    service.error = RuntimeError("secret database internals")
+    captured: list[BaseException] = []
+    monkeypatch.setattr(main.sentry_sdk, "capture_exception", captured.append)
+    service.error = error
+
+    response = await client.get("/api/stories/story-1")
+
+    assert response.status_code == expected_status
+    assert captured == []
+
+
+async def test_internal_service_error_is_reported_to_sentry(
+    story_http_context: tuple[AsyncClient, StubStoryService],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, service = story_http_context
+    captured: list[BaseException] = []
+    monkeypatch.setattr(main.sentry_sdk, "capture_exception", captured.append)
+    error = InternalError("server failed")
+    service.error = error
+
+    response = await client.get("/api/stories/story-1")
+
+    assert response.status_code == 500
+    assert captured == [error]
+
+
+async def test_unhandled_exception_returns_generic_500_without_leaking_details(
+    story_http_context: tuple[AsyncClient, StubStoryService],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, service = story_http_context
+    captured: list[BaseException] = []
+    monkeypatch.setattr(main.sentry_sdk, "capture_exception", captured.append)
+    error = RuntimeError("secret database internals")
+    service.error = error
 
     response = await client.get("/api/stories/story-1")
 
@@ -46,3 +98,4 @@ async def test_unhandled_exception_returns_generic_500_without_leaking_details(
     assert body["detail"] == "Internal Server Error"
     assert "correlation_id" in body
     assert "secret database internals" not in response.text
+    assert captured == [error]

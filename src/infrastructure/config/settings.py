@@ -89,7 +89,7 @@ class HttpConfig(BaseModel, frozen=True):
 
 
 class SentryConfig(BaseModel, frozen=True):
-       traces_sample_rate: float = Field(
+    traces_sample_rate: float = Field(
         default=0.1,
         ge=0.0,
         le=1.0,

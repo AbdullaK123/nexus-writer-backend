@@ -70,14 +70,14 @@ async def service_error_handler(request: Request, exc: ServiceError):
     logger.warning(
         "Service error: {code} — {message}", code=exc.code, message=exc.message
     )
-    sentry_sdk.capture_exception(exc)
+    if exc.status_code >= 500:
+        sentry_sdk.capture_exception(exc)
     return JSONResponse(status_code=exc.status_code, content={"detail": detail})
 
 
 @api.exception_handler(DataError)
 async def data_error_handler(request: Request, exc: DataError):
     cid = get_correlation_id()
-    sentry_sdk.capture_exception(exc)
     if isinstance(exc, DataNotFound):
         return JSONResponse(
             status_code=404,
@@ -112,6 +112,7 @@ async def data_error_handler(request: Request, exc: DataError):
             },
         )
     logger.error("Unhandled data error: {exc}", exc=exc)
+    sentry_sdk.capture_exception(exc)
     return JSONResponse(
         status_code=500,
         content={

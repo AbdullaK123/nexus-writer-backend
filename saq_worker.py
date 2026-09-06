@@ -48,7 +48,6 @@ def _validate_job_ids(**ids: str) -> None:
         try:
             UUID(value)
         except (TypeError, ValueError, AttributeError) as exc:
-            sentry_sdk.capture_exception(exc)
             raise ValueError(f"Invalid {name}") from exc
 
 

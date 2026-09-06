@@ -11,6 +11,7 @@ def init_sentry(service_name: str) -> None:
         environment=settings.env,
         traces_sample_rate=config.sentry.traces_sample_rate,
         send_default_pii=False,
+        max_request_body_size="never",
     )
 
     sentry_sdk.set_tag("service", service_name)
