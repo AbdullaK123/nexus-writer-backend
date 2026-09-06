@@ -12,7 +12,11 @@ async def test_job_ids_are_validated_before_work(
     saq_context: dict[str, Any],
     job_ids: dict[str, str],
     fake_worker_services: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    captured: list[BaseException] = []
+    monkeypatch.setattr(saq_worker.sentry_sdk, "capture_exception", captured.append)
+
     with pytest.raises(ValueError, match="Invalid chapter_id"):
         await saq_worker.scene_and_embedding_job(
             saq_context,
@@ -21,6 +25,7 @@ async def test_job_ids_are_validated_before_work(
             user_id=job_ids["user_id"],
         )
 
+    assert captured == []
     assert fake_worker_services["chapter_repo"].get_calls == []
     assert fake_worker_services["extraction_service"].calls == []
 
@@ -101,15 +106,20 @@ async def test_scene_job_failure_re_raises_and_cleans_pending_state(
     job_ids: dict[str, str],
     fake_worker_services: dict[str, Any],
     fake_redis_client: Any,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_worker_services["chapter_repo"].rows = [
         PublishedChapter(job_ids["chapter_id"], job_ids["story_id"])
     ]
-    fake_worker_services["extraction_service"].error = RuntimeError("provider failed")
+    error = RuntimeError("provider failed")
+    fake_worker_services["extraction_service"].error = error
+    captured: list[BaseException] = []
+    monkeypatch.setattr(saq_worker.sentry_sdk, "capture_exception", captured.append)
 
     with pytest.raises(RuntimeError, match="provider failed"):
         await saq_worker.scene_and_embedding_job(saq_context, **job_ids)
 
+    assert captured == [error]
     assert fake_worker_services["pubsub"].published[-1][1].kind == "job_failed"
     assert f"chapter:extraction-pending:{job_ids['chapter_id']}" in fake_redis_client.delete_calls
 
@@ -155,8 +165,12 @@ async def test_story_reanalysis_failure_is_reported_and_re_raised(
     saq_context: dict[str, Any],
     job_ids: dict[str, str],
     fake_worker_services: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    fake_worker_services["story_service"].error = RuntimeError("analysis failed")
+    error = RuntimeError("analysis failed")
+    fake_worker_services["story_service"].error = error
+    captured: list[BaseException] = []
+    monkeypatch.setattr(saq_worker.sentry_sdk, "capture_exception", captured.append)
 
     with pytest.raises(RuntimeError, match="analysis failed"):
         await saq_worker.story_reanalysis_job(
@@ -166,4 +180,5 @@ async def test_story_reanalysis_failure_is_reported_and_re_raised(
             story_title="Test Story",
         )
 
+    assert captured == [error]
     assert fake_worker_services["pubsub"].published[-1][1].kind == "job_failed"

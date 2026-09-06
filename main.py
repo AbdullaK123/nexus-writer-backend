@@ -5,6 +5,7 @@ from src.app.controllers.auth import user_controller
 from src.app.controllers.chapter import chapter_controller
 from src.app.controllers.story import story_controller
 from src.app.lifespan import lifespan
+from src.infrastructure.telemetry.sentry import init_sentry
 from src.shared.utils.correlation import get_correlation_id
 from src.shared.utils.logging import configure_logger
 from src.service.exceptions import ServiceError
@@ -15,18 +16,18 @@ from src.data.exceptions import (
     DataIntegrityError,
 )
 from src.infrastructure.exceptions import InfrastructureError
-from src.infrastructure.config import settings
+from src.infrastructure.config import settings, config as app_config
 from src.infrastructure.telemetry import init_tracing
 from dotenv import load_dotenv
 from loguru import logger
 from starlette.middleware.sessions import SessionMiddleware
-
-# from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+import sentry_sdk
 import logfire
 
 load_dotenv()
 configure_logger()
 init_tracing("nexus-writer-api")
+init_sentry("api")
 
 
 api = FastAPI(
@@ -39,9 +40,6 @@ api = FastAPI(
     # registered at one canonical path (no trailing slash on collections).
     redirect_slashes=False,
 )
-
-# ── Request body size limit middleware ─────────────────────────────────
-from src.infrastructure.config import config as app_config
 
 
 @api.middleware("http")
@@ -72,6 +70,8 @@ async def service_error_handler(request: Request, exc: ServiceError):
     logger.warning(
         "Service error: {code} — {message}", code=exc.code, message=exc.message
     )
+    if exc.status_code >= 500:
+        sentry_sdk.capture_exception(exc)
     return JSONResponse(status_code=exc.status_code, content={"detail": detail})
 
 
@@ -112,6 +112,7 @@ async def data_error_handler(request: Request, exc: DataError):
             },
         )
     logger.error("Unhandled data error: {exc}", exc=exc)
+    sentry_sdk.capture_exception(exc)
     return JSONResponse(
         status_code=500,
         content={
@@ -128,6 +129,7 @@ async def data_error_handler(request: Request, exc: DataError):
 async def infrastructure_error_handler(request: Request, exc: InfrastructureError):
     cid = get_correlation_id()
     logger.error("Infrastructure error: {exc}", exc=exc)
+    sentry_sdk.capture_exception(exc)
     return JSONResponse(
         status_code=503,
         content={
@@ -146,6 +148,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled exception while processing request")
     cid = get_correlation_id()
     payload = {"detail": "Internal Server Error", "correlation_id": cid}
+    sentry_sdk.capture_exception(exc)
     return JSONResponse(status_code=500, content=payload)
 
 

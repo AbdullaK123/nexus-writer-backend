@@ -15,6 +15,7 @@ from src.infrastructure.redis.pubsub import RedisPubSub
 from src.infrastructure.redis.queue import client
 from src.infrastructure.config.settings import config, settings as app_settings
 from src.infrastructure.telemetry.logfire import init_tracing
+from src.infrastructure.telemetry.sentry import init_sentry
 from src.service.analytics.service import AnalyticsService
 from src.service.chapter.service import ChapterService
 from src.service.embedding.service import EmbeddingService
@@ -28,10 +29,12 @@ import asyncio
 import hashlib
 from opentelemetry import trace
 from loguru import logger
+import sentry_sdk
 
 load_dotenv()
 configure_logger()
 init_tracing("nexus-saq-worker")
+init_sentry("saq-worker")
 
 HEARTBEAT_FILE = Path("/tmp/saq_worker_heartbeat")
 HEARTBEAT_INTERVAL_SECONDS = 30
@@ -181,6 +184,7 @@ async def story_reanalysis_job(
         except Exception as e:
             logger.exception("saq.story_reanalysis_job.failed")
             span.record_exception(e)
+            sentry_sdk.capture_exception(e)
             await ctx["worker"].context["pubsub"].publish(
                 f"notifications:{user_id}",
                 Notification(
@@ -241,6 +245,7 @@ async def chapter_reanalysis_job(
         except Exception as e:
             logger.exception("saq.chapter_reanalysis_job.failed")
             span.record_exception(e)
+            sentry_sdk.capture_exception(e)
             await ctx["worker"].context["pubsub"].publish(
                 f"notifications:{user_id}",
                 Notification(
@@ -407,6 +412,7 @@ async def scene_and_embedding_job(
                 ),
             )
             span.set_status(trace.StatusCode.ERROR, str(e))
+            sentry_sdk.capture_exception(e)
             raise
         finally:
             await client.delete(f"chapter:extraction-pending:{chapter_id}")

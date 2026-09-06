@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 import cron_worker
 
 
@@ -30,14 +32,19 @@ async def test_embedding_cron_invokes_pending_embedding_and_heartbeats(
     assert cron_runtime.heartbeat.touch_count == 1
 
 
-async def test_cron_failure_is_swallowed_and_does_not_block_unrelated_job(
+async def test_cron_failure_is_captured_swallowed_and_does_not_block_unrelated_job(
     cron_runtime: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    cron_runtime.reextraction.error = RuntimeError("reextraction failed")
+    error = RuntimeError("reextraction failed")
+    cron_runtime.reextraction.error = error
+    captured: list[BaseException] = []
+    monkeypatch.setattr(cron_worker.sentry_sdk, "capture_exception", captured.append)
 
     await cron_worker.run_reextraction_once()
     await cron_worker.run_embedding_once()
 
+    assert captured == [error]
     assert cron_runtime.reextraction.calls == 1
     assert cron_runtime.embedding.calls == 1
     assert cron_runtime.heartbeat.touch_count == 2

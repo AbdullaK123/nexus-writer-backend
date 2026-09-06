@@ -14,6 +14,9 @@ postgres:
   pool_max_size: 20
   max_inactive_connection_lifetime: 300
 
+sentry:
+  traces_sample_rate: 0.1
+
 jobs:
   session_cleanup_cron_expression: "0 * * * *"
   scene_extraction_cron_expression: "0 */2 * * * *"
