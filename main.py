@@ -5,6 +5,7 @@ from src.app.controllers.auth import user_controller
 from src.app.controllers.chapter import chapter_controller
 from src.app.controllers.story import story_controller
 from src.app.lifespan import lifespan
+from src.infrastructure.telemetry.sentry import init_sentry
 from src.shared.utils.correlation import get_correlation_id
 from src.shared.utils.logging import configure_logger
 from src.service.exceptions import ServiceError
@@ -26,12 +27,7 @@ import logfire
 load_dotenv()
 configure_logger()
 init_tracing("nexus-writer-api")
-
-sentry_sdk.init(
-    dsn=settings.sentry_dsn,
-    traces_sample_rate=app_config.sentry.traces_sample_rate,
-    send_default_pii=True
-)
+init_sentry("api")
 
 
 api = FastAPI(

@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     resend_api_key: str
 
     #sentry
-    sentry_dsn: str
+    sentry_dsn: str | None = None
 
     @model_validator(mode="after")
     def validate_cors(self):
@@ -89,7 +89,11 @@ class HttpConfig(BaseModel, frozen=True):
 
 
 class SentryConfig(BaseModel, frozen=True):
-    traces_sample_rate: float = 0.1
+       traces_sample_rate: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+    )
 
 
 class PostgresConfig(BaseModel, frozen=True):

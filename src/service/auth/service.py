@@ -25,7 +25,7 @@ from src.infrastructure.auth.password import hash_password, verify_password
 from src.infrastructure.auth.session import generate_session_id
 from src.infrastructure.redis.pubsub import RedisPubSub
 from src.service.auth.templates.email import RESET_TEMPLATE, VERIFICATION_TEMPLATE
-from src.service.exceptions import AuthError, ForbiddenError, ConflictError, InternalError, NotFoundError
+from src.service.exceptions import AuthError, ForbiddenError, ConflictError, InternalError, NotFoundError, ServiceError
 from src.service.utils.decorators import handle_service_errors, handle_service_errors_stream
 from src.shared.utils.correlation import set_user_id
 import asyncpg
@@ -44,7 +44,7 @@ class AuthService:
         user_repo: UserRepository,
         session_repo: SessionRepository,
         auth_token_repo: AuthTokenRepository,
-        pubsub: RedisPubSub
+        pubsub: RedisPubSub | None = None
     ):
         self._user_repo = user_repo
         self._session_repo = session_repo
@@ -243,6 +243,10 @@ class AuthService:
 
     @handle_service_errors_stream
     async def stream_notifications(self, user_id: str) -> AsyncIterator[str]:
+
+        if self._pubsub is None:
+            raise ServiceError("Auth service was initialized with no pubsub listener.")
+
         try:
             async for notification in self._pubsub.listen(
                 f"notifications:{user_id}", Notification

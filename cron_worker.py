@@ -6,6 +6,7 @@ from src.data.repositories import (
     UserRepository,
 )
 from src.data.repositories.auth_tokens import AuthTokenRepository
+from src.infrastructure.telemetry.sentry import init_sentry
 from src.service.auth import AuthService
 from src.service.embedding.service import EmbeddingService
 from src.service.extraction import ExtractionService
@@ -26,6 +27,7 @@ from opentelemetry import trace
 load_dotenv()
 configure_logger()
 init_tracing("nexus-worker")
+init_sentry("cron-worker")
 
 HEARTBEAT_FILE = Path("/tmp/worker_heartbeat")
 HEARTBEAT_INTERVAL_SECONDS = 30
@@ -53,8 +55,7 @@ async def run_session_cleanup_once() -> None:
         auth_service = AuthService(
             UserRepository(pool),
             SessionRepository(pool),
-            AuthTokenRepository(pool),
-            None,  # cleanup does not use pub/sub
+            AuthTokenRepository(pool)
         )
         try:
             await auth_service.cleanup_expired_sessions()

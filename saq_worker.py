@@ -15,6 +15,7 @@ from src.infrastructure.redis.pubsub import RedisPubSub
 from src.infrastructure.redis.queue import client
 from src.infrastructure.config.settings import config, settings as app_settings
 from src.infrastructure.telemetry.logfire import init_tracing
+from src.infrastructure.telemetry.sentry import init_sentry
 from src.service.analytics.service import AnalyticsService
 from src.service.chapter.service import ChapterService
 from src.service.embedding.service import EmbeddingService
@@ -32,6 +33,7 @@ from loguru import logger
 load_dotenv()
 configure_logger()
 init_tracing("nexus-saq-worker")
+init_sentry("saq-worker")
 
 HEARTBEAT_FILE = Path("/tmp/saq_worker_heartbeat")
 HEARTBEAT_INTERVAL_SECONDS = 30
