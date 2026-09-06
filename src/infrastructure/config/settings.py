@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     #resend
     resend_api_key: str
 
+    #sentry
+    sentry_dsn: str
+
     @model_validator(mode="after")
     def validate_cors(self):
         if self.cors_allow_credentials and "*" in self.cors_origins:
@@ -83,6 +86,10 @@ class AuthConfig(BaseModel, frozen=True):
 
 class HttpConfig(BaseModel, frozen=True):
     max_body_size_bytes: int = 10 * 1024 * 1024
+
+
+class SentryConfig(BaseModel, frozen=True):
+    traces_sample_rate: float = 0.1
 
 
 class PostgresConfig(BaseModel, frozen=True):
@@ -154,6 +161,7 @@ class Config(BaseModel, frozen=True):
     """Application-wide static configuration. Loaded from config.yaml."""
 
     auth: AuthConfig = AuthConfig()
+    sentry: SentryConfig = SentryConfig()
     http: HttpConfig = HttpConfig()
     postgres: PostgresConfig = PostgresConfig()
     redis: RedisConfig = RedisConfig()

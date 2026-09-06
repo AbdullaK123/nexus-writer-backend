@@ -15,18 +15,23 @@ from src.data.exceptions import (
     DataIntegrityError,
 )
 from src.infrastructure.exceptions import InfrastructureError
-from src.infrastructure.config import settings
+from src.infrastructure.config import settings, config as app_config
 from src.infrastructure.telemetry import init_tracing
 from dotenv import load_dotenv
 from loguru import logger
 from starlette.middleware.sessions import SessionMiddleware
-
-# from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+import sentry_sdk
 import logfire
 
 load_dotenv()
 configure_logger()
 init_tracing("nexus-writer-api")
+
+sentry_sdk.init(
+    dsn=settings.sentry_dsn,
+    traces_sample_rate=app_config.sentry.traces_sample_rate,
+    send_default_pii=True
+)
 
 
 api = FastAPI(
@@ -39,9 +44,6 @@ api = FastAPI(
     # registered at one canonical path (no trailing slash on collections).
     redirect_slashes=False,
 )
-
-# ── Request body size limit middleware ─────────────────────────────────
-from src.infrastructure.config import config as app_config
 
 
 @api.middleware("http")
