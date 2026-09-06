@@ -70,12 +70,14 @@ async def service_error_handler(request: Request, exc: ServiceError):
     logger.warning(
         "Service error: {code} — {message}", code=exc.code, message=exc.message
     )
+    sentry_sdk.capture_exception(exc)
     return JSONResponse(status_code=exc.status_code, content={"detail": detail})
 
 
 @api.exception_handler(DataError)
 async def data_error_handler(request: Request, exc: DataError):
     cid = get_correlation_id()
+    sentry_sdk.capture_exception(exc)
     if isinstance(exc, DataNotFound):
         return JSONResponse(
             status_code=404,
@@ -126,6 +128,7 @@ async def data_error_handler(request: Request, exc: DataError):
 async def infrastructure_error_handler(request: Request, exc: InfrastructureError):
     cid = get_correlation_id()
     logger.error("Infrastructure error: {exc}", exc=exc)
+    sentry_sdk.capture_exception(exc)
     return JSONResponse(
         status_code=503,
         content={
@@ -144,6 +147,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled exception while processing request")
     cid = get_correlation_id()
     payload = {"detail": "Internal Server Error", "correlation_id": cid}
+    sentry_sdk.capture_exception(exc)
     return JSONResponse(status_code=500, content=payload)
 
 

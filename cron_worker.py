@@ -20,6 +20,7 @@ from loguru import logger
 from src.shared.utils.logging import configure_logger
 from src.infrastructure.telemetry import init_tracing
 from dotenv import load_dotenv
+import sentry_sdk
 
 # from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
 from opentelemetry import trace
@@ -63,6 +64,7 @@ async def run_session_cleanup_once() -> None:
         except Exception as e:
             logger.exception("cron.cleanup_expired_sessions.failed")
             span.record_exception(e)
+            sentry_sdk.capture_exception(e)
             span.set_status(trace.StatusCode.ERROR, str(e))
         finally:
             HEARTBEAT_FILE.touch()
@@ -86,6 +88,7 @@ async def run_reextraction_once() -> None:
         except Exception as e:
             logger.exception("cron.run_reextraction_job.failed")
             span.record_exception(e)
+            sentry_sdk.capture_exception(e)
             span.set_status(trace.StatusCode.ERROR, str(e))
         finally:
             HEARTBEAT_FILE.touch()
@@ -108,6 +111,7 @@ async def run_embedding_once() -> None:
         except Exception as e:
             logger.exception("cron.run_embedding_job.failed")
             span.record_exception(e)
+            sentry_sdk.capture_exception(e)
             span.set_status(trace.StatusCode.ERROR, str(e))
         finally:
             HEARTBEAT_FILE.touch()

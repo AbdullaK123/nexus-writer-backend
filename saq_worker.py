@@ -29,6 +29,7 @@ import asyncio
 import hashlib
 from opentelemetry import trace
 from loguru import logger
+import sentry_sdk
 
 load_dotenv()
 configure_logger()
@@ -47,6 +48,7 @@ def _validate_job_ids(**ids: str) -> None:
         try:
             UUID(value)
         except (TypeError, ValueError, AttributeError) as exc:
+            sentry_sdk.capture_exception(exc)
             raise ValueError(f"Invalid {name}") from exc
 
 
@@ -183,6 +185,7 @@ async def story_reanalysis_job(
         except Exception as e:
             logger.exception("saq.story_reanalysis_job.failed")
             span.record_exception(e)
+            sentry_sdk.capture_exception(e)
             await ctx["worker"].context["pubsub"].publish(
                 f"notifications:{user_id}",
                 Notification(
@@ -243,6 +246,7 @@ async def chapter_reanalysis_job(
         except Exception as e:
             logger.exception("saq.chapter_reanalysis_job.failed")
             span.record_exception(e)
+            sentry_sdk.capture_exception(e)
             await ctx["worker"].context["pubsub"].publish(
                 f"notifications:{user_id}",
                 Notification(
@@ -409,6 +413,7 @@ async def scene_and_embedding_job(
                 ),
             )
             span.set_status(trace.StatusCode.ERROR, str(e))
+            sentry_sdk.capture_exception(e)
             raise
         finally:
             await client.delete(f"chapter:extraction-pending:{chapter_id}")

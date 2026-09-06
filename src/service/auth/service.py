@@ -245,7 +245,7 @@ class AuthService:
     async def stream_notifications(self, user_id: str) -> AsyncIterator[str]:
 
         if self._pubsub is None:
-            raise ServiceError("Auth service was initialized with no pubsub listener.")
+            raise InternalError("Auth service was initialized with no pubsub listener.")
 
         try:
             async for notification in self._pubsub.listen(
