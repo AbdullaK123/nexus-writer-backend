@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from src.app.controllers.auth import user_controller
 from src.app.controllers.chapter import chapter_controller
 from src.app.controllers.story import story_controller
+from src.app.controllers.billing import billing_controller
 from src.app.lifespan import lifespan
 from src.infrastructure.telemetry.sentry import init_sentry
 from src.shared.utils.correlation import get_correlation_id
@@ -156,6 +157,7 @@ main_router = APIRouter(prefix="/api")
 main_router.include_router(user_controller)
 main_router.include_router(chapter_controller)
 main_router.include_router(story_controller)
+main_router.include_router(billing_controller)
 
 api.include_router(main_router)
 

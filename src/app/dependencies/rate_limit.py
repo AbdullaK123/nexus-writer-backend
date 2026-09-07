@@ -97,3 +97,5 @@ ai_rate_limit = user_rate_limit(prefix="ai", limit=15)
 
 # Semantic search is heavier than ordinary reads, but should still feel instant.
 search_rate_limit = user_rate_limit(prefix="search", limit=120)
+
+webhook_rate_limit = user_rate_limit(prefix="webhook", limit=100)

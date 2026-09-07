@@ -80,6 +80,7 @@ class UserRow(BaseModel):
     created_at: datetime
     updated_at: datetime
     email_verified: bool
+    stripe_customer_id: Optional[str]
 
 
 class OAuthUserRow(BaseModel):

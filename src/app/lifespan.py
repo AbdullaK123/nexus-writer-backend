@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from loguru import logger
+from src.infrastructure.config import settings
 
 from src.app.dependencies.services import (
     init_infrastructure,
