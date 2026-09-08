@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     #sentry
     sentry_dsn: str | None = None
 
+    #stripe
+    stripe_secret_key: str
+    stripe_publishable_key: str
+    stripe_price_id: str
+    stripe_webhook_secret: str
+
     @model_validator(mode="after")
     def validate_cors(self):
         if self.cors_allow_credentials and "*" in self.cors_origins:

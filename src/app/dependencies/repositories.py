@@ -19,6 +19,7 @@ from src.data.repositories import (
 )
 from src.data.repositories.analytics import AnalyticsRepository
 from src.data.repositories.auth_tokens import AuthTokenRepository
+from src.data.repositories.billing import SubscriptionRepository
 
 
 def get_scene_repository(
@@ -66,3 +67,8 @@ def get_auth_tokens_repository(
     pool: asyncpg.Pool = Depends(get_db_pool)
 ) -> AuthTokenRepository:
     return AuthTokenRepository(pool)
+
+def get_subscription_repository(
+    pool: asyncpg.Pool = Depends(get_db_pool)
+) -> SubscriptionRepository:
+    return SubscriptionRepository(pool)

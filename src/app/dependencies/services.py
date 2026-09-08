@@ -13,6 +13,7 @@ from src.app.dependencies.repositories import (
     get_scene_repository,
     get_session_repository,
     get_story_repository,
+    get_subscription_repository,
     get_user_repository,
 )
 from src.data.repositories import (
@@ -25,6 +26,7 @@ from src.data.repositories import (
 )
 from src.data.repositories.analytics import AnalyticsRepository
 from src.data.repositories.auth_tokens import AuthTokenRepository
+from src.data.repositories.billing import SubscriptionRepository
 from src.infrastructure.ai import OpenAIProvider, AIProvider
 from src.infrastructure.config.settings import config
 from src.infrastructure.db.pool import (
@@ -39,6 +41,7 @@ from src.infrastructure.redis.pubsub import RedisPubSub
 from src.infrastructure.exceptions import InfrastructureError
 from src.service.analytics.service import AnalyticsService
 from src.service.auth import AuthService
+from src.service.billing.service import BillingService
 from src.service.chapter import ChapterService
 from src.service.chat import ChatService
 from src.service.chat.agent import ChatDeps, build_agent
@@ -195,4 +198,13 @@ def get_chat_service(
         story_service=story_service,
         analytics_service=analytics_service,
         agent=agent,
+    )
+
+def get_billing_service(
+    user_repo: UserRepository = Depends(get_user_repository),
+    subscription_repo: SubscriptionRepository = Depends(get_subscription_repository)
+) -> BillingService:
+    return BillingService(
+        user_repo=user_repo,
+        subscription_repo=subscription_repo
     )

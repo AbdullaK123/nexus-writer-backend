@@ -278,3 +278,35 @@ The React SPA is maintained separately:
 **https://github.com/AbdullaK123/nexus-writer-frontend-spa**
 
 Run the frontend against this API with `VITE_API_BASE_URL=http://localhost:8000/api`.
+
+## Billing consistency
+
+Billing uses the existing PostgreSQL pool and one transaction-scoped advisory lock
+per user. Checkout and webhook reconciliation take the same lock. Checkout checks
+Stripe for existing subscriptions and reuses open checkout sessions; stable Stripe
+idempotency keys protect ambiguous retries. No browser session is required for a
+signed webhook. Failed processing returns 500 so Stripe can retry.
+
+Webhook payloads identify the customer; their old status snapshots are not applied.
+While holding the lock, the service reads current Stripe subscriptions and upserts
+one entitlement row per user. This handles duplicate delivery, out-of-order events,
+and replacing a canceled subscription without an event ledger or new migration.
+Multiple nonterminal subscriptions raise an error for investigation rather than
+silently choosing one. The existing active/trialing/past_due access policy remains.
+
+Subscribe the Stripe endpoint to checkout.session.completed,
+customer.subscription.updated, customer.subscription.deleted,
+invoice.payment_failed, and invoice.payment_succeeded. Billing requires the
+STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and STRIPE_PRICE_ID deployment settings.
+
+Stripe requests run while the per-user database lock is held. Stripe idempotency
+keys have a finite retention window; prolonged failures before the customer mapping
+is committed may require reconciling orphaned Stripe customers. There is no claim
+of an atomic transaction spanning Stripe and PostgreSQL.
+
+Targeted regression tests:
+
+```sh
+uv run pytest tests/service/test_billing_*.py tests/app/test_billing_*.py tests/data/test_billing_*.py
+```
+The data tests use the existing PostgreSQL/Testcontainers fixtures.

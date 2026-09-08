@@ -13,7 +13,7 @@ from src.infrastructure.auth.password import hash_password
 
 _USER_COLUMNS = """
     id, username, email, password_hash, profile_img, email_verified, settings,
-    created_at, updated_at
+    created_at, updated_at, stripe_customer_id
 """
 
 Executor = Any
@@ -29,10 +29,13 @@ class UserRepository:
     def _exe(self, executor: Executor) -> Executor:
         return executor if executor is not None else self._pool
 
-    async def get_by_id(self, user_id: str) -> UserRow | None:
+    async def get_by_id(self, user_id: str, executor: Executor | None = None) -> UserRow | None:
         sql = f'SELECT {_USER_COLUMNS} FROM "user" WHERE id = $1'
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(sql, user_id)
+        if executor is not None:
+            row = await executor.fetchrow(sql, user_id)
+        else:
+            async with self._pool.acquire() as conn:
+                row = await conn.fetchrow(sql, user_id)
         return UserRow.model_validate(dict(row)) if row else None
 
     async def get_by_email(
@@ -72,6 +75,31 @@ class UserRepository:
         """
         await self._exe(executor).execute(sql, password_hash, user_id)
 
+    async def set_stripe_customer_id(
+        self,
+        user_id: str,
+        stripe_customer_id: str,
+        executor: Executor | None = None
+    ) -> None:
+        sql = """
+        UPDATE "user"
+        SET stripe_customer_id = $1
+        WHERE id = $2 AND stripe_customer_id IS NULL
+        """
+        await self._exe(executor).execute(sql, stripe_customer_id, user_id)
+
+    async def get_by_stripe_customer_id(
+        self,
+        stripe_customer_id: str,
+        executor: Executor | None = None
+    ) -> UserRow | None:
+        sql = f"""
+        SELECT {_USER_COLUMNS}
+        FROM "user"
+        WHERE stripe_customer_id=$1
+        """
+        row = await self._exe(executor).fetchrow(sql, stripe_customer_id)
+        return UserRow.model_validate(dict(row)) if row else None
 
     async def update_settings(self, user_id: str, update: dict) -> UserRow | None:
 

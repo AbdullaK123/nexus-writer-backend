@@ -1,5 +1,6 @@
 from fastapi import Request, Cookie, Depends
-
+from src.app.dependencies.repositories import get_subscription_repository
+from src.data.repositories.billing import SubscriptionRepository
 from src.data.schemas import UserRow
 from src.app.dependencies.services import get_auth_service
 from src.service.auth import AuthService
@@ -43,4 +44,13 @@ async def get_verified_user(
     if not user.email_verified:
         raise EmailVerificationRequiredError()
 
+    return user
+
+async def require_active_subscription(
+    user: UserRow = Depends(get_verified_user),
+    subscription_repo: SubscriptionRepository = Depends(get_subscription_repository)
+):
+    sub = await subscription_repo.get_by_user_id(user_id=user.id)
+    if sub is None or sub.status not in ("active", "trialing", "past_due"):
+        raise ForbiddenError("Active subscription required")
     return user
