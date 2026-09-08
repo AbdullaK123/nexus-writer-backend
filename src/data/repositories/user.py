@@ -29,10 +29,13 @@ class UserRepository:
     def _exe(self, executor: Executor) -> Executor:
         return executor if executor is not None else self._pool
 
-    async def get_by_id(self, user_id: str) -> UserRow | None:
+    async def get_by_id(self, user_id: str, executor: Executor | None = None) -> UserRow | None:
         sql = f'SELECT {_USER_COLUMNS} FROM "user" WHERE id = $1'
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(sql, user_id)
+        if executor is not None:
+            row = await executor.fetchrow(sql, user_id)
+        else:
+            async with self._pool.acquire() as conn:
+                row = await conn.fetchrow(sql, user_id)
         return UserRow.model_validate(dict(row)) if row else None
 
     async def get_by_email(

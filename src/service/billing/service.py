@@ -1,4 +1,5 @@
 import stripe
+from contextlib import asynccontextmanager
 from stripe import StripeClient
 from stripe.checkout import Session as CheckoutSession
 from stripe import Subscription as StripeSubscription
@@ -22,52 +23,77 @@ class BillingService:
         self._subscription_repo = subscription_repo
         self._client = StripeClient(api_key=app_settings.stripe_secret_key)
 
+    @asynccontextmanager
+    async def _locked(self, user_id: str):
+        # The same database lock is shared by checkout and webhook reconciliation,
+        # including requests handled by different API processes.
+        async with self._user_repo.pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                    f"billing:{user_id}",
+                )
+                yield conn
+
     @handle_service_errors
-    async def create_checkout_session(
-        self,
-        user_id: str
-    ) -> str:
-
-        user = await self._user_repo.get_by_id(user_id=user_id)
-
-        if user is None:
-            raise NotFoundError("User not found")
-
-        existing = await self._subscription_repo.get_by_user_id(user_id=user.id)
-        if existing and existing.status in ("active", "trialing", "past_due"):
-            raise ConflictError("You already have an active subscription.")
-
-        if user.stripe_customer_id is None:
-            try:
-                customer = await self._client.v1.customers.create_async(params={
-                    "email": user.email
-                })
-                await self._user_repo.set_stripe_customer_id(user.id, customer.id)
-                customer_id=customer.id
-            except stripe.StripeError as e:
-                logger.error("stripe.create_customer.failed", err=str(e))
-                raise InternalError("Something went wrong with the payment service. Please try again.")
-        else:
-            customer_id = user.stripe_customer_id
-            
+    async def create_checkout_session(self, user_id: str) -> str:
         try:
-            session = await self._client.v1.checkout.sessions.create_async(params={
-                "customer": customer_id,
-                "mode": "subscription",
-                "line_items": [{
-                    "price": app_settings.stripe_price_id,
-                    "quantity": 1
-                }],
-                "success_url": f"{app_config.auth.frontend_base_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
-                "cancel_url": f"{app_config.auth.frontend_base_url}/billing/cancel"
-            })
-            if session.url is None:
-                raise InternalError("Failed to create checkout session")
-            return session.url
-        except stripe.StripeError as e:
-            logger.error("stripe.create_checkout_session.failed", err=str(e))
-            raise InternalError("Something went wrong with the payment service. Please try again.")
-        
+            async with self._locked(user_id) as conn:
+                user = await self._user_repo.get_by_id(user_id, executor=conn)
+                if user is None:
+                    raise NotFoundError("User not found")
+
+                if user.stripe_customer_id is None:
+                    customer = await self._client.v1.customers.create_async(
+                        # Stable parameters allow retries even if the user edits their email.
+                        params={"metadata": {"user_id": user.id}},
+                        options={"idempotency_key": f"billing-customer:{user.id}"},
+                    )
+                    await self._user_repo.set_stripe_customer_id(user.id, customer.id, executor=conn)
+                    user = await self._user_repo.get_by_id(user.id, executor=conn)
+                if user is None or user.stripe_customer_id is None:
+                    raise InternalError("Could not associate payment customer")
+                customer_id = user.stripe_customer_id
+
+                # Stripe may already have completed checkout before its webhook arrives.
+                subscriptions = await self._client.v1.subscriptions.list_async(
+                    params={"customer": customer_id, "status": "all", "limit": 100},
+                )
+                async for subscription in subscriptions.auto_paging_iter():
+                    if subscription.status not in ("canceled", "incomplete_expired"):
+                        raise ConflictError("You already have a subscription. Manage it before starting another.")
+
+                sessions = await self._client.v1.checkout.sessions.list_async(
+                    params={"customer": customer_id, "limit": 100},
+                )
+                latest = None
+                async for session in sessions.auto_paging_iter():
+                    if session.mode != "subscription":
+                        continue
+                    if latest is None:
+                        latest = session
+                    if session.status == "open":
+                        if session.url is None:
+                            raise InternalError("Checkout URL unavailable")
+                        return session.url
+
+                previous = latest.id if latest is not None else "initial"
+                session = await self._client.v1.checkout.sessions.create_async(
+                    params={
+                        "customer": customer_id,
+                        "mode": "subscription",
+                        "line_items": [{"price": app_settings.stripe_price_id, "quantity": 1}],
+                        "success_url": f"{app_config.auth.frontend_base_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
+                        "cancel_url": f"{app_config.auth.frontend_base_url}/billing/cancel",
+                    },
+                    options={"idempotency_key": f"billing-checkout:{user.id}:{previous}"},
+                )
+                if session.url is None:
+                    raise InternalError("Failed to create checkout session")
+                return session.url
+        except stripe.StripeError as exc:
+            raise InternalError("Payment service unavailable; please retry") from exc
+
     @handle_service_errors
     async def handle_checkout_completed(self, session: CheckoutSession) -> None:
 
