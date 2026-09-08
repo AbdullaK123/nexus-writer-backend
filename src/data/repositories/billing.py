@@ -38,17 +38,7 @@ class SubscriptionRepository:
         row = await self._exe(executor).fetchrow(sql, user_id)
         return SubscriptionRow.model_validate(dict(row)) if row else None
 
-    async def get_by_stripe_id(
-        self,
-        *,
-        stripe_subscription_id: str,
-        executor: Executor | None = None,
-    ) -> SubscriptionRow | None:
-        sql = f'SELECT {_SUBSCRIPTION_COLUMNS} FROM "subscription" WHERE stripe_subscription_id = $1'
-        row = await self._exe(executor).fetchrow(sql, stripe_subscription_id)
-        return SubscriptionRow.model_validate(dict(row)) if row else None
-
-    async def create(
+    async def upsert(
         self,
         *,
         user_id: str,
@@ -57,16 +47,25 @@ class SubscriptionRepository:
         price_id: str,
         current_period_start: int,
         current_period_end: int,
+        cancel_at_period_end: bool,
         executor: Executor | None = None,
     ) -> SubscriptionRow:
         sql = f"""
             INSERT INTO "subscription"
                 (id, user_id, stripe_subscription_id, status, price_id,
-                 current_period_start, current_period_end,
+                 current_period_start, current_period_end, cancel_at_period_end,
                  created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5,
-                    to_timestamp($6), to_timestamp($7),
+                    to_timestamp($6), to_timestamp($7), $8,
                     NOW(), NOW())
+            ON CONFLICT (user_id) DO UPDATE SET
+                stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+                status = EXCLUDED.status,
+                price_id = EXCLUDED.price_id,
+                current_period_start = EXCLUDED.current_period_start,
+                current_period_end = EXCLUDED.current_period_end,
+                cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+                updated_at = NOW()
             RETURNING {_SUBSCRIPTION_COLUMNS}
         """
         row = await self._exe(executor).fetchrow(
@@ -78,46 +77,10 @@ class SubscriptionRepository:
             price_id,
             current_period_start,
             current_period_end,
+            cancel_at_period_end,
         )
-        assert row is not None
+        assert row is not None, "subscription upsert must return the canonical entitlement row"
         return SubscriptionRow.model_validate(dict(row))
 
-    async def update_status(
-        self,
-        *,
-        stripe_subscription_id: str,
-        status: str,
-        current_period_start: int,
-        current_period_end: int,
-        cancel_at_period_end: bool,
-        executor: Executor | None = None,
-    ) -> SubscriptionRow | None:
-        sql = f"""
-            UPDATE "subscription"
-            SET status = $1,
-                current_period_start = to_timestamp($2),
-                current_period_end = to_timestamp($3),
-                cancel_at_period_end = $4,
-                updated_at = NOW()
-            WHERE stripe_subscription_id = $5
-            RETURNING {_SUBSCRIPTION_COLUMNS}
-        """
-        row = await self._exe(executor).fetchrow(
-            sql,
-            status,
-            current_period_start,
-            current_period_end,
-            cancel_at_period_end,
-            stripe_subscription_id,
-        )
-        return SubscriptionRow.model_validate(dict(row)) if row else None
-
-    async def delete_by_stripe_id(
-        self,
-        *,
-        stripe_subscription_id: str,
-        executor: Executor | None = None,
-    ) -> bool:
-        sql = 'DELETE FROM "subscription" WHERE stripe_subscription_id = $1'
-        status = await self._exe(executor).execute(sql, stripe_subscription_id)
-        return not status.endswith(" 0")
+    async def delete_by_user_id(self, *, user_id: str, executor: Executor | None = None) -> None:
+        await self._exe(executor).execute('DELETE FROM "subscription" WHERE user_id = $1', user_id)

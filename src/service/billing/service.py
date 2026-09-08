@@ -8,7 +8,6 @@ from src.data.repositories.billing import SubscriptionRepository
 from src.data.repositories.user import UserRepository
 from src.infrastructure.config import settings as app_settings, config as app_config
 from src.service.exceptions import ConflictError, InternalError, NotFoundError
-from loguru import logger
 
 from src.service.utils.decorators import handle_service_errors
 
@@ -53,29 +52,38 @@ class BillingService:
                     user = await self._user_repo.get_by_id(user.id, executor=conn)
                 if user is None or user.stripe_customer_id is None:
                     raise InternalError("Could not associate payment customer")
+            # Commit the customer mapping before checkout can fail. Otherwise a
+            # checkout timeout would roll back an already-created Stripe customer.
+            async with self._locked(user_id) as conn:
+                user = await self._user_repo.get_by_id(user_id, executor=conn)
+                if user is None or user.stripe_customer_id is None:
+                    raise NotFoundError("Payment customer not found")
                 customer_id = user.stripe_customer_id
 
-                # Stripe may already have completed checkout before its webhook arrives.
+                sessions = await self._client.v1.checkout.sessions.list_async(
+                    params={"customer": customer_id, "limit": 100},
+                )
+                latest = pending = None
+                async for session in sessions.auto_paging_iter():
+                    if session.mode != "subscription":
+                        continue
+                    if latest is None:
+                        latest = session
+                    if session.status == "open" and pending is None:
+                        pending = session
+
+                # Read subscriptions AFTER sessions: a browser can finish payment
+                # while these API requests run, independently of our database lock.
                 subscriptions = await self._client.v1.subscriptions.list_async(
                     params={"customer": customer_id, "status": "all", "limit": 100},
                 )
                 async for subscription in subscriptions.auto_paging_iter():
                     if subscription.status not in ("canceled", "incomplete_expired"):
                         raise ConflictError("You already have a subscription. Manage it before starting another.")
-
-                sessions = await self._client.v1.checkout.sessions.list_async(
-                    params={"customer": customer_id, "limit": 100},
-                )
-                latest = None
-                async for session in sessions.auto_paging_iter():
-                    if session.mode != "subscription":
-                        continue
-                    if latest is None:
-                        latest = session
-                    if session.status == "open":
-                        if session.url is None:
-                            raise InternalError("Checkout URL unavailable")
-                        return session.url
+                if pending is not None:
+                    if pending.url is None:
+                        raise InternalError("Checkout URL unavailable")
+                    return pending.url
 
                 previous = latest.id if latest is not None else "initial"
                 session = await self._client.v1.checkout.sessions.create_async(
@@ -94,146 +102,70 @@ class BillingService:
         except stripe.StripeError as exc:
             raise InternalError("Payment service unavailable; please retry") from exc
 
-    @handle_service_errors
-    async def handle_checkout_completed(self, session: CheckoutSession) -> None:
-
-        sub_id = session.subscription
-
-        if sub_id is None:
-            logger.error("stripe.checkout.no_subscription", session_id=session.id)
+    async def _reconcile_customer(self, customer) -> None:
+        if customer is None:
             return
-
-        if not isinstance(sub_id, str):
-            sub_id = sub_id.id
-
-        if session.customer is None:
-            logger.error("stripe.checkout.no_customer", session_id=session.id)
+        customer_id = customer if isinstance(customer, str) else customer.id
+        user = await self._user_repo.get_by_stripe_customer_id(customer_id)
+        # Events for deleted users or customers outside this app have no local owner.
+        if user is None:
             return
-
-        customer_id = session.customer
-        if not isinstance(customer_id, str):
-            customer_id = customer_id.id
 
         try:
-            sub = await self._client.v1.subscriptions.retrieve_async(sub_id)
-        except stripe.StripeError as e:
-            logger.error("stripe.retrieve_subscription.failed", err=str(e))
-            raise InternalError("Payment service unavailable; please retry") from e
+            async with self._locked(user.id) as conn:
+                user = await self._user_repo.get_by_id(user.id, executor=conn)
+                if user is None or user.stripe_customer_id != customer_id:
+                    return
+                # Fetch AFTER taking the lock: an older handler cannot overwrite a
+                # newer handler's result with a snapshot fetched while it waited.
+                subscriptions = await self._client.v1.subscriptions.list_async(
+                    params={"customer": customer_id, "status": "all", "limit": 100},
+                )
+                latest = current = None
+                async for subscription in subscriptions.auto_paging_iter():
+                    if latest is None:
+                        latest = subscription
+                    if subscription.status not in ("canceled", "incomplete_expired"):
+                        if current is not None:
+                            raise InternalError("Multiple current subscriptions require reconciliation")
+                        current = subscription
+                subscription = current or latest
+                if subscription is None:
+                    await self._subscription_repo.delete_by_user_id(user_id=user.id, executor=conn)
+                    return
+                item = subscription.items.data[0]
+                await self._subscription_repo.upsert(
+                    user_id=user.id,
+                    stripe_subscription_id=subscription.id,
+                    status=subscription.status,
+                    price_id=item.price.id,
+                    current_period_start=item.current_period_start,
+                    current_period_end=item.current_period_end,
+                    cancel_at_period_end=subscription.cancel_at_period_end,
+                    executor=conn,
+                )
+        except stripe.StripeError as exc:
+            raise InternalError("Payment service unavailable; please retry") from exc
 
-        user = await self._user_repo.get_by_stripe_customer_id(customer_id)
-
-        if user is None:
-            logger.error("stripe.checkout.no_user", customer_id=customer_id)
-            return
-
-        item = sub.items.data[0]
-        period_start = item.current_period_start
-        period_end = item.current_period_end
-        price_id = item.price.id
-
-        # Idempotent — if a subscription row already exists, update it
-        existing = await self._subscription_repo.get_by_stripe_id(
-            stripe_subscription_id=sub.id
-        )
-
-        if existing:
-            await self._subscription_repo.update_status(
-                stripe_subscription_id=sub.id,
-                status=sub.status,
-                current_period_start=period_start,
-                current_period_end=period_end,
-                cancel_at_period_end=sub.cancel_at_period_end,
-            )
-        else:
-            await self._subscription_repo.create(
-                user_id=user.id,
-                stripe_subscription_id=sub.id,
-                status=sub.status,
-                price_id=price_id,
-                current_period_start=period_start,
-                current_period_end=period_end,
-            )
-
-        logger.info("stripe.checkout.completed", user_id=user.id, subscription_id=sub.id)
+    # Events are wake-ups, not ordered state updates. The same current-state
+    # reconciliation handles duplicates, late events, and replacement subscriptions.
+    @handle_service_errors
+    async def handle_checkout_completed(self, session: CheckoutSession) -> None:
+        if session.mode == "subscription":
+            await self._reconcile_customer(session.customer)
 
     @handle_service_errors
     async def handle_subscription_updated(self, subscription: StripeSubscription) -> None:
-
-        existing = await self._subscription_repo.get_by_stripe_id(
-            stripe_subscription_id=subscription.id
-        )
-
-        if existing is None:
-            logger.warning("stripe.subscription.updated.not_found", subscription_id=subscription.id)
-            return
-
-        item = subscription.items.data[0]
-        current_period_start = item.current_period_start
-        current_period_end = item.current_period_end
-
-
-        await self._subscription_repo.update_status(
-            stripe_subscription_id=subscription.id,
-            status=subscription.status,
-            current_period_start=current_period_start,
-            current_period_end=current_period_end,
-            cancel_at_period_end=subscription.cancel_at_period_end
-        )
-        
-        logger.info("stripe.subscription.updated", subscription_id=subscription.id, status=subscription.status)
+        await self._reconcile_customer(subscription.customer)
 
     @handle_service_errors
     async def handle_subscription_deleted(self, subscription: StripeSubscription) -> None:
-    
-        existing = await self._subscription_repo.get_by_stripe_id(
-            stripe_subscription_id=subscription.id
-        )
-
-        if existing is None:
-            logger.warning("stripe.subscription.deleted.not_found", subscription_id=subscription.id)
-            return
-
-        item = subscription.items.data[0]
-        current_period_start = item.current_period_start
-        current_period_end = item.current_period_end
-
-
-        await self._subscription_repo.update_status(
-            stripe_subscription_id=subscription.id,
-            status="canceled",
-            current_period_start=current_period_start,
-            current_period_end=current_period_end,
-            cancel_at_period_end=False
-        )
-        
-        logger.info("stripe.subscription.deleted", subscription_id=subscription.id, status=subscription.status)
+        await self._reconcile_customer(subscription.customer)
 
     @handle_service_errors
     async def handle_payment_failed(self, invoice: StripeInvoice) -> None:
-
-        customer_id = invoice.customer
-
-        if customer_id is None:
-            return
-
-        if not isinstance(customer_id, str):
-            customer_id = customer_id.id
-
-        logger.warning(
-            "stripe.payment_failed",
-            customer_id=customer_id,
-            attempt_count=invoice.attempt_count,
-        )
+        await self._reconcile_customer(invoice.customer)
 
     @handle_service_errors
     async def handle_payment_succeeded(self, invoice: StripeInvoice) -> None:
-
-        customer_id = invoice.customer
-        
-        if customer_id is None:
-            return
-
-        if not isinstance(customer_id, str):
-            customer_id = customer_id.id
-
-        logger.info("stripe.payment_succeeded", customer_id=customer_id)
+        await self._reconcile_customer(invoice.customer)

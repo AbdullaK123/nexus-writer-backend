@@ -63,3 +63,17 @@ async def test_expired_checkout_does_not_reuse_its_old_creation_key(monkeypatch)
     await h.service.create_checkout_session("user-1")
     key = h.client.v1.checkout.sessions.create_async.await_args.kwargs["options"]["idempotency_key"]
     assert key.endswith(":cs_expired"), "an expired attempt must allow a fresh payable checkout instead of replaying the expired session forever"
+
+
+async def test_payment_finishing_during_checkout_lookup_cannot_open_another_checkout(monkeypatch):
+    h = billing_harness(monkeypatch)
+
+    async def sessions(**kwargs):
+        # The browser completes payment while the checkout-list request is in flight.
+        h.client.v1.subscriptions.list_async.return_value = StripePage([subscription()])
+        return StripePage([SimpleNamespace(id="cs_paid", mode="subscription", status="complete")])
+
+    h.client.v1.checkout.sessions.list_async.side_effect = sessions
+    with pytest.raises(ConflictError):
+        await h.service.create_checkout_session("user-1")
+    assert h.client.v1.checkout.sessions.create_async.await_count == 0, "a subscription check made before checkout lookup can miss payment completion and allow a second charge"
