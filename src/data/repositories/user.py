@@ -13,7 +13,7 @@ from src.infrastructure.auth.password import hash_password
 
 _USER_COLUMNS = """
     id, username, email, password_hash, profile_img, email_verified, settings,
-    created_at, updated_at
+    created_at, updated_at, stripe_customer_id
 """
 
 Executor = Any
@@ -95,7 +95,7 @@ class UserRepository:
         FROM "user"
         WHERE stripe_customer_id=$1
         """
-        row = await self._exe(executor).execute(sql, stripe_customer_id)
+        row = await self._exe(executor).fetchrow(sql, stripe_customer_id)
         return UserRow.model_validate(dict(row)) if row else None
 
     async def update_settings(self, user_id: str, update: dict) -> UserRow | None:

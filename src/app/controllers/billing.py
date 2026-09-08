@@ -9,7 +9,7 @@ from src.app.dependencies.auth import get_verified_user
 from src.app.dependencies.services import get_billing_service
 from src.data.schemas.auth import UserRow
 from src.service.billing.service import BillingService
-from src.service.exceptions import ForbiddenError
+from src.service.exceptions import ForbiddenError, InternalError
 from src.app.dependencies.rate_limit import webhook_rate_limit
 
 
@@ -33,13 +33,16 @@ async def handle_webhook(
     payload = await request.body()
     sig_header = request.headers.get("Stripe-Signature")
 
+    if not sig_header:
+        raise ForbiddenError("Missing webhook signature")
+
     try:
         event = Webhook.construct_event(
             payload=payload,
             sig_header=sig_header,
             secret=app_settings.stripe_webhook_secret
         )
-    except stripe.SignatureVerificationError:
+    except (stripe.SignatureVerificationError, ValueError):
         raise ForbiddenError("Invalid webhook signature")
 
     event_type = event.type
@@ -70,5 +73,6 @@ async def handle_webhook(
                 logger.debug("stripe.webhook.unhandled_event", event_type=event_type)
     except Exception:
         logger.exception("stripe.webhook.handler_failed", event_type=event_type)
+        raise InternalError("Webhook processing failed; please retry") from None
 
     return {"received": True}

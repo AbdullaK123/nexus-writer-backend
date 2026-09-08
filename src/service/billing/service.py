@@ -1,5 +1,5 @@
 import stripe
-from stripe import StripeClient, Webhook
+from stripe import StripeClient
 from stripe.checkout import Session as CheckoutSession
 from stripe import Subscription as StripeSubscription
 from stripe import Invoice as StripeInvoice
@@ -92,7 +92,7 @@ class BillingService:
             sub = await self._client.v1.subscriptions.retrieve_async(sub_id)
         except stripe.StripeError as e:
             logger.error("stripe.retrieve_subscription.failed", err=str(e))
-            return
+            raise InternalError("Payment service unavailable; please retry") from e
 
         user = await self._user_repo.get_by_stripe_customer_id(customer_id)
 
