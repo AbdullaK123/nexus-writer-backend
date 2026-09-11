@@ -206,9 +206,10 @@ class UserResponse(ApiModel):
     profile_img: Optional[str]
     settings: UserSettings
     email_verified: bool
+    subscription_status: str | None = None
 
     @classmethod
-    def from_user_row(cls, user: UserRow) -> "UserResponse":
+    def from_user_row(cls, user: UserRow, subscription_status: str | None = None) -> "UserResponse":
         settings = UserSettings.model_validate(user.settings)
         return cls(
             id=user.id,
@@ -217,6 +218,7 @@ class UserResponse(ApiModel):
             profile_img=user.profile_img,
             settings=settings,
             email_verified=user.email_verified,
+            subscription_status=subscription_status
         )
 
 

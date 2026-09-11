@@ -21,7 +21,7 @@ from src.data.schemas.auth import (
     AuthCredentials,
     ConnectionDetails,
 )
-from src.data.schemas import UserRow
+from src.data.schemas import UserResponse
 from src.app.dependencies import get_current_user, get_auth_service
 from src.infrastructure.config import settings, config as app_config
 from src.service.auth import AuthService
@@ -91,7 +91,7 @@ async def google_callback(
     dependencies=[verification_email_rate_limit],
 )
 async def request_verification_email(
-    user: UserRow = Depends(get_current_user),
+    user: UserResponse = Depends(get_current_user),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> dict[str, str]:
     await auth_service.send_verification_email(user.id)
@@ -185,7 +185,7 @@ async def login_user(
 async def logout_user(
     request: Request,
     response: Response,
-    user: UserRow = Depends(get_current_user),
+    user: UserResponse = Depends(get_current_user),
     session_id: str = Cookie(),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> dict:
@@ -196,15 +196,15 @@ async def logout_user(
 
 @user_controller.get("/me", response_model=UserResponse)
 async def get_active_user(
-    request: Request, user: UserRow = Depends(get_current_user)
+    request: Request, user: UserResponse = Depends(get_current_user)
 ) -> UserResponse:
-    return UserResponse.from_user_row(user)
+    return user
 
 
 @user_controller.get("/me/dashboard", response_model=DashboardResponse)
 async def get_dashboard(
     request: Request,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> DashboardResponse:
     return await auth_service.get_dashboard(user_id=current_user.id)
@@ -213,7 +213,7 @@ async def get_dashboard(
 @user_controller.get("/me/notifications")
 async def get_notifications(
     request: Request,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     auth_service: AuthService = Depends(get_auth_service)
 ) -> StreamingResponse:
     return StreamingResponse(
@@ -229,7 +229,7 @@ async def get_notifications(
 @user_controller.get("/me/links/editor")
 async def get_editor_links(
     request: Request,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     auth_service: AuthService = Depends(get_auth_service)
 ) -> UserNavigationResponse:
     return await auth_service.get_editor_links(current_user.id)
@@ -238,7 +238,7 @@ async def get_editor_links(
 @user_controller.get("/me/links/chat")
 async def get_chat_links(
     request: Request,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     auth_service: AuthService = Depends(get_auth_service)
 ) -> StoryNavigationResponse:
     return await auth_service.get_chat_links(current_user.id)
@@ -248,7 +248,7 @@ async def get_chat_links(
 async def update_settings(
     request: Request,
     payload: SettingsPayload,
-    current_user: UserRow = Depends(get_current_user),
+    current_user: UserResponse = Depends(get_current_user),
     auth_service: AuthService = Depends(get_auth_service)
 ) -> UserResponse:
     return await auth_service.update_settings(current_user.id, payload)
