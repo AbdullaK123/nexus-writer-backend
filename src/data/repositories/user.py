@@ -49,27 +49,18 @@ class UserRepository:
             s.status AS subscription_status
         FROM "user" u 
         LEFT JOIN "subscription" s ON (u.id = s.user_id)
-        WHERE id = $1
+        WHERE u.id = $1
         """
         if executor is not None:
             row = await executor.fetchrow(sql, user_id)
         else:
             async with self._pool.acquire() as conn:
                 row = await conn.fetchrow(sql, user_id)
+        if row is None:
+            return None
         row_as_dict = dict(row)
-        return (
-            UserRow(
-                id=row_as_dict["id"],
-                username=row_as_dict["username"],
-                email=row_as_dict["email"],
-                password_hash=row_as_dict["password_hash"],
-                profile_img=row_as_dict["profile_img"],
-                email_verified=row_as_dict["email_verified"],
-                settings=row_as_dict["settings"],
-                created_at=row_as_dict["created_at"],
-                updated_at=row_as_dict["updated_at"]
-            ), row_as_dict["subscription_status"]
-        )
+        subscription_status = row_as_dict.pop("subscription_status")
+        return UserRow.model_validate(row_as_dict), subscription_status
 
     async def get_by_email(
         self,

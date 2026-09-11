@@ -38,7 +38,8 @@ class BillingService:
     async def create_checkout_session(self, user_id: str) -> str:
         try:
             async with self._locked(user_id) as conn:
-                user = await self._user_repo.get_by_id(user_id, executor=conn)
+                user_and_status = await self._user_repo.get_by_id(user_id, executor=conn)
+                user = user_and_status[0] if user_and_status is not None else None
                 if user is None:
                     raise NotFoundError("User not found")
 
@@ -49,13 +50,15 @@ class BillingService:
                         options={"idempotency_key": f"billing-customer:{user.id}"},
                     )
                     await self._user_repo.set_stripe_customer_id(user.id, customer.id, executor=conn)
-                    user = await self._user_repo.get_by_id(user.id, executor=conn)
+                    user_and_status = await self._user_repo.get_by_id(user.id, executor=conn)
+                    user = user_and_status[0] if user_and_status is not None else None
                 if user is None or user.stripe_customer_id is None:
                     raise InternalError("Could not associate payment customer")
             # Commit the customer mapping before checkout can fail. Otherwise a
             # checkout timeout would roll back an already-created Stripe customer.
             async with self._locked(user_id) as conn:
-                user = await self._user_repo.get_by_id(user_id, executor=conn)
+                user_and_status = await self._user_repo.get_by_id(user_id, executor=conn)
+                user = user_and_status[0] if user_and_status is not None else None
                 if user is None or user.stripe_customer_id is None:
                     raise NotFoundError("Payment customer not found")
                 customer_id = user.stripe_customer_id
@@ -113,7 +116,8 @@ class BillingService:
 
         try:
             async with self._locked(user.id) as conn:
-                user = await self._user_repo.get_by_id(user.id, executor=conn)
+                user_and_status = await self._user_repo.get_by_id(user.id, executor=conn)
+                user = user_and_status[0] if user_and_status is not None else None
                 if user is None or user.stripe_customer_id != customer_id:
                     return
                 # Fetch AFTER taking the lock: an older handler cannot overwrite a
