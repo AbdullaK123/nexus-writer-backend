@@ -3,18 +3,18 @@ import pytest
 
 from main import api
 from src.app.dependencies import get_auth_service, get_current_user, get_verified_user
-from src.data.schemas.auth import DashboardResponse, SettingsPayload, UserResponse, UserRow
+from src.data.schemas.auth import DashboardResponse, SettingsPayload, UserResponse
 from src.service.exceptions import EmailVerificationRequiredError
 from tests.app.mocks import StubAuthService
 
 
 @pytest.fixture
-def unverified_user(app_user: UserRow) -> UserRow:
+def unverified_user(app_user: UserResponse) -> UserResponse:
     return app_user.model_copy(update={"email_verified": False})
 
 
 async def test_get_verified_user_returns_the_exact_verified_user(
-    app_user: UserRow,
+    app_user: UserResponse,
 ) -> None:
     result = await get_verified_user(app_user)
 
@@ -22,7 +22,7 @@ async def test_get_verified_user_returns_the_exact_verified_user(
 
 
 async def test_get_verified_user_rejects_unverified_user_with_machine_readable_error(
-    unverified_user: UserRow,
+    unverified_user: UserResponse,
 ) -> None:
     with pytest.raises(EmailVerificationRequiredError) as exc_info:
         await get_verified_user(unverified_user)
@@ -43,10 +43,10 @@ async def test_get_verified_user_rejects_unverified_user_with_machine_readable_e
 )
 async def test_unverified_user_is_blocked_from_product_routes(
     app_client: AsyncClient,
-    unverified_user: UserRow,
+    unverified_user: UserResponse,
     path: str,
 ) -> None:
-    async def current_user_override() -> UserRow:
+    async def current_user_override() -> UserResponse:
         return unverified_user
 
     api.dependency_overrides[get_current_user] = current_user_override
@@ -64,9 +64,9 @@ async def test_unverified_user_is_blocked_from_product_routes(
 
 async def test_unverified_user_can_still_read_me_and_discover_verification_state(
     app_client: AsyncClient,
-    unverified_user: UserRow,
+    unverified_user: UserResponse,
 ) -> None:
-    async def current_user_override() -> UserRow:
+    async def current_user_override() -> UserResponse:
         return unverified_user
 
     api.dependency_overrides[get_current_user] = current_user_override
@@ -74,6 +74,7 @@ async def test_unverified_user_can_still_read_me_and_discover_verification_state
     response = await app_client.get("/api/auth/me")
 
     assert response.status_code == 200
+    assert response.json()["subscriptionStatus"] is None, "accounts without a subscription must expose that state to the frontend"
     assert response.json()["emailVerified"] is False, (
         "The frontend must be able to distinguish an authenticated unverified "
         "session from a fully authorized session."
@@ -82,11 +83,11 @@ async def test_unverified_user_can_still_read_me_and_discover_verification_state
 
 async def test_unverified_user_can_request_another_verification_email(
     app_client: AsyncClient,
-    unverified_user: UserRow,
+    unverified_user: UserResponse,
 ) -> None:
-    service = StubAuthService(UserResponse.from_user_row(unverified_user))
+    service = StubAuthService(unverified_user)
 
-    async def current_user_override() -> UserRow:
+    async def current_user_override() -> UserResponse:
         return unverified_user
 
     async def auth_service_override() -> StubAuthService:
@@ -106,7 +107,7 @@ async def test_unverified_user_can_request_another_verification_email(
 
 async def test_unverified_user_can_update_basic_settings(
     app_client: AsyncClient,
-    unverified_user: UserRow,
+    unverified_user: UserResponse,
 ) -> None:
     class SettingsAuthService(StubAuthService):
         def __init__(self, user_response: UserResponse) -> None:
@@ -121,9 +122,9 @@ async def test_unverified_user_can_update_basic_settings(
             self.settings_calls.append((user_id, payload))
             return self.user_response
 
-    service = SettingsAuthService(UserResponse.from_user_row(unverified_user))
+    service = SettingsAuthService(unverified_user)
 
-    async def current_user_override() -> UserRow:
+    async def current_user_override() -> UserResponse:
         return unverified_user
 
     async def auth_service_override() -> SettingsAuthService:
@@ -150,13 +151,13 @@ async def test_unverified_user_can_update_basic_settings(
 
 async def test_same_session_becomes_authorized_immediately_after_verification(
     app_client: AsyncClient,
-    unverified_user: UserRow,
+    unverified_user: UserResponse,
 ) -> None:
     class MutableSessionAuthService:
-        def __init__(self, user: UserRow) -> None:
+        def __init__(self, user: UserResponse) -> None:
             self.user = user
 
-        async def validate_session(self, session_id: str) -> UserRow:
+        async def validate_session(self, session_id: str) -> UserResponse:
             assert session_id == "session-1"
             return self.user
 

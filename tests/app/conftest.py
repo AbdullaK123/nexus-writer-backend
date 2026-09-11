@@ -1,7 +1,4 @@
-from datetime import datetime, timezone
 from typing import AsyncIterator
-from types import SimpleNamespace
-from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
@@ -11,9 +8,7 @@ from redis.asyncio import Redis
 from main import api
 from src.app.dependencies import get_auth_service, get_chat_service, get_current_user, get_story_service
 from src.app.dependencies.redis import get_redis
-from src.app.dependencies.repositories import get_subscription_repository
-from src.data.repositories.billing import SubscriptionRepository
-from src.data.schemas.auth import UserResponse, UserRow
+from src.data.schemas.auth import UserResponse
 from src.service.exceptions import AuthError
 from tests.app.mocks import StubAuthService, StubChatService, StubStoryService
 
@@ -34,46 +29,38 @@ async def app_client(redis_client: Redis) -> AsyncIterator[AsyncClient]:
 
 
 @pytest.fixture
-def app_user() -> UserRow:
-    now = datetime.now(timezone.utc)
-    return UserRow(
+def app_user() -> UserResponse:
+    return UserResponse(
         id="user-1",
         username="controller-user",
         email="controller@example.com",
-        password_hash="hashed",
         settings={},
         profile_img=None,
-        created_at=now,
-        updated_at=now,
         email_verified=True,
     )
 
 
 @pytest.fixture
-def app_user_response(app_user: UserRow) -> UserResponse:
-    return UserResponse.from_user_row(app_user)
+def app_user_response(app_user: UserResponse) -> UserResponse:
+    return app_user.model_copy()
 
 
 @pytest.fixture
 def authenticated_client(
     app_client: AsyncClient,
-    app_user: UserRow,
+    app_user: UserResponse,
 ) -> AsyncClient:
-    async def current_user_override() -> UserRow:
-        return app_user
+    # Chat scenarios use a subscribed account; denial cases set their own status.
+    async def current_user_override() -> UserResponse:
+        return app_user.model_copy(update={"subscription_status": "active"})
 
     api.dependency_overrides[get_current_user] = current_user_override
-    # Existing authenticated chat scenarios use a subscribed account. Dedicated
-    # subscription-boundary tests exercise unpaid states separately.
-    subscription_repo = AsyncMock(spec=SubscriptionRepository)
-    subscription_repo.get_by_user_id.return_value = SimpleNamespace(status="active")
-    api.dependency_overrides[get_subscription_repository] = lambda: subscription_repo
     return app_client
 
 
 @pytest.fixture
 def unauthenticated_client(app_client: AsyncClient) -> AsyncClient:
-    async def current_user_override() -> UserRow:
+    async def current_user_override() -> UserResponse:
         raise AuthError()
 
     api.dependency_overrides[get_current_user] = current_user_override
