@@ -57,5 +57,5 @@ async def test_checkout_failure_does_not_rollback_an_already_created_customer(cl
     service = BillingService(users, SubscriptionRepository(clean_db))
     with pytest.raises(InternalError):
         await service.create_checkout_session(user.id)
-    saved = await users.get_by_id(user.id)
+    saved, _ = await users.get_by_id(user.id)
     assert saved.stripe_customer_id == "cus_1", "checkout failure must not orphan the Stripe customer whose creation already succeeded"

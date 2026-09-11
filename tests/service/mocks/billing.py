@@ -67,7 +67,11 @@ def billing_harness(monkeypatch, customer_id="cus_1"):
     state = {"user": UserRow(id="user-1", username="writer", email="writer@example.com",
         password_hash=None, profile_img=None, settings={}, email_verified=True,
         created_at=now, updated_at=now, stripe_customer_id=customer_id)}
-    users.get_by_id = AsyncMock(side_effect=lambda *a, **kw: state["user"])
+    async def get_user(user_id, executor=None):
+        user = state["user"]
+        return (user, None) if user is not None else None
+
+    users.get_by_id = AsyncMock(side_effect=get_user)
     users.get_by_stripe_customer_id = AsyncMock(side_effect=lambda *a, **kw: state["user"])
 
     async def set_customer(user_id, stripe_customer_id, executor=None):

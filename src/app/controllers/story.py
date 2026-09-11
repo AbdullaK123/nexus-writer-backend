@@ -8,7 +8,7 @@ from src.app.dependencies import (
     get_story_service,
 )
 from src.app.dependencies.rate_limit import search_rate_limit, write_rate_limit
-from src.data.schemas import UserRow
+from src.data.schemas import UserResponse
 from src.data.schemas.enums import StoryStatus
 from src.data.schemas.extraction import BookPulseResponse
 from src.data.schemas.story import (
@@ -42,7 +42,7 @@ story_controller.include_router(chat_controller)
 @story_controller.get("/{story_id}/path")
 async def get_path_array(
     story_id: str,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     story_service: StoryService = Depends(get_story_service),
 ) -> StoryPathArrayResponse:
     return await story_service.get_path_array(story_id, current_user.id)
@@ -51,7 +51,7 @@ async def get_path_array(
 @story_controller.post("", dependencies=[write_rate_limit])
 async def create_story(
     story_info: CreateStoryRequest,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     story_service: StoryService = Depends(get_story_service),
 ) -> dict:
     return await story_service.create_story(current_user.id, story_info)
@@ -61,7 +61,7 @@ async def create_story(
 async def update_story(
     story_id: str,
     update_info: UpdateStoryRequest,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     story_service: StoryService = Depends(get_story_service),
 ) -> dict:
     return await story_service.update_story(
@@ -74,7 +74,7 @@ async def update_story(
 @story_controller.delete("/{story_id}", dependencies=[write_rate_limit])
 async def delete_story(
     story_id: str,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     story_service: StoryService = Depends(get_story_service),
 ) -> dict:
     return await story_service.delete_story(current_user.id, story_id)
@@ -82,7 +82,7 @@ async def delete_story(
 
 @story_controller.get("", response_model=StoryGridResponse)
 async def get_stories(
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     status: Optional[StoryStatus] = Query(default=None),
     story_service: StoryService = Depends(get_story_service),
 ) -> StoryGridResponse:
@@ -92,7 +92,7 @@ async def get_stories(
 @story_controller.get("/{story_id}", response_model=StoryDetailResponse)
 async def get_story_details(
     story_id: str,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     story_service: StoryService = Depends(get_story_service),
 ) -> StoryDetailResponse:
     return await story_service.get_story_details(current_user.id, story_id)
@@ -106,7 +106,7 @@ async def get_story_details(
 async def create_chapter(
     story_id: str,
     chapter_info: CreateChapterRequest,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> ChapterContentResponse:
     return await chapter_service.create_chapter(
@@ -123,7 +123,7 @@ async def create_chapter(
 async def reorder_chapters(
     story_id: str,
     reorder_info: ReorderChapterRequest,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> dict:
     return await chapter_service.reorder_chapters(
@@ -136,7 +136,7 @@ async def reorder_chapters(
 @story_controller.get("/{story_id}/chapters", response_model=ChapterListResponse)
 async def get_story_chapters(
     story_id: str,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     chapter_service: ChapterService = Depends(get_chapter_service),
 ) -> ChapterListResponse:
     return await chapter_service.get_story_chapters(
@@ -153,7 +153,7 @@ async def get_story_chapters(
 async def search_story_scenes(
     story_id: str,
     search_info: SceneSearchRequest,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     story_service: StoryService = Depends(get_story_service),
 ) -> SceneSearchListResponse:
     results = await story_service.search_story_scenes(
@@ -177,7 +177,7 @@ async def search_story_scenes(
 )
 async def list_story_tags(
     story_id: str,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     story_service: StoryService = Depends(get_story_service),
 ) -> VocabularyListResponse:
     return await story_service.list_story_tags(current_user.id, story_id)
@@ -189,7 +189,7 @@ async def list_story_tags(
 )
 async def list_story_entities(
     story_id: str,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     story_service: StoryService = Depends(get_story_service),
 ) -> VocabularyListResponse:
     return await story_service.list_story_entities(current_user.id, story_id)
@@ -201,7 +201,7 @@ async def list_story_entities(
 )
 async def list_povs(
     story_id: str,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     story_service: StoryService = Depends(get_story_service),
 ) -> VocabularyListResponse:
     return await story_service.list_povs(current_user.id, story_id)
@@ -210,7 +210,7 @@ async def list_povs(
 @story_controller.get("/{story_id}/pulse", response_model=BookPulseResponse)
 async def get_pulse(
     story_id: str,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     story_service: StoryService = Depends(get_story_service),
 ) -> BookPulseResponse:
     return await story_service.get_pulse(current_user.id, story_id)
@@ -219,7 +219,7 @@ async def get_pulse(
 @story_controller.get("/{story_id}/stats", response_model=StoryStatsResponse)
 async def get_stats(
     story_id: str,
-    current_user: UserRow = Depends(get_verified_user),
+    current_user: UserResponse = Depends(get_verified_user),
     story_service: StoryService = Depends(get_story_service),
 ) -> StoryStatsResponse:
     return await story_service.get_story_stats(story_id, current_user.id)

@@ -9,6 +9,7 @@ from .common import now
 class FakeUserRepository:
     def __init__(self):
         self._users: dict[str, UserRow] = {}
+        self.subscription_statuses: dict[str, str | None] = {}
         self._by_email: dict[str, str] = {}
         self.error: Exception | None = None
         self.create_error: Exception | None = None
@@ -22,10 +23,11 @@ class FakeUserRepository:
         if user is not None:
             self._by_email.pop(user.email, None)
 
-    async def get_by_id(self, user_id: str, executor=None) -> UserRow | None:
+    async def get_by_id(self, user_id: str, executor=None) -> tuple[UserRow, str | None] | None:
         if self.error:
             raise self.error
-        return self._users.get(user_id)
+        user = self._users.get(user_id)
+        return (user, self.subscription_statuses.get(user_id)) if user is not None else None
 
     async def get_by_email(self, email: str, executor=None) -> UserRow | None:
         if self.error:

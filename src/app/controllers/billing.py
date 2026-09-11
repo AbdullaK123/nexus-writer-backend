@@ -7,7 +7,7 @@ from stripe.checkout import Session
 from src.infrastructure.config import settings as app_settings
 from src.app.dependencies.auth import get_verified_user
 from src.app.dependencies.services import get_billing_service
-from src.data.schemas.auth import UserRow
+from src.data.schemas.auth import UserResponse
 from src.service.billing.service import BillingService
 from src.service.exceptions import ForbiddenError, InternalError
 from src.app.dependencies.rate_limit import webhook_rate_limit
@@ -17,7 +17,7 @@ billing_controller = APIRouter(prefix="/billing")
 
 @billing_controller.post("/checkout")
 async def create_checkout(
-    user: UserRow = Depends(get_verified_user),
+    user: UserResponse = Depends(get_verified_user),
     billing_service: BillingService = Depends(get_billing_service),
 ) -> dict[str, str]:
     url = await billing_service.create_checkout_session(user.id)

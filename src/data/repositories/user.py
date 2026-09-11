@@ -29,14 +29,38 @@ class UserRepository:
     def _exe(self, executor: Executor) -> Executor:
         return executor if executor is not None else self._pool
 
-    async def get_by_id(self, user_id: str, executor: Executor | None = None) -> UserRow | None:
-        sql = f'SELECT {_USER_COLUMNS} FROM "user" WHERE id = $1'
+    async def get_by_id(
+        self, 
+        user_id: str, 
+        executor: Executor | None = None
+    ) -> tuple[UserRow, str | None] | None:
+        sql = """
+        SELECT
+            u.id AS id, 
+            u.username AS username, 
+            u.email AS email, 
+            u.password_hash AS password_hash, 
+            u.profile_img AS profile_img, 
+            u.email_verified AS email_verified, 
+            u.settings AS settings,
+            u.created_at AS created_at, 
+            u.updated_at AS updated_at, 
+            u.stripe_customer_id AS stripe_customer_id,
+            s.status AS subscription_status
+        FROM "user" u 
+        LEFT JOIN "subscription" s ON (u.id = s.user_id)
+        WHERE u.id = $1
+        """
         if executor is not None:
             row = await executor.fetchrow(sql, user_id)
         else:
             async with self._pool.acquire() as conn:
                 row = await conn.fetchrow(sql, user_id)
-        return UserRow.model_validate(dict(row)) if row else None
+        if row is None:
+            return None
+        row_as_dict = dict(row)
+        subscription_status = row_as_dict.pop("subscription_status")
+        return UserRow.model_validate(row_as_dict), subscription_status
 
     async def get_by_email(
         self,

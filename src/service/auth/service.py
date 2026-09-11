@@ -81,7 +81,7 @@ class AuthService:
         return session_id
 
     @handle_service_errors
-    async def validate_session(self, session_id: str) -> UserRow:
+    async def validate_session(self, session_id: str) -> UserResponse:
         if not session_id:
             logger.warning("session.validate_failed.missing_session_id")
             raise ForbiddenError("Your session is invalid. Please log in again.")
@@ -93,11 +93,12 @@ class AuthService:
             logger.warning("session.validate_failed.expired", user_id=session.user_id)
             await self._session_repo.delete(session_id)
             raise ForbiddenError("Your session has expired. Please log in again.")
-        user = await self._user_repo.get_by_id(session.user_id)
-        if user is None:
+        user_and_their_status = await self._user_repo.get_by_id(session.user_id)
+        if user_and_their_status is None:
             raise ForbiddenError("User does not exist")
+        user, subscription_status = user_and_their_status
         set_user_id(user.id)
-        return user
+        return UserResponse.from_user_row(user, subscription_status)
 
     @handle_service_errors
     async def logout_user(self, session_id: str) -> None:
@@ -348,9 +349,13 @@ class AuthService:
 
     @handle_service_errors
     async def send_verification_email(self, user_id: str) -> None:
-        user = await self._user_repo.get_by_id(user_id)
-        if user is None:
+
+        user_and_their_status = await self._user_repo.get_by_id(user_id)
+        if user_and_their_status is None:
             raise NotFoundError("User not found")
+
+        user, _ = user_and_their_status
+        
         if user.email_verified:
             return
         token = await self._auth_token_repo.create(
